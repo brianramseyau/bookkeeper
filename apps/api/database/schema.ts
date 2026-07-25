@@ -9,9 +9,11 @@ import { DateTime } from 'luxon'
 
 export class CategorySchema extends BaseModel {
   static $columns = [
+    'budgetAmount',
     'color',
     'createdAt',
     'id',
+    'includeInStandardMonth',
     'isActive',
     'name',
     'sortOrder',
@@ -19,17 +21,48 @@ export class CategorySchema extends BaseModel {
   ] as const
   $columns = CategorySchema.$columns
   @column()
+  declare budgetAmount: number | null
+  @column()
   declare color: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
   declare id: number
   @column()
+  declare includeInStandardMonth: boolean
+  @column()
   declare isActive: boolean
   @column()
   declare name: string
   @column()
   declare sortOrder: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class CategoryMonthlyActualSchema extends BaseModel {
+  static $columns = [
+    'amount',
+    'categoryId',
+    'createdAt',
+    'id',
+    'notes',
+    'occurredOn',
+    'updatedAt',
+  ] as const
+  $columns = CategoryMonthlyActualSchema.$columns
+  @column()
+  declare amount: number
+  @column()
+  declare categoryId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare notes: string | null
+  @column.date()
+  declare occurredOn: DateTime
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

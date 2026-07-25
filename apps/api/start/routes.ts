@@ -22,6 +22,16 @@ router
         router.get('me', [controllers.Auth, 'me'])
 
         router.get('categories', [controllers.Categories, 'index'])
+        router.post('categories', [controllers.Categories, 'store'])
+        router.patch('categories/:id', [controllers.Categories, 'update'])
+        router.delete('categories/:id', [controllers.Categories, 'destroy'])
+
+        router.get('categories/:id/actuals', [controllers.CategoryActuals, 'index'])
+        router.post('categories/:id/actuals', [controllers.CategoryActuals, 'store'])
+        router.get('categories/:id/trend', [controllers.CategoryActuals, 'trend'])
+        router.patch('category-actuals/:id', [controllers.CategoryActuals, 'update'])
+        router.delete('category-actuals/:id', [controllers.CategoryActuals, 'destroy'])
+
         router.get('users', [controllers.Users, 'index'])
 
         router.get('utilities', [controllers.Utilities, 'index'])

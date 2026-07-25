@@ -3,6 +3,14 @@ import { BaseTransformer } from '@adonisjs/core/transformers'
 
 export default class CategoryTransformer extends BaseTransformer<Category> {
   toObject() {
-    return this.pick(this.resource, ['id', 'name', 'color', 'sortOrder', 'isActive'])
+    return this.pick(this.resource, [
+      'id',
+      'name',
+      'color',
+      'sortOrder',
+      'budgetAmount',
+      'includeInStandardMonth',
+      'isActive',
+    ])
   }
 }
