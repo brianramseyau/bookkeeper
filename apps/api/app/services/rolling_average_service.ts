@@ -1,0 +1,61 @@
+export interface MonthlyAmount {
+  year: number
+  month: number
+  amount: number
+}
+
+export interface TrendResult {
+  average: number | null
+  latestAmount: number | null
+  latestYear: number | null
+  latestMonth: number | null
+  trend: 'up' | 'down' | 'flat' | null
+  months: MonthlyAmount[]
+}
+
+/**
+ * Computes a trailing rolling average + up/down indicator from whatever
+ * monthly entries actually exist - gaps (months never billed/logged) are
+ * skipped rather than treated as zero, matching how the source data works.
+ */
+export class RollingAverageService {
+  private static readonly WINDOW_SIZE = 12
+
+  computeTrend(entries: MonthlyAmount[]): TrendResult {
+    const sorted = [...entries].sort((a, b) => a.year - b.year || a.month - b.month)
+    const window = sorted.slice(-RollingAverageService.WINDOW_SIZE)
+
+    if (window.length === 0) {
+      return {
+        average: null,
+        latestAmount: null,
+        latestYear: null,
+        latestMonth: null,
+        trend: null,
+        months: [],
+      }
+    }
+
+    const average = window.reduce((sum, entry) => sum + entry.amount, 0) / window.length
+    const latest = window[window.length - 1]!
+
+    let trend: TrendResult['trend'] = null
+    if (window.length >= 2) {
+      const priorEntries = window.slice(0, -1)
+      const priorAverage =
+        priorEntries.reduce((sum, entry) => sum + entry.amount, 0) / priorEntries.length
+      if (latest.amount > priorAverage) trend = 'up'
+      else if (latest.amount < priorAverage) trend = 'down'
+      else trend = 'flat'
+    }
+
+    return {
+      average: Math.round(average * 100) / 100,
+      latestAmount: latest.amount,
+      latestYear: latest.year,
+      latestMonth: latest.month,
+      trend,
+      months: window,
+    }
+  }
+}

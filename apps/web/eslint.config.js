@@ -20,6 +20,10 @@ export default tseslint.config(
 			// references with full type information; the core rule has no
 			// knowledge of ambient DOM types like `SubmitEvent`.
 			'no-undef': 'off',
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+			],
 		},
 	},
 	{

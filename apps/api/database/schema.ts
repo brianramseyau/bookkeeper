@@ -60,3 +60,50 @@ export class UserSchema extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }
+
+export class UtilitySchema extends BaseModel {
+  static $columns = ['categoryId', 'createdAt', 'id', 'isActive', 'name', 'updatedAt'] as const
+  $columns = UtilitySchema.$columns
+  @column()
+  declare categoryId: number | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare isActive: boolean
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class UtilityBillSchema extends BaseModel {
+  static $columns = [
+    'amount',
+    'createdAt',
+    'id',
+    'month',
+    'notes',
+    'updatedAt',
+    'utilityId',
+    'year',
+  ] as const
+  $columns = UtilityBillSchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare month: number
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare utilityId: number
+  @column()
+  declare year: number
+}

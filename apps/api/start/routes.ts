@@ -20,6 +20,16 @@ router
       .group(() => {
         router.post('logout', [controllers.Auth, 'logout'])
         router.get('me', [controllers.Auth, 'me'])
+
+        router.get('utilities', [controllers.Utilities, 'index'])
+        router.post('utilities', [controllers.Utilities, 'store'])
+        router.patch('utilities/:id', [controllers.Utilities, 'update'])
+        router.delete('utilities/:id', [controllers.Utilities, 'destroy'])
+
+        router.get('utilities/:utilityId/bills', [controllers.UtilityBills, 'index'])
+        router.put('utilities/:utilityId/bills/:year/:month', [controllers.UtilityBills, 'upsert'])
+        router.get('utilities/:utilityId/trend', [controllers.UtilityBills, 'trend'])
+        router.delete('utility-bills/:id', [controllers.UtilityBills, 'destroy'])
       })
       .use(middleware.auth())
   })

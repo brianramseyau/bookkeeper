@@ -1,30 +1,18 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { authState, logout } from '$lib/stores/auth.svelte';
-
-	async function handleLogout() {
-		await logout();
-		await goto('/login');
-	}
+	import { authState } from '$lib/stores/auth.svelte';
 </script>
 
-<main>
+<div class="wrap">
 	{#if authState.user}
 		<h1>Welcome, {authState.user.fullName ?? authState.user.email}</h1>
-		<button onclick={handleLogout}>Log out</button>
+		<p><a href="/utilities">View utility bills →</a></p>
 	{/if}
-</main>
+</div>
 
 <style>
-	main {
+	.wrap {
 		max-width: 40rem;
-		margin: 4rem auto;
+		margin: 2rem auto;
 		padding: 0 1rem;
-		font-family: system-ui, sans-serif;
-	}
-	button {
-		padding: 0.5rem 1rem;
-		font-size: 1rem;
-		cursor: pointer;
 	}
 </style>
