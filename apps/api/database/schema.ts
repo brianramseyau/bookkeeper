@@ -133,6 +133,25 @@ export class IncomeSourceSchema extends BaseModel {
   declare userId: number
 }
 
+export class MonthCarryoverSchema extends BaseModel {
+  static $columns = ['amount', 'createdAt', 'id', 'month', 'notes', 'updatedAt', 'year'] as const
+  $columns = MonthCarryoverSchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare month: number
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
+}
+
 export class RecurringBillSchema extends BaseModel {
   static $columns = [
     'amount',

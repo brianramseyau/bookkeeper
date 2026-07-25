@@ -67,6 +67,14 @@ router
         router.delete('income-entries/:id', [controllers.IncomeEntries, 'destroy'])
 
         router.get('standard-month', [controllers.StandardMonths, 'show'])
+
+        router.get('month-carryovers/:year/:month', [controllers.MonthCarryovers, 'show'])
+        router.put('month-carryovers/:year/:month', [controllers.MonthCarryovers, 'upsert'])
+
+        router.get('dashboard/summary', [controllers.Dashboard, 'summary'])
+
+        router.get('export/json', [controllers.Export, 'json'])
+        router.get('export/csv/:table', [controllers.Export, 'csv'])
       })
       .use(middleware.auth())
   })

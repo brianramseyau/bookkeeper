@@ -25,9 +25,11 @@
 
   let editingId = $state<number | null>(null)
   let editName = $state('')
+  let editColor = $state('#64748b')
   let editBudgetAmount = $state<number>(NaN)
   let editIncludeInStandardMonth = $state(true)
   let savingEdit = $state(false)
+  let reordering = $state(false)
 
   onMount(load)
 
@@ -64,6 +66,7 @@
   function startEdit(category: Category) {
     editingId = category.id
     editName = category.name
+    editColor = category.color ?? '#64748b'
     editBudgetAmount = category.budgetAmount ?? NaN
     editIncludeInStandardMonth = category.includeInStandardMonth
   }
@@ -82,6 +85,7 @@
     try {
       await updateCategory(category.id, {
         name: editName.trim(),
+        color: editColor,
         budgetAmount: Number.isNaN(editBudgetAmount) ? null : editBudgetAmount,
         includeInStandardMonth: editIncludeInStandardMonth,
       })
@@ -101,6 +105,27 @@
       rows = rows.filter((r) => r.category.id !== category.id)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to archive'
+    }
+  }
+
+  async function moveCategory(index: number, direction: -1 | 1) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= rows.length) return
+
+    reordering = true
+    error = null
+    try {
+      const current = rows[index]!.category
+      const target = rows[targetIndex]!.category
+      await Promise.all([
+        updateCategory(current.id, { sortOrder: target.sortOrder }),
+        updateCategory(target.id, { sortOrder: current.sortOrder }),
+      ])
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to reorder'
+    } finally {
+      reordering = false
     }
   }
 </script>
@@ -136,20 +161,28 @@
             >Std Month</th
           >
           <th class="px-3 py-2"></th>
+          <th class="px-3 py-2"></th>
         </tr>
       </thead>
       <tbody>
-        {#each rows as row (row.category.id)}
+        {#each rows as row, index (row.category.id)}
           {#if editingId === row.category.id}
             <tr
               class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
             >
               <td class="px-3 py-2">
-                <input
-                  type="text"
-                  bind:value={editName}
-                  class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
+                <div class="flex items-center gap-2">
+                  <input
+                    type="color"
+                    bind:value={editColor}
+                    class="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
+                  />
+                  <input
+                    type="text"
+                    bind:value={editName}
+                    class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </div>
               </td>
               <td class="px-3 py-2 text-right">
                 <input
@@ -188,14 +221,19 @@
                   Cancel
                 </button>
               </td>
+              <td class="px-3 py-2"></td>
             </tr>
           {:else}
             <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
                 <a
                   href={`/categories/${row.category.id}`}
-                  class="hover:text-indigo-600 dark:hover:text-indigo-400"
+                  class="flex items-center gap-2 hover:text-indigo-600 dark:hover:text-indigo-400"
                 >
+                  <span
+                    class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                    style="background-color: {row.category.color ?? '#94a3b8'}"
+                  ></span>
                   {row.category.name}
                 </a>
               </td>
@@ -240,6 +278,26 @@
                   class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                 >
                   Archive
+                </button>
+              </td>
+              <td class="px-3 py-2 whitespace-nowrap">
+                <button
+                  type="button"
+                  onclick={() => moveCategory(index, -1)}
+                  disabled={index === 0 || reordering}
+                  aria-label="Move {row.category.name} up"
+                  class="text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
+                >
+                  ▲
+                </button>
+                <button
+                  type="button"
+                  onclick={() => moveCategory(index, 1)}
+                  disabled={index === rows.length - 1 || reordering}
+                  aria-label="Move {row.category.name} down"
+                  class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
+                >
+                  ▼
                 </button>
               </td>
             </tr>

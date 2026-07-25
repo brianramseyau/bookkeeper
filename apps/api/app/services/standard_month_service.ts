@@ -1,6 +1,7 @@
 import User from '#models/user'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
+import MonthCarryover from '#models/month_carryover'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
@@ -35,6 +36,13 @@ export interface StandardMonthIncomeLine {
 export interface StandardMonthResult {
   year: number
   month: number
+  /**
+   * Cash already sitting in the account on day 1 of the month - not
+   * income, and not derivable from tracked income/expenses (spending
+   * isn't logged to the last dollar), so this is a manually entered
+   * figure rather than anything computed.
+   */
+  carryover: number
   income: {
     lines: StandardMonthIncomeLine[]
     projectedTotal: number
@@ -63,8 +71,11 @@ export class StandardMonthService {
   private rollingAverage = new RollingAverageService()
 
   async compute(year: number, month: number): Promise<StandardMonthResult> {
-    const income = await this.computeIncome(year, month)
-    const expenseLines = await this.computeExpenseLines(year, month)
+    const [carryover, income, expenseLines] = await Promise.all([
+      this.computeCarryover(year, month),
+      this.computeIncome(year, month),
+      this.computeExpenseLines(year, month),
+    ])
 
     const expensesProjectedTotal = round(
       expenseLines.reduce((sum, line) => sum + line.projected, 0)
@@ -76,15 +87,21 @@ export class StandardMonthService {
     return {
       year,
       month,
+      carryover,
       income,
       expenses: {
         lines: expenseLines,
         projectedTotal: expensesProjectedTotal,
         actualTotal: expensesActualTotal,
       },
-      projectedNet: round(income.projectedTotal - expensesProjectedTotal),
-      actualNet: round(income.actualTotal - expensesActualTotal),
+      projectedNet: round(carryover + income.projectedTotal - expensesProjectedTotal),
+      actualNet: round(carryover + income.actualTotal - expensesActualTotal),
     }
+  }
+
+  private async computeCarryover(year: number, month: number): Promise<number> {
+    const carryover = await MonthCarryover.query().where('year', year).where('month', month).first()
+    return carryover?.amount ?? 0
   }
 
   private async computeIncome(year: number, month: number) {

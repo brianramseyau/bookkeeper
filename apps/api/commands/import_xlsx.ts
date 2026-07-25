@@ -12,6 +12,7 @@ import UserSubscription from '#models/user_subscription'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
+import MonthCarryover from '#models/month_carryover'
 import { parseMatrixSheet } from '#services/import/parse_matrix_sheet'
 import { parseRecurringBillsSheet } from '#services/import/parse_recurring_bills_sheet'
 import { parseUserItemSheet } from '#services/import/parse_user_item_sheet'
@@ -103,6 +104,47 @@ function nextMonthlyOccurrence(dayOfMonth: number): DateTime {
   if (candidate < today) {
     candidate = candidate.plus({ months: 1 })
     candidate = candidate.set({ day: Math.min(dayOfMonth, candidate.daysInMonth) })
+  }
+  return candidate
+}
+
+/**
+ * Rolls a recurring day/month pattern forward from anchorYear until it
+ * lands on or after today - the sheets only ever capture a due date as of
+ * whenever they were last edited, so importing it verbatim produces a
+ * stale (often "overdue by months") next_due_on.
+ */
+function advanceToFutureOccurrence(
+  dueDay: number,
+  dueMonth: number,
+  frequency: string,
+  customIntervalValue: number | null,
+  customIntervalUnit: string | null,
+  anchorYear: number
+): DateTime {
+  const today = DateTime.utc().startOf('day')
+  const stepMonths =
+    frequency === 'custom'
+      ? customIntervalUnit === 'months'
+        ? (customIntervalValue ?? 1)
+        : null
+      : ({ monthly: 1, quarterly: 3, biannual: 6, annual: 12 }[frequency] ?? 12)
+  const stepDays =
+    frequency === 'custom' && customIntervalUnit !== 'months'
+      ? customIntervalUnit === 'weeks'
+        ? (customIntervalValue ?? 4) * 7
+        : (customIntervalValue ?? 30)
+      : null
+
+  let candidate = DateTime.utc(anchorYear, dueMonth, 1).set({
+    day: Math.min(dueDay, DateTime.utc(anchorYear, dueMonth).daysInMonth ?? 28),
+  })
+  while (candidate < today) {
+    candidate =
+      stepMonths !== null
+        ? candidate.plus({ months: stepMonths })
+        : candidate.plus({ days: stepDays! })
+    candidate = candidate.set({ day: Math.min(dueDay, candidate.daysInMonth ?? 28) })
   }
   return candidate
 }
@@ -240,6 +282,25 @@ export default class ImportXlsx extends BaseCommand {
           }
 
           for (const row of rows) {
+            if (row.dueDay === null || row.dueMonth === null) {
+              this.logger.warning(`  "${row.name}" has no parseable Day/Month - skipping`)
+              continue
+            }
+
+            // The sheet's own "Next" date is only correct as of whenever it
+            // was last edited - roll the day/month pattern it captures
+            // forward to a genuinely future date instead of importing it
+            // verbatim (see the Rolling-sheet cross-reference below, which
+            // overrides this with a confirmed date where one exists).
+            const nextDueOn = advanceToFutureOccurrence(
+              row.dueDay,
+              row.dueMonth,
+              'annual',
+              null,
+              null,
+              row.dueYear ?? DateTime.utc().year
+            )
+
             await RecurringBill.updateOrCreate(
               { name: row.name },
               {
@@ -249,7 +310,7 @@ export default class ImportXlsx extends BaseCommand {
                 dueDay: row.dueDay,
                 dueMonth: row.dueMonth,
                 dueYear: row.dueYear,
-                nextDueOn: row.nextDueOn ? DateTime.fromISO(row.nextDueOn, { zone: 'utc' }) : null,
+                nextDueOn,
               },
               { client: trx }
             )
@@ -365,7 +426,9 @@ export default class ImportXlsx extends BaseCommand {
     }
 
     let totalRollingRecurringBills = 0
+    let totalDueDateCorrections = 0
     let totalIncomeEntries = 0
+    let totalCarryoversImported = 0
     const rollingSheet = workbook.getWorksheet('Rolling')
     if (!rollingSheet) {
       this.logger.warning('Sheet "Rolling" not found - skipping')
@@ -376,13 +439,27 @@ export default class ImportXlsx extends BaseCommand {
         this.rollingStartMonth
       )
 
-      const existingRecurringBills = await RecurringBill.query().select('name')
-      const existingRecurringBillNames = new Set(existingRecurringBills.map((bill) => bill.name))
+      const existingRecurringBills = await RecurringBill.query().select(
+        'id',
+        'name',
+        'frequency',
+        'customIntervalValue',
+        'customIntervalUnit'
+      )
+      const existingRecurringBillsByName = new Map(
+        existingRecurringBills.map((bill) => [bill.name, bill])
+      )
 
       const byNote = new Map<string, typeof rollingEntries>()
+      const rollingRecurringBillMatches = new Map<string, typeof rollingEntries>()
       for (const entry of rollingEntries) {
         if (ROLLING_SKIP_NOTES.has(entry.note)) continue
-        if (existingRecurringBillNames.has(entry.note)) continue
+        if (existingRecurringBillsByName.has(entry.note)) {
+          const bucket = rollingRecurringBillMatches.get(entry.note) ?? []
+          bucket.push(entry)
+          rollingRecurringBillMatches.set(entry.note, bucket)
+          continue
+        }
         const bucket = byNote.get(entry.note) ?? []
         bucket.push(entry)
         byNote.set(entry.note, bucket)
@@ -451,13 +528,47 @@ export default class ImportXlsx extends BaseCommand {
         }
       }
 
+      // Bills imported from Annual already exist in recurring_bills by the
+      // time Rolling is processed, so their entries land here instead of
+      // byNote above. Rolling records the day they were *actually* paid
+      // that month, which is more trustworthy than the Annual sheet's own
+      // static "Next" column - use it to correct due_day/due_month/
+      // next_due_on for whichever bills happen to fall in Rolling's
+      // Feb-Sep window. Bills outside that window keep the forward-rolled
+      // date already computed from the Annual sheet above.
+      for (const [name, matchEntries] of rollingRecurringBillMatches) {
+        const bill = existingRecurringBillsByName.get(name)
+        const confirmed = [...matchEntries].reverse().find((entry) => entry.dayOfMonth !== null)
+        if (!bill || !confirmed || confirmed.dayOfMonth === null) continue
+
+        const nextDueOn = advanceToFutureOccurrence(
+          confirmed.dayOfMonth,
+          confirmed.month,
+          bill.frequency,
+          bill.customIntervalValue,
+          bill.customIntervalUnit,
+          confirmed.year
+        )
+
+        this.logger.info(
+          `Rolling: confirmed "${name}" actually due day ${confirmed.dayOfMonth} of month ${confirmed.month} - next due ${nextDueOn.toISODate()}`
+        )
+
+        if (!this.dryRun) {
+          bill.merge({ dueDay: confirmed.dayOfMonth, dueMonth: confirmed.month, nextDueOn })
+          await bill.save()
+        }
+        totalDueDateCorrections += 1
+      }
+
       // The Income column has 2-4 sparse, unlabeled values per block. Position
       // is the only signal available: the 1st value is stable (~$3885-4684)
       // and the 2nd recurs at exactly $2607.82 in 4 of 6 blocks, suggesting
       // they're two people's regular pay in consistent sheet order - so they
       // seed one income_source per user (in seeded id order: Brian, Ariel).
-      // Anything beyond the 2nd value per block (bonuses, extra pay cycles)
-      // is imported unattributed rather than guessed.
+      // Anything beyond the 2nd value per block isn't a third paycheck - it's
+      // the bank balance left over from the prior month, so it's summed into
+      // that month's carryover figure rather than treated as income.
       const users = await User.query().orderBy('id', 'asc')
       const [primaryUser, secondaryUser] = users
       if (!primaryUser || !secondaryUser) {
@@ -490,33 +601,65 @@ export default class ImportXlsx extends BaseCommand {
             if (this.truncate) {
               await IncomeEntry.query({ client: trx })
                 .whereIn('incomeSourceId', [primarySource.id, secondarySource.id])
-                .orWhereNull('incomeSourceId')
                 .delete()
+              for (const block of rollingIncome) {
+                await MonthCarryover.query({ client: trx })
+                  .where('year', block.year)
+                  .where('month', block.month)
+                  .delete()
+              }
             }
 
             for (const block of rollingIncome) {
               for (const [index, amount] of block.values.entries()) {
-                const incomeSourceId =
-                  index === 0 ? primarySource.id : index === 1 ? secondarySource.id : null
-                const userId = index === 0 ? primaryUser.id : index === 1 ? secondaryUser.id : null
-
-                await IncomeEntry.create(
-                  {
-                    incomeSourceId,
-                    userId,
-                    year: block.year,
-                    month: block.month,
-                    amount,
-                    note: incomeSourceId === null ? 'Rolling import - additional income' : null,
-                  },
-                  { client: trx }
-                )
-                totalIncomeEntries += 1
+                if (index === 0) {
+                  await IncomeEntry.create(
+                    {
+                      incomeSourceId: primarySource.id,
+                      userId: primaryUser.id,
+                      year: block.year,
+                      month: block.month,
+                      amount,
+                    },
+                    { client: trx }
+                  )
+                  totalIncomeEntries += 1
+                } else if (index === 1) {
+                  await IncomeEntry.create(
+                    {
+                      incomeSourceId: secondarySource.id,
+                      userId: secondaryUser.id,
+                      year: block.year,
+                      month: block.month,
+                      amount,
+                    },
+                    { client: trx }
+                  )
+                  totalIncomeEntries += 1
+                } else {
+                  const existing = await MonthCarryover.query({ client: trx })
+                    .where('year', block.year)
+                    .where('month', block.month)
+                    .first()
+                  await MonthCarryover.updateOrCreate(
+                    { year: block.year, month: block.month },
+                    { amount: (existing?.amount ?? 0) + amount },
+                    { client: trx }
+                  )
+                  totalCarryoversImported += 1
+                }
               }
             }
           })
         } else {
-          totalIncomeEntries = rollingIncome.reduce((sum, block) => sum + block.values.length, 0)
+          totalIncomeEntries = rollingIncome.reduce(
+            (sum, block) => sum + Math.min(block.values.length, 2),
+            0
+          )
+          totalCarryoversImported = rollingIncome.reduce(
+            (sum, block) => sum + Math.max(block.values.length - 2, 0),
+            0
+          )
         }
       }
     }
@@ -525,7 +668,7 @@ export default class ImportXlsx extends BaseCommand {
       this.logger.success('Dry run complete - no changes written')
     } else {
       this.logger.success(
-        `Imported ${totalImported} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills, ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, and ${totalIncomeEntries} income entries`
+        `Imported ${totalImported} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, and ${totalCarryoversImported} carryover balance(s)`
       )
     }
   }

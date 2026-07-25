@@ -18,6 +18,7 @@ export interface StandardMonthIncomeLine {
 export interface StandardMonthResult {
   year: number
   month: number
+  carryover: number
   income: {
     lines: StandardMonthIncomeLine[]
     projectedTotal: number

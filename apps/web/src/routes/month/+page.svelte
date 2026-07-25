@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
+  import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
     listIncomeSources,
     createIncomeSource,
@@ -12,7 +13,7 @@
     type IncomeEntry,
   } from '$lib/api/income'
   import { listUsers, type UserSummary } from '$lib/api/users'
-  import { formatCurrency, monthName } from '$lib/format'
+  import { formatCurrency, formatDate, monthName } from '$lib/format'
   import { ApiError } from '$lib/api'
 
   const today = new Date()
@@ -32,6 +33,10 @@
   let editExpectedAmount = $state<number>(NaN)
   let savingSource = $state(false)
 
+  let editingCarryover = $state(false)
+  let editCarryoverAmount = $state<number>(NaN)
+  let savingCarryover = $state(false)
+
   let newSourceUserId = $state('')
   let newSourceName = $state('')
   let newSourceAmount = $state<number>(NaN)
@@ -39,6 +44,7 @@
 
   let logSourceId = $state('')
   let logAmount = $state<number>(NaN)
+  let logReceivedOn = $state('')
   let logNote = $state('')
   let loggingEntry = $state(false)
 
@@ -112,6 +118,30 @@
     }
   }
 
+  function startEditCarryover() {
+    editingCarryover = true
+    editCarryoverAmount = data?.carryover ?? NaN
+  }
+
+  function cancelEditCarryover() {
+    editingCarryover = false
+  }
+
+  async function saveCarryover() {
+    if (Number.isNaN(editCarryoverAmount)) return
+    savingCarryover = true
+    error = null
+    try {
+      await setMonthCarryover(year, month, editCarryoverAmount)
+      editingCarryover = false
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
+    } finally {
+      savingCarryover = false
+    }
+  }
+
   async function handleAddSource(event: SubmitEvent) {
     event.preventDefault()
     if (!newSourceUserId || !newSourceName.trim() || Number.isNaN(newSourceAmount)) {
@@ -151,10 +181,12 @@
         year,
         month,
         amount: logAmount,
+        receivedOn: logReceivedOn === '' ? null : logReceivedOn,
         note: logNote.trim() === '' ? null : logNote.trim(),
       })
       logSourceId = ''
       logAmount = NaN
+      logReceivedOn = ''
       logNote = ''
       await load()
     } catch (err) {
@@ -180,7 +212,7 @@
   }
 </script>
 
-<div class="flex items-center justify-between">
+<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Standard Month</h1>
   <div class="flex items-center gap-3">
     <button
@@ -223,7 +255,48 @@
 {#if loading}
   <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
 {:else if data}
-  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+        Carried over from last month
+      </p>
+      {#if editingCarryover}
+        <div class="mt-1 flex items-center gap-2">
+          <input
+            type="number"
+            step="0.01"
+            bind:value={editCarryoverAmount}
+            class="w-28 rounded-md border border-slate-300 px-2 py-1 text-lg dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <button
+            type="button"
+            onclick={saveCarryover}
+            disabled={savingCarryover}
+            class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+          >
+            Save
+          </button>
+          <button
+            type="button"
+            onclick={cancelEditCarryover}
+            class="text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          >
+            Cancel
+          </button>
+        </div>
+      {:else}
+        <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+          {formatCurrency(data.carryover)}
+        </p>
+        <button
+          type="button"
+          onclick={startEditCarryover}
+          class="mt-1 text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+        >
+          Edit
+        </button>
+      {/if}
+    </div>
     <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Projected net</p>
       <p
@@ -258,96 +331,18 @@
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each data.income.lines as line (line.key)}
-          <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-              >{formatCurrency(line.projected)}</td
-            >
-            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-              >{formatCurrency(line.actual)}</td
-            >
-          </tr>
-        {/each}
-      </tbody>
-      <tfoot>
-        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-          <td class="px-3 py-2 text-slate-900 dark:text-slate-100">Total</td>
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.income.projectedTotal)}</td
-          >
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.income.actualTotal)}</td
-          >
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
-  <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
-    <table class="w-full border-collapse text-sm">
-      <thead>
-        <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each data.expenses.lines as line (line.key)}
-          <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-            <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
-              >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
-            >
-            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-              >{formatCurrency(line.projected)}</td
-            >
-            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-              >{formatCurrency(line.actual)}</td
-            >
-          </tr>
-        {/each}
-      </tbody>
-      <tfoot>
-        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.expenses.projectedTotal)}</td
-          >
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.expenses.actualTotal)}</td
-          >
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Income sources</h2>
-  <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
-    <table class="w-full border-collapse text-sm">
-      <thead>
-        <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Name</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-            >Expected amount</th
-          >
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
       <tbody>
-        {#each sources as source (source.id)}
-          {#if editingSourceId === source.id}
+        {#each data.income.lines as line (line.key)}
+          {@const source = sources.find((s) => line.key === `income-source-${s.id}`)}
+          {#if source && editingSourceId === source.id}
             <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{source.name}</td>
+              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
               <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
                 {users.find((u) => u.id === source.userId)?.fullName ?? '—'}
               </td>
@@ -360,6 +355,9 @@
                   class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </td>
+              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+                >{formatCurrency(line.actual)}</td
+              >
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 <button
                   type="button"
@@ -380,26 +378,43 @@
             </tr>
           {:else}
             <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{source.name}</td>
+              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
               <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
-                {users.find((u) => u.id === source.userId)?.fullName ?? '—'}
+                {source ? (users.find((u) => u.id === source.userId)?.fullName ?? '—') : '—'}
               </td>
+              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                >{formatCurrency(line.projected)}</td
+              >
               <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-                >{formatCurrency(source.expectedAmount)}</td
+                >{formatCurrency(line.actual)}</td
               >
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => startEditSource(source)}
-                  class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  Edit
-                </button>
+                {#if source}
+                  <button
+                    type="button"
+                    onclick={() => startEditSource(source)}
+                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    Edit
+                  </button>
+                {/if}
               </td>
             </tr>
           {/if}
         {/each}
       </tbody>
+      <tfoot>
+        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
+          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
+          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+            >{formatCurrency(data.income.projectedTotal)}</td
+          >
+          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+            >{formatCurrency(data.income.actualTotal)}</td
+          >
+          <td class="px-3 py-2"></td>
+        </tr>
+      </tfoot>
     </table>
   </div>
 
@@ -447,6 +462,47 @@
     </button>
   </form>
 
+  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
+  <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 dark:border-slate-700">
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each data.expenses.lines as line (line.key)}
+          <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
+            <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
+              >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
+            >
+            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+              >{formatCurrency(line.projected)}</td
+            >
+            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+              >{formatCurrency(line.actual)}</td
+            >
+          </tr>
+        {/each}
+      </tbody>
+      <tfoot>
+        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
+          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
+          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+            >{formatCurrency(data.expenses.projectedTotal)}</td
+          >
+          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+            >{formatCurrency(data.expenses.actualTotal)}</td
+          >
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
   <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">
     Income entries this month
   </h2>
@@ -456,6 +512,7 @@
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Amount</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Note</th>
           <th class="px-3 py-2"></th>
         </tr>
@@ -469,6 +526,7 @@
             <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
               >{formatCurrency(entry.amount)}</td
             >
+            <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{formatDate(entry.receivedOn)}</td>
             <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{entry.note ?? '—'}</td>
             <td class="px-3 py-2 text-right whitespace-nowrap">
               <button
@@ -482,7 +540,7 @@
           </tr>
         {:else}
           <tr>
-            <td colspan="4" class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+            <td colspan="5" class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
               No income logged for this month yet.
             </td>
           </tr>
@@ -515,6 +573,14 @@
         min="0"
         bind:value={logAmount}
         class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Received on</span>
+      <input
+        type="date"
+        bind:value={logReceivedOn}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
     <label class="flex flex-col gap-1">
