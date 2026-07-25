@@ -7,14 +7,23 @@ import Category from '#models/category'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
+import User from '#models/user'
+import UserSubscription from '#models/user_subscription'
 import { parseMatrixSheet } from '#services/import/parse_matrix_sheet'
 import { parseRecurringBillsSheet } from '#services/import/parse_recurring_bills_sheet'
+import { parseUserItemSheet } from '#services/import/parse_user_item_sheet'
 
 /**
  * Sheet name -> utility name. Only these sheets are handled so far; later
- * phases add parsers (and this map) for Brian/Ariel/Food/etc.
+ * phases add parsers (and this map) for Food/Transport/etc.
  */
 const UTILITY_SHEETS = ['Electricity', 'Gas', 'Water']
+
+/**
+ * Sheet name -> user full_name. Each sheet lists that person's personal
+ * recurring subscriptions.
+ */
+const SUBSCRIPTION_SHEETS = ['Brian', 'Ariel']
 
 /**
  * Bills known (from inspecting the real workbook) to need a manual
@@ -144,11 +153,53 @@ export default class ImportXlsx extends BaseCommand {
       }
     }
 
+    let totalSubscriptions = 0
+    for (const sheetName of SUBSCRIPTION_SHEETS) {
+      const sheet = workbook.getWorksheet(sheetName)
+      if (!sheet) {
+        this.logger.warning(`Sheet "${sheetName}" not found - skipping`)
+        continue
+      }
+
+      const user = await User.findBy('fullName', sheetName)
+      if (!user) {
+        this.logger.error(
+          `No user found with full_name "${sheetName}" - seed users before importing`
+        )
+        this.exitCode = 1
+        return
+      }
+
+      const rows = parseUserItemSheet(sheet)
+      const total = rows.reduce((sum, row) => sum + row.amount, 0)
+      this.logger.info(
+        `${sheetName}: parsed ${rows.length} subscription(s), total $${total.toFixed(2)}`
+      )
+
+      if (!this.dryRun) {
+        await db.transaction(async (trx) => {
+          if (this.truncate) {
+            await UserSubscription.query({ client: trx }).where('userId', user.id).delete()
+          }
+
+          for (const row of rows) {
+            await UserSubscription.updateOrCreate(
+              { userId: user.id, name: row.name },
+              { amount: row.amount, dayOfMonth: row.dayOfMonth },
+              { client: trx }
+            )
+          }
+        })
+      }
+
+      totalSubscriptions += rows.length
+    }
+
     if (this.dryRun) {
       this.logger.success('Dry run complete - no changes written')
     } else {
       this.logger.success(
-        `Imported ${totalImported} utility bill entries and ${totalRecurringBills} recurring bills`
+        `Imported ${totalImported} utility bill entries, ${totalRecurringBills} recurring bills, and ${totalSubscriptions} personal subscriptions`
       )
     }
   }

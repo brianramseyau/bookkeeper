@@ -85,6 +85,45 @@ export class RecurringBillSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class UserSubscriptionSchema extends BaseModel {
+  static $columns = [
+    'amount',
+    'categoryId',
+    'createdAt',
+    'dayOfMonth',
+    'id',
+    'includeInStandardMonth',
+    'isActive',
+    'name',
+    'notes',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = UserSubscriptionSchema.$columns
+  @column()
+  declare amount: number
+  @column()
+  declare categoryId: number | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare dayOfMonth: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare includeInStandardMonth: boolean
+  @column()
+  declare isActive: boolean
+  @column()
+  declare name: string
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class UserSchema extends BaseModel {
   static $columns = [
     'createdAt',

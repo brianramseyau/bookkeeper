@@ -71,6 +71,16 @@
         >
           Recurring Bills
         </a>
+        <a
+          href="/subscriptions"
+          class="text-sm font-medium transition-colors {page.url.pathname.startsWith(
+            '/subscriptions'
+          )
+            ? 'text-indigo-600 dark:text-indigo-400'
+            : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}"
+        >
+          Subscriptions
+        </a>
         <div class="flex-1"></div>
         <button
           onclick={toggleTheme}

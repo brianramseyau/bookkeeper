@@ -22,6 +22,7 @@ router
         router.get('me', [controllers.Auth, 'me'])
 
         router.get('categories', [controllers.Categories, 'index'])
+        router.get('users', [controllers.Users, 'index'])
 
         router.get('utilities', [controllers.Utilities, 'index'])
         router.post('utilities', [controllers.Utilities, 'store'])
@@ -38,6 +39,12 @@ router
         router.post('recurring-bills', [controllers.RecurringBills, 'store'])
         router.patch('recurring-bills/:id', [controllers.RecurringBills, 'update'])
         router.delete('recurring-bills/:id', [controllers.RecurringBills, 'destroy'])
+
+        router.get('subscriptions/summary', [controllers.Subscriptions, 'summary'])
+        router.get('subscriptions', [controllers.Subscriptions, 'index'])
+        router.post('subscriptions', [controllers.Subscriptions, 'store'])
+        router.patch('subscriptions/:id', [controllers.Subscriptions, 'update'])
+        router.delete('subscriptions/:id', [controllers.Subscriptions, 'destroy'])
       })
       .use(middleware.auth())
   })
