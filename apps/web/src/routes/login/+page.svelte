@@ -23,37 +23,39 @@
   }
 </script>
 
-<div class="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-  <div class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
-    <h1 class="mb-6 text-xl font-semibold text-slate-900">Bookkeeper</h1>
+<div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-900">
+  <div
+    class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+  >
+    <h1 class="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</h1>
     <form onsubmit={handleSubmit} class="flex flex-col gap-4">
       <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium text-slate-700">Email</span>
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Email</span>
         <input
           type="email"
           bind:value={email}
           autocomplete="email"
           required
-          class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
       </label>
       <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium text-slate-700">Password</span>
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Password</span>
         <input
           type="password"
           bind:value={password}
           autocomplete="current-password"
           required
-          class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+          class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
       </label>
       {#if error}
-        <p class="text-sm text-red-600">{error}</p>
+        <p class="text-sm text-red-600 dark:text-red-400">{error}</p>
       {/if}
       <button
         type="submit"
         disabled={submitting}
-        class="mt-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+        class="mt-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
       >
         {submitting ? 'Signing in…' : 'Sign in'}
       </button>

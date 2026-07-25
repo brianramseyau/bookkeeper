@@ -1,2 +1,6 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/forms';
+
+/* Class-based dark mode (toggled via the theme store), instead of Tailwind's
+   default prefers-color-scheme-only `dark:` variant. */
+@custom-variant dark (&:where(.dark, .dark *));
