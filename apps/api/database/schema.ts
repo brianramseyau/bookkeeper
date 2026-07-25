@@ -34,6 +34,57 @@ export class CategorySchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class RecurringBillSchema extends BaseModel {
+  static $columns = [
+    'amount',
+    'categoryId',
+    'createdAt',
+    'customIntervalUnit',
+    'customIntervalValue',
+    'dueDay',
+    'dueMonth',
+    'dueYear',
+    'frequency',
+    'id',
+    'isActive',
+    'name',
+    'nextDueOn',
+    'notes',
+    'updatedAt',
+  ] as const
+  $columns = RecurringBillSchema.$columns
+  @column()
+  declare amount: number
+  @column()
+  declare categoryId: number | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare customIntervalUnit: string | null
+  @column()
+  declare customIntervalValue: number | null
+  @column()
+  declare dueDay: number | null
+  @column()
+  declare dueMonth: number | null
+  @column()
+  declare dueYear: number | null
+  @column()
+  declare frequency: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare isActive: boolean
+  @column()
+  declare name: string
+  @column.date()
+  declare nextDueOn: DateTime | null
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class UserSchema extends BaseModel {
   static $columns = [
     'createdAt',

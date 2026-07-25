@@ -58,6 +58,16 @@
         >
           Utilities
         </a>
+        <a
+          href="/recurring-bills"
+          class="text-sm font-medium transition-colors {page.url.pathname.startsWith(
+            '/recurring-bills'
+          )
+            ? 'text-indigo-600'
+            : 'text-slate-500 hover:text-slate-900'}"
+        >
+          Recurring Bills
+        </a>
         <div class="flex-1"></div>
         <span class="text-sm text-slate-500">
           {authState.user.fullName ?? authState.user.email}

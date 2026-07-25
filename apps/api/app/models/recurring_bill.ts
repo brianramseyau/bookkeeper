@@ -1,0 +1,12 @@
+import { RecurringBillSchema } from '#database/schema'
+import { belongsTo } from '@adonisjs/lucid/orm'
+import type { BelongsTo } from '@adonisjs/lucid/types/relations'
+import Category from '#models/category'
+
+export type RecurringBillFrequency = 'monthly' | 'quarterly' | 'biannual' | 'annual' | 'custom'
+export type RecurringBillCustomIntervalUnit = 'days' | 'weeks' | 'months'
+
+export default class RecurringBill extends RecurringBillSchema {
+  @belongsTo(() => Category)
+  declare category: BelongsTo<typeof Category>
+}

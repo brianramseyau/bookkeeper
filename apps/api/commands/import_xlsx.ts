@@ -1,17 +1,28 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import ExcelJS from 'exceljs'
+import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Category from '#models/category'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
+import RecurringBill from '#models/recurring_bill'
 import { parseMatrixSheet } from '#services/import/parse_matrix_sheet'
+import { parseRecurringBillsSheet } from '#services/import/parse_recurring_bills_sheet'
 
 /**
  * Sheet name -> utility name. Only these sheets are handled so far; later
- * phases add parsers (and this map) for Annual/Brian/Ariel/Food/etc.
+ * phases add parsers (and this map) for Brian/Ariel/Food/etc.
  */
 const UTILITY_SHEETS = ['Electricity', 'Gas', 'Water']
+
+/**
+ * Bills known (from inspecting the real workbook) to need a manual
+ * frequency correction the importer can't infer from a single row.
+ */
+const FREQUENCY_CORRECTIONS: Record<string, string> = {
+  'Strata Fees': "shows twice yearly ($640 x 2) against an annual total - likely 'biannual'",
+}
 
 export default class ImportXlsx extends BaseCommand {
   static commandName = 'import:xlsx'
@@ -91,10 +102,54 @@ export default class ImportXlsx extends BaseCommand {
       totalImported += entries.length
     }
 
+    const recurringBillsSheet = workbook.getWorksheet('Annual')
+    let totalRecurringBills = 0
+    if (!recurringBillsSheet) {
+      this.logger.warning('Sheet "Annual" not found - skipping')
+    } else {
+      const rows = parseRecurringBillsSheet(recurringBillsSheet)
+      this.logger.info(`Annual: parsed ${rows.length} recurring bill(s)`)
+
+      if (!this.dryRun) {
+        await db.transaction(async (trx) => {
+          if (this.truncate) {
+            await RecurringBill.query({ client: trx }).delete()
+          }
+
+          for (const row of rows) {
+            await RecurringBill.updateOrCreate(
+              { name: row.name },
+              {
+                name: row.name,
+                amount: row.amount,
+                frequency: 'annual',
+                dueDay: row.dueDay,
+                dueMonth: row.dueMonth,
+                dueYear: row.dueYear,
+                nextDueOn: row.nextDueOn ? DateTime.fromISO(row.nextDueOn, { zone: 'utc' }) : null,
+              },
+              { client: trx }
+            )
+          }
+        })
+      }
+
+      totalRecurringBills = rows.length
+
+      for (const row of rows) {
+        const note = FREQUENCY_CORRECTIONS[row.name]
+        if (note) {
+          this.logger.warning(`  "${row.name}" ${note} - review its frequency after import`)
+        }
+      }
+    }
+
     if (this.dryRun) {
       this.logger.success('Dry run complete - no changes written')
     } else {
-      this.logger.success(`Imported ${totalImported} utility bill entries`)
+      this.logger.success(
+        `Imported ${totalImported} utility bill entries and ${totalRecurringBills} recurring bills`
+      )
     }
   }
 }
