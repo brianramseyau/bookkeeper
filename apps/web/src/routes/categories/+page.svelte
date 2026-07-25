@@ -26,6 +26,7 @@
   let editingId = $state<number | null>(null)
   let editName = $state('')
   let editBudgetAmount = $state<number>(NaN)
+  let editIncludeInStandardMonth = $state(true)
   let savingEdit = $state(false)
 
   onMount(load)
@@ -64,6 +65,7 @@
     editingId = category.id
     editName = category.name
     editBudgetAmount = category.budgetAmount ?? NaN
+    editIncludeInStandardMonth = category.includeInStandardMonth
   }
 
   function cancelEdit() {
@@ -81,6 +83,7 @@
       await updateCategory(category.id, {
         name: editName.trim(),
         budgetAmount: Number.isNaN(editBudgetAmount) ? null : editBudgetAmount,
+        includeInStandardMonth: editIncludeInStandardMonth,
       })
       editingId = null
       await load()
@@ -129,6 +132,9 @@
           >
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Trend</th
           >
+          <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
+            >Std Month</th
+          >
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
@@ -158,6 +164,13 @@
               <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
               <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
               <td class="px-3 py-2"></td>
+              <td class="px-3 py-2 text-center">
+                <input
+                  type="checkbox"
+                  bind:checked={editIncludeInStandardMonth}
+                  class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900"
+                />
+              </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 <button
                   type="button"
@@ -204,6 +217,13 @@
                   >
                 {:else if row.trend?.trend === 'flat'}
                   <span class="text-xs font-medium text-slate-400 dark:text-slate-500">— flat</span>
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-center">
+                {#if row.category.includeInStandardMonth}
+                  <span class="text-emerald-600 dark:text-emerald-400" title="Included in Standard Month">✓</span>
+                {:else}
+                  <span class="text-slate-300 dark:text-slate-600" title="Excluded from Standard Month">—</span>
                 {/if}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">

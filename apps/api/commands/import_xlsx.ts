@@ -10,6 +10,8 @@ import RecurringBill from '#models/recurring_bill'
 import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import IncomeSource from '#models/income_source'
+import IncomeEntry from '#models/income_entry'
 import { parseMatrixSheet } from '#services/import/parse_matrix_sheet'
 import { parseRecurringBillsSheet } from '#services/import/parse_recurring_bills_sheet'
 import { parseUserItemSheet } from '#services/import/parse_user_item_sheet'
@@ -83,6 +85,12 @@ const ROLLING_CATEGORY_NOTES: Record<string, string> = {
   'Apple Care': 'Household',
   'Strata Insurance': 'Household',
   'Stump removal': 'Household',
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!
 }
 
 function lastDayOfMonth(year: number, month: number): string {
@@ -357,11 +365,12 @@ export default class ImportXlsx extends BaseCommand {
     }
 
     let totalRollingRecurringBills = 0
+    let totalIncomeEntries = 0
     const rollingSheet = workbook.getWorksheet('Rolling')
     if (!rollingSheet) {
       this.logger.warning('Sheet "Rolling" not found - skipping')
     } else {
-      const rollingEntries = parseRollingSheet(
+      const { entries: rollingEntries, income: rollingIncome } = parseRollingSheet(
         rollingSheet,
         this.rollingStartYear,
         this.rollingStartMonth
@@ -441,13 +450,82 @@ export default class ImportXlsx extends BaseCommand {
           totalCategoryActuals += rows.length
         }
       }
+
+      // The Income column has 2-4 sparse, unlabeled values per block. Position
+      // is the only signal available: the 1st value is stable (~$3885-4684)
+      // and the 2nd recurs at exactly $2607.82 in 4 of 6 blocks, suggesting
+      // they're two people's regular pay in consistent sheet order - so they
+      // seed one income_source per user (in seeded id order: Brian, Ariel).
+      // Anything beyond the 2nd value per block (bonuses, extra pay cycles)
+      // is imported unattributed rather than guessed.
+      const users = await User.query().orderBy('id', 'asc')
+      const [primaryUser, secondaryUser] = users
+      if (!primaryUser || !secondaryUser) {
+        this.logger.warning('Fewer than 2 users seeded - skipping income import')
+      } else {
+        const primaryValues = rollingIncome
+          .map((block) => block.values[0])
+          .filter((v) => v !== undefined)
+        const secondaryValues = rollingIncome
+          .map((block) => block.values[1])
+          .filter((v) => v !== undefined)
+
+        this.logger.info(
+          `Rolling: parsed income for ${rollingIncome.length} month(s), seeding income sources for ${primaryUser.fullName}/${secondaryUser.fullName}`
+        )
+
+        if (!this.dryRun) {
+          await db.transaction(async (trx) => {
+            const primarySource = await IncomeSource.updateOrCreate(
+              { userId: primaryUser.id, name: `${primaryUser.fullName} Income` },
+              { expectedAmount: primaryValues.length > 0 ? median(primaryValues) : 0 },
+              { client: trx }
+            )
+            const secondarySource = await IncomeSource.updateOrCreate(
+              { userId: secondaryUser.id, name: `${secondaryUser.fullName} Income` },
+              { expectedAmount: secondaryValues.length > 0 ? median(secondaryValues) : 0 },
+              { client: trx }
+            )
+
+            if (this.truncate) {
+              await IncomeEntry.query({ client: trx })
+                .whereIn('incomeSourceId', [primarySource.id, secondarySource.id])
+                .orWhereNull('incomeSourceId')
+                .delete()
+            }
+
+            for (const block of rollingIncome) {
+              for (const [index, amount] of block.values.entries()) {
+                const incomeSourceId =
+                  index === 0 ? primarySource.id : index === 1 ? secondarySource.id : null
+                const userId = index === 0 ? primaryUser.id : index === 1 ? secondaryUser.id : null
+
+                await IncomeEntry.create(
+                  {
+                    incomeSourceId,
+                    userId,
+                    year: block.year,
+                    month: block.month,
+                    amount,
+                    note: incomeSourceId === null ? 'Rolling import - additional income' : null,
+                  },
+                  { client: trx }
+                )
+                totalIncomeEntries += 1
+              }
+            }
+          })
+        } else {
+          totalIncomeEntries = rollingIncome.reduce((sum, block) => sum + block.values.length, 0)
+        }
+      }
     }
 
     if (this.dryRun) {
       this.logger.success('Dry run complete - no changes written')
     } else {
       this.logger.success(
-        `Imported ${totalImported} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills, ${totalSubscriptions} personal subscriptions, and ${totalCategoryActuals} category actuals`
+        `Imported ${totalImported} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills, ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, and ${totalIncomeEntries} income entries`
       )
     }
   }

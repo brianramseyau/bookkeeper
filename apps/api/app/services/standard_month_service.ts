@@ -1,0 +1,242 @@
+import User from '#models/user'
+import IncomeSource from '#models/income_source'
+import IncomeEntry from '#models/income_entry'
+import Utility from '#models/utility'
+import UtilityBill from '#models/utility_bill'
+import RecurringBill from '#models/recurring_bill'
+import UserSubscription from '#models/user_subscription'
+import Category from '#models/category'
+import CategoryMonthlyActual from '#models/category_monthly_actual'
+import { RollingAverageService } from '#services/rolling_average_service'
+
+const PERIODS_PER_YEAR: Record<string, number> = {
+  monthly: 12,
+  quarterly: 4,
+  biannual: 2,
+  annual: 1,
+}
+
+export interface StandardMonthLine {
+  key: string
+  label: string
+  projected: number
+  /** null = not tracked for this specific month (e.g. a future utility bill not entered yet). */
+  actual: number | null
+  dueDay: number | null
+}
+
+export interface StandardMonthIncomeLine {
+  key: string
+  label: string
+  projected: number
+  actual: number
+}
+
+export interface StandardMonthResult {
+  year: number
+  month: number
+  income: {
+    lines: StandardMonthIncomeLine[]
+    projectedTotal: number
+    actualTotal: number
+  }
+  expenses: {
+    lines: StandardMonthLine[]
+    projectedTotal: number
+    actualTotal: number
+  }
+  projectedNet: number
+  actualNet: number
+}
+
+function round(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+/**
+ * Aggregates a "standard month" picture - the live equivalent of the old
+ * workbook's Rolling + Monthly sheets: what's projected to come in/out
+ * based on rolling averages and configured amounts, and what's actually
+ * happened so far for a given year/month.
+ */
+export class StandardMonthService {
+  private rollingAverage = new RollingAverageService()
+
+  async compute(year: number, month: number): Promise<StandardMonthResult> {
+    const income = await this.computeIncome(year, month)
+    const expenseLines = await this.computeExpenseLines(year, month)
+
+    const expensesProjectedTotal = round(
+      expenseLines.reduce((sum, line) => sum + line.projected, 0)
+    )
+    const expensesActualTotal = round(
+      expenseLines.reduce((sum, line) => sum + (line.actual ?? 0), 0)
+    )
+
+    return {
+      year,
+      month,
+      income,
+      expenses: {
+        lines: expenseLines,
+        projectedTotal: expensesProjectedTotal,
+        actualTotal: expensesActualTotal,
+      },
+      projectedNet: round(income.projectedTotal - expensesProjectedTotal),
+      actualNet: round(income.actualTotal - expensesActualTotal),
+    }
+  }
+
+  private async computeIncome(year: number, month: number) {
+    const [sources, entries] = await Promise.all([
+      IncomeSource.query().where('isActive', true).orderBy('name', 'asc'),
+      IncomeEntry.query().where('year', year).where('month', month),
+    ])
+
+    const actualBySource = new Map<number, number>()
+    let unattributedActual = 0
+    for (const entry of entries) {
+      if (entry.incomeSourceId) {
+        actualBySource.set(
+          entry.incomeSourceId,
+          (actualBySource.get(entry.incomeSourceId) ?? 0) + entry.amount
+        )
+      } else {
+        unattributedActual += entry.amount
+      }
+    }
+
+    const lines: StandardMonthIncomeLine[] = sources.map((source) => ({
+      key: `income-source-${source.id}`,
+      label: source.name,
+      projected: source.expectedAmount,
+      actual: round(actualBySource.get(source.id) ?? 0),
+    }))
+
+    if (unattributedActual > 0) {
+      lines.push({
+        key: 'income-unattributed',
+        label: 'Other income',
+        projected: 0,
+        actual: round(unattributedActual),
+      })
+    }
+
+    return {
+      lines,
+      projectedTotal: round(lines.reduce((sum, line) => sum + line.projected, 0)),
+      actualTotal: round(lines.reduce((sum, line) => sum + line.actual, 0)),
+    }
+  }
+
+  private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {
+    const lines: StandardMonthLine[] = []
+
+    const utilities = await Utility.query().where('isActive', true).orderBy('name', 'asc')
+    for (const utility of utilities) {
+      const bills = await UtilityBill.query().where('utilityId', utility.id)
+      const trend = this.rollingAverage.computeTrend(
+        bills.map((bill) => ({ year: bill.year, month: bill.month, amount: bill.amount }))
+      )
+      const actualBill = bills.find((bill) => bill.year === year && bill.month === month)
+
+      lines.push({
+        key: `utility-${utility.id}`,
+        label: utility.name,
+        projected: trend.average ?? 0,
+        actual: actualBill ? actualBill.amount : null,
+        dueDay: null,
+      })
+    }
+
+    const recurringBills = await RecurringBill.query()
+      .where('isActive', true)
+      .orderBy('name', 'asc')
+    let nonMonthlyAmortizedTotal = 0
+    for (const bill of recurringBills) {
+      if (bill.frequency === 'monthly') {
+        lines.push({
+          key: `recurring-bill-${bill.id}`,
+          label: bill.name,
+          projected: bill.amount,
+          actual: bill.amount,
+          dueDay: bill.dueDay,
+        })
+      } else {
+        const periodsPerYear =
+          bill.frequency === 'custom'
+            ? this.customPeriodsPerYear(bill.customIntervalValue, bill.customIntervalUnit)
+            : (PERIODS_PER_YEAR[bill.frequency] ?? 1)
+        nonMonthlyAmortizedTotal += (bill.amount * periodsPerYear) / 12
+      }
+    }
+    if (nonMonthlyAmortizedTotal > 0) {
+      lines.push({
+        key: 'recurring-bills-avg',
+        label: 'Recurring Bills (avg)',
+        projected: round(nonMonthlyAmortizedTotal),
+        actual: null,
+        dueDay: null,
+      })
+    }
+
+    const users = await User.query().orderBy('fullName', 'asc')
+    for (const user of users) {
+      const subscriptions = await UserSubscription.query()
+        .where('userId', user.id)
+        .where('isActive', true)
+        .where('includeInStandardMonth', true)
+      if (subscriptions.length === 0) continue
+
+      const total = round(subscriptions.reduce((sum, sub) => sum + sub.amount, 0))
+      lines.push({
+        key: `subscriptions-${user.id}`,
+        label: `${user.fullName ?? user.email}'s Subscriptions`,
+        projected: total,
+        actual: total,
+        dueDay: null,
+      })
+    }
+
+    const categories = await Category.query()
+      .where('isActive', true)
+      .where('includeInStandardMonth', true)
+      .orderBy('sortOrder', 'asc')
+    for (const category of categories) {
+      const actuals = await CategoryMonthlyActual.query().where('categoryId', category.id)
+      if (actuals.length === 0 && category.budgetAmount === null) continue
+
+      const trend = this.rollingAverage.computeTrend(
+        actuals.map((actual) => ({
+          year: actual.occurredOn.year,
+          month: actual.occurredOn.month,
+          amount: actual.amount,
+        }))
+      )
+      const thisMonthActuals = actuals.filter(
+        (actual) => actual.occurredOn.year === year && actual.occurredOn.month === month
+      )
+
+      lines.push({
+        key: `category-${category.id}`,
+        label: category.name,
+        projected: category.budgetAmount ?? trend.average ?? 0,
+        actual:
+          thisMonthActuals.length > 0
+            ? round(thisMonthActuals.reduce((sum, actual) => sum + actual.amount, 0))
+            : null,
+        dueDay: null,
+      })
+    }
+
+    return lines
+  }
+
+  private customPeriodsPerYear(value: number | null, unit: string | null): number {
+    if (!value || !unit) return 1
+    if (unit === 'days') return 365 / value
+    if (unit === 'weeks') return 52 / value
+    if (unit === 'months') return 12 / value
+    return 1
+  }
+}

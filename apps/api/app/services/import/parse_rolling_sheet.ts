@@ -9,6 +9,18 @@ export interface RollingEntry {
   dayOfMonth: number | null
 }
 
+export interface RollingIncomeBlock {
+  year: number
+  month: number
+  /** Income column values in row order, top to bottom - not aligned to any note. */
+  values: number[]
+}
+
+export interface RollingSheetResult {
+  entries: RollingEntry[]
+  income: RollingIncomeBlock[]
+}
+
 const MONTH_NAMES = [
   'january',
   'february',
@@ -52,8 +64,9 @@ export function parseRollingSheet(
   sheet: Worksheet,
   startYear: number,
   startMonth: number
-): RollingEntry[] {
+): RollingSheetResult {
   const entries: RollingEntry[] = []
+  const income: RollingIncomeBlock[] = []
   let year = startYear
   let previousMonth = startMonth - 1
   const maxRow = sheet.rowCount
@@ -82,10 +95,15 @@ export function parseRollingSheet(
     // Skip this "Month" row and the Income/Budget/Actual/Note/DoM header row.
     rowNumber += 2
 
+    const incomeValues: number[] = []
+
     while (rowNumber <= maxRow) {
       const dataRow = sheet.getRow(rowNumber)
       const noteValue = dataRow.getCell(4).value
       if (typeof noteValue !== 'string' || noteValue.trim() === '') break
+
+      const incomeValue = cellNumber(dataRow.getCell(1).value)
+      if (incomeValue !== null) incomeValues.push(incomeValue)
 
       entries.push({
         year,
@@ -98,7 +116,9 @@ export function parseRollingSheet(
 
       rowNumber += 1
     }
+
+    income.push({ year, month: monthNumber, values: incomeValues })
   }
 
-  return entries
+  return { entries, income }
 }

@@ -55,6 +55,18 @@ router
         router.post('subscriptions', [controllers.Subscriptions, 'store'])
         router.patch('subscriptions/:id', [controllers.Subscriptions, 'update'])
         router.delete('subscriptions/:id', [controllers.Subscriptions, 'destroy'])
+
+        router.get('income-sources', [controllers.IncomeSources, 'index'])
+        router.post('income-sources', [controllers.IncomeSources, 'store'])
+        router.patch('income-sources/:id', [controllers.IncomeSources, 'update'])
+        router.delete('income-sources/:id', [controllers.IncomeSources, 'destroy'])
+
+        router.get('income-entries', [controllers.IncomeEntries, 'index'])
+        router.post('income-entries', [controllers.IncomeEntries, 'store'])
+        router.patch('income-entries/:id', [controllers.IncomeEntries, 'update'])
+        router.delete('income-entries/:id', [controllers.IncomeEntries, 'destroy'])
+
+        router.get('standard-month', [controllers.StandardMonths, 'show'])
       })
       .use(middleware.auth())
   })

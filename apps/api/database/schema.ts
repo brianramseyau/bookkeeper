@@ -67,6 +67,72 @@ export class CategoryMonthlyActualSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class IncomeEntrySchema extends BaseModel {
+  static $columns = [
+    'amount',
+    'createdAt',
+    'id',
+    'incomeSourceId',
+    'month',
+    'note',
+    'receivedOn',
+    'updatedAt',
+    'userId',
+    'year',
+  ] as const
+  $columns = IncomeEntrySchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare incomeSourceId: number | null
+  @column()
+  declare month: number
+  @column()
+  declare note: string | null
+  @column.date()
+  declare receivedOn: DateTime | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number | null
+  @column()
+  declare year: number
+}
+
+export class IncomeSourceSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'expectedAmount',
+    'id',
+    'isActive',
+    'name',
+    'notes',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = IncomeSourceSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare expectedAmount: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare isActive: boolean
+  @column()
+  declare name: string
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
+}
+
 export class RecurringBillSchema extends BaseModel {
   static $columns = [
     'amount',
