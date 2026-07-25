@@ -1,18 +1,15 @@
 <script lang="ts">
-	import { authState } from '$lib/stores/auth.svelte';
+  import { authState } from '$lib/stores/auth.svelte'
 </script>
 
-<div class="wrap">
-	{#if authState.user}
-		<h1>Welcome, {authState.user.fullName ?? authState.user.email}</h1>
-		<p><a href="/utilities">View utility bills →</a></p>
-	{/if}
-</div>
-
-<style>
-	.wrap {
-		max-width: 40rem;
-		margin: 2rem auto;
-		padding: 0 1rem;
-	}
-</style>
+{#if authState.user}
+  <h1 class="text-2xl font-semibold text-slate-900">
+    Welcome, {authState.user.fullName ?? authState.user.email}
+  </h1>
+  <a
+    href="/utilities"
+    class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+  >
+    View utility bills →
+  </a>
+{/if}

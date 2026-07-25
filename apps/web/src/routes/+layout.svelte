@@ -1,88 +1,80 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte';
+  import './layout.css'
+  import favicon from '$lib/assets/favicon.svg'
+  import { onMount } from 'svelte'
+  import { goto } from '$app/navigation'
+  import { page } from '$app/state'
+  import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte'
 
-	let { children } = $props();
+  let { children } = $props()
 
-	onMount(() => {
-		void loadCurrentUser();
-	});
+  onMount(() => {
+    void loadCurrentUser()
+  })
 
-	$effect(() => {
-		if (authState.loading) return;
+  $effect(() => {
+    if (authState.loading) return
 
-		const onLoginPage = page.url.pathname === '/login';
-		if (!authState.user && !onLoginPage) {
-			void goto('/login');
-		} else if (authState.user && onLoginPage) {
-			void goto('/');
-		}
-	});
+    const onLoginPage = page.url.pathname === '/login'
+    if (!authState.user && !onLoginPage) {
+      void goto('/login')
+    } else if (authState.user && onLoginPage) {
+      void goto('/')
+    }
+  })
 
-	async function handleLogout() {
-		await logout();
-		await goto('/login');
-	}
+  async function handleLogout() {
+    await logout()
+    await goto('/login')
+  }
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
+  <link rel="icon" href={favicon} />
 </svelte:head>
 
 {#if authState.loading}
-	<p>Loading…</p>
+  <div class="flex min-h-screen items-center justify-center bg-slate-50 text-slate-400">
+    Loading…
+  </div>
 {:else if authState.user}
-	<nav>
-		<div class="brand">Bookkeeper</div>
-		<a href="/" class:active={page.url.pathname === '/'}>Dashboard</a>
-		<a href="/utilities" class:active={page.url.pathname.startsWith('/utilities')}>Utilities</a>
-		<div class="spacer"></div>
-		<span class="user">{authState.user.fullName ?? authState.user.email}</span>
-		<button onclick={handleLogout}>Log out</button>
-	</nav>
-	<main>
-		{@render children()}
-	</main>
-{:else}
-	{@render children()}
-{/if}
+  <div class="min-h-screen bg-slate-50">
+    <nav class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex max-w-5xl items-center gap-6 px-6 py-3">
+        <span class="font-semibold text-slate-900">Bookkeeper</span>
+        <a
+          href="/"
+          class="text-sm font-medium transition-colors {page.url.pathname === '/'
+            ? 'text-indigo-600'
+            : 'text-slate-500 hover:text-slate-900'}"
+        >
+          Dashboard
+        </a>
+        <a
+          href="/utilities"
+          class="text-sm font-medium transition-colors {page.url.pathname.startsWith('/utilities')
+            ? 'text-indigo-600'
+            : 'text-slate-500 hover:text-slate-900'}"
+        >
+          Utilities
+        </a>
+        <div class="flex-1"></div>
+        <span class="text-sm text-slate-500">
+          {authState.user.fullName ?? authState.user.email}
+        </span>
+        <button
+          onclick={handleLogout}
+          class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100"
+        >
+          Log out
+        </button>
+      </div>
+    </nav>
 
-<style>
-	nav {
-		display: flex;
-		align-items: center;
-		gap: 1.25rem;
-		padding: 0.75rem 1.5rem;
-		border-bottom: 1px solid #ddd;
-		font-family: system-ui, sans-serif;
-	}
-	.brand {
-		font-weight: 700;
-	}
-	nav a {
-		color: inherit;
-		text-decoration: none;
-		opacity: 0.7;
-	}
-	nav a.active {
-		opacity: 1;
-		font-weight: 600;
-	}
-	.spacer {
-		flex: 1;
-	}
-	.user {
-		opacity: 0.7;
-		font-size: 0.9rem;
-	}
-	button {
-		padding: 0.35rem 0.75rem;
-		cursor: pointer;
-	}
-	main {
-		font-family: system-ui, sans-serif;
-	}
-</style>
+    <main class="mx-auto max-w-5xl px-6 py-8">
+      {@render children()}
+    </main>
+  </div>
+{:else}
+  {@render children()}
+{/if}
