@@ -1,0 +1,22 @@
+{
+  "name": "bookkeeper",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter api dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter web build && rm -rf apps/api/public/* && cp -r apps/web/build/. apps/api/public/ && pnpm --filter api build",
+    "lint": "pnpm --filter api lint && pnpm --filter web lint",
+    "lint:fix": "pnpm --filter api exec eslint . --fix && pnpm --filter web exec eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm --filter api typecheck && pnpm --filter web check"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2",
+    "prettier-plugin-svelte": "^3.3.3"
+  }
+}

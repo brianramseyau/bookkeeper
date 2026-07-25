@@ -1,0 +1,31 @@
+services:
+  bookkeeper:
+    build: .
+    image: bookkeeper:latest
+    container_name: bookkeeper
+    restart: unless-stopped
+    ports:
+      - '3333:3333'
+    volumes:
+      # Everything that matters lives in this one SQLite file - back up this
+      # directory (e.g. stop the container, copy it) to back up the whole app.
+      - /mnt/user/appdata/bookkeeper/data:/app/data
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3333
+      LOG_LEVEL: info
+      # Generate once with `node ace generate:key` and keep it stable -
+      # rotating it invalidates every existing session.
+      APP_KEY: ${APP_KEY}
+      # Change to your actual unraid hostname / reverse-proxy URL.
+      APP_URL: http://localhost:3333
+      SESSION_DRIVER: cookie
+      DB_FILENAME: /app/data/bookkeeper.sqlite3
+      # Only read once, by the one-time `docker compose exec bookkeeper node
+      # ace db:seed` bootstrap step that creates the two logins - not used
+      # on every boot.
+      SEED_BRIAN_EMAIL: ${SEED_BRIAN_EMAIL}
+      SEED_BRIAN_PASSWORD: ${SEED_BRIAN_PASSWORD}
+      SEED_ARIEL_EMAIL: ${SEED_ARIEL_EMAIL}
+      SEED_ARIEL_PASSWORD: ${SEED_ARIEL_PASSWORD}

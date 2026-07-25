@@ -1,0 +1,25 @@
+node_modules
+.env
+.env.*
+!.env.example
+
+# Claude Code local settings (machine-specific, not project config)
+.claude/
+
+apps/api/build
+apps/api/tmp
+apps/api/.adonisjs
+# apps/api/public holds the built SvelteKit SPA, copied in by `pnpm build` -
+# it's a build artifact, not source.
+apps/api/public/*
+!apps/api/public/.gitkeep
+
+apps/web/.svelte-kit
+apps/web/build
+
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+
+.DS_Store
+*.xlsx

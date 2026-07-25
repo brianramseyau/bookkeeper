@@ -1,0 +1,36 @@
+/*
+|--------------------------------------------------------------------------
+| Routes file
+|--------------------------------------------------------------------------
+|
+| The routes file is used for defining the HTTP routes.
+|
+*/
+
+import { middleware } from '#start/kernel'
+import router from '@adonisjs/core/services/router'
+import app from '@adonisjs/core/services/app'
+import { controllers } from '#generated/controllers'
+
+router
+  .group(() => {
+    router.post('login', [controllers.Auth, 'login'])
+
+    router
+      .group(() => {
+        router.post('logout', [controllers.Auth, 'logout'])
+        router.get('me', [controllers.Auth, 'me'])
+      })
+      .use(middleware.auth())
+  })
+  .prefix('/api')
+
+/**
+ * SPA fallback: anything that isn't an API route or a real static asset
+ * (already handled by the static middleware before requests reach here)
+ * gets the SvelteKit build's fallback index.html, so client-side routing
+ * works on refresh/deep-link for routes adapter-static couldn't prerender.
+ */
+router.get('*', ({ response }) => {
+  return response.download(app.publicPath('index.html'))
+})
