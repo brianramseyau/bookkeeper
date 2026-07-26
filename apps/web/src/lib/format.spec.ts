@@ -90,10 +90,10 @@ describe('formatRelativeDate', () => {
     expect(formatRelativeDate('2026-03-15T00:00:00.000+00:00')).toBe('Today')
   })
 
-  it('renders "Tomorrow" and "Yesterday" for adjacent days', () => {
+  it('renders "Tomorrow" for the next day but the actual date for yesterday', () => {
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
     expect(formatRelativeDate('2026-03-16T00:00:00.000+00:00')).toBe('Tomorrow')
-    expect(formatRelativeDate('2026-03-14T00:00:00.000+00:00')).toBe('Yesterday')
+    expect(formatRelativeDate('2026-03-14T00:00:00.000+00:00')).toBe('14 Mar 2026')
   })
 
   it('renders a day count for a future date', () => {
@@ -101,9 +101,14 @@ describe('formatRelativeDate', () => {
     expect(formatRelativeDate('2026-03-20T00:00:00.000+00:00')).toBe('In 5 days')
   })
 
-  it('renders a day count for a past date', () => {
+  it('renders the actual date instead of a day count for a past date', () => {
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
-    expect(formatRelativeDate('2026-03-05T00:00:00.000+00:00')).toBe('10 days ago')
+    expect(formatRelativeDate('2026-03-05T00:00:00.000+00:00')).toBe('5 Mar 2026')
+  })
+
+  it('renders the actual date for a date far in the past, instead of a large day count', () => {
+    vi.setSystemTime(new Date('2026-09-15T00:00:00.000Z'))
+    expect(formatRelativeDate('2026-02-15T00:00:00.000+00:00')).toBe('15 Feb 2026')
   })
 
   it('ignores time-of-day when computing the day difference', () => {

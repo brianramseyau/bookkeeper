@@ -61,18 +61,18 @@ export function daysUntil(isoDate: string): number {
 }
 
 /**
- * Phrased relative to "now" rather than "due"/"overdue" - unlike
- * formatDaysUntilDue, this labels dates that may be well in the past (e.g.
- * browsing a bygone month), where "overdue" would misleadingly imply
- * something still owed.
+ * Phrased relative to "now" for today/upcoming dates, since "In 3 days" is
+ * more useful than the calendar date at a glance. Once a date is in the
+ * past it switches to the actual date instead - "205 days ago" (e.g. when
+ * browsing a bygone month) is a chore to translate into a real date, while
+ * the date itself is immediately legible.
  */
 export function formatRelativeDate(isoDate: string | null): string {
   if (!isoDate) return '—'
   const diffDays = daysUntil(isoDate)
 
+  if (diffDays < 0) return formatDate(isoDate)
   if (diffDays === 0) return 'Today'
   if (diffDays === 1) return 'Tomorrow'
-  if (diffDays === -1) return 'Yesterday'
-  if (diffDays > 0) return `In ${diffDays} days`
-  return `${Math.abs(diffDays)} days ago`
+  return `In ${diffDays} days`
 }

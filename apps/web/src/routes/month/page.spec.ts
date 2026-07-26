@@ -507,14 +507,15 @@ describe('month page', () => {
   it('shows due dates relative to today, sorted soonest-first, colored by paid rather than actual', async () => {
     // "now" is pinned to 2026-03-15 in beforeEach. Electricity's dueDate is
     // 2026-03-20 (5 days out, unpaid - amber); Groceries' dueDay of 5
-    // resolves against the viewed month (March 2026) to 2026-03-05 (10 days
-    // ago), but is marked paid - green despite being overdue, since `paid`
-    // (not `actual`) is what decides the color now. No more "Day 5"
-    // wording, and Groceries should sort ahead of Electricity.
+    // resolves against the viewed month (March 2026) to 2026-03-05, which is
+    // in the past so it renders as the actual date rather than "N days ago",
+    // and is marked paid - green despite being overdue, since `paid` (not
+    // `actual`) is what decides the color now. No more "Day 5" wording, and
+    // Groceries should sort ahead of Electricity.
     setDefaultMocks()
     render(MonthPage)
 
-    const paidChip = await screen.findByText('10 days ago')
+    const paidChip = await screen.findByText('5 Mar 2026')
     expect(paidChip.className).toContain('bg-green-100')
     expect(paidChip.closest('td')!.getAttribute('title')).toBe('5 Mar 2026')
 
@@ -553,7 +554,7 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const chip = await screen.findByText('10 days ago')
+    const chip = await screen.findByText('5 Mar 2026')
     expect(chip.className).toContain('bg-red-100')
   })
 
