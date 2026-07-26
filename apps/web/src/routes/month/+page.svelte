@@ -230,6 +230,12 @@
     return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
   }
 
+  function dueLabel(line: StandardMonthLine): string {
+    if (line.dueDate) return formatDate(line.dueDate)
+    if (line.dueDay) return `Day ${line.dueDay}`
+    return '—'
+  }
+
   function cancelEditExpense() {
     editingExpenseKey = null
     editExpenseMode = null
@@ -579,7 +585,7 @@
             <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
               <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
-                >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
+                >{dueLabel(line)}</td
               >
               <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
                 >{formatCurrency(line.projected)}</td
@@ -636,7 +642,7 @@
             <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
               <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
-                >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
+                >{dueLabel(line)}</td
               >
               <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
                 >{formatCurrency(line.projected)}</td

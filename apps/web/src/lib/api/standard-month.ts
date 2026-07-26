@@ -6,6 +6,7 @@ export interface StandardMonthLine {
   projected: number
   actual: number | null
   dueDay: number | null
+  dueDate: string | null
 }
 
 export interface StandardMonthIncomeLine {

@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import User from '#models/user'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
@@ -24,6 +25,8 @@ export interface StandardMonthLine {
   /** null = not tracked for this specific month (e.g. a future utility bill not entered yet). */
   actual: number | null
   dueDay: number | null
+  /** Full due date (utilities only) - offset from month-end rather than a fixed day-of-month. */
+  dueDate: string | null
 }
 
 export interface StandardMonthIncomeLine {
@@ -163,6 +166,7 @@ export class StandardMonthService {
         projected: trend.average ?? 0,
         actual: actualBill ? actualBill.amount : null,
         dueDay: null,
+        dueDate: this.utilityDueDate(utility, bills, year, month),
       })
     }
 
@@ -178,6 +182,7 @@ export class StandardMonthService {
           projected: bill.amount,
           actual: bill.amount,
           dueDay: bill.dueDay,
+          dueDate: null,
         })
       } else {
         const periodsPerYear =
@@ -194,6 +199,7 @@ export class StandardMonthService {
         projected: round(nonMonthlyAmortizedTotal),
         actual: null,
         dueDay: null,
+        dueDate: null,
       })
     }
 
@@ -212,6 +218,7 @@ export class StandardMonthService {
         projected: total,
         actual: total,
         dueDay: null,
+        dueDate: null,
       })
     }
 
@@ -243,10 +250,60 @@ export class StandardMonthService {
             ? round(thisMonthActuals.reduce((sum, actual) => sum + actual.amount, 0))
             : null,
         dueDay: null,
+        dueDate: null,
       })
     }
 
     return lines
+  }
+
+  private static readonly UTILITY_PERIOD_MONTHS: Record<string, number> = {
+    monthly: 1,
+    quarterly: 3,
+    biannual: 6,
+    annual: 12,
+  }
+
+  /**
+   * Utilities aren't billed on a fixed calendar day like recurring bills -
+   * a bill covers a period ending in some month, and payment is due a
+   * configured number of days after that. Anchors the billing cycle on the
+   * utility's most recent actual bill so non-monthly utilities (e.g. a
+   * quarterly water bill) only show a due date in the months they're
+   * actually billed, not every month.
+   */
+  private utilityDueDate(
+    utility: Utility,
+    bills: UtilityBill[],
+    year: number,
+    month: number
+  ): string | null {
+    if (utility.dueOffsetDays === null) return null
+
+    const periodMonths = StandardMonthService.UTILITY_PERIOD_MONTHS[utility.frequency] ?? 1
+    if (periodMonths > 1) {
+      const mostRecentBill = bills.reduce<UtilityBill | null>((latest, bill) => {
+        const billIndex = bill.year * 12 + bill.month
+        const latestIndex = latest ? latest.year * 12 + latest.month : Number.NEGATIVE_INFINITY
+        return billIndex > latestIndex ? bill : latest
+      }, null)
+
+      if (mostRecentBill) {
+        const anchorIndex = mostRecentBill.year * 12 + mostRecentBill.month
+        const viewedIndex = year * 12 + month
+        const diff = (((viewedIndex - anchorIndex) % periodMonths) + periodMonths) % periodMonths
+        if (diff !== 0) return null
+      }
+    }
+
+    // Full ISO datetime (not just a date) to match how every other date
+    // field in the API is returned - the frontend's formatDate() expects
+    // this and doesn't do timezone-safe parsing of bare date strings.
+    return DateTime.utc(year, month, 1)
+      .endOf('month')
+      .startOf('day')
+      .plus({ days: utility.dueOffsetDays })
+      .toISO()
   }
 
   private customPeriodsPerYear(value: number | null, unit: string | null): number {

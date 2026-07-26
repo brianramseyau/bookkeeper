@@ -7,6 +7,8 @@ export default class UtilityTransformer extends BaseTransformer<Utility> {
       'id',
       'name',
       'categoryId',
+      'frequency',
+      'dueOffsetDays',
       'isActive',
       'createdAt',
       'updatedAt',

@@ -1,9 +1,14 @@
 import { api } from '$lib/api'
 
+export type UtilityFrequency = 'monthly' | 'quarterly' | 'biannual' | 'annual'
+
 export interface Utility {
   id: number
   name: string
   categoryId: number | null
+  frequency: UtilityFrequency
+  /** Days after the billing period's month-end that payment is due - null if unknown. */
+  dueOffsetDays: number | null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -35,6 +40,13 @@ export function listUtilities() {
 
 export function createUtility(name: string) {
   return api.post<Utility>('/utilities', { name })
+}
+
+export function updateUtility(
+  id: number,
+  input: { frequency?: UtilityFrequency; dueOffsetDays?: number | null }
+) {
+  return api.patch<Utility>(`/utilities/${id}`, input)
 }
 
 export function getUtilityBills(utilityId: number) {

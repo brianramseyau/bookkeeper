@@ -7,9 +7,11 @@
     getUtilityTrend,
     upsertUtilityBill,
     deleteUtilityBill,
+    updateUtility,
     type Utility,
     type UtilityBill,
     type UtilityTrend,
+    type UtilityFrequency,
   } from '$lib/api/utilities'
   import { formatCurrency, monthShortName } from '$lib/format'
   import { ApiError } from '$lib/api'
@@ -31,6 +33,11 @@
   // not a string - see https://svelte.dev/docs/svelte/bind#Number-inputs
   let editingValue = $state<number>(NaN)
   let saving = $state(false)
+
+  let editingSettings = $state(false)
+  let editFrequency = $state<UtilityFrequency>('monthly')
+  let editDueOffsetDays = $state<number>(NaN)
+  let savingSettings = $state(false)
 
   onMount(load)
 
@@ -126,6 +133,33 @@
       saving = false
     }
   }
+
+  function startEditSettings() {
+    if (!utility) return
+    editingSettings = true
+    editFrequency = utility.frequency
+    editDueOffsetDays = utility.dueOffsetDays ?? NaN
+  }
+
+  function cancelEditSettings() {
+    editingSettings = false
+  }
+
+  async function saveSettings() {
+    savingSettings = true
+    error = null
+    try {
+      utility = await updateUtility(utilityId, {
+        frequency: editFrequency,
+        dueOffsetDays: Number.isNaN(editDueOffsetDays) ? null : editDueOffsetDays,
+      })
+      editingSettings = false
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save billing settings'
+    } finally {
+      savingSettings = false
+    }
+  }
 </script>
 
 <a
@@ -174,6 +208,75 @@
       </div>
     </div>
   {/if}
+
+  <div
+    class="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+  >
+    {#if editingSettings}
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Frequency</span>
+          <select
+            bind:value={editFrequency}
+            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="biannual">Biannual</option>
+            <option value="annual">Annual</option>
+          </select>
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+            >Due (days after billing period ends)</span
+          >
+          <input
+            type="number"
+            min="0"
+            placeholder="—"
+            bind:value={editDueOffsetDays}
+            class="w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </label>
+        <button
+          type="button"
+          onclick={saveSettings}
+          disabled={savingSettings}
+          class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onclick={cancelEditSettings}
+          class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        >
+          Cancel
+        </button>
+      </div>
+    {:else}
+      <div class="flex items-center justify-between">
+        <p class="text-sm text-slate-600 dark:text-slate-400">
+          <span class="font-medium text-slate-900 dark:text-slate-100 capitalize"
+            >{utility.frequency}</span
+          >
+          {#if utility.dueOffsetDays !== null}
+            · due {utility.dueOffsetDays} day{utility.dueOffsetDays === 1 ? '' : 's'} after billing
+            period ends
+          {:else}
+            · no due-date offset set
+          {/if}
+        </p>
+        <button
+          type="button"
+          onclick={startEditSettings}
+          class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+        >
+          Edit
+        </button>
+      </div>
+    {/if}
+  </div>
 
   <div
     class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"

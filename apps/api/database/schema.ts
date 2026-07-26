@@ -297,12 +297,25 @@ export class UserSchema extends BaseModel {
 }
 
 export class UtilitySchema extends BaseModel {
-  static $columns = ['categoryId', 'createdAt', 'id', 'isActive', 'name', 'updatedAt'] as const
+  static $columns = [
+    'categoryId',
+    'createdAt',
+    'dueOffsetDays',
+    'frequency',
+    'id',
+    'isActive',
+    'name',
+    'updatedAt',
+  ] as const
   $columns = UtilitySchema.$columns
   @column()
   declare categoryId: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare dueOffsetDays: number | null
+  @column()
+  declare frequency: string
   @column({ isPrimary: true })
   declare id: number
   @column()
