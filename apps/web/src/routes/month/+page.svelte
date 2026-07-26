@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { page } from '$app/state'
+  import { replaceState } from '$app/navigation'
   import { getStandardMonth, type StandardMonthResult, type StandardMonthLine } from '$lib/api/standard-month'
   import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
@@ -28,8 +30,12 @@
   const currentYear = today.getFullYear()
   const currentMonth = today.getMonth() + 1
 
-  let year = $state(currentYear)
-  let month = $state(currentMonth)
+  const yearParam = Number(page.url.searchParams.get('year'))
+  const monthParam = Number(page.url.searchParams.get('month'))
+  const hasValidMonthParam = Number.isInteger(monthParam) && monthParam >= 1 && monthParam <= 12
+
+  let year = $state(Number.isInteger(yearParam) && yearParam > 0 ? yearParam : currentYear)
+  let month = $state(hasValidMonthParam ? monthParam : currentMonth)
   let data = $state<StandardMonthResult | null>(null)
   let sources = $state<IncomeSource[]>([])
   let entries = $state<IncomeEntry[]>([])
@@ -96,6 +102,12 @@
 
   const isCurrentMonth = $derived(year === currentYear && month === currentMonth)
 
+  function clearUrlParams() {
+    if (page.url.search) {
+      replaceState('/month', {})
+    }
+  }
+
   function changeMonth(delta: number) {
     let newMonth = month + delta
     let newYear = year
@@ -108,12 +120,14 @@
     }
     month = newMonth
     year = newYear
+    clearUrlParams()
     void load()
   }
 
   function goToCurrentMonth() {
     year = currentYear
     month = currentMonth
+    clearUrlParams()
     void load()
   }
 

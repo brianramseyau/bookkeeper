@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { goto } from '$app/navigation'
   import { authState } from '$lib/stores/auth.svelte'
   import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
   import { formatCurrency, formatDaysUntilDue, monthName } from '$lib/format'
@@ -98,7 +99,10 @@
         Monthly expenses (last 12 months)
       </h2>
       <div class="mt-3">
-        <MonthlyExpenseChart data={data.monthlyExpenses} />
+        <MonthlyExpenseChart
+          data={data.monthlyExpenses}
+          onSelectMonth={(year, month) => goto(`/month?year=${year}&month=${month}`)}
+        />
       </div>
     </div>
 
@@ -108,9 +112,11 @@
       <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Upcoming bills</h2>
       {#if data.upcomingBills.length === 0}
         <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Nothing scheduled.</p>
+      {:else if data.upcomingBills.length === 1}
+        <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Nothing else scheduled.</p>
       {:else}
         <ul class="mt-3 divide-y divide-slate-100 dark:divide-slate-700/60">
-          {#each data.upcomingBills as bill (bill.id)}
+          {#each data.upcomingBills.slice(1) as bill (bill.id)}
             <li class="flex items-center justify-between py-2 text-sm">
               <div>
                 <p class="font-medium text-slate-900 dark:text-slate-100">{bill.name}</p>

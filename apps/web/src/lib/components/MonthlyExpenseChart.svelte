@@ -10,9 +10,10 @@
 
   interface Props {
     data: MonthlyExpense[]
+    onSelectMonth?: (year: number, month: number) => void
   }
 
-  let { data }: Props = $props()
+  let { data, onSelectMonth }: Props = $props()
 
   let showTable = $state(false)
   let hoverIndex = $state<number | null>(null)
@@ -92,17 +93,40 @@
     }
     hoverIndex = nearest
   }
+
+  function handleClick() {
+    if (hovered) onSelectMonth?.(hovered.entry.year, hovered.entry.month)
+  }
+
+  function handleKeydown(event: KeyboardEvent) {
+    if (points.length === 0) return
+    if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      hoverIndex = hoverIndex === null ? 0 : Math.min(hoverIndex + 1, points.length - 1)
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      hoverIndex = hoverIndex === null ? points.length - 1 : Math.max(hoverIndex - 1, 0)
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      if (hovered) onSelectMonth?.(hovered.entry.year, hovered.entry.month)
+    }
+  }
 </script>
 
 <div class="relative">
   {#if points.length > 0}
     <svg
       viewBox="0 0 {width} {height}"
-      class="w-full touch-none"
-      role="img"
-      aria-label="Monthly expenses over the last 12 months"
+      class={['w-full touch-none', onSelectMonth && 'cursor-pointer']}
+      role="button"
+      tabindex={onSelectMonth ? 0 : -1}
+      aria-label="Monthly expenses over the last 12 months{onSelectMonth
+        ? ' - use arrow keys to pick a month, Enter to open it in Monthly'
+        : ''}"
       onpointermove={(e) => handlePointerMove(e, e.currentTarget)}
       onpointerleave={() => (hoverIndex = null)}
+      onclick={handleClick}
+      onkeydown={handleKeydown}
     >
       {#each gridLines as line (line.value)}
         <line
@@ -198,7 +222,13 @@
     </thead>
     <tbody>
       {#each data as entry (entry.year + '-' + entry.month)}
-        <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+        <tr
+          class={[
+            'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
+            onSelectMonth && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40',
+          ]}
+          onclick={() => onSelectMonth?.(entry.year, entry.month)}
+        >
           <td class="px-2 py-1 text-slate-700 dark:text-slate-300">
             {monthShortName(entry.month)} {entry.year}
           </td>
