@@ -10,6 +10,7 @@ import RecurringBill from '#models/recurring_bill'
 import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import CategoryBudgetItem from '#models/category_budget_item'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import MonthCarryover from '#models/month_carryover'
@@ -409,7 +410,7 @@ export default class ImportXlsx extends BaseCommand {
       const items = parseUserItemSheet(amberSheet)
       const total = items.reduce((sum, item) => sum + item.amount, 0)
       this.logger.info(
-        `Amber: parsed ${items.length} cost item(s), total $${total.toFixed(2)} - seeding "Dog" category budget`
+        `Amber: parsed ${items.length} cost item(s), total $${total.toFixed(2)} - seeding "Dog" category budget + itemized breakdown`
       )
 
       if (!this.dryRun) {
@@ -421,6 +422,23 @@ export default class ImportXlsx extends BaseCommand {
           )
           dogCategory.budgetAmount = total
           await dogCategory.save()
+
+          if (this.truncate) {
+            await CategoryBudgetItem.query({ client: trx })
+              .where('categoryId', dogCategory.id)
+              .delete()
+          }
+
+          for (const item of items) {
+            await CategoryBudgetItem.updateOrCreate(
+              { categoryId: dogCategory.id, name: item.name },
+              {
+                amount: item.amount,
+                notes: item.dayOfMonth ? `Day ${item.dayOfMonth}` : null,
+              },
+              { client: trx }
+            )
+          }
         })
       }
     }

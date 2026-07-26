@@ -32,6 +32,11 @@ router
         router.patch('category-actuals/:id', [controllers.CategoryActuals, 'update'])
         router.delete('category-actuals/:id', [controllers.CategoryActuals, 'destroy'])
 
+        router.get('categories/:id/budget-items', [controllers.CategoryBudgetItems, 'index'])
+        router.post('categories/:id/budget-items', [controllers.CategoryBudgetItems, 'store'])
+        router.patch('category-budget-items/:id', [controllers.CategoryBudgetItems, 'update'])
+        router.delete('category-budget-items/:id', [controllers.CategoryBudgetItems, 'destroy'])
+
         router.get('users', [controllers.Users, 'index'])
 
         router.get('utilities', [controllers.Utilities, 'index'])

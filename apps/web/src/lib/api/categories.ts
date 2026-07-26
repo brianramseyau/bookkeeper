@@ -6,6 +6,8 @@ export interface Category {
   color: string | null
   sortOrder: number
   budgetAmount: number | null
+  /** Number of itemized budget lines - when > 0, budgetAmount is derived from them, not manually set. */
+  budgetItemCount: number
   includeInStandardMonth: boolean
   isActive: boolean
 }

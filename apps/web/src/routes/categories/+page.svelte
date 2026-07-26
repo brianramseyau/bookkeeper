@@ -86,7 +86,11 @@
       await updateCategory(category.id, {
         name: editName.trim(),
         color: editColor,
-        budgetAmount: Number.isNaN(editBudgetAmount) ? null : editBudgetAmount,
+        // Itemized categories derive their budget from their items (see the
+        // category detail page) - budgetAmount isn't manually editable here.
+        ...(category.budgetItemCount === 0
+          ? { budgetAmount: Number.isNaN(editBudgetAmount) ? null : editBudgetAmount }
+          : {}),
         includeInStandardMonth: editIncludeInStandardMonth,
       })
       editingId = null
@@ -185,14 +189,23 @@
                 </div>
               </td>
               <td class="px-3 py-2 text-right">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="—"
-                  bind:value={editBudgetAmount}
-                  class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
+                {#if row.category.budgetItemCount > 0}
+                  <span
+                    class="text-sm text-slate-500 dark:text-slate-400"
+                    title="Derived from {row.category.budgetItemCount} itemized budget line(s) - edit them on the category page"
+                  >
+                    {formatCurrency(row.category.budgetAmount)}
+                  </span>
+                {:else}
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="—"
+                    bind:value={editBudgetAmount}
+                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                {/if}
               </td>
               <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
               <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
@@ -237,8 +250,16 @@
                   {row.category.name}
                 </a>
               </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400">
+              <td
+                class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                title={row.category.budgetItemCount > 0
+                  ? `Derived from ${row.category.budgetItemCount} itemized budget line(s)`
+                  : undefined}
+              >
                 {formatCurrency(row.category.budgetAmount)}
+                {#if row.category.budgetItemCount > 0}
+                  <span class="text-slate-400 dark:text-slate-500">*</span>
+                {/if}
               </td>
               <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
                 {formatCurrency(row.trend?.latestAmount ?? null)}

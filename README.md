@@ -92,3 +92,29 @@ every table, or individual tables as CSV - handy for opening in a
 spreadsheet or feeding into another tool, but it's a point-in-time
 snapshot of the data only (no auth, no history), not a way to restore the
 app. Use the SQLite file for actual backups.
+
+## Known gaps / not in v1
+
+### Permanent non-goals
+
+Won't be implemented - deliberate, not deferred:
+
+- **Multi-currency support** - this is a single-currency household
+  budget tool (AUD formatting is hardcoded) and will stay that way.
+- **Reverse-proxy/SSO integration** - front the container yourself for
+  TLS/auth if you want it.
+- **`House Stuff` and `FY25 Bonus` sheets** - one-off/ephemeral sheets
+  from the source workbook, permanently disregarded.
+
+### Deferred / future work
+
+Discovered along the way or scoped out of v1, but plausible to add later:
+
+- **`Non-PAYG Income Tax` sheet not yet imported** - the one remaining
+  excluded sheet that's still expected to be modeled eventually.
+- **No notifications/reminders** for upcoming or overdue bills - you have
+  to check the Dashboard or Recurring Bills page yourself.
+- **No settings page** - no UI to change your password or set a display
+  color, even though `users.display_color` exists in the schema.
+- **No automated test coverage** - `tests/` is just the AdonisJS starter
+  scaffold; nothing has real unit/integration tests. Goal: 100% coverage.

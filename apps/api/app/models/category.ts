@@ -1,7 +1,12 @@
 import { CategorySchema } from '#database/schema'
-import { beforeCreate } from '@adonisjs/lucid/orm'
+import { beforeCreate, hasMany } from '@adonisjs/lucid/orm'
+import type { HasMany } from '@adonisjs/lucid/types/relations'
+import CategoryBudgetItem from '#models/category_budget_item'
 
 export default class Category extends CategorySchema {
+  @hasMany(() => CategoryBudgetItem)
+  declare budgetItems: HasMany<typeof CategoryBudgetItem>
+
   /**
    * Categories are created from several places (the UI's "add category"
    * form, findOrCreate calls during xlsx import) that don't specify a

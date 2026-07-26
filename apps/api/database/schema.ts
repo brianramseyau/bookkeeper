@@ -40,6 +40,33 @@ export class CategorySchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class CategoryBudgetItemSchema extends BaseModel {
+  static $columns = [
+    'amount',
+    'categoryId',
+    'createdAt',
+    'id',
+    'name',
+    'notes',
+    'updatedAt',
+  ] as const
+  $columns = CategoryBudgetItemSchema.$columns
+  @column()
+  declare amount: number
+  @column()
+  declare categoryId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class CategoryMonthlyActualSchema extends BaseModel {
   static $columns = [
     'amount',
