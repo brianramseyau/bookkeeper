@@ -20,13 +20,17 @@ dependency, one SQLite file holds everything.
 ```bash
 pnpm install
 pnpm --filter api exec node ace migration:run
-pnpm --filter api exec node ace db:seed   # creates the two logins from .env
+pnpm --filter api exec node ace db:seed   # creates logins from the workbook's "Users" sheet
 pnpm dev:api    # AdonisJS on :3333
 pnpm dev:web    # SvelteKit dev server on :5173, proxies /api to :3333
 ```
 
 Copy `apps/api/.env.example` to `apps/api/.env` and fill in `APP_KEY`
-(`node ace generate:key`) and the seed credentials before the first run.
+(`node ace generate:key`) and `SEED_WORKBOOK_PATH` (pointing at your
+`Joint Account Workbook.xlsx`) before the first run. `db:seed` reads that
+workbook's "Users" sheet - columns `Name`, `Email`, `Password`, one row per
+login - and creates/updates a user for each row; it's not configured via
+individual env vars per person.
 
 ### Database
 
@@ -95,11 +99,14 @@ behavior.
 
 ## Deploying (Docker / unRAID)
 
-1. Copy `.env.example` to `.env`, fill in `APP_KEY` and the seed
-   credentials.
+1. Copy `.env.example` to `.env`, fill in `APP_KEY` and
+   `SEED_WORKBOOK_PATH`. Place your `Joint Account Workbook.xlsx` in the
+   appdata data directory (see step 4) so it's reachable at that path
+   in-container, e.g. `/app/data/Joint Account Workbook.xlsx`.
 2. `docker compose up -d --build`
 3. One-time only: `docker compose exec bookkeeper node ace db:seed` to
-   create the two logins.
+   create logins from the workbook's "Users" sheet (`Name`, `Email`,
+   `Password` columns).
 4. Point the container's `/mnt/user/appdata/bookkeeper/data` mount at
    wherever you want the data to live on the host - see `docker-compose.yml`.
 

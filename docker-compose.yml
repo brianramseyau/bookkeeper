@@ -23,9 +23,8 @@ services:
       SESSION_DRIVER: cookie
       DB_FILENAME: /app/data/bookkeeper.sqlite3
       # Only read once, by the one-time `docker compose exec bookkeeper node
-      # ace db:seed` bootstrap step that creates the two logins - not used
-      # on every boot.
-      SEED_BRIAN_EMAIL: ${SEED_BRIAN_EMAIL}
-      SEED_BRIAN_PASSWORD: ${SEED_BRIAN_PASSWORD}
-      SEED_ARIEL_EMAIL: ${SEED_ARIEL_EMAIL}
-      SEED_ARIEL_PASSWORD: ${SEED_ARIEL_PASSWORD}
+      # ace db:seed` bootstrap step that creates logins from the workbook's
+      # "Users" sheet (Name, Email, Password columns) - not used on every
+      # boot. Drop your Joint Account Workbook.xlsx into the appdata data
+      # directory mounted above so it's visible at this path in-container.
+      SEED_WORKBOOK_PATH: ${SEED_WORKBOOK_PATH}

@@ -49,13 +49,15 @@ Per-app extras:
 
 ```bash
 pnpm --filter api exec node ace migration:run
-pnpm --filter api exec node ace db:seed        # creates the two logins from apps/api/.env
+pnpm --filter api exec node ace db:seed        # creates logins from the workbook's "Users" sheet
 pnpm --filter api test:coverage                # text + HTML report in apps/api/coverage/
 pnpm --filter web test:coverage                # text + HTML report in apps/web/coverage/
 ```
 
 Before first run, copy `apps/api/.env.example` to `apps/api/.env` and fill
-in `APP_KEY` (`node ace generate:key`) and `SEED_*` credentials.
+in `APP_KEY` (`node ace generate:key`) and `SEED_WORKBOOK_PATH` (path to
+the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
+`Password` columns - `db:seed` reads to create logins).
 
 ## API (`apps/api`) — AdonisJS conventions
 
@@ -81,8 +83,10 @@ in `APP_KEY` (`node ace generate:key`) and `SEED_*` credentials.
   parsers (`app/services/import/`). Put new date/frequency/aggregation
   logic here, not in controllers.
 - **Auth**: session/cookie-based, exactly two user accounts (household
-  members), seeded via `db:seed`. No self-registration, no roles/permissions
-  system — don't build toward multi-tenancy.
+  members), seeded via `db:seed` from the workbook's "Users" sheet (not
+  `.env` — see `database/seeders/user_seeder.ts` and
+  `app/services/import/parse_users_sheet.ts`). No self-registration, no
+  roles/permissions system — don't build toward multi-tenancy.
 - **HotHook** boundaries are configured for controllers and middleware
   (`hotHook` in `package.json`) — the dev server HMRs those without a full
   restart.

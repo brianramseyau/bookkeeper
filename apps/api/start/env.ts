@@ -28,9 +28,8 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Database (falls back to tmp/db.sqlite3 for local dev when unset)
   DB_FILENAME: Env.schema.string.optional(),
 
-  // Seed data (used only by `node ace db:seed`, not read at runtime)
-  SEED_BRIAN_EMAIL: Env.schema.string({ format: 'email' }),
-  SEED_BRIAN_PASSWORD: Env.schema.string(),
-  SEED_ARIEL_EMAIL: Env.schema.string({ format: 'email' }),
-  SEED_ARIEL_PASSWORD: Env.schema.string(),
+  // Seed data (used only by `node ace db:seed`, not read at runtime): path
+  // to the .xlsx workbook whose "Users" sheet (Name, Email, Password
+  // columns) supplies the logins to create.
+  SEED_WORKBOOK_PATH: Env.schema.string(),
 })

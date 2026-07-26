@@ -26,3 +26,4 @@ apps/web/coverage
 
 .DS_Store
 *.xlsx
+!apps/api/tests/fixtures/*.xlsx
