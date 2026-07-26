@@ -38,6 +38,9 @@ router
         router.delete('category-budget-items/:id', [controllers.CategoryBudgetItems, 'destroy'])
 
         router.get('users', [controllers.Users, 'index'])
+        router.patch('users/:id', [controllers.Users, 'update'])
+        router.put('users/:id/password', [controllers.Users, 'changePassword'])
+        router.put('users/:id/email', [controllers.Users, 'changeEmail'])
 
         router.get('utilities', [controllers.Utilities, 'index'])
         router.post('utilities', [controllers.Utilities, 'store'])

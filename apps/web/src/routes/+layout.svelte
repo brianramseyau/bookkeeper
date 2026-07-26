@@ -115,9 +115,16 @@
               </svg>
             {/if}
           </button>
-          <span class="text-sm text-slate-500 dark:text-slate-400">
+          <a
+            href="/settings"
+            class="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+          >
+            <span
+              class="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+              style="background-color: {authState.user.displayColor ?? '#94a3b8'}"
+            ></span>
             {authState.user.fullName ?? authState.user.email}
-          </span>
+          </a>
           <button
             onclick={handleLogout}
             class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
@@ -193,9 +200,16 @@
                   </svg>
                 {/if}
               </button>
-              <span class="text-sm text-slate-500 dark:text-slate-400">
+              <a
+                href="/settings"
+                class="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+              >
+                <span
+                  class="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                  style="background-color: {authState.user.displayColor ?? '#94a3b8'}"
+                ></span>
                 {authState.user.fullName ?? authState.user.email}
-              </span>
+              </a>
             </div>
             <button
               onclick={handleLogout}

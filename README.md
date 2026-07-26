@@ -114,7 +114,5 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   excluded sheet that's still expected to be modeled eventually.
 - **No notifications/reminders** for upcoming or overdue bills - you have
   to check the Dashboard or Recurring Bills page yourself.
-- **No settings page** - no UI to change your password or set a display
-  color, even though `users.display_color` exists in the schema.
 - **No automated test coverage** - `tests/` is just the AdonisJS starter
   scaffold; nothing has real unit/integration tests. Goal: 100% coverage.
