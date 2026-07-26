@@ -31,6 +31,20 @@ Copy `apps/api/.env.example` to `apps/api/.env` and fill in `APP_KEY`
 Useful scripts (run from the repo root): `pnpm lint`, `pnpm lint:fix`,
 `pnpm typecheck`, `pnpm format`, `pnpm build`.
 
+### Running tests
+
+The API has a full Japa test suite (unit tests for the xlsx import parsers,
+`RollingAverageService`, `StandardMonthService`'s date/frequency helpers,
+and every validator; functional/HTTP tests for every controller). It runs
+against its own isolated SQLite file (`apps/api/tmp/test.sqlite3`) and seed
+credentials defined in the committed `apps/api/.env.test`, so it never
+touches your real dev database and needs no extra setup on a fresh clone.
+
+```bash
+pnpm --filter api test             # run the suite
+pnpm --filter api test:coverage    # run with a coverage report (text + HTML in apps/api/coverage/)
+```
+
 ## Deploying (Docker / unRAID)
 
 1. Copy `.env.example` to `.env`, fill in `APP_KEY` and the seed
@@ -114,5 +128,21 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   excluded sheet that's still expected to be modeled eventually.
 - **No notifications/reminders** for upcoming or overdue bills - you have
   to check the Dashboard or Recurring Bills page yourself.
-- **No automated test coverage** - `tests/` is just the AdonisJS starter
-  scaffold; nothing has real unit/integration tests. Goal: 100% coverage.
+- **No frontend test coverage** - the SvelteKit app (`apps/web`) has no
+  test tooling installed and no automated tests. The API (`apps/api`) sits
+  at 100% statement/branch/function/line coverage (see "Running tests"
+  above), with two deliberate, documented exclusions rather than tests
+  bent out of shape to force a number:
+  - The one-time `import:xlsx` command is excluded from the coverage
+    target entirely (`--exclude="commands/**"` in `test:coverage`) since
+    it's already been run once against the real workbook and
+    hand-verified (see the Verification section of the original
+    implementation plan), and isn't exercised by the running app
+    afterwards.
+  - A handful of individual lines carry inline `c8 ignore` comments for
+    branches that are provably unreachable through any legitimate input -
+    e.g. a DB-level `CHECK` constraint that already rules out the values
+    a fallback branch exists to handle, or a `BaseSerializer` hook
+    required for Lucid pagination support that this app never triggers
+    (every table here is small enough to return in full). Each one has a
+    comment at the call site explaining why it can't be hit.

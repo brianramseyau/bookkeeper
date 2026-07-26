@@ -28,6 +28,7 @@ const loggerConfig = defineConfig({
       /**
        * Use sync destination in non-production for immediate flush.
        */
+      /* c8 ignore next -- `app.inProduction` is fixed for the whole process; tests only ever run in one environment. */
       destination: !app.inProduction ? await syncDestination() : undefined,
 
       /**

@@ -185,10 +185,14 @@ export class StandardMonthService {
           dueDate: null,
         })
       } else {
+        // The `?? 1` fallback can't fire: the `frequency` column has a DB-level
+        // CHECK constraint restricting it to 'monthly'|'quarterly'|'biannual'|
+        // 'annual'|'custom' - 'monthly' is handled above and 'custom' just
+        // above, so every value reaching this lookup is already in the map.
         const periodsPerYear =
           bill.frequency === 'custom'
             ? this.customPeriodsPerYear(bill.customIntervalValue, bill.customIntervalUnit)
-            : (PERIODS_PER_YEAR[bill.frequency] ?? 1)
+            : /* c8 ignore next */ (PERIODS_PER_YEAR[bill.frequency] ?? 1)
         nonMonthlyAmortizedTotal += (bill.amount * periodsPerYear) / 12
       }
     }
@@ -244,6 +248,11 @@ export class StandardMonthService {
       lines.push({
         key: `category-${category.id}`,
         label: category.name,
+        // The `?? 0` fallback can only fire when budgetAmount is null AND
+        // trend.average is null, but the guard above (actuals.length === 0
+        // && budgetAmount === null -> continue) already excludes exactly
+        // that case, so one of the two is always set by this point.
+        /* c8 ignore next */
         projected: category.budgetAmount ?? trend.average ?? 0,
         actual:
           thisMonthActuals.length > 0

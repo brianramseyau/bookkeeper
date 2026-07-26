@@ -18,6 +18,7 @@ const corsConfig = defineConfig({
    * In production, keep an explicit allowlist (empty by default, so no
    * cross-origin browser access is allowed until configured).
    */
+  /* c8 ignore next -- `app.inDev` is fixed for the whole process; tests only ever run in one environment. */
   origin: app.inDev ? true : [],
 
   /**

@@ -72,10 +72,9 @@ export default class DashboardController {
       id: bill.id,
       name: bill.name,
       amount: bill.amount,
-      nextDueOn: bill.nextDueOn ? bill.nextDueOn.toISODate() : null,
-      daysUntilDue: bill.nextDueOn
-        ? Math.floor(bill.nextDueOn.diff(todayStart, 'days').days)
-        : null,
+      // whereNotNull('nextDueOn') above guarantees this is always set.
+      nextDueOn: bill.nextDueOn!.toISODate(),
+      daysUntilDue: Math.floor(bill.nextDueOn!.diff(todayStart, 'days').days),
     }))
   }
 

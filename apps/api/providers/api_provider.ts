@@ -23,6 +23,9 @@ class ApiSerializer extends BaseSerializer<{
    *
    * @throws Error if metadata doesn't match Lucid's pagination structure
    */
+  /* c8 ignore start -- required by BaseSerializer's contract for paginated results, but
+   * nothing in this app calls Lucid's `.paginate()` (every table here is small enough to
+   * return in full), so this hook is never actually exercised. */
   definePaginationMetaData(metaData: unknown): SimplePaginatorMetaKeys {
     if (!this.isLucidPaginatorMetaData(metaData)) {
       throw new Error(
@@ -31,6 +34,7 @@ class ApiSerializer extends BaseSerializer<{
     }
     return metaData
   }
+  /* c8 ignore stop */
 }
 
 /**

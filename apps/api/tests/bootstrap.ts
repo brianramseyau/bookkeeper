@@ -7,6 +7,7 @@ import { dbAssertions } from '@adonisjs/lucid/plugins/db'
 import testUtils from '@adonisjs/core/services/test_utils'
 import { authApiClient } from '@adonisjs/auth/plugins/api_client'
 import { sessionApiClient } from '@adonisjs/session/plugins/api_client'
+import { shieldApiClient } from '@adonisjs/shield/plugins/api_client'
 
 /**
  * This file is imported by the "bin/test.ts" entrypoint file
@@ -23,6 +24,7 @@ export const plugins: Config['plugins'] = [
   apiClient(),
   sessionApiClient(app),
   authApiClient(app),
+  shieldApiClient(),
 ]
 
 /**
@@ -33,7 +35,7 @@ export const plugins: Config['plugins'] = [
  * The teardown functions are executed after all the tests
  */
 export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
-  setup: [],
+  setup: [() => testUtils.db().migrate(), () => testUtils.db().seed()],
   teardown: [],
 }
 
@@ -43,6 +45,9 @@ export const runnerHooks: Required<Pick<Config, 'setup' | 'teardown'>> = {
  */
 export const configureSuite: Config['configureSuite'] = (suite) => {
   if (['browser', 'functional', 'e2e'].includes(suite.name)) {
-    return suite.setup(() => testUtils.httpServer().start())
+    suite.setup(() => testUtils.httpServer().start())
+    suite.onGroup((group) => {
+      group.each.setup(() => testUtils.db().wrapInGlobalTransaction())
+    })
   }
 }

@@ -1,0 +1,56 @@
+import { test } from '@japa/runner'
+import { createUtilityValidator, updateUtilityValidator } from '#validators/utility'
+
+test.group('createUtilityValidator', () => {
+  test('accepts a minimal valid payload', async ({ assert }) => {
+    const payload = await createUtilityValidator.validate({ name: 'Electricity' })
+    assert.equal(payload.name, 'Electricity')
+  })
+
+  test('accepts a full payload (Water: quarterly, 28-day offset)', async ({ assert }) => {
+    const payload = await createUtilityValidator.validate({
+      name: 'Water',
+      frequency: 'quarterly',
+      dueOffsetDays: 28,
+    })
+    assert.equal(payload.frequency, 'quarterly')
+    assert.equal(payload.dueOffsetDays, 28)
+  })
+
+  test('rejects an invalid frequency', async ({ assert }) => {
+    await assert.rejects(() =>
+      createUtilityValidator.validate({ name: 'Water', frequency: 'weekly' })
+    )
+  })
+
+  test('rejects a negative dueOffsetDays', async ({ assert }) => {
+    await assert.rejects(() =>
+      createUtilityValidator.validate({ name: 'Water', dueOffsetDays: -1 })
+    )
+  })
+
+  test('allows a null dueOffsetDays', async ({ assert }) => {
+    const payload = await createUtilityValidator.validate({
+      name: 'Water',
+      dueOffsetDays: null,
+    })
+    assert.isNull(payload.dueOffsetDays)
+  })
+})
+
+test.group('updateUtilityValidator', () => {
+  test('accepts an empty payload', async ({ assert }) => {
+    const payload = await updateUtilityValidator.validate({})
+    assert.deepEqual(payload, {})
+  })
+
+  test('accepts toggling isActive', async ({ assert }) => {
+    const payload = await updateUtilityValidator.validate({ isActive: false })
+    assert.equal(payload.isActive, false)
+  })
+
+  test('allows a null categoryId', async ({ assert }) => {
+    const payload = await updateUtilityValidator.validate({ categoryId: null })
+    assert.isNull(payload.categoryId)
+  })
+})
