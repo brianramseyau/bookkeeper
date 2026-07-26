@@ -172,6 +172,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Recurring Bills · Bookkeeper</title>
+</svelte:head>
+
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Recurring Bills</h1>
 
 {#if error}

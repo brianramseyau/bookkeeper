@@ -210,6 +210,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>{category ? `${category.name} · Bookkeeper` : 'Categories · Bookkeeper'}</title>
+</svelte:head>
+
 <a
   href="/categories"
   class="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"

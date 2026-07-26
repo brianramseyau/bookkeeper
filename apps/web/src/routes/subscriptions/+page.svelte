@@ -145,6 +145,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Subscriptions · Bookkeeper</title>
+</svelte:head>
+
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Personal Subscriptions</h1>
 
 {#if error}

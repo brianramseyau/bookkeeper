@@ -373,6 +373,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Monthly · Bookkeeper</title>
+</svelte:head>
+
 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Monthly</h1>
   <div class="flex items-center gap-3">

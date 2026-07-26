@@ -11,6 +11,10 @@
   ]
 </script>
 
+<svelte:head>
+  <title>Export · Bookkeeper</title>
+</svelte:head>
+
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Export data</h1>
 <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
   Download your data for backup or analysis in another tool. This is a snapshot, not a live

@@ -23,6 +23,10 @@
   }
 </script>
 
+<svelte:head>
+  <title>Log in · Bookkeeper</title>
+</svelte:head>
+
 <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-900">
   <div
     class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-800"

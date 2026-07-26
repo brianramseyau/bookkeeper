@@ -23,6 +23,10 @@
   })
 </script>
 
+<svelte:head>
+  <title>Dashboard · Bookkeeper</title>
+</svelte:head>
+
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">
   Welcome, {authState.user?.fullName ?? authState.user?.email}
 </h1>
