@@ -13,11 +13,11 @@
 
   const navLinks = [
     { href: '/', label: 'Dashboard', exact: true },
+    { href: '/month', label: 'Monthly' },
     { href: '/utilities', label: 'Utilities' },
     { href: '/recurring-bills', label: 'Recurring Bills' },
     { href: '/subscriptions', label: 'Subscriptions' },
     { href: '/categories', label: 'Categories' },
-    { href: '/month', label: 'Standard Month' },
     { href: '/export', label: 'Export' },
   ]
 

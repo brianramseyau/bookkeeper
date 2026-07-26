@@ -162,7 +162,7 @@
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Trend</th
           >
           <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
-            >Std Month</th
+            >Monthly</th
           >
           <th class="px-3 py-2"></th>
           <th class="px-3 py-2"></th>
@@ -280,9 +280,9 @@
               </td>
               <td class="px-3 py-2 text-center">
                 {#if row.category.includeInStandardMonth}
-                  <span class="text-emerald-600 dark:text-emerald-400" title="Included in Standard Month">✓</span>
+                  <span class="text-emerald-600 dark:text-emerald-400" title="Included in Monthly">✓</span>
                 {:else}
-                  <span class="text-slate-300 dark:text-slate-600" title="Excluded from Standard Month">—</span>
+                  <span class="text-slate-300 dark:text-slate-600" title="Excluded from Monthly">—</span>
                 {/if}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
