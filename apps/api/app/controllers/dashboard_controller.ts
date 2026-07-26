@@ -6,6 +6,7 @@ import RecurringBill from '#models/recurring_bill'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { StandardMonthService } from '#services/standard_month_service'
+import { expandUtilityBillsToMonthlyShares } from '#services/utility_billing_period'
 
 const UPCOMING_BILLS_LIMIT = 5
 const MONTHLY_EXPENSE_WINDOW = 12
@@ -46,7 +47,7 @@ export default class DashboardController {
       utilities.map(async (utility) => {
         const bills = await UtilityBill.query().where('utilityId', utility.id)
         const trend = rollingAverage.computeTrend(
-          bills.map((bill) => ({ year: bill.year, month: bill.month, amount: bill.amount }))
+          expandUtilityBillsToMonthlyShares(bills, utility.frequency)
         )
         return {
           id: utility.id,
@@ -89,7 +90,7 @@ export default class DashboardController {
     const start = today.startOf('month').minus({ months: MONTHLY_EXPENSE_WINDOW - 1 })
 
     const [utilityBills, categoryActuals] = await Promise.all([
-      UtilityBill.query(),
+      UtilityBill.query().preload('utility'),
       CategoryMonthlyActual.query(),
     ])
 
@@ -99,7 +100,11 @@ export default class DashboardController {
       totals.set(key, (totals.get(key) ?? 0) + amount)
     }
 
-    for (const bill of utilityBills) addTotal(bill.year, bill.month, bill.amount)
+    for (const bill of utilityBills) {
+      for (const share of expandUtilityBillsToMonthlyShares([bill], bill.utility.frequency)) {
+        addTotal(share.year, share.month, share.amount)
+      }
+    }
     for (const actual of categoryActuals) {
       addTotal(actual.occurredOn.year, actual.occurredOn.month, actual.amount)
     }

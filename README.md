@@ -28,6 +28,16 @@ pnpm dev:web    # SvelteKit dev server on :5173, proxies /api to :3333
 Copy `apps/api/.env.example` to `apps/api/.env` and fill in `APP_KEY`
 (`node ace generate:key`) and the seed credentials before the first run.
 
+### Database
+
+No separate database server to install - it's SQLite via
+`better-sqlite3`. In development the file lives at `apps/api/tmp/db.sqlite3`
+and is created automatically the first time you run migrations; it's
+gitignored, so each clone starts empty until you run the
+`migration:run`/`db:seed` steps above. To point at a different file (e.g.
+to inspect a copy of the production database locally), set `DB_FILENAME`
+in `apps/api/.env` to an absolute or `tmp`-relative path.
+
 Useful scripts (run from the repo root): `pnpm lint`, `pnpm lint:fix`,
 `pnpm typecheck`, `pnpm format`, `pnpm build`.
 

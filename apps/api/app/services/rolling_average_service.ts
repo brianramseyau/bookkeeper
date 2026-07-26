@@ -51,11 +51,13 @@ export class RollingAverageService {
 
     return {
       average: Math.round(average * 100) / 100,
-      latestAmount: latest.amount,
+      // Rounded for display - a split utility bill's monthly share (e.g. a
+      // quarterly total divided by 3) is rarely an exact number of cents.
+      latestAmount: Math.round(latest.amount * 100) / 100,
       latestYear: latest.year,
       latestMonth: latest.month,
       trend,
-      months: window,
+      months: window.map((entry) => ({ ...entry, amount: Math.round(entry.amount * 100) / 100 })),
     }
   }
 }

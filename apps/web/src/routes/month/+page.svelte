@@ -656,7 +656,8 @@
       </thead>
       <tbody>
         {#each data.expenses.lines as line (line.key)}
-          {@const editable = line.key.startsWith('utility-') || line.key.startsWith('category-')}
+          {@const editable =
+            (line.key.startsWith('utility-') && line.editable) || line.key.startsWith('category-')}
           {#if editingExpenseKey === line.key}
             <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>

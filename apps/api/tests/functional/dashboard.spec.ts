@@ -42,6 +42,35 @@ test.group('Dashboard / summary', () => {
     assert.deepEqual(entry.sparkline, [400])
   })
 
+  test('splits a quarterly utility bill into equal monthly shares for the sparkline and monthlyExpenses', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.local()
+    const utility = await Utility.create({ name: 'Water', frequency: 'quarterly' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: today.year,
+      month: today.month,
+      amount: 369.49,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+
+    const entry = response.body().utilities.find((u: { name: string }) => u.name === 'Water')
+    assert.equal(entry.latestAmount, 123.16)
+    assert.deepEqual(entry.sparkline, [123.16, 123.16, 123.16])
+
+    const twoMonthsAgo = today.minus({ months: 2 })
+    const shareEntry = response
+      .body()
+      .monthlyExpenses.find((m: { year: number; month: number }) => {
+        return m.year === twoMonthsAgo.year && m.month === twoMonthsAgo.month
+      })
+    assert.equal(shareEntry.total, 123.16)
+  })
+
   test('lists up to 5 upcoming bills with a nextDueOn, soonest first', async ({
     client,
     assert,

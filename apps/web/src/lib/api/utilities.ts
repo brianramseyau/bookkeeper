@@ -34,6 +34,25 @@ export interface UtilityTrend {
   months: { year: number; month: number; amount: number }[]
 }
 
+/**
+ * A calendar month covered by a non-monthly bill entered in a different
+ * month (e.g. the Feb and Mar share of a quarterly Water bill billed in
+ * Apr) - a computed read-only figure, not something with its own row to edit.
+ */
+export interface UtilityMonthlyShare {
+  year: number
+  month: number
+  amount: number
+  /** The month the real bill covering this share was actually entered in. */
+  billYear: number
+  billMonth: number
+}
+
+export interface UtilityBillsResponse {
+  bills: UtilityBill[]
+  monthlyShares: UtilityMonthlyShare[]
+}
+
 export function listUtilities() {
   return api.get<Utility[]>('/utilities')
 }
@@ -50,7 +69,7 @@ export function updateUtility(
 }
 
 export function getUtilityBills(utilityId: number) {
-  return api.get<UtilityBill[]>(`/utilities/${utilityId}/bills`)
+  return api.get<UtilityBillsResponse>(`/utilities/${utilityId}/bills`)
 }
 
 export function getUtilityTrend(utilityId: number) {

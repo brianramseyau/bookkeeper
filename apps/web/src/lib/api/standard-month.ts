@@ -7,6 +7,12 @@ export interface StandardMonthLine {
   actual: number | null
   dueDay: number | null
   dueDate: string | null
+  /**
+   * False for a non-monthly utility line viewed in a month that isn't its
+   * actual billing month - that figure is a computed share of a bill
+   * entered elsewhere, not something to edit directly.
+   */
+  editable: boolean
 }
 
 export interface StandardMonthIncomeLine {

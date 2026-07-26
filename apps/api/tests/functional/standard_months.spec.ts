@@ -232,4 +232,48 @@ test.group('StandardMonths / show', () => {
     )
     assert.equal(noNameSubsLine.label, "noname@example.com's Subscriptions")
   })
+
+  test('splits a quarterly utility bill evenly across its covered months, and only lets the billing month be edited', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+
+    const water = await Utility.create({ name: 'Water', frequency: 'quarterly' })
+    // Covers Feb-Apr 2026, billed in April.
+    await UtilityBill.create({ utilityId: water.id, year: 2026, month: 4, amount: 369.49 })
+
+    const billingMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 4 })
+      .loginAs(brian)
+    const billingLine = billingMonth
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
+    assert.equal(billingLine.actual, 123.16)
+    assert.equal(billingLine.projected, 123.16)
+    assert.isTrue(billingLine.editable)
+
+    const coveredMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+    const coveredLine = coveredMonth
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
+    assert.equal(coveredLine.actual, 123.16)
+    assert.isFalse(coveredLine.editable)
+
+    const uncoveredMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 12 })
+      .loginAs(brian)
+    const uncoveredLine = uncoveredMonth
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
+    assert.isNull(uncoveredLine.actual)
+    // 2026-12 is 8 months after the Apr anchor - not aligned to the 3-month
+    // cadence (diff 8 % 3 = 2), so it isn't a predicted billing month either.
+    assert.isFalse(uncoveredLine.editable)
+  })
 })

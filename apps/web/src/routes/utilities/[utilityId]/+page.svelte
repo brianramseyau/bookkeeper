@@ -10,6 +10,7 @@
     updateUtility,
     type Utility,
     type UtilityBill,
+    type UtilityMonthlyShare,
     type UtilityTrend,
     type UtilityFrequency,
   } from '$lib/api/utilities'
@@ -24,6 +25,7 @@
 
   let utility = $state<Utility | null>(null)
   let bills = $state<UtilityBill[]>([])
+  let monthlyShares = $state<UtilityMonthlyShare[]>([])
   let trend = $state<UtilityTrend | null>(null)
   let loading = $state(true)
   let error = $state<string | null>(null)
@@ -45,13 +47,14 @@
     loading = true
     error = null
     try {
-      const [utilities, billList, trendResult] = await Promise.all([
+      const [utilities, billsResponse, trendResult] = await Promise.all([
         listUtilities(),
         getUtilityBills(utilityId),
         getUtilityTrend(utilityId),
       ])
       utility = utilities.find((u) => u.id === utilityId) ?? null
-      bills = billList
+      bills = billsResponse.bills
+      monthlyShares = billsResponse.monthlyShares
       trend = trendResult
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load utility'
@@ -64,12 +67,17 @@
     return bills.find((b) => b.year === year && b.month === month)
   }
 
+  function shareFor(year: number, month: number): UtilityMonthlyShare | undefined {
+    return monthlyShares.find((s) => s.year === year && s.month === month)
+  }
+
   let years = $state<number[]>([])
 
   $effect(() => {
     const currentYear = new Date().getFullYear()
     const fromBills = bills.map((b) => b.year)
-    const all = new Set([...fromBills, currentYear])
+    const fromShares = monthlyShares.map((s) => s.year)
+    const all = new Set([...fromBills, ...fromShares, currentYear])
     years = [...all].sort((a, b) => a - b)
   })
 
@@ -107,9 +115,17 @@
     saving = true
     error = null
     try {
-      const bill = await upsertUtilityBill(utilityId, year, month, amount)
-      bills = [...bills.filter((b) => !(b.year === year && b.month === month)), bill]
-      trend = await getUtilityTrend(utilityId)
+      await upsertUtilityBill(utilityId, year, month, amount)
+      // A single bill's amount also changes the computed shares of the
+      // other months in its period, so refetch the whole set rather than
+      // patching just this cell in place.
+      const [billsResponse, trendResult] = await Promise.all([
+        getUtilityBills(utilityId),
+        getUtilityTrend(utilityId),
+      ])
+      bills = billsResponse.bills
+      monthlyShares = billsResponse.monthlyShares
+      trend = trendResult
       cancelEdit()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save'
@@ -125,8 +141,13 @@
     error = null
     try {
       await deleteUtilityBill(bill.id)
-      bills = bills.filter((b) => b.id !== bill.id)
-      trend = await getUtilityTrend(utilityId)
+      const [billsResponse, trendResult] = await Promise.all([
+        getUtilityBills(utilityId),
+        getUtilityTrend(utilityId),
+      ])
+      bills = billsResponse.bills
+      monthlyShares = billsResponse.monthlyShares
+      trend = trendResult
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
     } finally {
@@ -279,6 +300,13 @@
           Edit
         </button>
       </div>
+      {#if utility.frequency !== 'monthly'}
+        <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
+          Click the month it's actually billed in and enter the full bill - every month in that
+          period then shows the same even monthly share, with the real total noted underneath.
+          The other, non-billing months (in <span class="italic">italics</span>) are read-only.
+        </p>
+      {/if}
     {/if}
   </div>
 
@@ -308,7 +336,10 @@
             </td>
             {#each years as year (year)}
               {@const bill = billFor(year, month)}
+              {@const share = shareFor(year, month)}
               {@const key = cellKey(year, month)}
+              {@const displayAmount = share ? share.amount : bill?.amount}
+              {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
               <td class="group relative px-1 py-1 text-right">
                 {#if editingKey === key}
                   <input
@@ -325,6 +356,13 @@
                     use:focusOnMount
                     class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
                   />
+                {:else if !bill && share}
+                  <span
+                    class="block w-full cursor-default rounded-md px-2 py-1.5 text-right text-slate-400 italic dark:text-slate-500"
+                    title={`Part of the ${monthShortName(share.billMonth)} ${share.billYear} bill`}
+                  >
+                    {formatCurrency(share.amount)}
+                  </span>
                 {:else}
                   <button
                     type="button"
@@ -336,7 +374,12 @@
                         : 'text-slate-300 dark:text-slate-600',
                     ]}
                   >
-                    {bill ? formatCurrency(bill.amount) : '+'}
+                    {bill ? formatCurrency(displayAmount!) : '+'}
+                    {#if showsBilledTotal}
+                      <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
+                        bills {formatCurrency(bill!.amount)}
+                      </span>
+                    {/if}
                   </button>
                   {#if bill}
                     <button

@@ -8,7 +8,10 @@ async function loginAsBrian() {
 }
 
 test.group('UtilityBills / index', () => {
-  test("lists a utility's bills ordered chronologically", async ({ client, assert }) => {
+  test("lists a utility's bills ordered chronologically, with an empty monthlyShares for a monthly utility", async ({
+    client,
+    assert,
+  }) => {
     const brian = await loginAsBrian()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 3, amount: 314.86 })
@@ -18,9 +21,37 @@ test.group('UtilityBills / index', () => {
 
     response.assertStatus(200)
     assert.deepEqual(
-      response.body().data.map((b: { month: number }) => b.month),
+      response.body().bills.map((b: { month: number }) => b.month),
       [2, 3]
     )
+    assert.deepEqual(response.body().monthlyShares, [])
+  })
+
+  test('splits a quarterly bill into equal monthlyShares for all 3 covered months, including the billing month itself', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Water', frequency: 'quarterly' })
+    await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 4, amount: 369.49 })
+
+    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(brian)
+
+    response.assertStatus(200)
+    const shares = response.body().monthlyShares
+    assert.deepEqual(
+      shares.map((s: { year: number; month: number }) => [s.year, s.month]),
+      [
+        [2026, 2],
+        [2026, 3],
+        [2026, 4],
+      ]
+    )
+    for (const share of shares) {
+      assert.equal(share.amount, 123.16)
+      assert.equal(share.billYear, 2026)
+      assert.equal(share.billMonth, 4)
+    }
   })
 
   test('returns 404 for a non-existent utility', async ({ client }) => {
@@ -102,5 +133,21 @@ test.group('UtilityBills / trend', () => {
     response.assertStatus(200)
     assert.equal(response.body().average, 410)
     assert.equal(response.body().trend, 'up')
+  })
+
+  test('averages a quarterly utility over its split monthly shares, not its raw bills', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Water', frequency: 'quarterly' })
+    await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 4, amount: 369.49 })
+
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+
+    response.assertStatus(200)
+    assert.equal(response.body().average, 123.16)
+    assert.equal(response.body().latestAmount, 123.16)
+    assert.lengthOf(response.body().months, 3)
   })
 })

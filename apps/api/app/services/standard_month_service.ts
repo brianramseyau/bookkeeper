@@ -10,6 +10,12 @@ import UserSubscription from '#models/user_subscription'
 import Category from '#models/category'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
+import {
+  expandUtilityBillsToMonthlyShares,
+  isUtilityBillingMonth,
+  mostRecentUtilityBill,
+  utilityPeriodMonths,
+} from '#services/utility_billing_period'
 
 const PERIODS_PER_YEAR: Record<string, number> = {
   monthly: 12,
@@ -27,6 +33,12 @@ export interface StandardMonthLine {
   dueDay: number | null
   /** Full due date (utilities only) - offset from month-end rather than a fixed day-of-month. */
   dueDate: string | null
+  /**
+   * False for a non-monthly utility line viewed in a month that isn't its
+   * actual billing month - that month's figure is a computed share of a
+   * bill entered elsewhere, not something to edit directly.
+   */
+  editable: boolean
 }
 
 export interface StandardMonthIncomeLine {
@@ -155,18 +167,18 @@ export class StandardMonthService {
     const utilities = await Utility.query().where('isActive', true).orderBy('name', 'asc')
     for (const utility of utilities) {
       const bills = await UtilityBill.query().where('utilityId', utility.id)
-      const trend = this.rollingAverage.computeTrend(
-        bills.map((bill) => ({ year: bill.year, month: bill.month, amount: bill.amount }))
-      )
-      const actualBill = bills.find((bill) => bill.year === year && bill.month === month)
+      const shares = expandUtilityBillsToMonthlyShares(bills, utility.frequency)
+      const trend = this.rollingAverage.computeTrend(shares)
+      const monthShare = shares.find((share) => share.year === year && share.month === month)
 
       lines.push({
         key: `utility-${utility.id}`,
         label: utility.name,
         projected: trend.average ?? 0,
-        actual: actualBill ? actualBill.amount : null,
+        actual: monthShare ? round(monthShare.amount) : null,
         dueDay: null,
         dueDate: this.utilityDueDate(utility, bills, year, month),
+        editable: isUtilityBillingMonth(utility, bills, year, month),
       })
     }
 
@@ -183,6 +195,7 @@ export class StandardMonthService {
           actual: bill.amount,
           dueDay: bill.dueDay,
           dueDate: null,
+          editable: true,
         })
       } else {
         // The `?? 1` fallback can't fire: the `frequency` column has a DB-level
@@ -204,6 +217,7 @@ export class StandardMonthService {
         actual: null,
         dueDay: null,
         dueDate: null,
+        editable: true,
       })
     }
 
@@ -223,6 +237,7 @@ export class StandardMonthService {
         actual: total,
         dueDay: null,
         dueDate: null,
+        editable: true,
       })
     }
 
@@ -260,17 +275,11 @@ export class StandardMonthService {
             : null,
         dueDay: null,
         dueDate: null,
+        editable: true,
       })
     }
 
     return lines
-  }
-
-  private static readonly UTILITY_PERIOD_MONTHS: Record<string, number> = {
-    monthly: 1,
-    quarterly: 3,
-    biannual: 6,
-    annual: 12,
   }
 
   /**
@@ -289,13 +298,9 @@ export class StandardMonthService {
   ): string | null {
     if (utility.dueOffsetDays === null) return null
 
-    const periodMonths = StandardMonthService.UTILITY_PERIOD_MONTHS[utility.frequency] ?? 1
+    const periodMonths = utilityPeriodMonths(utility.frequency)
     if (periodMonths > 1) {
-      const mostRecentBill = bills.reduce<UtilityBill | null>((latest, bill) => {
-        const billIndex = bill.year * 12 + bill.month
-        const latestIndex = latest ? latest.year * 12 + latest.month : Number.NEGATIVE_INFINITY
-        return billIndex > latestIndex ? bill : latest
-      }, null)
+      const mostRecentBill = mostRecentUtilityBill(bills)
 
       if (mostRecentBill) {
         const anchorIndex = mostRecentBill.year * 12 + mostRecentBill.month
