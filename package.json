@@ -13,7 +13,8 @@
     "lint:fix": "pnpm --filter api exec eslint . --fix && pnpm --filter web exec eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "pnpm --filter api typecheck && pnpm --filter web check"
+    "typecheck": "pnpm --filter api typecheck && pnpm --filter web check",
+    "test": "pnpm --filter api test && pnpm --filter web test"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

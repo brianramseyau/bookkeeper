@@ -1,0 +1,719 @@
+import { render, screen, waitFor, within } from '@testing-library/svelte'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { page } from '$app/state'
+import { replaceState } from '$app/navigation'
+import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
+import { setMonthCarryover } from '$lib/api/month-carryover'
+import {
+  createIncomeEntry,
+  deleteIncomeEntry,
+  listIncomeEntries,
+  listIncomeSources,
+  updateIncomeEntry,
+  type IncomeEntry,
+  type IncomeSource,
+} from '$lib/api/income'
+import { upsertUtilityBill } from '$lib/api/utilities'
+import {
+  createCategoryActual,
+  deleteCategoryActual,
+  listCategoryActuals,
+  updateCategoryActual,
+  type CategoryMonthlyActual,
+} from '$lib/api/category-actuals'
+import { listUsers, type UserSummary } from '$lib/api/users'
+import { ApiError } from '$lib/api'
+import MonthPage from './+page.svelte'
+
+vi.mock('$app/navigation', () => ({ replaceState: vi.fn() }))
+vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/month') } }))
+vi.mock('$lib/api/standard-month', () => ({ getStandardMonth: vi.fn() }))
+vi.mock('$lib/api/month-carryover', () => ({ setMonthCarryover: vi.fn() }))
+vi.mock('$lib/api/income', () => ({
+  listIncomeSources: vi.fn(),
+  listIncomeEntries: vi.fn(),
+  createIncomeEntry: vi.fn(),
+  updateIncomeEntry: vi.fn(),
+  deleteIncomeEntry: vi.fn(),
+}))
+vi.mock('$lib/api/utilities', () => ({ upsertUtilityBill: vi.fn() }))
+vi.mock('$lib/api/category-actuals', () => ({
+  listCategoryActuals: vi.fn(),
+  createCategoryActual: vi.fn(),
+  updateCategoryActual: vi.fn(),
+  deleteCategoryActual: vi.fn(),
+}))
+vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
+
+// SvelteKit's real `Page.url` type brands `pathname` with a union of the
+// app's known routes - the mock above is a plain URL, so route it through a
+// cast here rather than fighting that type at every call site below.
+function setPageUrl(url: string) {
+  page.url = new URL(url) as unknown as typeof page.url
+}
+
+const brian: UserSummary = {
+  id: 1,
+  fullName: 'Brian',
+  email: 'brian@example.com',
+  displayColor: null,
+  initials: 'B',
+}
+
+const brianSalary: IncomeSource = {
+  id: 1,
+  userId: 1,
+  name: 'Brian Income',
+  expectedAmount: 5000,
+  frequency: 'monthly',
+  payDayOfMonth: 14,
+  weekendRollback: true,
+  anchorDate: null,
+  taxWithheld: true,
+  isActive: true,
+  notes: null,
+}
+
+const salaryEntry: IncomeEntry = {
+  id: 10,
+  incomeSourceId: 1,
+  userId: null,
+  year: 2026,
+  month: 3,
+  receivedOn: '2026-03-14T00:00:00.000+00:00',
+  amount: 5000,
+  note: 'March pay',
+}
+
+function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthResult {
+  return {
+    year: 2026,
+    month: 3,
+    carryover: 500,
+    income: {
+      lines: [
+        {
+          key: 'income-1',
+          label: 'Brian Income',
+          sourceId: 1,
+          userId: 1,
+          projected: 5000,
+          actual: 5000,
+          estimated: false,
+          payDates: ['2026-03-14T00:00:00.000+00:00'],
+        },
+      ],
+      projectedTotal: 5000,
+      actualTotal: 5000,
+    },
+    expenses: {
+      lines: [
+        {
+          key: 'utility-1',
+          label: 'Electricity',
+          projected: 100,
+          actual: 110,
+          dueDay: null,
+          dueDate: '2026-03-20T00:00:00.000+00:00',
+          editable: true,
+        },
+        {
+          key: 'category-1',
+          label: 'Groceries',
+          projected: 600,
+          actual: 620,
+          dueDay: 5,
+          dueDate: null,
+          editable: true,
+        },
+      ],
+      projectedTotal: 700,
+      actualTotal: 730,
+    },
+    projectedNet: 4300,
+    actualNet: 4270,
+    ...overrides,
+  }
+}
+
+function setDefaultMocks() {
+  vi.mocked(getStandardMonth).mockResolvedValue(baseData())
+  vi.mocked(listIncomeSources).mockResolvedValue([brianSalary])
+  vi.mocked(listIncomeEntries).mockResolvedValue([salaryEntry])
+  vi.mocked(listUsers).mockResolvedValue([brian])
+}
+
+describe('month page', () => {
+  beforeEach(() => {
+    setPageUrl('http://localhost/month?year=2026&month=3')
+    vi.mocked(getStandardMonth).mockReset()
+    vi.mocked(listIncomeSources).mockReset()
+    vi.mocked(listIncomeEntries).mockReset()
+    vi.mocked(listUsers).mockReset()
+    vi.mocked(setMonthCarryover).mockReset()
+    vi.mocked(createIncomeEntry).mockReset()
+    vi.mocked(updateIncomeEntry).mockReset()
+    vi.mocked(deleteIncomeEntry).mockReset()
+    vi.mocked(upsertUtilityBill).mockReset()
+    vi.mocked(listCategoryActuals).mockReset()
+    vi.mocked(createCategoryActual).mockReset()
+    vi.mocked(updateCategoryActual).mockReset()
+    vi.mocked(deleteCategoryActual).mockReset()
+    vi.mocked(replaceState).mockReset()
+  })
+
+  it('reads year/month from the URL and shows a loading state, then the header', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(getStandardMonth).toHaveBeenCalledWith(2026, 3)
+    expect(await screen.findByText('March 2026')).toBeInTheDocument()
+  })
+
+  it('defaults to the current month when the URL has no valid params', async () => {
+    setPageUrl('http://localhost/month')
+    setDefaultMocks()
+    const now = new Date()
+    render(MonthPage)
+
+    expect(getStandardMonth).toHaveBeenCalledWith(now.getFullYear(), now.getMonth() + 1)
+  })
+
+  it('shows an API error message on failure', async () => {
+    vi.mocked(getStandardMonth).mockRejectedValue(new ApiError(500, 'Could not load month'))
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+    expect(await screen.findByText('Could not load month')).toBeInTheDocument()
+  })
+
+  it('shows a generic error message for a non-API failure', async () => {
+    vi.mocked(getStandardMonth).mockRejectedValue(new Error('boom'))
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+    expect(await screen.findByText('Failed to load monthly view')).toBeInTheDocument()
+  })
+
+  it('shows the summary tiles with sign-based coloring', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+
+    expect(await screen.findByText('$500.00')).toBeInTheDocument()
+    const projected = screen.getByText('$4,300.00')
+    expect(projected.className).toContain('text-emerald-600')
+    const actual = screen.getByText('$4,270.00')
+    expect(actual.className).toContain('text-emerald-600')
+    const variance = screen.getByText('-$30.00')
+    expect(variance.className).toContain('text-red-600')
+  })
+
+  it('edits and saves the carried-over balance', async () => {
+    setDefaultMocks()
+    vi.mocked(setMonthCarryover).mockResolvedValue({
+      id: 1,
+      year: 2026,
+      month: 3,
+      amount: 750,
+      notes: null,
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[0]!)
+    const input = screen.getByDisplayValue('500')
+    await user.clear(input)
+    await user.type(input, '750')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(setMonthCarryover).toHaveBeenCalledWith(2026, 3, 750))
+    expect(getStandardMonth).toHaveBeenCalledTimes(2)
+  })
+
+  it('cancels editing the carried-over balance', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[0]!)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByDisplayValue('500')).toBeNull()
+    expect(setMonthCarryover).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when saving the carryover fails', async () => {
+    setDefaultMocks()
+    vi.mocked(setMonthCarryover).mockRejectedValue(new ApiError(500, 'Could not save carryover'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[0]!)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Could not save carryover')).toBeInTheDocument()
+  })
+
+  it('navigates to the previous and next month, wrapping the year, and clears URL params', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(MonthPage)
+    await screen.findByText('March 2026')
+
+    await user.click(screen.getByRole('button', { name: '← Prev' }))
+    expect(await screen.findByText('February 2026')).toBeInTheDocument()
+    expect(replaceState).toHaveBeenCalledWith('/month', {})
+    expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2)
+
+    for (let i = 0; i < 2; i++) {
+      await user.click(screen.getByRole('button', { name: '← Prev' }))
+    }
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2025, 12))
+    expect(await screen.findByText('December 2025')).toBeInTheDocument()
+
+    for (let i = 0; i < 13; i++) {
+      await user.click(screen.getByRole('button', { name: 'Next →' }))
+    }
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2027, 1))
+  })
+
+  it('jumps back to the current month', async () => {
+    setPageUrl('http://localhost/month?year=2020&month=1')
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(MonthPage)
+    await screen.findByText('January 2020')
+
+    const now = new Date()
+    await user.click(screen.getByRole('button', { name: 'This Month' }))
+
+    await waitFor(() =>
+      expect(getStandardMonth).toHaveBeenLastCalledWith(now.getFullYear(), now.getMonth() + 1)
+    )
+  })
+
+  it('shows the pay-periods hint and resolves the owner name for an income line', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+    expect(await screen.findByText('Brian')).toBeInTheDocument()
+    expect(screen.getAllByText('14 Mar 2026').length).toBe(2)
+  })
+
+  it('shows a "many pay periods" hint when a source has more than two pay dates', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: {
+          lines: [
+            {
+              key: 'income-2',
+              label: 'Ariel Income',
+              sourceId: 2,
+              userId: null,
+              projected: 2600,
+              actual: 2600,
+              estimated: false,
+              payDates: [
+                '2026-03-04T00:00:00.000+00:00',
+                '2026-03-18T00:00:00.000+00:00',
+                '2026-04-01T00:00:00.000+00:00',
+              ],
+            },
+          ],
+          projectedTotal: 2600,
+          actualTotal: 2600,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    expect(await screen.findByText(/3 pay periods:/)).toBeInTheDocument()
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  it('shows the "(est.)" tag for an estimated income actual', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: {
+          lines: [
+            {
+              key: 'income-1',
+              label: 'Brian Income',
+              sourceId: 1,
+              userId: 1,
+              projected: 5000,
+              actual: 5000,
+              estimated: true,
+              payDates: [],
+            },
+          ],
+          projectedTotal: 5000,
+          actualTotal: 5000,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([brianSalary])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([brian])
+    render(MonthPage)
+
+    expect(await screen.findByText('(est.)')).toBeInTheDocument()
+  })
+
+  it('edits and deletes a logged income entry', async () => {
+    setDefaultMocks()
+    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
+    vi.mocked(deleteIncomeEntry).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
+        amount: 5000,
+        receivedOn: '2026-03-14',
+        note: 'March pay',
+      })
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
+  })
+
+  it('clears the amount field to null (not blocked client-side) when saving an entry edit', async () => {
+    // Svelte's number-input binding coerces an emptied field to `null`, not
+    // `NaN` - so the `Number.isNaN` guard here never actually catches a
+    // cleared field in practice, only a never-touched one (see the "requires
+    // an amount to log income" test below for that path).
+    setDefaultMocks()
+    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    const amountInput = screen.getByDisplayValue('5000')
+    await user.clear(amountInput)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
+        amount: null,
+        receivedOn: '2026-03-14',
+        note: 'March pay',
+      })
+    )
+  })
+
+  it('shows an API error when saving an entry edit fails', async () => {
+    setDefaultMocks()
+    vi.mocked(updateIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not save entry'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
+  })
+
+  it('cancels editing an entry', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when deleting an entry fails', async () => {
+    setDefaultMocks()
+    vi.mocked(deleteIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not delete entry'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
+  })
+
+  it('requires an amount to log income', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Log income' }))
+
+    expect(await screen.findByText('Amount is required')).toBeInTheDocument()
+    expect(createIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('logs a new income entry and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
+    const user = userEvent.setup()
+    render(MonthPage)
+    await screen.findByText('March 2026')
+
+    await user.selectOptions(screen.getByLabelText('Source'), '1')
+    await user.type(screen.getByLabelText('Amount'), '100')
+    await user.type(screen.getByLabelText('Note'), 'extra')
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    await waitFor(() =>
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        incomeSourceId: 1,
+        year: 2026,
+        month: 3,
+        amount: 100,
+        receivedOn: null,
+        note: 'extra',
+      })
+    )
+  })
+
+  it('shows an API error when logging income fails', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockRejectedValue(new ApiError(422, 'Could not log income'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.type(await screen.findByLabelText('Amount'), '100')
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    expect(await screen.findByText('Could not log income')).toBeInTheDocument()
+  })
+
+  it('shows the due date or due day for an expense line, falling back to an em dash', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+
+    expect(await screen.findByText('20 Mar 2026')).toBeInTheDocument()
+    expect(screen.getByText('Day 5')).toBeInTheDocument()
+  })
+
+  it('edits a utility expense line', async () => {
+    setDefaultMocks()
+    vi.mocked(upsertUtilityBill).mockResolvedValue({
+      id: 1,
+      utilityId: 1,
+      year: 2026,
+      month: 3,
+      amount: 120,
+      notes: null,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[2]!)
+    const amountInput = screen.getByDisplayValue('110')
+    await user.clear(amountInput)
+    await user.type(amountInput, '120')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 120))
+  })
+
+  it('adds a category actual when none is logged yet', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategoryActuals).mockResolvedValue([])
+    vi.mocked(createCategoryActual).mockResolvedValue({} as CategoryMonthlyActual)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[3]!)
+    expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument()
+    const amountInputs = screen.getAllByRole('spinbutton')
+    await user.type(amountInputs[amountInputs.length - 1]!, '650')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(createCategoryActual).toHaveBeenCalledWith(1, {
+        occurredOn: '2026-03-31',
+        amount: 650,
+      })
+    )
+  })
+
+  it('edits and removes a single existing category actual', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategoryActuals).mockResolvedValue([
+      {
+        id: 5,
+        categoryId: 1,
+        occurredOn: '2026-03-10',
+        amount: 620,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ])
+    vi.mocked(updateCategoryActual).mockResolvedValue({} as CategoryMonthlyActual)
+    vi.mocked(deleteCategoryActual).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[3]!)
+    await user.click(await screen.findByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(updateCategoryActual).toHaveBeenCalledWith(5, { amount: 620 }))
+
+    await user.click(
+      await screen.findAllByRole('button', { name: 'Edit' }).then((btns) => btns[3]!)
+    )
+    const expensesTable = (await screen.findAllByRole('table'))[1]!
+    await user.click(within(expensesTable).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(deleteCategoryActual).toHaveBeenCalledWith(5))
+  })
+
+  it('shows a link to view all entries when a category has multiple actuals that month', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategoryActuals).mockResolvedValue([
+      {
+        id: 5,
+        categoryId: 1,
+        occurredOn: '2026-03-10',
+        amount: 300,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: 6,
+        categoryId: 1,
+        occurredOn: '2026-03-20',
+        amount: 320,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ])
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[3]!)
+
+    expect(await screen.findByText('Multiple entries')).toBeInTheDocument()
+    const viewAll = screen.getByRole('link', { name: 'View all →' })
+    expect(viewAll.getAttribute('href')).toBe('/categories/1')
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
+  })
+
+  it('cancels editing an expense line', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategoryActuals).mockResolvedValue([])
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[2]!)
+    await user.click(await screen.findByRole('button', { name: 'Cancel' }))
+
+    expect(upsertUtilityBill).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when loading actuals for an expense edit fails', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategoryActuals).mockRejectedValue(new ApiError(500, 'Could not load actuals'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[3]!)
+
+    expect(await screen.findByText('Could not load actuals')).toBeInTheDocument()
+  })
+
+  it('shows an error when saving an expense edit fails', async () => {
+    setDefaultMocks()
+    vi.mocked(upsertUtilityBill).mockRejectedValue(new ApiError(500, 'Could not save actual'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[2]!)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Could not save actual')).toBeInTheDocument()
+  })
+
+  it('shows an error when removing an expense actual fails', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategoryActuals).mockResolvedValue([
+      {
+        id: 5,
+        categoryId: 1,
+        occurredOn: '2026-03-10',
+        amount: 620,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ])
+    vi.mocked(deleteCategoryActual).mockRejectedValue(new ApiError(500, 'Could not remove actual'))
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
+    await user.click(editButtons[3]!)
+    const expensesTable = (await screen.findAllByRole('table'))[1]!
+    await user.click(within(expensesTable).getByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByText('Could not remove actual')).toBeInTheDocument()
+  })
+
+  it('shows expense and income totals in the table footers', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+
+    const tables = await screen.findAllByRole('table')
+    const incomeFooter = tables[0]!.querySelector('tfoot')!
+    expect(within(incomeFooter).getAllByText('$5,000.00')).toHaveLength(2)
+    expect(within(tables[1]!).getByText('$700.00')).toBeInTheDocument()
+    expect(within(tables[1]!).getByText('$730.00')).toBeInTheDocument()
+  })
+
+  it('does not show an Edit button for a non-editable expense line', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: { lines: [], projectedTotal: 0, actualTotal: 0 },
+        expenses: {
+          lines: [
+            {
+              key: 'utility-2',
+              label: 'Water (shared)',
+              projected: 40,
+              actual: 40,
+              dueDay: null,
+              dueDate: null,
+              editable: false,
+            },
+          ],
+          projectedTotal: 40,
+          actualTotal: 40,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const tables = await screen.findAllByRole('table')
+    expect(within(tables[1]!).getByText('Water (shared)')).toBeInTheDocument()
+    expect(within(tables[1]!).queryByRole('button', { name: 'Edit' })).toBeNull()
+  })
+})

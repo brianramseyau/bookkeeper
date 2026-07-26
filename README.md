@@ -39,7 +39,7 @@ to inspect a copy of the production database locally), set `DB_FILENAME`
 in `apps/api/.env` to an absolute or `tmp`-relative path.
 
 Useful scripts (run from the repo root): `pnpm lint`, `pnpm lint:fix`,
-`pnpm typecheck`, `pnpm format`, `pnpm build`.
+`pnpm typecheck`, `pnpm test`, `pnpm format`, `pnpm build`.
 
 ### Running tests
 
@@ -54,6 +54,44 @@ touches your real dev database and needs no extra setup on a fresh clone.
 pnpm --filter api test             # run the suite
 pnpm --filter api test:coverage    # run with a coverage report (text + HTML in apps/api/coverage/)
 ```
+
+The API sits at 100% statement/branch/function/line coverage, with two
+deliberate, documented exclusions rather than tests bent out of shape to
+force a number:
+
+- The one-time `import:xlsx` command is excluded from the coverage
+  target entirely (`--exclude="commands/**"` in `test:coverage`) since
+  it's already been run once against the real workbook and
+  hand-verified (see the Verification section of the original
+  implementation plan), and isn't exercised by the running app
+  afterwards.
+- A handful of individual lines carry inline `c8 ignore` comments for
+  branches that are provably unreachable through any legitimate input -
+  e.g. a DB-level `CHECK` constraint that already rules out the values
+  a fallback branch exists to handle, or a `BaseSerializer` hook
+  required for Lucid pagination support that this app never triggers
+  (every table here is small enough to return in full). Each one has a
+  comment at the call site explaining why it can't be hit.
+
+The web app (`apps/web`) has a Vitest + `@testing-library/svelte` suite covering
+every `$lib` module (API wrappers, formatters, stores) and every route/component,
+mocking `$app/navigation` / `$app/state` and the `$lib/api/*` modules per test
+rather than hitting a real server. It runs in jsdom with the timezone pinned to
+UTC (`vitest.config.ts`) so date-formatting assertions don't depend on the
+machine running them.
+
+```bash
+pnpm --filter web test             # run the suite
+pnpm --filter web test:coverage    # run with a coverage report (text + HTML in apps/web/coverage/)
+```
+
+Statement/function/line coverage sits in the high 90s. Branch coverage is
+lower (~80%) and isn't chased to 100% the way the API's is - a lot of the
+remaining branches are decorative template conditionals (a dark-mode class
+ternary, an `{#if}` guarding a value that's already guaranteed non-null by an
+enclosing check) rather than business logic, and forcing every one of those
+would mean tests bent out of shape to hit a number rather than to verify
+behavior.
 
 ## Deploying (Docker / unRAID)
 
@@ -138,21 +176,3 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   excluded sheet that's still expected to be modeled eventually.
 - **No notifications/reminders** for upcoming or overdue bills - you have
   to check the Dashboard or Recurring Bills page yourself.
-- **No frontend test coverage** - the SvelteKit app (`apps/web`) has no
-  test tooling installed and no automated tests. The API (`apps/api`) sits
-  at 100% statement/branch/function/line coverage (see "Running tests"
-  above), with two deliberate, documented exclusions rather than tests
-  bent out of shape to force a number:
-  - The one-time `import:xlsx` command is excluded from the coverage
-    target entirely (`--exclude="commands/**"` in `test:coverage`) since
-    it's already been run once against the real workbook and
-    hand-verified (see the Verification section of the original
-    implementation plan), and isn't exercised by the running app
-    afterwards.
-  - A handful of individual lines carry inline `c8 ignore` comments for
-    branches that are provably unreachable through any legitimate input -
-    e.g. a DB-level `CHECK` constraint that already rules out the values
-    a fallback branch exists to handle, or a `BaseSerializer` hook
-    required for Lucid pagination support that this app never triggers
-    (every table here is small enough to return in full). Each one has a
-    comment at the call site explaining why it can't be hit.

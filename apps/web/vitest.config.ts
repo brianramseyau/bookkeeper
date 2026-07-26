@@ -1,0 +1,28 @@
+import tailwindcss from '@tailwindcss/vite'
+import { svelteTesting } from '@testing-library/svelte/vite'
+import { sveltekit } from '@sveltejs/kit/vite'
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  plugins: [tailwindcss(), sveltekit(), svelteTesting()],
+  test: {
+    environment: 'jsdom',
+    // Pin the timezone so date-formatting assertions don't depend on the
+    // machine/CI running the suite.
+    env: { TZ: 'UTC' },
+    setupFiles: ['./src/tests/setup.ts'],
+    exclude: ['node_modules/**', 'build/**', '.svelte-kit/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['src/**/*.{ts,svelte}'],
+      exclude: [
+        'src/**/*.spec.ts',
+        'src/tests/**',
+        'src/app.d.ts',
+        'src/routes/**/+layout.ts',
+        '**/*.d.ts',
+      ],
+    },
+  },
+})
