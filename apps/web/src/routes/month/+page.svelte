@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
+  import { getStandardMonth, type StandardMonthResult, type StandardMonthLine } from '$lib/api/standard-month'
   import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
     listIncomeSources,
@@ -12,6 +12,13 @@
     type IncomeSource,
     type IncomeEntry,
   } from '$lib/api/income'
+  import { upsertUtilityBill } from '$lib/api/utilities'
+  import {
+    listCategoryActuals,
+    createCategoryActual,
+    updateCategoryActual,
+    deleteCategoryActual,
+  } from '$lib/api/category-actuals'
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { formatCurrency, formatDate, monthName } from '$lib/format'
   import { ApiError } from '$lib/api'
@@ -47,6 +54,14 @@
   let logReceivedOn = $state('')
   let logNote = $state('')
   let loggingEntry = $state(false)
+
+  type ExpenseEditMode = 'utility' | 'category-add' | 'category-edit' | 'category-multiple'
+  let editingExpenseKey = $state<string | null>(null)
+  let editExpenseMode = $state<ExpenseEditMode | null>(null)
+  let editExpenseTargetId = $state<number | null>(null)
+  let editExpenseCategoryId = $state<number | null>(null)
+  let editExpenseAmount = $state<number>(NaN)
+  let savingExpense = $state(false)
 
   onMount(load)
 
@@ -209,6 +224,89 @@
   function sourceName(sourceId: number | null): string {
     if (sourceId === null) return 'Unattributed'
     return sources.find((s) => s.id === sourceId)?.name ?? `Source #${sourceId}`
+  }
+
+  function lastDayOfMonthIso(y: number, m: number): string {
+    return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
+  }
+
+  function cancelEditExpense() {
+    editingExpenseKey = null
+    editExpenseMode = null
+    editExpenseTargetId = null
+    editExpenseCategoryId = null
+  }
+
+  async function startEditExpense(line: StandardMonthLine) {
+    error = null
+    if (line.key.startsWith('utility-')) {
+      editingExpenseKey = line.key
+      editExpenseMode = 'utility'
+      editExpenseTargetId = Number(line.key.slice('utility-'.length))
+      editExpenseCategoryId = null
+      editExpenseAmount = line.actual ?? NaN
+      return
+    }
+    if (line.key.startsWith('category-')) {
+      const categoryId = Number(line.key.slice('category-'.length))
+      try {
+        const actuals = await listCategoryActuals(categoryId, year, month)
+        editingExpenseKey = line.key
+        editExpenseCategoryId = categoryId
+        if (actuals.length === 0) {
+          editExpenseMode = 'category-add'
+          editExpenseTargetId = categoryId
+          editExpenseAmount = NaN
+        } else if (actuals.length === 1) {
+          editExpenseMode = 'category-edit'
+          editExpenseTargetId = actuals[0]!.id
+          editExpenseAmount = actuals[0]!.amount
+        } else {
+          editExpenseMode = 'category-multiple'
+          editExpenseTargetId = categoryId
+        }
+      } catch (err) {
+        error = err instanceof ApiError ? err.message : 'Failed to load actuals'
+      }
+    }
+  }
+
+  async function saveExpenseEdit() {
+    if (editExpenseMode === 'category-multiple' || editExpenseTargetId === null) return
+    if (Number.isNaN(editExpenseAmount)) return
+
+    savingExpense = true
+    error = null
+    try {
+      if (editExpenseMode === 'utility') {
+        await upsertUtilityBill(editExpenseTargetId, year, month, editExpenseAmount)
+      } else if (editExpenseMode === 'category-add') {
+        await createCategoryActual(editExpenseTargetId, {
+          occurredOn: lastDayOfMonthIso(year, month),
+          amount: editExpenseAmount,
+        })
+      } else if (editExpenseMode === 'category-edit') {
+        await updateCategoryActual(editExpenseTargetId, { amount: editExpenseAmount })
+      }
+      cancelEditExpense()
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save actual'
+    } finally {
+      savingExpense = false
+    }
+  }
+
+  async function removeExpenseActual() {
+    if (editExpenseMode !== 'category-edit' || editExpenseTargetId === null) return
+    error = null
+    try {
+      await deleteCategoryActual(editExpenseTargetId)
+      cancelEditExpense()
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to remove actual'
+    }
   }
 </script>
 
@@ -471,22 +569,94 @@
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
+          <th class="px-3 py-2"></th>
         </tr>
       </thead>
       <tbody>
         {#each data.expenses.lines as line (line.key)}
-          <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-            <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
-              >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
-            >
-            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-              >{formatCurrency(line.projected)}</td
-            >
-            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-              >{formatCurrency(line.actual)}</td
-            >
-          </tr>
+          {@const editable = line.key.startsWith('utility-') || line.key.startsWith('category-')}
+          {#if editingExpenseKey === line.key}
+            <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
+              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
+              <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
+                >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
+              >
+              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                >{formatCurrency(line.projected)}</td
+              >
+              <td class="px-3 py-2 text-right">
+                {#if editExpenseMode === 'category-multiple'}
+                  <span class="text-xs text-slate-500 dark:text-slate-400">Multiple entries</span>
+                {:else}
+                  <input
+                    type="number"
+                    step="0.01"
+                    bind:value={editExpenseAmount}
+                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap">
+                {#if editExpenseMode === 'category-multiple'}
+                  <a
+                    href="/categories/{editExpenseCategoryId}"
+                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    View all →
+                  </a>
+                {:else}
+                  <button
+                    type="button"
+                    onclick={saveExpenseEdit}
+                    disabled={savingExpense}
+                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Save
+                  </button>
+                  {#if editExpenseMode === 'category-edit'}
+                    <button
+                      type="button"
+                      onclick={removeExpenseActual}
+                      class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  {/if}
+                {/if}
+                <button
+                  type="button"
+                  onclick={cancelEditExpense}
+                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                >
+                  Cancel
+                </button>
+              </td>
+            </tr>
+          {:else}
+            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
+              <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
+                >{line.dueDay ? `Day ${line.dueDay}` : '—'}</td
+              >
+              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                >{formatCurrency(line.projected)}</td
+              >
+              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+                >{formatCurrency(line.actual)}</td
+              >
+              <td class="px-3 py-2 text-right whitespace-nowrap">
+                {#if editable}
+                  <button
+                    type="button"
+                    onclick={() => startEditExpense(line)}
+                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    Edit
+                  </button>
+                {/if}
+              </td>
+            </tr>
+          {/if}
         {/each}
       </tbody>
       <tfoot>
@@ -498,6 +668,7 @@
           <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
             >{formatCurrency(data.expenses.actualTotal)}</td
           >
+          <td class="px-3 py-2"></td>
         </tr>
       </tfoot>
     </table>

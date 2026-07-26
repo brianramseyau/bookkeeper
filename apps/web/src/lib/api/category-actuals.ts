@@ -19,8 +19,12 @@ export interface CategoryTrend {
   months: { year: number; month: number; amount: number }[]
 }
 
-export function listCategoryActuals(categoryId: number) {
-  return api.get<CategoryMonthlyActual[]>(`/categories/${categoryId}/actuals`)
+export function listCategoryActuals(categoryId: number, year?: number, month?: number) {
+  const params = new URLSearchParams()
+  if (year) params.set('year', String(year))
+  if (month) params.set('month', String(month))
+  const query = params.toString() ? `?${params.toString()}` : ''
+  return api.get<CategoryMonthlyActual[]>(`/categories/${categoryId}/actuals${query}`)
 }
 
 export function getCategoryTrend(categoryId: number) {
