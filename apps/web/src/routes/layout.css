@@ -5,6 +5,14 @@
    default prefers-color-scheme-only `dark:` variant. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Match html/body to the app background so overscroll/rubber-banding shows
+   the theme color instead of a flash of white. */
+@layer base {
+  html {
+    @apply bg-slate-50 dark:bg-slate-900;
+  }
+}
+
 /* Native date inputs otherwise render a dark calendar icon regardless of
    theme, which is unreadable against our dark-mode input backgrounds. */
 .dark input[type='date'] {
