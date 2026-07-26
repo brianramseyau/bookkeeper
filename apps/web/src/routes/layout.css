@@ -4,3 +4,9 @@
 /* Class-based dark mode (toggled via the theme store), instead of Tailwind's
    default prefers-color-scheme-only `dark:` variant. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Native date inputs otherwise render a dark calendar icon regardless of
+   theme, which is unreadable against our dark-mode input backgrounds. */
+.dark input[type='date'] {
+  color-scheme: dark;
+}
