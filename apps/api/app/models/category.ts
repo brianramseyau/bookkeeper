@@ -16,7 +16,11 @@ export default class Category extends CategorySchema {
   @beforeCreate()
   static async assignSortOrder(category: Category) {
     if (category.$attributes.sortOrder !== undefined) return
-    const last = await Category.query().orderBy('sortOrder', 'desc').first()
+    // Must reuse the enclosing transaction's client if there is one - on
+    // SQLite's single-connection pool, querying outside it while that
+    // transaction holds the only connection deadlocks instead of erroring.
+    const query = category.$trx ? Category.query({ client: category.$trx }) : Category.query()
+    const last = await query.orderBy('sortOrder', 'desc').first()
     category.sortOrder = last ? last.sortOrder + 1 : 0
   }
 }

@@ -45,6 +45,39 @@ in `apps/api/.env` to an absolute or `tmp`-relative path.
 Useful scripts (run from the repo root): `pnpm lint`, `pnpm lint:fix`,
 `pnpm typecheck`, `pnpm test`, `pnpm format`, `pnpm build`.
 
+### Re-seeding from the workbook (full historical import)
+
+Until this app is on a stable release, the workbook is the source of truth:
+the database can be thrown away and rebuilt from it at any time. Category
+mappings and other importer decisions live in
+`apps/api/commands/import_xlsx.ts` (see e.g. the `ROLLING_RECURRING_BILL_NOTES`
+table) - fix them there, not with a one-off SQL update, so a future re-seed
+doesn't silently revert the fix.
+
+Order matters - each step depends on the one before it:
+
+```bash
+# 1. Stop anything holding the db file open (dev server, container, etc).
+#    SQLite here is single-writer; running the import while something
+#    else has the file open can deadlock rather than error cleanly.
+
+# 2. From apps/api: drop + recreate the schema, then run the seeders
+#    (default categories, users from the workbook's "Users" sheet).
+pnpm --filter api exec node ace migration:fresh --seed
+
+# 3. Re-run the historical import from the workbook. --dry-run first to
+#    sanity-check parsed counts without writing anything; --truncate makes
+#    it safe to re-run against a db that already has import data in it.
+pnpm --filter api exec node ace import:xlsx --file="../../Joint Account Workbook.xlsx" --dry-run
+pnpm --filter api exec node ace import:xlsx --file="../../Joint Account Workbook.xlsx" --truncate
+
+# 4. Restart whatever you stopped in step 1.
+```
+
+`import:xlsx` also takes `--rolling-start-year`/`--rolling-start-month` if
+the "Rolling" sheet's first month block ever shifts (see the command's
+`--help` for current defaults).
+
 ### Running tests
 
 The API has a full Japa test suite (unit tests for the xlsx import parsers,
@@ -104,9 +137,19 @@ behavior.
    appdata data directory (see step 4) so it's reachable at that path
    in-container, e.g. `/app/data/Joint Account Workbook.xlsx`.
 2. `docker compose up -d --build`
-3. One-time only: `docker compose exec bookkeeper node ace db:seed` to
-   create logins from the workbook's "Users" sheet (`Name`, `Email`,
-   `Password` columns).
+3. One-time only, to seed and import the historical workbook data (the
+   container already ran pending migrations on boot in step 2):
+
+   ```bash
+   docker compose exec bookkeeper node ace db:seed
+   docker compose exec bookkeeper node ace import:xlsx --file="/app/data/Joint Account Workbook.xlsx"
+   ```
+
+   `db:seed` creates logins from the workbook's "Users" sheet (`Name`,
+   `Email`, `Password` columns); `import:xlsx` does the historical import
+   described in [Re-seeding from the workbook](#re-seeding-from-the-workbook-full-historical-import)
+   above - add `--truncate` if re-running this against a container that
+   already has import data in it.
 4. Point the container's `/mnt/user/appdata/bookkeeper/data` mount at
    wherever you want the data to live on the host - see `docker-compose.yml`.
 

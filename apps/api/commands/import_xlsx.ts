@@ -68,7 +68,7 @@ const ROLLING_SKIP_NOTES = new Set([
 const ROLLING_RECURRING_BILL_NOTES: Record<string, string | null> = {
   'Kayo': 'Subscriptions',
   'YouTube': 'Subscriptions',
-  'Internet Bill': 'Household',
+  'Internet Bill': 'Utilities',
   'Health Insurance': 'Household',
   'Ariel Allowance': null,
   'Brian Allowance': null,
