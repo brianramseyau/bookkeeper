@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import User from '#models/user'
 import Category from '#models/category'
 import CategoryBudgetItem from '#models/category_budget_item'
@@ -175,7 +176,7 @@ test.group('Categories / destroy', () => {
     await CategoryBudgetItem.create({ categoryId: category.id, name: 'Line', amount: 10 })
     await CategoryMonthlyActual.create({
       categoryId: category.id,
-      occurredOn: '2026-01-01',
+      occurredOn: DateTime.fromISO('2026-01-01'),
       amount: 50,
     })
     const bill = await RecurringBill.create({
