@@ -2,6 +2,8 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import Category from '#models/category'
 import CategoryBudgetItem from '#models/category_budget_item'
+import CategoryMonthlyActual from '#models/category_monthly_actual'
+import RecurringBill from '#models/recurring_bill'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -26,6 +28,32 @@ test.group('Categories / index', () => {
     assert.notInclude(names, 'Archived')
     const dogEntry = response.body().data.find((c: { name: string }) => c.name === 'Dog')
     assert.equal(dogEntry.budgetItemCount, 1)
+  })
+
+  test('excludes paused and archived categories by default, but includes them with includeHidden', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const paused = await Category.create({ name: 'Paused Cat' })
+    paused.isPaused = true
+    await paused.save()
+    const archived = await Category.create({ name: 'Archived Cat' })
+    archived.isArchived = true
+    await archived.save()
+
+    const defaultResponse = await client.get('/api/categories').loginAs(brian)
+    const defaultNames = defaultResponse.body().data.map((c: { name: string }) => c.name)
+    assert.notInclude(defaultNames, 'Paused Cat')
+    assert.notInclude(defaultNames, 'Archived Cat')
+
+    const hiddenResponse = await client
+      .get('/api/categories')
+      .qs({ includeHidden: true })
+      .loginAs(brian)
+    const hiddenNames = hiddenResponse.body().data.map((c: { name: string }) => c.name)
+    assert.include(hiddenNames, 'Paused Cat')
+    assert.include(hiddenNames, 'Archived Cat')
   })
 })
 
@@ -103,13 +131,27 @@ test.group('Categories / update', () => {
 
     response.assertStatus(404)
   })
+
+  test('archiving a category clears an existing pause', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const category = await Category.create({ name: 'Kayo-like' })
+    category.isPaused = true
+    await category.save()
+
+    const response = await client
+      .patch(`/api/categories/${category.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ isArchived: true })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.isArchived, true)
+    assert.equal(response.body().data.isPaused, false)
+  })
 })
 
 test.group('Categories / destroy', () => {
-  test('soft-deletes a category (isActive=false) rather than removing the row', async ({
-    client,
-    assert,
-  }) => {
+  test('rejects removing a category that is not archived', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     const category = await Category.create({ name: 'Temp' })
 
@@ -118,10 +160,41 @@ test.group('Categories / destroy', () => {
       .withCsrfToken()
       .loginAs(brian)
 
-    response.assertStatus(204)
+    response.assertStatus(409)
+    assert.isNotNull(await Category.find(category.id))
+  })
 
-    const reloaded = await Category.findOrFail(category.id)
-    // isActive round-trips through SQLite as a raw 0/1 integer, not a real boolean.
-    assert.equal(reloaded.isActive, false)
+  test('permanently deletes an archived category and its dependents', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const category = await Category.create({ name: 'Temp' })
+    category.isArchived = true
+    await category.save()
+    await CategoryBudgetItem.create({ categoryId: category.id, name: 'Line', amount: 10 })
+    await CategoryMonthlyActual.create({
+      categoryId: category.id,
+      occurredOn: '2026-01-01',
+      amount: 50,
+    })
+    const bill = await RecurringBill.create({
+      name: 'Linked Bill',
+      categoryId: category.id,
+      amount: 10,
+      frequency: 'monthly',
+    })
+
+    const response = await client
+      .delete(`/api/categories/${category.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+
+    response.assertStatus(204)
+    assert.isNull(await Category.find(category.id))
+    assert.lengthOf(await CategoryBudgetItem.query().where('categoryId', category.id), 0)
+    assert.lengthOf(await CategoryMonthlyActual.query().where('categoryId', category.id), 0)
+    await bill.refresh()
+    assert.isNull(bill.categoryId)
   })
 })

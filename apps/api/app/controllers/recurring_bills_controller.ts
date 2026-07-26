@@ -13,8 +13,12 @@ import { upsertRecurringBillPaymentValidator } from '#validators/recurring_bill_
 const DUE_SOON_WINDOW_DAYS = 30
 
 export default class RecurringBillsController {
-  async index({ serialize }: HttpContext) {
-    const bills = await RecurringBill.query().orderBy('name', 'asc')
+  async index({ request, serialize }: HttpContext) {
+    const query = RecurringBill.query().orderBy('name', 'asc')
+    if (!request.input('includeHidden')) {
+      query.where('isActive', true).andWhere('isPaused', false).andWhere('isArchived', false)
+    }
+    const bills = await query
     return serialize(RecurringBillTransformer.transform(bills))
   }
 
@@ -51,6 +55,8 @@ export default class RecurringBillsController {
       customIntervalValue: payload.customIntervalValue,
       customIntervalUnit: payload.customIntervalUnit,
       isActive: payload.isActive,
+      isPaused: payload.isArchived ? false : payload.isPaused,
+      isArchived: payload.isArchived,
       notes: payload.notes,
     })
 
@@ -68,8 +74,15 @@ export default class RecurringBillsController {
 
   async destroy({ params, response }: HttpContext) {
     const bill = await RecurringBill.findOrFail(params.id)
-    bill.isActive = false
-    await bill.save()
+    if (!bill.isArchived) {
+      return response.conflict({ message: 'Only archived bills can be permanently removed' })
+    }
+
+    // Hard delete - SQLite FK enforcement is off in this app, so the
+    // CASCADE declared in the migration doesn't fire on its own.
+    await RecurringBillPayment.query().where('recurringBillId', bill.id).delete()
+    await bill.delete()
+
     return response.noContent()
   }
 
@@ -88,11 +101,14 @@ export default class RecurringBillsController {
     return serialize(RecurringBillPaymentTransformer.transform(payment))
   }
 
-  async upcoming({ serialize }: HttpContext) {
-    const bills = await RecurringBill.query()
-      .where('isActive', true)
+  async upcoming({ request, serialize }: HttpContext) {
+    const query = RecurringBill.query()
       .orderByRaw('next_due_on IS NULL')
       .orderBy('nextDueOn', 'asc')
+    if (!request.input('includeHidden')) {
+      query.where('isActive', true).andWhere('isPaused', false).andWhere('isArchived', false)
+    }
+    const bills = await query
 
     const today = DateTime.utc().startOf('day')
     const serialized = await serialize.withoutWrapping(RecurringBillTransformer.transform(bills))

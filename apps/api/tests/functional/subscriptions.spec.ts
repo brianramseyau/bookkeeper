@@ -34,6 +34,45 @@ test.group('Subscriptions / index', () => {
     assert.lengthOf(response.body().data, 1)
     assert.equal(response.body().data[0].name, 'Spotify')
   })
+
+  test('excludes paused, archived, and removed subscriptions by default, but includes them with includeHidden', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const paused = await UserSubscription.create({ userId: brian.id, name: 'Kayo', amount: 45.99 })
+    paused.isPaused = true
+    await paused.save()
+    const archived = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Nintendo Online',
+      amount: 3.99,
+    })
+    archived.isArchived = true
+    await archived.save()
+    const removed = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Cancelled',
+      amount: 10,
+    })
+    removed.isActive = false
+    await removed.save()
+
+    const defaultResponse = await client.get('/api/subscriptions').loginAs(brian)
+    const defaultNames = defaultResponse.body().data.map((s: { name: string }) => s.name)
+    assert.notInclude(defaultNames, 'Kayo')
+    assert.notInclude(defaultNames, 'Nintendo Online')
+    assert.notInclude(defaultNames, 'Cancelled')
+
+    const hiddenResponse = await client
+      .get('/api/subscriptions')
+      .qs({ includeHidden: true })
+      .loginAs(brian)
+    const hiddenNames = hiddenResponse.body().data.map((s: { name: string }) => s.name)
+    assert.include(hiddenNames, 'Kayo')
+    assert.include(hiddenNames, 'Nintendo Online')
+    assert.include(hiddenNames, 'Cancelled')
+  })
 })
 
 test.group('Subscriptions / store', () => {
@@ -69,10 +108,31 @@ test.group('Subscriptions / update', () => {
     response.assertStatus(200)
     assert.equal(response.body().data.amount, 24.99)
   })
+
+  test('archiving a subscription clears an existing pause', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Kayo',
+      amount: 45.99,
+    })
+    subscription.isPaused = true
+    await subscription.save()
+
+    const response = await client
+      .patch(`/api/subscriptions/${subscription.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ isArchived: true })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.isArchived, true)
+    assert.equal(response.body().data.isPaused, false)
+  })
 })
 
 test.group('Subscriptions / destroy', () => {
-  test('soft-deletes a subscription', async ({ client, assert }) => {
+  test('rejects removing a subscription that is not archived', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     const subscription = await UserSubscription.create({
       userId: brian.id,
@@ -85,9 +145,40 @@ test.group('Subscriptions / destroy', () => {
       .withCsrfToken()
       .loginAs(brian)
 
+    response.assertStatus(409)
+    assert.isNotNull(await UserSubscription.find(subscription.id))
+  })
+
+  test('permanently deletes an archived subscription and its payment history', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    subscription.isArchived = true
+    await subscription.save()
+    await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2026,
+      month: 1,
+      paid: true,
+    })
+
+    const response = await client
+      .delete(`/api/subscriptions/${subscription.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+
     response.assertStatus(204)
-    const reloaded = await UserSubscription.findOrFail(subscription.id)
-    assert.equal(reloaded.isActive, false)
+    assert.isNull(await UserSubscription.find(subscription.id))
+    assert.lengthOf(
+      await SubscriptionPayment.query().where('userSubscriptionId', subscription.id),
+      0
+    )
   })
 })
 
@@ -199,5 +290,28 @@ test.group('Subscriptions / summary', () => {
     assert.equal(brianSummary.total, 38.47)
     assert.equal(brianSummary.count, 2)
     assert.equal(arielSummary.total, 26.48)
+  })
+
+  test('excludes paused and archived subscriptions from the total', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    await UserSubscription.create({ userId: brian.id, name: 'Netflix', amount: 22.99 })
+    const paused = await UserSubscription.create({ userId: brian.id, name: 'Kayo', amount: 45.99 })
+    paused.isPaused = true
+    await paused.save()
+    const archived = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Nintendo Online',
+      amount: 3.99,
+    })
+    archived.isArchived = true
+    await archived.save()
+
+    const response = await client.get('/api/subscriptions/summary').loginAs(brian)
+
+    const brianSummary = response
+      .body()
+      .data.find((s: { fullName: string }) => s.fullName === 'Brian')
+    assert.equal(brianSummary.total, 22.99)
+    assert.equal(brianSummary.count, 1)
   })
 })

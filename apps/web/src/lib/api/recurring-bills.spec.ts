@@ -18,6 +18,11 @@ describe('recurring bills api', () => {
     expect(api.get).toHaveBeenCalledWith('/recurring-bills/upcoming')
   })
 
+  it('lists hidden recurring bills', () => {
+    listUpcomingRecurringBills({ includeHidden: true })
+    expect(api.get).toHaveBeenCalledWith('/recurring-bills/upcoming?includeHidden=true')
+  })
+
   it('creates a recurring bill', () => {
     createRecurringBill({
       name: 'Costco',

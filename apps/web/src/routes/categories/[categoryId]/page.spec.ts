@@ -52,6 +52,8 @@ const groceries: Category = {
   budgetItemCount: 0,
   includeInStandardMonth: true,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
 }
 
 const groceriesNoBudget: Category = { ...groceries, budgetAmount: null }

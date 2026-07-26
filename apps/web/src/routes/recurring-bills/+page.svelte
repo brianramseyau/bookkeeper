@@ -25,6 +25,23 @@
   let categories = $state<Category[]>([])
   let loading = $state(true)
   let error = $state<string | null>(null)
+  let showHidden = $state(false)
+
+  const activeBills = $derived(
+    bills.filter((bill) => bill.isActive && !bill.isPaused && !bill.isArchived)
+  )
+  const pausedBills = $derived(
+    bills.filter((bill) => bill.isActive && bill.isPaused && !bill.isArchived)
+  )
+  const archivedBills = $derived(bills.filter((bill) => bill.isActive && bill.isArchived))
+  const removedBills = $derived(bills.filter((bill) => !bill.isActive))
+
+  const groupedBills = $derived(
+    FREQUENCIES.map((f) => ({
+      ...f,
+      bills: activeBills.filter((bill) => bill.frequency === f.value),
+    })).filter((group) => group.bills.length > 0)
+  )
 
   let name = $state('')
   let amount = $state<number>(NaN)
@@ -51,7 +68,7 @@
     error = null
     try {
       const [billList, categoryList] = await Promise.all([
-        listUpcomingRecurringBills(),
+        listUpcomingRecurringBills({ includeHidden: true }),
         listCategories(),
       ])
       bills = billList
@@ -85,12 +102,63 @@
   }
 
   async function handleDelete(bill: UpcomingRecurringBill) {
+    if (!confirm(`Permanently delete "${bill.name}"? This cannot be undone.`)) return
     error = null
     try {
       await deleteRecurringBill(bill.id)
-      bills = bills.filter((b) => b.id !== bill.id)
+      await load()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
+    }
+  }
+
+  async function handlePause(bill: UpcomingRecurringBill) {
+    error = null
+    try {
+      await updateRecurringBill(bill.id, { isPaused: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to pause'
+    }
+  }
+
+  async function handleUnpause(bill: UpcomingRecurringBill) {
+    error = null
+    try {
+      await updateRecurringBill(bill.id, { isPaused: false })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to unpause'
+    }
+  }
+
+  async function handleArchive(bill: UpcomingRecurringBill) {
+    error = null
+    try {
+      await updateRecurringBill(bill.id, { isArchived: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to archive'
+    }
+  }
+
+  async function handleUnarchive(bill: UpcomingRecurringBill) {
+    error = null
+    try {
+      await updateRecurringBill(bill.id, { isArchived: false })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to unarchive'
+    }
+  }
+
+  async function handleRestore(bill: UpcomingRecurringBill) {
+    error = null
+    try {
+      await updateRecurringBill(bill.id, { isActive: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to restore'
     }
   }
 
@@ -172,11 +240,123 @@
   }
 </script>
 
+{#snippet editRow(bill: UpcomingRecurringBill)}
+  <tr
+    class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+  >
+    <td class="px-3 py-2">
+      <input
+        type="text"
+        bind:value={editName}
+        class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </td>
+    <td class="px-3 py-2">
+      <select
+        value={bill.categoryId ?? ''}
+        onchange={(e) => handleCategoryChange(bill, e.currentTarget.value)}
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <option value="">Uncategorized</option>
+        {#each categories as category (category.id)}
+          <option value={category.id}>{category.name}</option>
+        {/each}
+      </select>
+    </td>
+    <td class="px-3 py-2 text-right">
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        bind:value={editAmount}
+        class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </td>
+    <td class="px-3 py-2">
+      <div class="flex flex-col gap-1">
+        <select
+          bind:value={editFrequency}
+          class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        >
+          {#each FREQUENCIES as f (f.value)}
+            <option value={f.value}>{f.label}</option>
+          {/each}
+        </select>
+        {#if editFrequency === 'custom'}
+          <div class="flex gap-1">
+            <input
+              type="number"
+              min="1"
+              bind:value={editCustomIntervalValue}
+              class="w-14 rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            />
+            <select
+              bind:value={editCustomIntervalUnit}
+              class="rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+              <option value="months">Months</option>
+            </select>
+          </div>
+        {/if}
+      </div>
+    </td>
+    <td class="px-3 py-2">
+      <input
+        type="date"
+        bind:value={editNextDueOn}
+        class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </td>
+    <td class="px-3 py-2"></td>
+    <td class="px-3 py-2 text-right whitespace-nowrap">
+      <button
+        type="button"
+        onclick={() => saveEdit(bill)}
+        disabled={savingEdit}
+        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onclick={cancelEdit}
+        class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+      >
+        Cancel
+      </button>
+    </td>
+  </tr>
+{/snippet}
+
+{#snippet statusBadge(label: string, tone: 'amber' | 'slate')}
+  <span
+    class={[
+      'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase',
+      tone === 'amber'
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+        : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+    ]}
+  >
+    {label}
+  </span>
+{/snippet}
+
 <svelte:head>
-  <title>Recurring Bills · Bookkeeper</title>
+  <title>Bills · Bookkeeper</title>
 </svelte:head>
 
-<h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Recurring Bills</h1>
+<div class="flex items-center justify-between">
+  <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Bills</h1>
+  <button
+    type="button"
+    onclick={() => (showHidden = !showHidden)}
+    class="text-xs font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
+  >
+    {showHidden ? 'Hide' : 'Show'} paused / archived / removed
+  </button>
+</div>
 
 {#if error}
   <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -209,150 +389,257 @@
         </tr>
       </thead>
       <tbody>
-        {#each bills as bill (bill.id)}
-          {#if editingId === bill.id}
-            <tr
-              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+        {#each groupedBills as group (group.value)}
+          <tr
+            class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+          >
+            <td
+              colspan="7"
+              class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
             >
-              <td class="px-3 py-2">
-                <input
-                  type="text"
-                  bind:value={editName}
-                  class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2">
-                <select
-                  value={bill.categoryId ?? ''}
-                  onchange={(e) => handleCategoryChange(bill, e.currentTarget.value)}
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+              {group.label}
+            </td>
+          </tr>
+          {#each group.bills as bill (bill.id)}
+            {#if editingId === bill.id}
+              {@render editRow(bill)}
+            {:else}
+              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{bill.name}</td
                 >
-                  <option value="">Uncategorized</option>
-                  {#each categories as category (category.id)}
-                    <option value={category.id}>{category.name}</option>
-                  {/each}
-                </select>
-              </td>
-              <td class="px-3 py-2 text-right">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  bind:value={editAmount}
-                  class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2">
-                <div class="flex flex-col gap-1">
+                <td class="px-3 py-2">
                   <select
-                    bind:value={editFrequency}
-                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    value={bill.categoryId ?? ''}
+                    onchange={(e) => handleCategoryChange(bill, e.currentTarget.value)}
+                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                   >
-                    {#each FREQUENCIES as f (f.value)}
-                      <option value={f.value}>{f.label}</option>
+                    <option value="">Uncategorized</option>
+                    {#each categories as category (category.id)}
+                      <option value={category.id}>{category.name}</option>
                     {/each}
                   </select>
-                  {#if editFrequency === 'custom'}
-                    <div class="flex gap-1">
-                      <input
-                        type="number"
-                        min="1"
-                        bind:value={editCustomIntervalValue}
-                        class="w-14 rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                      />
-                      <select
-                        bind:value={editCustomIntervalUnit}
-                        class="rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                      >
-                        <option value="days">Days</option>
-                        <option value="weeks">Weeks</option>
-                        <option value="months">Months</option>
-                      </select>
-                    </div>
+                </td>
+                <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                  {formatCurrency(bill.amount)}
+                </td>
+                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">{frequencyLabel(bill)}</td>
+                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                  {formatDate(bill.nextDueOn)}
+                </td>
+                <td class="px-3 py-2">
+                  {#if bill.dueSoon}
+                    <span
+                      class={[
+                        'rounded-full px-2 py-0.5 text-xs font-medium',
+                        bill.daysUntilDue !== null && bill.daysUntilDue < 0
+                          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+                      ]}
+                    >
+                      {formatDaysUntilDue(bill.daysUntilDue)}
+                    </span>
                   {/if}
-                </div>
-              </td>
-              <td class="px-3 py-2">
-                <input
-                  type="date"
-                  bind:value={editNextDueOn}
-                  class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2"></td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => saveEdit(bill)}
-                  disabled={savingEdit}
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onclick={cancelEdit}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
-                  Cancel
-                </button>
-              </td>
-            </tr>
-          {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{bill.name}</td>
-              <td class="px-3 py-2">
-                <select
-                  value={bill.categoryId ?? ''}
-                  onchange={(e) => handleCategoryChange(bill, e.currentTarget.value)}
-                  class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                >
-                  <option value="">Uncategorized</option>
-                  {#each categories as category (category.id)}
-                    <option value={category.id}>{category.name}</option>
-                  {/each}
-                </select>
-              </td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
-                {formatCurrency(bill.amount)}
-              </td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400">{frequencyLabel(bill)}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
-                {formatDate(bill.nextDueOn)}
-              </td>
-              <td class="px-3 py-2">
-                {#if bill.dueSoon}
-                  <span
-                    class={[
-                      'rounded-full px-2 py-0.5 text-xs font-medium',
-                      bill.daysUntilDue !== null && bill.daysUntilDue < 0
-                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-                    ]}
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button
+                    type="button"
+                    onclick={() => startEdit(bill)}
+                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
                   >
-                    {formatDaysUntilDue(bill.daysUntilDue)}
-                  </span>
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => startEdit(bill)}
-                  class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onclick={() => handleDelete(bill)}
-                  class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
-                >
-                  Remove
-                </button>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => handlePause(bill)}
+                    class="ml-2 text-xs text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
+                  >
+                    Pause
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => handleArchive(bill)}
+                    class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                  >
+                    Archive
+                  </button>
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        {/each}
+
+        {#if showHidden}
+          {#if pausedBills.length > 0}
+            <tr
+              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            >
+              <td
+                colspan="7"
+                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              >
+                Paused
               </td>
             </tr>
+            {#each pausedBills as bill (bill.id)}
+              {#if editingId === bill.id}
+                {@render editRow(bill)}
+              {:else}
+                <tr
+                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                >
+                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                    {bill.name}
+                    {@render statusBadge('Paused', 'amber')}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(bill.amount)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {frequencyLabel(bill)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {formatDate(bill.nextDueOn)}
+                  </td>
+                  <td class="px-3 py-2"></td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => startEdit(bill)}
+                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleUnpause(bill)}
+                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                    >
+                      Unpause
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleArchive(bill)}
+                      class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                    >
+                      Archive
+                    </button>
+                  </td>
+                </tr>
+              {/if}
+            {/each}
           {/if}
-        {/each}
+
+          {#if archivedBills.length > 0}
+            <tr
+              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            >
+              <td
+                colspan="7"
+                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              >
+                Archived
+              </td>
+            </tr>
+            {#each archivedBills as bill (bill.id)}
+              {#if editingId === bill.id}
+                {@render editRow(bill)}
+              {:else}
+                <tr
+                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                >
+                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                    {bill.name}
+                    {@render statusBadge('Archived', 'slate')}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(bill.amount)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {frequencyLabel(bill)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {formatDate(bill.nextDueOn)}
+                  </td>
+                  <td class="px-3 py-2"></td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => startEdit(bill)}
+                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleUnarchive(bill)}
+                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                    >
+                      Unarchive
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleDelete(bill)}
+                      class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              {/if}
+            {/each}
+          {/if}
+
+          {#if removedBills.length > 0}
+            <tr
+              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            >
+              <td
+                colspan="7"
+                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              >
+                Removed
+              </td>
+            </tr>
+            {#each removedBills as bill (bill.id)}
+              <tr
+                class="border-b border-slate-100 opacity-60 last:border-0 dark:border-slate-700/60"
+              >
+                <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  {bill.name}
+                  {@render statusBadge('Removed', 'slate')}
+                </td>
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
+                </td>
+                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  {formatCurrency(bill.amount)}
+                </td>
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {frequencyLabel(bill)}
+                </td>
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {formatDate(bill.nextDueOn)}
+                </td>
+                <td class="px-3 py-2"></td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button
+                    type="button"
+                    onclick={() => handleRestore(bill)}
+                    class="text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                  >
+                    Restore
+                  </button>
+                </td>
+              </tr>
+            {/each}
+          {/if}
+        {/if}
       </tbody>
     </table>
   </div>

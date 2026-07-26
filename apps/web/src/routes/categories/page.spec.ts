@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte'
+import { render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -32,6 +32,8 @@ const groceries: Category = {
   budgetItemCount: 0,
   includeInStandardMonth: true,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
 }
 
 const rent: Category = {
@@ -43,6 +45,8 @@ const rent: Category = {
   budgetItemCount: 3,
   includeInStandardMonth: false,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
 }
 
 const noTrend: CategoryTrend = {
@@ -284,31 +288,141 @@ describe('categories page', () => {
     expect(await screen.findByText('Could not save changes')).toBeInTheDocument()
   })
 
-  it('archives a category', async () => {
-    vi.mocked(listCategories).mockResolvedValue([groceries, rent])
+  it('does not offer Remove on an active or paused category, only once archived', async () => {
+    vi.mocked(listCategories).mockResolvedValue([{ ...groceries, isPaused: true }])
+    vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await screen.findByText('Groceries')
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+  })
+
+  it('permanently removes an archived category after confirming', async () => {
+    const archived = { ...groceries, isArchived: true }
+    vi.mocked(listCategories).mockResolvedValue([archived, rent])
     vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
     vi.mocked(deleteCategory).mockResolvedValue(undefined)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await screen.findByText('Groceries')
+    vi.mocked(listCategories).mockResolvedValue([rent])
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Permanently delete "Groceries"? This cannot be undone.'
+    )
+    expect(deleteCategory).toHaveBeenCalledWith(1)
+    await waitFor(() => expect(screen.queryByText('Groceries')).toBeNull())
+  })
+
+  it('does not remove an archived category when the confirmation is declined', async () => {
+    const archived = { ...groceries, isArchived: true }
+    vi.mocked(listCategories).mockResolvedValue([archived])
+    vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+
+    expect(deleteCategory).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when permanently removing fails', async () => {
+    const archived = { ...groceries, isArchived: true }
+    vi.mocked(listCategories).mockResolvedValue([archived])
+    vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
+    vi.mocked(deleteCategory).mockRejectedValue(new ApiError(500, 'Failed to remove'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+
+    expect(await screen.findByText('Failed to remove')).toBeInTheDocument()
+  })
+
+  it('pauses a category and reveals it under "Show paused / archived / removed"', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries])
+    vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
+    vi.mocked(updateCategory).mockResolvedValue({ ...groceries, isPaused: true })
     const user = userEvent.setup()
     render(CategoriesPage)
 
     await screen.findByText('Groceries')
-    await user.click(screen.getAllByRole('button', { name: 'Archive' })[0]!)
+    vi.mocked(listCategories).mockResolvedValue([{ ...groceries, isPaused: true }])
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
 
-    expect(deleteCategory).toHaveBeenCalledWith(1)
-    expect(await screen.findByText('Rent')).toBeInTheDocument()
-    expect(screen.queryByText('Groceries')).toBeNull()
+    expect(updateCategory).toHaveBeenCalledWith(1, { isPaused: true })
+    await waitFor(() => expect(screen.queryByText('Groceries')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: 'Show paused / archived / removed' }))
+    expect(screen.getByText('Groceries')).toBeInTheDocument()
+    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
   })
 
-  it('shows an error when archiving fails', async () => {
-    vi.mocked(listCategories).mockResolvedValue([groceries])
+  it('archives a category, superseding an existing pause, and can be unarchived', async () => {
+    vi.mocked(listCategories).mockResolvedValue([{ ...groceries, isPaused: true }])
     vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
-    vi.mocked(deleteCategory).mockRejectedValue(new ApiError(500, 'Failed to archive'))
+    vi.mocked(updateCategory).mockResolvedValue({
+      ...groceries,
+      isPaused: false,
+      isArchived: true,
+    })
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Archive' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await screen.findByText('Groceries')
+    vi.mocked(listCategories).mockResolvedValue([
+      { ...groceries, isPaused: false, isArchived: true },
+    ])
+    await user.click(screen.getByRole('button', { name: 'Archive' }))
 
-    expect(await screen.findByText('Failed to archive')).toBeInTheDocument()
+    expect(updateCategory).toHaveBeenCalledWith(1, { isArchived: true })
+    await waitFor(() => expect(screen.getAllByText('Archived').length).toBeGreaterThan(0))
+    expect(screen.queryByText('Paused')).toBeNull()
+
+    vi.mocked(updateCategory).mockResolvedValue({ ...groceries, isArchived: false })
+    vi.mocked(listCategories).mockResolvedValue([groceries])
+    await user.click(screen.getByRole('button', { name: 'Unarchive' }))
+
+    expect(updateCategory).toHaveBeenCalledWith(1, { isArchived: false })
+  })
+
+  it('restores a removed category', async () => {
+    const removed = { ...groceries, isActive: false }
+    vi.mocked(listCategories).mockResolvedValue([removed])
+    vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
+    vi.mocked(updateCategory).mockResolvedValue(groceries)
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
+    vi.mocked(listCategories).mockResolvedValue([groceries])
+    await user.click(screen.getByRole('button', { name: 'Restore' }))
+
+    expect(updateCategory).toHaveBeenCalledWith(1, { isActive: true })
   })
 
   it('moves a category down and up, swapping sort order', async () => {

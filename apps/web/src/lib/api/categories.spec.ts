@@ -12,6 +12,11 @@ describe('categories api', () => {
     expect(api.get).toHaveBeenCalledWith('/categories')
   })
 
+  it('lists hidden categories', () => {
+    listCategories({ includeHidden: true })
+    expect(api.get).toHaveBeenCalledWith('/categories?includeHidden=true')
+  })
+
   it('creates a category', () => {
     createCategory({ name: 'Groceries' })
     expect(api.post).toHaveBeenCalledWith('/categories', { name: 'Groceries' })

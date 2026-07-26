@@ -36,6 +36,45 @@ test.group('RecurringBills / index', () => {
       ['Costco Membership', 'VPN']
     )
   })
+
+  test('excludes paused, archived, and removed bills by default, but includes them with includeHidden', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const paused = await RecurringBill.create({ name: 'Kayo', amount: 45.99, frequency: 'monthly' })
+    paused.isPaused = true
+    await paused.save()
+    const archived = await RecurringBill.create({
+      name: 'Nintendo',
+      amount: 29.95,
+      frequency: 'annual',
+    })
+    archived.isArchived = true
+    await archived.save()
+    const removed = await RecurringBill.create({
+      name: 'Cancelled',
+      amount: 10,
+      frequency: 'annual',
+    })
+    removed.isActive = false
+    await removed.save()
+
+    const defaultResponse = await client.get('/api/recurring-bills').loginAs(brian)
+    const defaultNames = defaultResponse.body().data.map((b: { name: string }) => b.name)
+    assert.notInclude(defaultNames, 'Kayo')
+    assert.notInclude(defaultNames, 'Nintendo')
+    assert.notInclude(defaultNames, 'Cancelled')
+
+    const hiddenResponse = await client
+      .get('/api/recurring-bills')
+      .qs({ includeHidden: true })
+      .loginAs(brian)
+    const hiddenNames = hiddenResponse.body().data.map((b: { name: string }) => b.name)
+    assert.include(hiddenNames, 'Kayo')
+    assert.include(hiddenNames, 'Nintendo')
+    assert.include(hiddenNames, 'Cancelled')
+  })
 })
 
 test.group('RecurringBills / store', () => {
@@ -116,10 +155,27 @@ test.group('RecurringBills / update', () => {
     assert.equal(response.body().data.dueDay, 31)
     assert.equal(response.body().data.amount, 70)
   })
+
+  test('archiving a bill clears an existing pause', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({ name: 'Kayo', amount: 45.99, frequency: 'monthly' })
+    bill.isPaused = true
+    await bill.save()
+
+    const response = await client
+      .patch(`/api/recurring-bills/${bill.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ isArchived: true })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.isArchived, true)
+    assert.equal(response.body().data.isPaused, false)
+  })
 })
 
 test.group('RecurringBills / destroy', () => {
-  test('soft-deletes a recurring bill', async ({ client, assert }) => {
+  test('rejects removing a bill that is not archived', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     const bill = await RecurringBill.create({
       name: 'Costco Membership',
@@ -133,9 +189,38 @@ test.group('RecurringBills / destroy', () => {
       .withCsrfToken()
       .loginAs(brian)
 
+    response.assertStatus(409)
+    assert.isNotNull(await RecurringBill.find(bill.id))
+  })
+
+  test('permanently deletes an archived bill and its payment history', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Costco Membership',
+      amount: 65,
+      frequency: 'annual',
+      nextDueOn: DateTime.fromISO('2026-01-31'),
+    })
+    bill.isArchived = true
+    await bill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2026,
+      month: 1,
+      paid: true,
+    })
+
+    const response = await client
+      .delete(`/api/recurring-bills/${bill.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+
     response.assertStatus(204)
-    const reloaded = await RecurringBill.findOrFail(bill.id)
-    assert.equal(reloaded.isActive, false)
+    assert.isNull(await RecurringBill.find(bill.id))
+    assert.lengthOf(await RecurringBillPayment.query().where('recurringBillId', bill.id), 0)
   })
 })
 
@@ -267,5 +352,37 @@ test.group('RecurringBills / upcoming', () => {
     const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
 
     assert.lengthOf(response.body().data, 0)
+  })
+
+  test('excludes paused and archived bills, but includes them with includeHidden', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const paused = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      nextDueOn: DateTime.utc().plus({ days: 5 }),
+    })
+    paused.isPaused = true
+    await paused.save()
+    const archived = await RecurringBill.create({
+      name: 'Nintendo',
+      amount: 29.95,
+      frequency: 'annual',
+      nextDueOn: DateTime.utc().plus({ days: 5 }),
+    })
+    archived.isArchived = true
+    await archived.save()
+
+    const defaultResponse = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+    assert.lengthOf(defaultResponse.body().data, 0)
+
+    const hiddenResponse = await client
+      .get('/api/recurring-bills/upcoming')
+      .qs({ includeHidden: true })
+      .loginAs(brian)
+    assert.lengthOf(hiddenResponse.body().data, 2)
   })
 })

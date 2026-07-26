@@ -155,6 +155,52 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Household')
   })
 
+  test('paused or archived recurring bills, subscriptions, and categories produce no line', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+
+    const pausedBill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+    })
+    pausedBill.isPaused = true
+    await pausedBill.save()
+    const archivedBill = await RecurringBill.create({
+      name: 'Nintendo',
+      amount: 29.95,
+      frequency: 'annual',
+    })
+    archivedBill.isArchived = true
+    await archivedBill.save()
+
+    const pausedSub = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Paused Sub',
+      amount: 9.99,
+    })
+    pausedSub.isPaused = true
+    await pausedSub.save()
+
+    const bikeInsurance = await Category.create({ name: 'Bike Insurance', budgetAmount: 40 })
+    bikeInsurance.isArchived = true
+    await bikeInsurance.save()
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 2 })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    const labels = response.body().expenses.lines.map((l: { label: string }) => l.label)
+    assert.notInclude(labels, 'Kayo')
+    assert.notInclude(labels, 'Nintendo')
+    assert.notInclude(labels, 'Paused Sub (Brian)')
+    assert.notInclude(labels, 'Bike Insurance')
+  })
+
   test('amortizes a custom-frequency recurring bill and shows a null actual for a budgeted category with no actuals this month', async ({
     client,
     assert,

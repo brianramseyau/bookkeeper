@@ -10,6 +10,8 @@ export interface Category {
   budgetItemCount: number
   includeInStandardMonth: boolean
   isActive: boolean
+  isPaused: boolean
+  isArchived: boolean
 }
 
 export interface CategoryInput {
@@ -18,10 +20,14 @@ export interface CategoryInput {
   sortOrder?: number
   budgetAmount?: number | null
   includeInStandardMonth?: boolean
+  isActive?: boolean
+  isPaused?: boolean
+  isArchived?: boolean
 }
 
-export function listCategories() {
-  return api.get<Category[]>('/categories')
+export function listCategories(opts?: { includeHidden?: boolean }) {
+  const query = opts?.includeHidden ? '?includeHidden=true' : ''
+  return api.get<Category[]>(`/categories${query}`)
 }
 
 export function createCategory(input: CategoryInput) {

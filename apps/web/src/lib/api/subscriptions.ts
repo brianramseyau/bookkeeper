@@ -9,6 +9,8 @@ export interface UserSubscription {
   dayOfMonth: number | null
   includeInStandardMonth: boolean
   isActive: boolean
+  isPaused: boolean
+  isArchived: boolean
   notes: string | null
   createdAt: string
   updatedAt: string
@@ -38,10 +40,16 @@ export interface SubscriptionInput {
   amount: number
   dayOfMonth?: number | null
   notes?: string | null
+  isActive?: boolean
+  isPaused?: boolean
+  isArchived?: boolean
 }
 
-export function listSubscriptions(userId?: number) {
-  const query = userId ? `?userId=${userId}` : ''
+export function listSubscriptions(opts?: { userId?: number; includeHidden?: boolean }) {
+  const params = new URLSearchParams()
+  if (opts?.userId) params.set('userId', String(opts.userId))
+  if (opts?.includeHidden) params.set('includeHidden', 'true')
+  const query = params.toString() ? `?${params.toString()}` : ''
   return api.get<UserSubscription[]>(`/subscriptions${query}`)
 }
 

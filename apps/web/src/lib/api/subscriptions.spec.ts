@@ -20,8 +20,13 @@ describe('subscriptions api', () => {
   })
 
   it('lists subscriptions filtered by user', () => {
-    listSubscriptions(2)
+    listSubscriptions({ userId: 2 })
     expect(api.get).toHaveBeenCalledWith('/subscriptions?userId=2')
+  })
+
+  it('lists hidden subscriptions', () => {
+    listSubscriptions({ includeHidden: true })
+    expect(api.get).toHaveBeenCalledWith('/subscriptions?includeHidden=true')
   })
 
   it('gets the subscriptions summary', () => {

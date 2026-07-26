@@ -19,6 +19,7 @@
   let rows = $state<Row[]>([])
   let loading = $state(true)
   let error = $state<string | null>(null)
+  let showHidden = $state(false)
 
   let newName = $state('')
   let creating = $state(false)
@@ -31,13 +32,22 @@
   let savingEdit = $state(false)
   let reordering = $state(false)
 
+  const activeRows = $derived(
+    rows.filter((r) => r.category.isActive && !r.category.isPaused && !r.category.isArchived)
+  )
+  const pausedRows = $derived(
+    rows.filter((r) => r.category.isActive && r.category.isPaused && !r.category.isArchived)
+  )
+  const archivedRows = $derived(rows.filter((r) => r.category.isActive && r.category.isArchived))
+  const removedRows = $derived(rows.filter((r) => !r.category.isActive))
+
   onMount(load)
 
   async function load() {
     loading = true
     error = null
     try {
-      const categories = await listCategories()
+      const categories = await listCategories({ includeHidden: true })
       const trends = await Promise.all(categories.map((c) => getCategoryTrend(c.id)))
       rows = categories.map((category, i) => ({ category, trend: trends[i] ?? null }))
     } catch (err) {
@@ -102,25 +112,76 @@
     }
   }
 
-  async function handleArchive(category: Category) {
+  async function handleRemove(category: Category) {
+    if (!confirm(`Permanently delete "${category.name}"? This cannot be undone.`)) return
     error = null
     try {
       await deleteCategory(category.id)
-      rows = rows.filter((r) => r.category.id !== category.id)
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to remove'
+    }
+  }
+
+  async function handlePause(category: Category) {
+    error = null
+    try {
+      await updateCategory(category.id, { isPaused: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to pause'
+    }
+  }
+
+  async function handleUnpause(category: Category) {
+    error = null
+    try {
+      await updateCategory(category.id, { isPaused: false })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to unpause'
+    }
+  }
+
+  async function handleArchive(category: Category) {
+    error = null
+    try {
+      await updateCategory(category.id, { isArchived: true })
+      await load()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to archive'
     }
   }
 
+  async function handleUnarchive(category: Category) {
+    error = null
+    try {
+      await updateCategory(category.id, { isArchived: false })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to unarchive'
+    }
+  }
+
+  async function handleRestore(category: Category) {
+    error = null
+    try {
+      await updateCategory(category.id, { isActive: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to restore'
+    }
+  }
+
   async function moveCategory(index: number, direction: -1 | 1) {
     const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= rows.length) return
+    if (targetIndex < 0 || targetIndex >= activeRows.length) return
 
     reordering = true
     error = null
     try {
-      const current = rows[index]!.category
-      const target = rows[targetIndex]!.category
+      const current = activeRows[index]!.category
+      const target = activeRows[targetIndex]!.category
       await Promise.all([
         updateCategory(current.id, { sortOrder: target.sortOrder }),
         updateCategory(target.id, { sortOrder: current.sortOrder }),
@@ -134,11 +195,101 @@
   }
 </script>
 
+{#snippet editRow(category: Category)}
+  <tr
+    class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+  >
+    <td class="px-3 py-2">
+      <div class="flex items-center gap-2">
+        <input
+          type="color"
+          bind:value={editColor}
+          class="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
+        />
+        <input
+          type="text"
+          bind:value={editName}
+          class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </div>
+    </td>
+    <td class="px-3 py-2 text-right">
+      {#if category.budgetItemCount > 0}
+        <span
+          class="text-sm text-slate-500 dark:text-slate-400"
+          title="Derived from {category.budgetItemCount} itemized budget line(s) - edit them on the category page"
+        >
+          {formatCurrency(category.budgetAmount)}
+        </span>
+      {:else}
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="—"
+          bind:value={editBudgetAmount}
+          class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        />
+      {/if}
+    </td>
+    <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
+    <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
+    <td class="px-3 py-2"></td>
+    <td class="px-3 py-2 text-center">
+      <input
+        type="checkbox"
+        bind:checked={editIncludeInStandardMonth}
+        class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900"
+      />
+    </td>
+    <td class="px-3 py-2 text-right whitespace-nowrap">
+      <button
+        type="button"
+        onclick={() => saveEdit(category)}
+        disabled={savingEdit}
+        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onclick={cancelEdit}
+        class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+      >
+        Cancel
+      </button>
+    </td>
+    <td class="px-3 py-2"></td>
+  </tr>
+{/snippet}
+
+{#snippet statusBadge(label: string, tone: 'amber' | 'slate')}
+  <span
+    class={[
+      'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase',
+      tone === 'amber'
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+        : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+    ]}
+  >
+    {label}
+  </span>
+{/snippet}
+
 <svelte:head>
   <title>Categories · Bookkeeper</title>
 </svelte:head>
 
-<h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Categories</h1>
+<div class="flex items-center justify-between">
+  <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Categories</h1>
+  <button
+    type="button"
+    onclick={() => (showHidden = !showHidden)}
+    class="text-xs font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
+  >
+    {showHidden ? 'Hide' : 'Show'} paused / archived / removed
+  </button>
+</div>
 
 {#if error}
   <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -173,73 +324,9 @@
         </tr>
       </thead>
       <tbody>
-        {#each rows as row, index (row.category.id)}
+        {#each activeRows as row, index (row.category.id)}
           {#if editingId === row.category.id}
-            <tr
-              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
-            >
-              <td class="px-3 py-2">
-                <div class="flex items-center gap-2">
-                  <input
-                    type="color"
-                    bind:value={editColor}
-                    class="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
-                  />
-                  <input
-                    type="text"
-                    bind:value={editName}
-                    class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </div>
-              </td>
-              <td class="px-3 py-2 text-right">
-                {#if row.category.budgetItemCount > 0}
-                  <span
-                    class="text-sm text-slate-500 dark:text-slate-400"
-                    title="Derived from {row.category.budgetItemCount} itemized budget line(s) - edit them on the category page"
-                  >
-                    {formatCurrency(row.category.budgetAmount)}
-                  </span>
-                {:else}
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="—"
-                    bind:value={editBudgetAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-              <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-              <td class="px-3 py-2"></td>
-              <td class="px-3 py-2 text-center">
-                <input
-                  type="checkbox"
-                  bind:checked={editIncludeInStandardMonth}
-                  class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900"
-                />
-              </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => saveEdit(row.category)}
-                  disabled={savingEdit}
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onclick={cancelEdit}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
-                  Cancel
-                </button>
-              </td>
-              <td class="px-3 py-2"></td>
-            </tr>
+            {@render editRow(row.category)}
           {:else}
             <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
@@ -284,9 +371,13 @@
               </td>
               <td class="px-3 py-2 text-center">
                 {#if row.category.includeInStandardMonth}
-                  <span class="text-emerald-600 dark:text-emerald-400" title="Included in Monthly">✓</span>
+                  <span class="text-emerald-600 dark:text-emerald-400" title="Included in Monthly"
+                    >✓</span
+                  >
                 {:else}
-                  <span class="text-slate-300 dark:text-slate-600" title="Excluded from Monthly">—</span>
+                  <span class="text-slate-300 dark:text-slate-600" title="Excluded from Monthly"
+                    >—</span
+                  >
                 {/if}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
@@ -299,8 +390,15 @@
                 </button>
                 <button
                   type="button"
+                  onclick={() => handlePause(row.category)}
+                  class="ml-2 text-xs text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
+                >
+                  Pause
+                </button>
+                <button
+                  type="button"
                   onclick={() => handleArchive(row.category)}
-                  class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                  class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   Archive
                 </button>
@@ -318,7 +416,7 @@
                 <button
                   type="button"
                   onclick={() => moveCategory(index, 1)}
-                  disabled={index === rows.length - 1 || reordering}
+                  disabled={index === activeRows.length - 1 || reordering}
                   aria-label="Move {row.category.name} down"
                   class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
                 >
@@ -328,6 +426,204 @@
             </tr>
           {/if}
         {/each}
+
+        {#if showHidden}
+          {#if pausedRows.length > 0}
+            <tr
+              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            >
+              <td
+                colspan="8"
+                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              >
+                Paused
+              </td>
+            </tr>
+            {#each pausedRows as row (row.category.id)}
+              {#if editingId === row.category.id}
+                {@render editRow(row.category)}
+              {:else}
+                <tr
+                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                >
+                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                    <span class="flex items-center">
+                      <span
+                        class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                        style="background-color: {row.category.color ?? '#94a3b8'}"
+                      ></span>
+                      <span class="ml-2">{row.category.name}</span>
+                      {@render statusBadge('Paused', 'amber')}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(row.category.budgetAmount)}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(row.trend?.latestAmount ?? null)}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(row.trend?.average ?? null)}
+                  </td>
+                  <td class="px-3 py-2"></td>
+                  <td
+                    class="px-3 py-2 text-center text-slate-300 dark:text-slate-600"
+                    title="Excluded from Monthly while paused"
+                  >
+                    —
+                  </td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => startEdit(row.category)}
+                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleUnpause(row.category)}
+                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                    >
+                      Unpause
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleArchive(row.category)}
+                      class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                    >
+                      Archive
+                    </button>
+                  </td>
+                  <td class="px-3 py-2"></td>
+                </tr>
+              {/if}
+            {/each}
+          {/if}
+
+          {#if archivedRows.length > 0}
+            <tr
+              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            >
+              <td
+                colspan="8"
+                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              >
+                Archived
+              </td>
+            </tr>
+            {#each archivedRows as row (row.category.id)}
+              {#if editingId === row.category.id}
+                {@render editRow(row.category)}
+              {:else}
+                <tr
+                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                >
+                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                    <span class="flex items-center">
+                      <span
+                        class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                        style="background-color: {row.category.color ?? '#94a3b8'}"
+                      ></span>
+                      <span class="ml-2">{row.category.name}</span>
+                      {@render statusBadge('Archived', 'slate')}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(row.category.budgetAmount)}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(row.trend?.latestAmount ?? null)}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(row.trend?.average ?? null)}
+                  </td>
+                  <td class="px-3 py-2"></td>
+                  <td
+                    class="px-3 py-2 text-center text-slate-300 dark:text-slate-600"
+                    title="Excluded from Monthly while archived"
+                  >
+                    —
+                  </td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => startEdit(row.category)}
+                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleUnarchive(row.category)}
+                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                    >
+                      Unarchive
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleRemove(row.category)}
+                      class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                  <td class="px-3 py-2"></td>
+                </tr>
+              {/if}
+            {/each}
+          {/if}
+
+          {#if removedRows.length > 0}
+            <tr
+              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            >
+              <td
+                colspan="8"
+                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              >
+                Removed
+              </td>
+            </tr>
+            {#each removedRows as row (row.category.id)}
+              <tr
+                class="border-b border-slate-100 opacity-60 last:border-0 dark:border-slate-700/60"
+              >
+                <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  <span class="flex items-center">
+                    <span
+                      class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                      style="background-color: {row.category.color ?? '#94a3b8'}"
+                    ></span>
+                    <span class="ml-2">{row.category.name}</span>
+                    {@render statusBadge('Removed', 'slate')}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  {formatCurrency(row.category.budgetAmount)}
+                </td>
+                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  {formatCurrency(row.trend?.latestAmount ?? null)}
+                </td>
+                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  {formatCurrency(row.trend?.average ?? null)}
+                </td>
+                <td class="px-3 py-2"></td>
+                <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button
+                    type="button"
+                    onclick={() => handleRestore(row.category)}
+                    class="text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                  >
+                    Restore
+                  </button>
+                </td>
+                <td class="px-3 py-2"></td>
+              </tr>
+            {/each}
+          {/if}
+        {/if}
       </tbody>
     </table>
   </div>

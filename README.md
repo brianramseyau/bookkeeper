@@ -175,7 +175,7 @@ Discovered along the way or scoped out of v1, but plausible to add later:
 - **`Non-PAYG Income Tax` sheet not yet imported** - the one remaining
   excluded sheet that's still expected to be modeled eventually.
 - **No notifications/reminders** for upcoming or overdue bills - you have
-  to check the Dashboard or Recurring Bills page yourself.
+  to check the Dashboard or Bills page yourself.
 - **Clearing an amount field doesn't trigger client-side validation** -
   several forms (e.g. the Monthly page's carried-over balance, income
   entries, and expense actuals) guard against a missing amount with
@@ -186,3 +186,18 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   `amount: null` to the API instead of showing "Amount is required".
   Fix is small (`Number.isNaN(x) || x === null` at each call site) but
   hasn't been applied anywhere yet.
+- **SQLite foreign key enforcement is off, so cascade/set-null behavior
+  declared in migrations never actually fires** - `config/database.ts`
+  never runs `PRAGMA foreign_keys = ON` for the `better-sqlite3`
+  connection, so every `.onDelete('CASCADE')`/`.onDelete('SET NULL')` in
+  the migrations is inert schema metadata rather than enforced behavior.
+  The hard-delete paths added for archived categories/bills/subscriptions
+  (`*_controller.ts#destroy`) work around this by manually deleting or
+  nulling out dependent rows in application code before deleting the
+  parent, but that's a per-controller patch, not a fix - any other code
+  path that deletes a row with dependents (or a future migration that adds
+  a new FK) won't get cascade/set-null behavior unless it does the same
+  manual cleanup. Turning on `PRAGMA foreign_keys = ON` (e.g. via a
+  `pool.afterCreate` hook) would make the DB honor what the migrations
+  already declare, but needs testing since previously-silent orphaned-FK
+  states elsewhere could start surfacing as constraint errors.

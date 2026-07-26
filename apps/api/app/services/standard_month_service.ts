@@ -155,6 +155,8 @@ export class StandardMonthService {
 
     const recurringBills = await RecurringBill.query()
       .where('isActive', true)
+      .andWhere('isPaused', false)
+      .andWhere('isArchived', false)
       .orderBy('name', 'asc')
     const monthlyBillIds = recurringBills
       .filter((bill) => bill.frequency === 'monthly')
@@ -210,6 +212,8 @@ export class StandardMonthService {
     const users = await User.query().orderBy('fullName', 'asc')
     const subscriptions = await UserSubscription.query()
       .where('isActive', true)
+      .andWhere('isPaused', false)
+      .andWhere('isArchived', false)
       .where('includeInStandardMonth', true)
       .orderBy('name', 'asc')
     const subscriptionIds = subscriptions.map((sub) => sub.id)
@@ -241,6 +245,8 @@ export class StandardMonthService {
 
     const categories = await Category.query()
       .where('isActive', true)
+      .andWhere('isPaused', false)
+      .andWhere('isArchived', false)
       .where('includeInStandardMonth', true)
       .orderBy('sortOrder', 'asc')
     for (const category of categories) {

@@ -49,6 +49,8 @@ const streaming: Category = {
   budgetItemCount: 0,
   includeInStandardMonth: true,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
 }
 
 const netflix: UserSubscription = {
@@ -60,6 +62,8 @@ const netflix: UserSubscription = {
   dayOfMonth: 5,
   includeInStandardMonth: true,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
   notes: null,
   createdAt: '',
   updatedAt: '',
@@ -73,6 +77,8 @@ const spotify: UserSubscription = {
   dayOfMonth: null,
   includeInStandardMonth: true,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
   notes: null,
   createdAt: '',
   updatedAt: '',
@@ -192,34 +198,81 @@ describe('subscriptions page', () => {
     expect(await screen.findByText('Could not update category')).toBeInTheDocument()
   })
 
-  it('deletes a subscription and refreshes the summary', async () => {
-    setDefaultMocks()
-    vi.mocked(deleteSubscription).mockResolvedValue(undefined)
-    vi.mocked(getSubscriptionsSummary)
-      .mockResolvedValueOnce(summaries)
-      .mockResolvedValueOnce([
-        { userId: 1, fullName: 'Brian', total: 9.99, count: 1 },
-        { userId: 2, fullName: 'Ariel', total: 0, count: 0 },
-      ])
+  it('does not offer Remove on an active or paused subscription, only once archived', async () => {
+    vi.mocked(listUsers).mockResolvedValue([brian, ariel])
+    vi.mocked(getSubscriptionsSummary).mockResolvedValue(summaries)
+    vi.mocked(listCategories).mockResolvedValue([streaming])
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isPaused: true }, spotify])
     const user = userEvent.setup()
     render(SubscriptionsPage)
 
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
     await screen.findByText('Netflix')
-    await user.click(screen.getAllByRole('button', { name: 'Remove' })[0]!)
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+  })
 
+  it('permanently removes an archived subscription after confirming', async () => {
+    vi.mocked(listUsers).mockResolvedValue([brian, ariel])
+    vi.mocked(getSubscriptionsSummary).mockResolvedValue(summaries)
+    vi.mocked(listCategories).mockResolvedValue([streaming])
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isArchived: true }, spotify])
+    vi.mocked(deleteSubscription).mockResolvedValue(undefined)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(SubscriptionsPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await screen.findByText('Netflix')
+    vi.mocked(listSubscriptions).mockResolvedValue([spotify])
+    vi.mocked(getSubscriptionsSummary).mockResolvedValue([
+      { userId: 1, fullName: 'Brian', total: 9.99, count: 1 },
+      { userId: 2, fullName: 'Ariel', total: 0, count: 0 },
+    ])
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Permanently delete "Netflix"? This cannot be undone.'
+    )
     expect(deleteSubscription).toHaveBeenCalledWith(1)
     expect(await screen.findByText('$9.99/mo · 1 subscription')).toBeInTheDocument()
     expect(screen.queryByText('Netflix')).toBeNull()
   })
 
-  it('shows an error when deleting fails', async () => {
-    setDefaultMocks()
-    vi.mocked(deleteSubscription).mockRejectedValue(new ApiError(500, 'Could not delete'))
+  it('does not remove an archived subscription when the confirmation is declined', async () => {
+    vi.mocked(listUsers).mockResolvedValue([brian, ariel])
+    vi.mocked(getSubscriptionsSummary).mockResolvedValue(summaries)
+    vi.mocked(listCategories).mockResolvedValue([streaming])
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isArchived: true }, spotify])
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
     const user = userEvent.setup()
     render(SubscriptionsPage)
 
-    await screen.findByText('Netflix')
-    await user.click(screen.getAllByRole('button', { name: 'Remove' })[0]!)
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+
+    expect(deleteSubscription).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when permanently removing an archived subscription fails', async () => {
+    vi.mocked(listUsers).mockResolvedValue([brian, ariel])
+    vi.mocked(getSubscriptionsSummary).mockResolvedValue(summaries)
+    vi.mocked(listCategories).mockResolvedValue([streaming])
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isArchived: true }, spotify])
+    vi.mocked(deleteSubscription).mockRejectedValue(new ApiError(500, 'Could not delete'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(SubscriptionsPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -336,5 +389,66 @@ describe('subscriptions page', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
+  })
+
+  it('pauses a subscription, hiding it until "Show hidden" is toggled', async () => {
+    setDefaultMocks()
+    vi.mocked(updateSubscription).mockResolvedValue({ ...netflix, isPaused: true })
+    const user = userEvent.setup()
+    render(SubscriptionsPage)
+
+    const row = (await screen.findByText('Netflix')).closest('tr')!
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isPaused: true }, spotify])
+    await user.click(within(row).getByRole('button', { name: 'Pause' }))
+
+    expect(updateSubscription).toHaveBeenCalledWith(1, { isPaused: true })
+    await waitFor(() => expect(screen.queryByText('Netflix')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: 'Show paused / archived / removed' }))
+    expect(screen.getByText('Netflix')).toBeInTheDocument()
+    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
+  })
+
+  it('archives a subscription and can unarchive it', async () => {
+    setDefaultMocks()
+    vi.mocked(updateSubscription).mockResolvedValue({ ...netflix, isArchived: true })
+    const user = userEvent.setup()
+    render(SubscriptionsPage)
+
+    const row = (await screen.findByText('Netflix')).closest('tr')!
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isArchived: true }, spotify])
+    await user.click(within(row).getByRole('button', { name: 'Archive' }))
+
+    expect(updateSubscription).toHaveBeenCalledWith(1, { isArchived: true })
+    await waitFor(() => expect(screen.queryByText('Netflix')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: 'Show paused / archived / removed' }))
+    await screen.findByText('Netflix')
+
+    vi.mocked(updateSubscription).mockResolvedValue(netflix)
+    vi.mocked(listSubscriptions).mockResolvedValue([netflix, spotify])
+    await user.click(screen.getByRole('button', { name: 'Unarchive' }))
+
+    expect(updateSubscription).toHaveBeenCalledWith(1, { isArchived: false })
+  })
+
+  it('restores a removed subscription', async () => {
+    vi.mocked(listUsers).mockResolvedValue([brian, ariel])
+    vi.mocked(getSubscriptionsSummary).mockResolvedValue(summaries)
+    vi.mocked(listCategories).mockResolvedValue([streaming])
+    vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isActive: false }, spotify])
+    vi.mocked(updateSubscription).mockResolvedValue(netflix)
+    const user = userEvent.setup()
+    render(SubscriptionsPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
+
+    vi.mocked(listSubscriptions).mockResolvedValue([netflix, spotify])
+    await user.click(screen.getByRole('button', { name: 'Restore' }))
+
+    expect(updateSubscription).toHaveBeenCalledWith(1, { isActive: true })
   })
 })

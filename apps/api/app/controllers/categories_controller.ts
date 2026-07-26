@@ -1,12 +1,20 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Category from '#models/category'
 import CategoryBudgetItem from '#models/category_budget_item'
+import CategoryMonthlyActual from '#models/category_monthly_actual'
+import RecurringBill from '#models/recurring_bill'
+import UserSubscription from '#models/user_subscription'
+import Utility from '#models/utility'
 import CategoryTransformer from '#transformers/category_transformer'
 import { createCategoryValidator, updateCategoryValidator } from '#validators/category'
 
 export default class CategoriesController {
-  async index({ serialize }: HttpContext) {
-    const categories = await Category.query().where('isActive', true).orderBy('sortOrder', 'asc')
+  async index({ request, serialize }: HttpContext) {
+    const query = Category.query().orderBy('sortOrder', 'asc')
+    if (!request.input('includeHidden')) {
+      query.where('isActive', true).andWhere('isPaused', false).andWhere('isArchived', false)
+    }
+    const categories = await query
 
     const items = await CategoryBudgetItem.query().whereIn(
       'categoryId',
@@ -35,6 +43,7 @@ export default class CategoriesController {
   async update({ params, request, serialize }: HttpContext) {
     const category = await Category.findOrFail(params.id)
     const payload = await request.validateUsing(updateCategoryValidator)
+    if (payload.isArchived) payload.isPaused = false
     category.merge(payload)
     await category.save()
     return serialize(CategoryTransformer.transform(category))
@@ -42,8 +51,20 @@ export default class CategoriesController {
 
   async destroy({ params, response }: HttpContext) {
     const category = await Category.findOrFail(params.id)
-    category.isActive = false
-    await category.save()
+    if (!category.isArchived) {
+      return response.conflict({ message: 'Only archived categories can be permanently removed' })
+    }
+
+    // Hard delete - SQLite FK enforcement is off in this app, so the
+    // CASCADE/SET NULL behavior declared in migrations doesn't fire on its
+    // own; clean up dependents explicitly instead of leaving orphans.
+    await CategoryBudgetItem.query().where('categoryId', category.id).delete()
+    await CategoryMonthlyActual.query().where('categoryId', category.id).delete()
+    await RecurringBill.query().where('categoryId', category.id).update({ categoryId: null })
+    await UserSubscription.query().where('categoryId', category.id).update({ categoryId: null })
+    await Utility.query().where('categoryId', category.id).update({ categoryId: null })
+    await category.delete()
+
     return response.noContent()
   }
 }

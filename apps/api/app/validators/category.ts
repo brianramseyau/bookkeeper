@@ -15,4 +15,6 @@ export const updateCategoryValidator = vine.create({
   budgetAmount: vine.number().min(0).nullable().optional(),
   includeInStandardMonth: vine.boolean().optional(),
   isActive: vine.boolean().optional(),
+  isPaused: vine.boolean().optional(),
+  isArchived: vine.boolean().optional(),
 })

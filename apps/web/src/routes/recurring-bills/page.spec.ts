@@ -30,6 +30,8 @@ const insurance: Category = {
   budgetItemCount: 0,
   includeInStandardMonth: true,
   isActive: true,
+  isPaused: false,
+  isArchived: false,
 }
 
 const carInsurance: UpcomingRecurringBill = {
@@ -45,6 +47,8 @@ const carInsurance: UpcomingRecurringBill = {
   dueYear: null,
   nextDueOn: '2026-08-01T00:00:00.000+00:00',
   isActive: true,
+  isPaused: false,
+  isArchived: false,
   notes: null,
   createdAt: '',
   updatedAt: '',
@@ -64,6 +68,8 @@ const pestControl: UpcomingRecurringBill = {
   dueYear: null,
   nextDueOn: '2026-07-20T00:00:00.000+00:00',
   isActive: true,
+  isPaused: false,
+  isArchived: false,
   notes: null,
   createdAt: '',
   updatedAt: '',
@@ -83,6 +89,8 @@ const gym: UpcomingRecurringBill = {
   dueYear: null,
   nextDueOn: '2026-09-01T00:00:00.000+00:00',
   isActive: true,
+  isPaused: false,
+  isArchived: false,
   notes: null,
   createdAt: '',
   updatedAt: '',
@@ -181,28 +189,84 @@ describe('recurring bills page', () => {
     expect(await screen.findByText('Could not update category')).toBeInTheDocument()
   })
 
-  it('deletes a bill without refetching', async () => {
-    setDefaultMocks()
-    vi.mocked(deleteRecurringBill).mockResolvedValue(undefined)
+  it('does not offer Remove on an active or paused bill, only once archived', async () => {
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isPaused: true },
+      pestControl,
+      gym,
+    ])
+    vi.mocked(listCategories).mockResolvedValue([insurance])
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
     await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Remove' })[0]!)
-
-    expect(deleteRecurringBill).toHaveBeenCalledWith(1)
-    await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
-    expect(listUpcomingRecurringBills).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
   })
 
-  it('shows an error when deleting fails', async () => {
-    setDefaultMocks()
-    vi.mocked(deleteRecurringBill).mockRejectedValue(new ApiError(500, 'Could not delete'))
+  it('permanently removes an archived bill after confirming', async () => {
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isArchived: true },
+      pestControl,
+      gym,
+    ])
+    vi.mocked(listCategories).mockResolvedValue([insurance])
+    vi.mocked(deleteRecurringBill).mockResolvedValue(undefined)
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
     await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Remove' })[0]!)
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([pestControl, gym])
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Permanently delete "Car Insurance"? This cannot be undone.'
+    )
+    expect(deleteRecurringBill).toHaveBeenCalledWith(1)
+    await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
+  })
+
+  it('does not remove an archived bill when the confirmation is declined', async () => {
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isArchived: true },
+      pestControl,
+      gym,
+    ])
+    vi.mocked(listCategories).mockResolvedValue([insurance])
+    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const user = userEvent.setup()
+    render(RecurringBillsPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+
+    expect(deleteRecurringBill).not.toHaveBeenCalled()
+  })
+
+  it('shows an error when permanently removing an archived bill fails', async () => {
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isArchived: true },
+      pestControl,
+      gym,
+    ])
+    vi.mocked(listCategories).mockResolvedValue([insurance])
+    vi.mocked(deleteRecurringBill).mockRejectedValue(new ApiError(500, 'Could not delete'))
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(RecurringBillsPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await user.click(await screen.findByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -295,8 +359,8 @@ describe('recurring bills page', () => {
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
 
     const nameInput = screen.getByDisplayValue('Car Insurance')
     await user.clear(nameInput)
@@ -322,8 +386,8 @@ describe('recurring bills page', () => {
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
 
     const row = screen.getByDisplayValue('Car Insurance').closest('tr')!
     const frequencySelect = within(row).getAllByRole('combobox')[1]!
@@ -354,8 +418,8 @@ describe('recurring bills page', () => {
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
     expect(screen.getByDisplayValue('Car Insurance')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -369,8 +433,8 @@ describe('recurring bills page', () => {
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
     await user.clear(screen.getByDisplayValue('Car Insurance'))
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
@@ -386,10 +450,81 @@ describe('recurring bills page', () => {
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    await screen.findByText('Car Insurance')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
+  })
+
+  it('pauses a bill, hiding it from the default list until "Show hidden" is toggled', async () => {
+    setDefaultMocks()
+    vi.mocked(updateRecurringBill).mockResolvedValue({ ...carInsurance, isPaused: true })
+    const user = userEvent.setup()
+    render(RecurringBillsPage)
+
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isPaused: true },
+      pestControl,
+      gym,
+    ])
+    await user.click(within(carRow).getByRole('button', { name: 'Pause' }))
+
+    expect(updateRecurringBill).toHaveBeenCalledWith(1, { isPaused: true })
+    await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: 'Show paused / archived / removed' }))
+    expect(screen.getByText('Car Insurance')).toBeInTheDocument()
+    expect(screen.getAllByText('Paused').length).toBeGreaterThan(0)
+  })
+
+  it('archives a bill and can unarchive it', async () => {
+    setDefaultMocks()
+    vi.mocked(updateRecurringBill).mockResolvedValue({ ...carInsurance, isArchived: true })
+    const user = userEvent.setup()
+    render(RecurringBillsPage)
+
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isArchived: true },
+      pestControl,
+      gym,
+    ])
+    await user.click(within(carRow).getByRole('button', { name: 'Archive' }))
+
+    expect(updateRecurringBill).toHaveBeenCalledWith(1, { isArchived: true })
+    await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
+
+    await user.click(screen.getByRole('button', { name: 'Show paused / archived / removed' }))
+    await screen.findByText('Car Insurance')
+
+    vi.mocked(updateRecurringBill).mockResolvedValue(carInsurance)
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
+    await user.click(screen.getByRole('button', { name: 'Unarchive' }))
+
+    expect(updateRecurringBill).toHaveBeenCalledWith(1, { isArchived: false })
+  })
+
+  it('restores a removed bill', async () => {
+    setDefaultMocks()
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([
+      { ...carInsurance, isActive: false },
+      pestControl,
+      gym,
+    ])
+    vi.mocked(updateRecurringBill).mockResolvedValue(carInsurance)
+    const user = userEvent.setup()
+    render(RecurringBillsPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Show paused / archived / removed' })
+    )
+    await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
+
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
+    await user.click(screen.getByRole('button', { name: 'Restore' }))
+
+    expect(updateRecurringBill).toHaveBeenCalledWith(1, { isActive: true })
   })
 })

@@ -16,6 +16,8 @@ export default class RecurringBillTransformer extends BaseTransformer<RecurringB
       'dueYear',
       'nextDueOn',
       'isActive',
+      'isPaused',
+      'isArchived',
       'notes',
       'createdAt',
       'updatedAt',

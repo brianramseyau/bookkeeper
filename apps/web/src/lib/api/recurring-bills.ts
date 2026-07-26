@@ -16,6 +16,8 @@ export interface RecurringBill {
   dueYear: number | null
   nextDueOn: string | null
   isActive: boolean
+  isPaused: boolean
+  isArchived: boolean
   notes: string | null
   createdAt: string
   updatedAt: string
@@ -45,10 +47,14 @@ export interface RecurringBillInput {
   customIntervalUnit?: RecurringBillCustomIntervalUnit
   nextDueOn: string
   notes?: string | null
+  isActive?: boolean
+  isPaused?: boolean
+  isArchived?: boolean
 }
 
-export function listUpcomingRecurringBills() {
-  return api.get<UpcomingRecurringBill[]>('/recurring-bills/upcoming')
+export function listUpcomingRecurringBills(opts?: { includeHidden?: boolean }) {
+  const query = opts?.includeHidden ? '?includeHidden=true' : ''
+  return api.get<UpcomingRecurringBill[]>(`/recurring-bills/upcoming${query}`)
 }
 
 export function createRecurringBill(input: RecurringBillInput) {

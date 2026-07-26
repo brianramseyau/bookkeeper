@@ -15,6 +15,8 @@ export class CategorySchema extends BaseModel {
     'id',
     'includeInStandardMonth',
     'isActive',
+    'isArchived',
+    'isPaused',
     'name',
     'sortOrder',
     'updatedAt',
@@ -32,6 +34,10 @@ export class CategorySchema extends BaseModel {
   declare includeInStandardMonth: boolean
   @column()
   declare isActive: boolean
+  @column()
+  declare isArchived: boolean
+  @column()
+  declare isPaused: boolean
   @column()
   declare name: string
   @column()
@@ -234,6 +240,8 @@ export class RecurringBillSchema extends BaseModel {
     'frequency',
     'id',
     'isActive',
+    'isArchived',
+    'isPaused',
     'name',
     'nextDueOn',
     'notes',
@@ -262,6 +270,10 @@ export class RecurringBillSchema extends BaseModel {
   declare id: number
   @column()
   declare isActive: boolean
+  @column()
+  declare isArchived: boolean
+  @column()
+  declare isPaused: boolean
   @column()
   declare name: string
   @column.date()
@@ -308,6 +320,8 @@ export class UserSubscriptionSchema extends BaseModel {
     'id',
     'includeInStandardMonth',
     'isActive',
+    'isArchived',
+    'isPaused',
     'name',
     'notes',
     'updatedAt',
@@ -328,6 +342,10 @@ export class UserSubscriptionSchema extends BaseModel {
   declare includeInStandardMonth: boolean
   @column()
   declare isActive: boolean
+  @column()
+  declare isArchived: boolean
+  @column()
+  declare isPaused: boolean
   @column()
   declare name: string
   @column()

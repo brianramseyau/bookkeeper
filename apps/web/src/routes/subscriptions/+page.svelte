@@ -21,6 +21,7 @@
   let selectedUserId = $state<number | null>(null)
   let loading = $state(true)
   let error = $state<string | null>(null)
+  let showHidden = $state(false)
 
   let name = $state('')
   let amount = $state<number>(NaN)
@@ -34,7 +35,17 @@
   let editDayOfMonth = $state<number>(NaN)
   let savingEdit = $state(false)
 
-  const visibleSubscriptions = $derived(subscriptions.filter((s) => s.userId === selectedUserId))
+  const userSubscriptions = $derived(subscriptions.filter((s) => s.userId === selectedUserId))
+  const activeSubscriptions = $derived(
+    userSubscriptions.filter((s) => s.isActive && !s.isPaused && !s.isArchived)
+  )
+  const pausedSubscriptions = $derived(
+    userSubscriptions.filter((s) => s.isActive && s.isPaused && !s.isArchived)
+  )
+  const archivedSubscriptions = $derived(
+    userSubscriptions.filter((s) => s.isActive && s.isArchived)
+  )
+  const removedSubscriptions = $derived(userSubscriptions.filter((s) => !s.isActive))
 
   onMount(load)
 
@@ -46,7 +57,7 @@
         listUsers(),
         getSubscriptionsSummary(),
         listCategories(),
-        listSubscriptions(),
+        listSubscriptions({ includeHidden: true }),
       ])
       users = userList
       summaries = summaryList
@@ -73,13 +84,63 @@
   }
 
   async function handleDelete(sub: UserSubscription) {
+    if (!confirm(`Permanently delete "${sub.name}"? This cannot be undone.`)) return
     error = null
     try {
       await deleteSubscription(sub.id)
-      subscriptions = subscriptions.filter((s) => s.id !== sub.id)
-      summaries = await getSubscriptionsSummary()
+      await load()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
+    }
+  }
+
+  async function handlePause(sub: UserSubscription) {
+    error = null
+    try {
+      await updateSubscription(sub.id, { isPaused: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to pause'
+    }
+  }
+
+  async function handleUnpause(sub: UserSubscription) {
+    error = null
+    try {
+      await updateSubscription(sub.id, { isPaused: false })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to unpause'
+    }
+  }
+
+  async function handleArchive(sub: UserSubscription) {
+    error = null
+    try {
+      await updateSubscription(sub.id, { isArchived: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to archive'
+    }
+  }
+
+  async function handleUnarchive(sub: UserSubscription) {
+    error = null
+    try {
+      await updateSubscription(sub.id, { isArchived: false })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to unarchive'
+    }
+  }
+
+  async function handleRestore(sub: UserSubscription) {
+    error = null
+    try {
+      await updateSubscription(sub.id, { isActive: true })
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to restore'
     }
   }
 
@@ -145,11 +206,95 @@
   }
 </script>
 
+{#snippet editRow(sub: UserSubscription)}
+  <tr
+    class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+  >
+    <td class="px-3 py-2">
+      <input
+        type="text"
+        bind:value={editName}
+        class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </td>
+    <td class="px-3 py-2">
+      <select
+        value={sub.categoryId ?? ''}
+        onchange={(e) => handleCategoryChange(sub, e.currentTarget.value)}
+        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+      >
+        <option value="">Uncategorized</option>
+        {#each categories as category (category.id)}
+          <option value={category.id}>{category.name}</option>
+        {/each}
+      </select>
+    </td>
+    <td class="px-3 py-2 text-right">
+      <input
+        type="number"
+        step="0.01"
+        min="0"
+        bind:value={editAmount}
+        class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </td>
+    <td class="px-3 py-2">
+      <input
+        type="number"
+        min="1"
+        max="31"
+        placeholder="—"
+        bind:value={editDayOfMonth}
+        class="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </td>
+    <td class="px-3 py-2 text-right whitespace-nowrap">
+      <button
+        type="button"
+        onclick={() => saveEdit(sub)}
+        disabled={savingEdit}
+        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        onclick={cancelEdit}
+        class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+      >
+        Cancel
+      </button>
+    </td>
+  </tr>
+{/snippet}
+
+{#snippet statusBadge(label: string, tone: 'amber' | 'slate')}
+  <span
+    class={[
+      'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase',
+      tone === 'amber'
+        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+        : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+    ]}
+  >
+    {label}
+  </span>
+{/snippet}
+
 <svelte:head>
   <title>Subscriptions · Bookkeeper</title>
 </svelte:head>
 
-<h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Personal Subscriptions</h1>
+<div class="flex items-center justify-between">
+  <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Personal Subscriptions</h1>
+  <button
+    type="button"
+    onclick={() => (showHidden = !showHidden)}
+    class="text-xs font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
+  >
+    {showHidden ? 'Hide' : 'Show'} paused / archived / removed
+  </button>
+</div>
 
 {#if error}
   <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
@@ -207,67 +352,9 @@
           </tr>
         </thead>
         <tbody>
-          {#each visibleSubscriptions as sub (sub.id)}
+          {#each activeSubscriptions as sub (sub.id)}
             {#if editingId === sub.id}
-              <tr
-                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
-              >
-                <td class="px-3 py-2">
-                  <input
-                    type="text"
-                    bind:value={editName}
-                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </td>
-                <td class="px-3 py-2">
-                  <select
-                    value={sub.categoryId ?? ''}
-                    onchange={(e) => handleCategoryChange(sub, e.currentTarget.value)}
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    <option value="">Uncategorized</option>
-                    {#each categories as category (category.id)}
-                      <option value={category.id}>{category.name}</option>
-                    {/each}
-                  </select>
-                </td>
-                <td class="px-3 py-2 text-right">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    bind:value={editAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </td>
-                <td class="px-3 py-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    placeholder="—"
-                    bind:value={editDayOfMonth}
-                    class="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => saveEdit(sub)}
-                    disabled={savingEdit}
-                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onclick={cancelEdit}
-                    class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  >
-                    Cancel
-                  </button>
-                </td>
-              </tr>
+              {@render editRow(sub)}
             {:else}
               <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
                 <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
@@ -301,10 +388,17 @@
                   </button>
                   <button
                     type="button"
-                    onclick={() => handleDelete(sub)}
-                    class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                    onclick={() => handlePause(sub)}
+                    class="ml-2 text-xs text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
                   >
-                    Remove
+                    Pause
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => handleArchive(sub)}
+                    class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                  >
+                    Archive
                   </button>
                 </td>
               </tr>
@@ -319,6 +413,167 @@
               </td>
             </tr>
           {/each}
+
+          {#if showHidden}
+            {#if pausedSubscriptions.length > 0}
+              <tr
+                class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              >
+                <td
+                  colspan="5"
+                  class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                >
+                  Paused
+                </td>
+              </tr>
+              {#each pausedSubscriptions as sub (sub.id)}
+                {#if editingId === sub.id}
+                  {@render editRow(sub)}
+                {:else}
+                  <tr
+                    class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                  >
+                    <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                      {sub.name}
+                      {@render statusBadge('Paused', 'amber')}
+                    </td>
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                      {categories.find((c) => c.id === sub.categoryId)?.name ?? 'Uncategorized'}
+                    </td>
+                    <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                      {formatCurrency(sub.amount)}
+                    </td>
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                      {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
+                    </td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onclick={() => startEdit(sub)}
+                        class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onclick={() => handleUnpause(sub)}
+                        class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                      >
+                        Unpause
+                      </button>
+                      <button
+                        type="button"
+                        onclick={() => handleArchive(sub)}
+                        class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+                      >
+                        Archive
+                      </button>
+                    </td>
+                  </tr>
+                {/if}
+              {/each}
+            {/if}
+
+            {#if archivedSubscriptions.length > 0}
+              <tr
+                class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              >
+                <td
+                  colspan="5"
+                  class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                >
+                  Archived
+                </td>
+              </tr>
+              {#each archivedSubscriptions as sub (sub.id)}
+                {#if editingId === sub.id}
+                  {@render editRow(sub)}
+                {:else}
+                  <tr
+                    class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                  >
+                    <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                      {sub.name}
+                      {@render statusBadge('Archived', 'slate')}
+                    </td>
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                      {categories.find((c) => c.id === sub.categoryId)?.name ?? 'Uncategorized'}
+                    </td>
+                    <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                      {formatCurrency(sub.amount)}
+                    </td>
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                      {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
+                    </td>
+                    <td class="px-3 py-2 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onclick={() => startEdit(sub)}
+                        class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onclick={() => handleUnarchive(sub)}
+                        class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                      >
+                        Unarchive
+                      </button>
+                      <button
+                        type="button"
+                        onclick={() => handleDelete(sub)}
+                        class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                {/if}
+              {/each}
+            {/if}
+
+            {#if removedSubscriptions.length > 0}
+              <tr
+                class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              >
+                <td
+                  colspan="5"
+                  class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                >
+                  Removed
+                </td>
+              </tr>
+              {#each removedSubscriptions as sub (sub.id)}
+                <tr
+                  class="border-b border-slate-100 opacity-60 last:border-0 dark:border-slate-700/60"
+                >
+                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                    {sub.name}
+                    {@render statusBadge('Removed', 'slate')}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {categories.find((c) => c.id === sub.categoryId)?.name ?? 'Uncategorized'}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                    {formatCurrency(sub.amount)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
+                  </td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => handleRestore(sub)}
+                      class="text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
+                    >
+                      Restore
+                    </button>
+                  </td>
+                </tr>
+              {/each}
+            {/if}
+          {/if}
         </tbody>
       </table>
     </div>

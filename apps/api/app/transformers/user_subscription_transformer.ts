@@ -12,6 +12,8 @@ export default class UserSubscriptionTransformer extends BaseTransformer<UserSub
       'dayOfMonth',
       'includeInStandardMonth',
       'isActive',
+      'isPaused',
+      'isArchived',
       'notes',
       'createdAt',
       'updatedAt',

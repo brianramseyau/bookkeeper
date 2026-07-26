@@ -11,6 +11,8 @@ export default class CategoryTransformer extends BaseTransformer<Category> {
       'budgetAmount',
       'includeInStandardMonth',
       'isActive',
+      'isPaused',
+      'isArchived',
     ])
   }
 }

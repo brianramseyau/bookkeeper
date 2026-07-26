@@ -31,7 +31,7 @@
   import { ApiError } from '$lib/api'
 
   // Mirrors the API's DUE_SOON_WINDOW_DAYS (recurring_bills_controller.ts) so
-  // the Due chip here matches the Recurring Bills page: colored (and always
+  // the Due chip here matches the Bills page: colored (and always
   // shown) once a line is overdue or due within 30 days, plain text otherwise.
   const DUE_SOON_WINDOW_DAYS = 30
 
@@ -267,7 +267,7 @@
     return dueDate ? formatDate(dueDate) : undefined
   }
 
-  // Same red/amber pill as the Recurring Bills page's due-soon badge, so the
+  // Same red/amber pill as the Bills page's due-soon badge, so the
   // two areas read consistently - null means "plain text, no chip" (a due
   // date more than DUE_SOON_WINDOW_DAYS away, or no due date at all). `paid`
   // (a real, user-set flag - see the Paid checkbox below) is the sole

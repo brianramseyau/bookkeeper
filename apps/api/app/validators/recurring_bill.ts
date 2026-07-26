@@ -26,5 +26,7 @@ export const updateRecurringBillValidator = vine.create({
   customIntervalUnit: vine.enum(CUSTOM_INTERVAL_UNITS).nullable().optional(),
   nextDueOn: vine.date().optional(),
   isActive: vine.boolean().optional(),
+  isPaused: vine.boolean().optional(),
+  isArchived: vine.boolean().optional(),
   notes: vine.string().trim().maxLength(500).nullable().optional(),
 })

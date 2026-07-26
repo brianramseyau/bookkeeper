@@ -18,6 +18,9 @@ export default class SubscriptionsController {
     if (userId) {
       query.where('userId', Number(userId))
     }
+    if (!request.input('includeHidden')) {
+      query.where('isActive', true).andWhere('isPaused', false).andWhere('isArchived', false)
+    }
 
     const subscriptions = await query
     return serialize(UserSubscriptionTransformer.transform(subscriptions))
@@ -40,6 +43,7 @@ export default class SubscriptionsController {
   async update({ params, request, serialize }: HttpContext) {
     const subscription = await UserSubscription.findOrFail(params.id)
     const payload = await request.validateUsing(updateUserSubscriptionValidator)
+    if (payload.isArchived) payload.isPaused = false
     subscription.merge(payload)
     await subscription.save()
     return serialize(UserSubscriptionTransformer.transform(subscription))
@@ -47,8 +51,17 @@ export default class SubscriptionsController {
 
   async destroy({ params, response }: HttpContext) {
     const subscription = await UserSubscription.findOrFail(params.id)
-    subscription.isActive = false
-    await subscription.save()
+    if (!subscription.isArchived) {
+      return response.conflict({
+        message: 'Only archived subscriptions can be permanently removed',
+      })
+    }
+
+    // Hard delete - SQLite FK enforcement is off in this app, so the
+    // CASCADE declared in the migration doesn't fire on its own.
+    await SubscriptionPayment.query().where('userSubscriptionId', subscription.id).delete()
+    await subscription.delete()
+
     return response.noContent()
   }
 
@@ -70,7 +83,10 @@ export default class SubscriptionsController {
   async summary({ response }: HttpContext) {
     const [users, subscriptions] = await Promise.all([
       User.query().orderBy('fullName', 'asc'),
-      UserSubscription.query().where('isActive', true),
+      UserSubscription.query()
+        .where('isActive', true)
+        .andWhere('isPaused', false)
+        .andWhere('isArchived', false),
     ])
 
     const results = users.map((user) => {
