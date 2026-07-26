@@ -118,19 +118,47 @@
           </button>
           <a
             href="/settings"
-            class="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            aria-label="Settings for {authState.user.fullName ?? authState.user.email}"
+            title={authState.user.fullName ?? authState.user.email}
+            class="rounded-md p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            style="color: {authState.user.displayColor ?? '#94a3b8'}"
           >
-            <span
-              class="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-              style="background-color: {authState.user.displayColor ?? '#94a3b8'}"
-            ></span>
-            {authState.user.fullName ?? authState.user.email}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              class="size-5"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.75-9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 15.85A8.001 8.001 0 0 1 10 12a8.001 8.001 0 0 1 5.499 3.85A7.966 7.966 0 0 1 10 18a7.966 7.966 0 0 1-5.499-2.15Z"
+                clip-rule="evenodd"
+              />
+            </svg>
           </a>
           <button
             onclick={handleLogout}
-            class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            aria-label="Log out"
+            title="Log out"
+            class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
           >
-            Log out
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              class="size-5"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z"
+                clip-rule="evenodd"
+              />
+              <path
+                fill-rule="evenodd"
+                d="M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z"
+                clip-rule="evenodd"
+              />
+            </svg>
           </button>
         </div>
 
@@ -219,20 +247,48 @@
               </button>
               <a
                 href="/settings"
-                class="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                aria-label="Settings for {authState.user.fullName ?? authState.user.email}"
+                title={authState.user.fullName ?? authState.user.email}
+                class="rounded-md p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                style="color: {authState.user.displayColor ?? '#94a3b8'}"
               >
-                <span
-                  class="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                  style="background-color: {authState.user.displayColor ?? '#94a3b8'}"
-                ></span>
-                {authState.user.fullName ?? authState.user.email}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  class="size-5"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.75-9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 15.85A8.001 8.001 0 0 1 10 12a8.001 8.001 0 0 1 5.499 3.85A7.966 7.966 0 0 1 10 18a7.966 7.966 0 0 1-5.499-2.15Z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
               </a>
             </div>
             <button
               onclick={handleLogout}
-              class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              aria-label="Log out"
+              title="Log out"
+              class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
-              Log out
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                class="size-5"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z"
+                  clip-rule="evenodd"
+                />
+                <path
+                  fill-rule="evenodd"
+                  d="M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
             </button>
           </div>
         </div>
