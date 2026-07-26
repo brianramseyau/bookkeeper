@@ -18,8 +18,16 @@ export interface StandardMonthLine {
 export interface StandardMonthIncomeLine {
   key: string
   label: string
+  sourceId: number | null
+  userId: number | null
   projected: number
   actual: number
+  /**
+   * True when this month is in the past and nothing was logged for this
+   * source, so `actual` is a backfilled placeholder equal to `projected`.
+   */
+  estimated: boolean
+  payDates: string[]
 }
 
 export interface StandardMonthResult {

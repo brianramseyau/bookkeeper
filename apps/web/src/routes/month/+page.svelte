@@ -6,8 +6,6 @@
   import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
     listIncomeSources,
-    createIncomeSource,
-    updateIncomeSource,
     listIncomeEntries,
     createIncomeEntry,
     updateIncomeEntry,
@@ -43,18 +41,9 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
 
-  let editingSourceId = $state<number | null>(null)
-  let editExpectedAmount = $state<number>(NaN)
-  let savingSource = $state(false)
-
   let editingCarryover = $state(false)
   let editCarryoverAmount = $state<number>(NaN)
   let savingCarryover = $state(false)
-
-  let newSourceUserId = $state('')
-  let newSourceName = $state('')
-  let newSourceAmount = $state<number>(NaN)
-  let creatingSource = $state(false)
 
   let logSourceId = $state('')
   let logAmount = $state<number>(NaN)
@@ -63,7 +52,6 @@
   let loggingEntry = $state(false)
 
   let editingEntryId = $state<number | null>(null)
-  let editEntrySourceId = $state<number | ''>('')
   let editEntryAmount = $state<number>(NaN)
   let editEntryReceivedOn = $state('')
   let editEntryNote = $state('')
@@ -131,30 +119,6 @@
     void load()
   }
 
-  function startEditSource(source: IncomeSource) {
-    editingSourceId = source.id
-    editExpectedAmount = source.expectedAmount
-  }
-
-  function cancelEditSource() {
-    editingSourceId = null
-  }
-
-  async function saveSource(source: IncomeSource) {
-    if (Number.isNaN(editExpectedAmount)) return
-    savingSource = true
-    error = null
-    try {
-      await updateIncomeSource(source.id, { expectedAmount: editExpectedAmount })
-      editingSourceId = null
-      await load()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save income source'
-    } finally {
-      savingSource = false
-    }
-  }
-
   function startEditCarryover() {
     editingCarryover = true
     editCarryoverAmount = data?.carryover ?? NaN
@@ -176,31 +140,6 @@
       error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
     } finally {
       savingCarryover = false
-    }
-  }
-
-  async function handleAddSource(event: SubmitEvent) {
-    event.preventDefault()
-    if (!newSourceUserId || !newSourceName.trim() || Number.isNaN(newSourceAmount)) {
-      error = 'User, name, and expected amount are required'
-      return
-    }
-    creatingSource = true
-    error = null
-    try {
-      await createIncomeSource({
-        userId: Number(newSourceUserId),
-        name: newSourceName.trim(),
-        expectedAmount: newSourceAmount,
-      })
-      newSourceUserId = ''
-      newSourceName = ''
-      newSourceAmount = NaN
-      await load()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to add income source'
-    } finally {
-      creatingSource = false
     }
   }
 
@@ -245,7 +184,6 @@
 
   function startEditEntry(entry: IncomeEntry) {
     editingEntryId = entry.id
-    editEntrySourceId = entry.incomeSourceId ?? ''
     editEntryAmount = entry.amount
     editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
     editEntryNote = entry.note ?? ''
@@ -264,7 +202,6 @@
     error = null
     try {
       await updateIncomeEntry(entry.id, {
-        incomeSourceId: editEntrySourceId === '' ? null : editEntrySourceId,
         amount: editEntryAmount,
         receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
         note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
@@ -278,9 +215,10 @@
     }
   }
 
-  function sourceName(sourceId: number | null): string {
-    if (sourceId === null) return 'Unattributed'
-    return sources.find((s) => s.id === sourceId)?.name ?? `Source #${sourceId}`
+  function entriesForSourceId(sourceId: number | null): IncomeEntry[] {
+    return entries
+      .filter((entry) => entry.incomeSourceId === sourceId)
+      .sort((a, b) => (a.receivedOn ?? '').localeCompare(b.receivedOn ?? ''))
   }
 
   function lastDayOfMonthIso(y: number, m: number): string {
@@ -505,7 +443,15 @@
     </div>
   </div>
 
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Income</h2>
+  <div class="mt-8 flex items-center justify-between">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income</h2>
+    <a
+      href="/income"
+      class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+    >
+      Manage income sources →
+    </a>
+  </div>
   <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
     <table class="w-full border-collapse text-sm">
       <thead>
@@ -514,73 +460,121 @@
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Note</th>
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
       <tbody>
         {#each data.income.lines as line (line.key)}
-          {@const source = sources.find((s) => line.key === `income-source-${s.id}`)}
-          {#if source && editingSourceId === source.id}
-            <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
-                {users.find((u) => u.id === source.userId)?.fullName ?? '—'}
-              </td>
-              <td class="px-3 py-2 text-right">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  bind:value={editExpectedAmount}
-                  class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-                >{formatCurrency(line.actual)}</td
-              >
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => saveSource(source)}
-                  disabled={savingSource}
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+          <tr
+            class="border-b border-slate-100 bg-slate-50 last:border-0 dark:border-slate-700/60 dark:bg-slate-800/60"
+          >
+            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+              {line.label}
+              {#if line.payDates.length > 0}
+                <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
+                  {line.payDates.length > 2 ? `${line.payDates.length} pay periods: ` : ''}{line.payDates
+                    .map((d) => formatDate(d))
+                    .join(', ')}
+                </span>
+              {/if}
+            </td>
+            <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+              {line.userId !== null ? (users.find((u) => u.id === line.userId)?.fullName ?? '—') : '—'}
+            </td>
+            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+              >{formatCurrency(line.projected)}</td
+            >
+            <td class="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
+              {formatCurrency(line.actual)}
+              {#if line.estimated}
+                <span
+                  class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
+                  title="No entry logged this month - showing the projected amount"
                 >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onclick={cancelEditSource}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
-                  Cancel
-                </button>
-              </td>
-            </tr>
-          {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
-                {source ? (users.find((u) => u.id === source.userId)?.fullName ?? '—') : '—'}
-              </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-                >{formatCurrency(line.projected)}</td
+                  (est.)
+                </span>
+              {/if}
+            </td>
+            <td class="px-3 py-2" colspan="3"></td>
+          </tr>
+          {#each entriesForSourceId(line.sourceId) as entry (entry.id)}
+            {#if editingEntryId === entry.id}
+              <tr
+                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
               >
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-                >{formatCurrency(line.actual)}</td
-              >
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                {#if source}
+                <td class="px-3 py-2" colspan="3"></td>
+                <td class="px-3 py-2 text-right">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    bind:value={editEntryAmount}
+                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </td>
+                <td class="px-3 py-2">
+                  <input
+                    type="date"
+                    bind:value={editEntryReceivedOn}
+                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </td>
+                <td class="px-3 py-2">
+                  <input
+                    type="text"
+                    bind:value={editEntryNote}
+                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
                   <button
                     type="button"
-                    onclick={() => startEditSource(source)}
+                    onclick={() => saveEntryEdit(entry)}
+                    disabled={savingEntryEdit}
+                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onclick={cancelEditEntry}
+                    class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                </td>
+              </tr>
+            {:else}
+              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                <td class="px-3 py-2" colspan="3"></td>
+                <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300"
+                  >{formatCurrency(entry.amount)}</td
+                >
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400"
+                  >{formatDate(entry.receivedOn)}</td
+                >
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{entry.note ?? '—'}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <button
+                    type="button"
+                    onclick={() => startEditEntry(entry)}
                     class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
                   >
                     Edit
                   </button>
-                {/if}
-              </td>
-            </tr>
-          {/if}
+                  <button
+                    type="button"
+                    onclick={() => handleDeleteEntry(entry)}
+                    class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                  >
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            {/if}
+          {/each}
         {/each}
       </tbody>
       <tfoot>
@@ -592,53 +586,61 @@
           <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
             >{formatCurrency(data.income.actualTotal)}</td
           >
-          <td class="px-3 py-2"></td>
+          <td class="px-3 py-2" colspan="3"></td>
         </tr>
       </tfoot>
     </table>
   </div>
 
   <form
-    onsubmit={handleAddSource}
+    onsubmit={handleLogEntry}
     class="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
   >
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Owner</span>
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
       <select
-        bind:value={newSourceUserId}
+        bind:value={logSourceId}
         class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       >
-        <option value="">Select…</option>
-        {#each users as user (user.id)}
-          <option value={user.id}>{user.fullName ?? user.email}</option>
+        <option value="">Unattributed</option>
+        {#each sources as source (source.id)}
+          <option value={source.id}>{source.name}</option>
         {/each}
       </select>
     </label>
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Name</span>
-      <input
-        type="text"
-        placeholder="e.g. Salary"
-        bind:value={newSourceName}
-        class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Expected amount</span>
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
       <input
         type="number"
         step="0.01"
         min="0"
-        bind:value={newSourceAmount}
+        bind:value={logAmount}
         class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Received on</span>
+      <input
+        type="date"
+        bind:value={logReceivedOn}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Note</span>
+      <input
+        type="text"
+        placeholder="optional"
+        bind:value={logNote}
+        class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
     <button
       type="submit"
-      disabled={creatingSource}
+      disabled={loggingEntry}
       class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
     >
-      {creatingSource ? 'Adding…' : 'Add income source'}
+      {loggingEntry ? 'Logging…' : 'Log income'}
     </button>
   </form>
 
@@ -757,164 +759,4 @@
     </table>
   </div>
 
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">
-    Income entries this month
-  </h2>
-  <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
-    <table class="w-full border-collapse text-sm">
-      <thead>
-        <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Amount</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Note</th>
-          <th class="px-3 py-2"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each entries as entry (entry.id)}
-          {#if editingEntryId === entry.id}
-            <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
-              <td class="px-3 py-2">
-                <select
-                  bind:value={editEntrySourceId}
-                  class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                >
-                  <option value="">Unattributed</option>
-                  {#each sources as source (source.id)}
-                    <option value={source.id}>{source.name}</option>
-                  {/each}
-                </select>
-              </td>
-              <td class="px-3 py-2 text-right">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  bind:value={editEntryAmount}
-                  class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2">
-                <input
-                  type="date"
-                  bind:value={editEntryReceivedOn}
-                  class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2">
-                <input
-                  type="text"
-                  bind:value={editEntryNote}
-                  class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
-              </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => saveEntryEdit(entry)}
-                  disabled={savingEntryEdit}
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onclick={cancelEditEntry}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
-                  Cancel
-                </button>
-              </td>
-            </tr>
-          {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 text-slate-900 dark:text-slate-100">
-                {sourceName(entry.incomeSourceId)}
-              </td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-                >{formatCurrency(entry.amount)}</td
-              >
-              <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{formatDate(entry.receivedOn)}</td>
-              <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{entry.note ?? '—'}</td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => startEditEntry(entry)}
-                  class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onclick={() => handleDeleteEntry(entry)}
-                  class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
-                >
-                  Remove
-                </button>
-              </td>
-            </tr>
-          {/if}
-        {:else}
-          <tr>
-            <td colspan="5" class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
-              No income logged for this month yet.
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-
-  <form
-    onsubmit={handleLogEntry}
-    class="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
-      <select
-        bind:value={logSourceId}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      >
-        <option value="">Unattributed</option>
-        {#each sources as source (source.id)}
-          <option value={source.id}>{source.name}</option>
-        {/each}
-      </select>
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
-      <input
-        type="number"
-        step="0.01"
-        min="0"
-        bind:value={logAmount}
-        class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Received on</span>
-      <input
-        type="date"
-        bind:value={logReceivedOn}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Note</span>
-      <input
-        type="text"
-        placeholder="optional"
-        bind:value={logNote}
-        class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <button
-      type="submit"
-      disabled={loggingEntry}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
-      {loggingEntry ? 'Logging…' : 'Log income'}
-    </button>
-  </form>
 {/if}

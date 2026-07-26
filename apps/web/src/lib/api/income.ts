@@ -1,10 +1,17 @@
 import { api } from '$lib/api'
 
+export type IncomeSourceFrequency = 'monthly' | 'fortnightly'
+
 export interface IncomeSource {
   id: number
   userId: number
   name: string
   expectedAmount: number
+  frequency: IncomeSourceFrequency
+  payDayOfMonth: number | null
+  weekendRollback: boolean
+  anchorDate: string | null
+  taxWithheld: boolean
   isActive: boolean
   notes: string | null
 }
@@ -13,6 +20,11 @@ export interface IncomeSourceInput {
   userId: number
   name: string
   expectedAmount: number
+  frequency: IncomeSourceFrequency
+  payDayOfMonth?: number | null
+  weekendRollback?: boolean
+  anchorDate?: string | null
+  taxWithheld?: boolean
   notes?: string | null
 }
 
@@ -71,4 +83,33 @@ export function updateIncomeEntry(id: number, input: Partial<IncomeEntryInput>) 
 
 export function deleteIncomeEntry(id: number) {
   return api.delete<void>(`/income-entries/${id}`)
+}
+
+export interface IncomeSourceSummary {
+  userId: number
+  fullName: string | null
+  total: number
+  count: number
+}
+
+export function getIncomeSourcesSummary() {
+  return api.get<IncomeSourceSummary[]>('/income-sources/summary')
+}
+
+export interface IncomeYtdMonth {
+  month: number
+  bySource: Record<number, number>
+  total: number
+  estimated: boolean
+}
+
+export interface IncomeYtd {
+  year: number
+  sources: { id: number; name: string }[]
+  months: IncomeYtdMonth[]
+  ytdTotal: number
+}
+
+export function getIncomeYtd(userId: number, year: number) {
+  return api.get<IncomeYtd>(`/income-sources/ytd?userId=${userId}&year=${year}`)
 }

@@ -64,6 +64,8 @@ router
         router.patch('subscriptions/:id', [controllers.Subscriptions, 'update'])
         router.delete('subscriptions/:id', [controllers.Subscriptions, 'destroy'])
 
+        router.get('income-sources/summary', [controllers.IncomeSources, 'summary'])
+        router.get('income-sources/ytd', [controllers.IncomeSources, 'ytd'])
         router.get('income-sources', [controllers.IncomeSources, 'index'])
         router.post('income-sources', [controllers.IncomeSources, 'store'])
         router.patch('income-sources/:id', [controllers.IncomeSources, 'update'])

@@ -38,6 +38,8 @@ test.group('StandardMonths / show', () => {
       userId: brian.id,
       name: 'Salary',
       expectedAmount: 5000,
+      frequency: 'monthly',
+      payDayOfMonth: 15,
     })
     await IncomeEntry.create({
       incomeSourceId: salary.id,
@@ -190,6 +192,8 @@ test.group('StandardMonths / show', () => {
       userId: brian.id,
       name: 'Salary',
       expectedAmount: 5000,
+      frequency: 'monthly',
+      payDayOfMonth: 15,
     })
 
     // A utility with no bills at all yet.
@@ -216,7 +220,10 @@ test.group('StandardMonths / show', () => {
     const salaryLine = body.income.lines.find(
       (l: { key: string }) => l.key === `income-source-${salary.id}`
     )
-    assert.equal(salaryLine.actual, 0)
+    // Feb 2026 is in the past with nothing logged, so actual is backfilled
+    // from projected rather than showing a misleading $0.
+    assert.equal(salaryLine.actual, 5000)
+    assert.isTrue(salaryLine.estimated)
 
     const internetLine = body.expenses.lines.find(
       (l: { key: string }) => l.key === `utility-${internet.id}`
@@ -275,5 +282,106 @@ test.group('StandardMonths / show', () => {
     // 2026-12 is 8 months after the Apr anchor - not aligned to the 3-month
     // cadence (diff 8 % 3 = 2), so it isn't a predicted billing month either.
     assert.isFalse(uncoveredLine.editable)
+  })
+
+  test('projects 3 pay periods in a month a fortnightly income source lands on 3 times', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+
+    const wages = await IncomeSource.create({
+      userId: brian.id,
+      name: 'Wages',
+      expectedAmount: 1300,
+      frequency: 'fortnightly',
+      anchorDate: DateTime.fromISO('2026-07-22'),
+    })
+
+    const twoPeriodMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 2 })
+      .loginAs(brian)
+    const twoPeriodLine = twoPeriodMonth
+      .body()
+      .income.lines.find((l: { key: string }) => l.key === `income-source-${wages.id}`)
+    assert.equal(twoPeriodLine.projected, 2600)
+    assert.lengthOf(twoPeriodLine.payDates, 2)
+
+    const threePeriodMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 4 })
+      .loginAs(brian)
+    const threePeriodLine = threePeriodMonth
+      .body()
+      .income.lines.find((l: { key: string }) => l.key === `income-source-${wages.id}`)
+    assert.equal(threePeriodLine.projected, 3900)
+    assert.lengthOf(threePeriodLine.payDates, 3)
+  })
+
+  test('does not backfill an estimated actual for the current or a future month', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.local()
+
+    const salary = await IncomeSource.create({
+      userId: brian.id,
+      name: 'Salary',
+      expectedAmount: 5000,
+      frequency: 'monthly',
+      payDayOfMonth: 15,
+    })
+
+    const currentMonthResponse = await client
+      .get('/api/standard-month')
+      .qs({ year: today.year, month: today.month })
+      .loginAs(brian)
+    const currentLine = currentMonthResponse
+      .body()
+      .income.lines.find((l: { key: string }) => l.key === `income-source-${salary.id}`)
+    assert.equal(currentLine.actual, 0)
+    assert.isFalse(currentLine.estimated)
+
+    const future = today.plus({ years: 1 })
+    const futureResponse = await client
+      .get('/api/standard-month')
+      .qs({ year: future.year, month: future.month })
+      .loginAs(brian)
+    const futureLine = futureResponse
+      .body()
+      .income.lines.find((l: { key: string }) => l.key === `income-source-${salary.id}`)
+    assert.equal(futureLine.actual, 0)
+    assert.isFalse(futureLine.estimated)
+  })
+
+  test('rolls a monthly pay day back to the preceding Friday when it lands on a weekend', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+
+    // 2026-08-14 is a Friday, so pick a month where the 14th falls on a
+    // Saturday/Sunday - 2026-11-14 is a Saturday.
+    const salary = await IncomeSource.create({
+      userId: brian.id,
+      name: 'Salary',
+      expectedAmount: 3885.72,
+      frequency: 'monthly',
+      payDayOfMonth: 14,
+      weekendRollback: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 11 })
+      .loginAs(brian)
+    const line = response
+      .body()
+      .income.lines.find((l: { key: string }) => l.key === `income-source-${salary.id}`)
+
+    assert.lengthOf(line.payDates, 1)
+    assert.equal(line.payDates[0].slice(0, 10), '2026-11-13')
   })
 })

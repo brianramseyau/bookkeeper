@@ -132,20 +132,29 @@ export class IncomeEntrySchema extends BaseModel {
 
 export class IncomeSourceSchema extends BaseModel {
   static $columns = [
+    'anchorDate',
     'createdAt',
     'expectedAmount',
+    'frequency',
     'id',
     'isActive',
     'name',
     'notes',
+    'payDayOfMonth',
+    'taxWithheld',
     'updatedAt',
     'userId',
+    'weekendRollback',
   ] as const
   $columns = IncomeSourceSchema.$columns
+  @column.date()
+  declare anchorDate: DateTime | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
   declare expectedAmount: number
+  @column()
+  declare frequency: string
   @column({ isPrimary: true })
   declare id: number
   @column()
@@ -154,10 +163,16 @@ export class IncomeSourceSchema extends BaseModel {
   declare name: string
   @column()
   declare notes: string | null
+  @column()
+  declare payDayOfMonth: number | null
+  @column()
+  declare taxWithheld: boolean
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
   declare userId: number
+  @column()
+  declare weekendRollback: boolean
 }
 
 export class MonthCarryoverSchema extends BaseModel {

@@ -1,7 +1,5 @@
 import { DateTime } from 'luxon'
 import User from '#models/user'
-import IncomeSource from '#models/income_source'
-import IncomeEntry from '#models/income_entry'
 import MonthCarryover from '#models/month_carryover'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
@@ -16,6 +14,7 @@ import {
   mostRecentUtilityBill,
   utilityPeriodMonths,
 } from '#services/utility_billing_period'
+import { computeIncomeLines, type IncomeLine } from '#services/income_lines'
 
 const PERIODS_PER_YEAR: Record<string, number> = {
   monthly: 12,
@@ -41,12 +40,7 @@ export interface StandardMonthLine {
   editable: boolean
 }
 
-export interface StandardMonthIncomeLine {
-  key: string
-  label: string
-  projected: number
-  actual: number
-}
+export type StandardMonthIncomeLine = IncomeLine
 
 export interface StandardMonthResult {
   year: number
@@ -88,7 +82,7 @@ export class StandardMonthService {
   async compute(year: number, month: number): Promise<StandardMonthResult> {
     const [carryover, income, expenseLines] = await Promise.all([
       this.computeCarryover(year, month),
-      this.computeIncome(year, month),
+      computeIncomeLines(year, month),
       this.computeExpenseLines(year, month),
     ])
 
@@ -117,48 +111,6 @@ export class StandardMonthService {
   private async computeCarryover(year: number, month: number): Promise<number> {
     const carryover = await MonthCarryover.query().where('year', year).where('month', month).first()
     return carryover?.amount ?? 0
-  }
-
-  private async computeIncome(year: number, month: number) {
-    const [sources, entries] = await Promise.all([
-      IncomeSource.query().where('isActive', true).orderBy('name', 'asc'),
-      IncomeEntry.query().where('year', year).where('month', month),
-    ])
-
-    const actualBySource = new Map<number, number>()
-    let unattributedActual = 0
-    for (const entry of entries) {
-      if (entry.incomeSourceId) {
-        actualBySource.set(
-          entry.incomeSourceId,
-          (actualBySource.get(entry.incomeSourceId) ?? 0) + entry.amount
-        )
-      } else {
-        unattributedActual += entry.amount
-      }
-    }
-
-    const lines: StandardMonthIncomeLine[] = sources.map((source) => ({
-      key: `income-source-${source.id}`,
-      label: source.name,
-      projected: source.expectedAmount,
-      actual: round(actualBySource.get(source.id) ?? 0),
-    }))
-
-    if (unattributedActual > 0) {
-      lines.push({
-        key: 'income-unattributed',
-        label: 'Other income',
-        projected: 0,
-        actual: round(unattributedActual),
-      })
-    }
-
-    return {
-      lines,
-      projectedTotal: round(lines.reduce((sum, line) => sum + line.projected, 0)),
-      actualTotal: round(lines.reduce((sum, line) => sum + line.actual, 0)),
-    }
   }
 
   private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {

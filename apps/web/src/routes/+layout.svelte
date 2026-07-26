@@ -14,6 +14,7 @@
   const navLinks = [
     { href: '/', label: 'Dashboard', exact: true },
     { href: '/month', label: 'Monthly' },
+    { href: '/income', label: 'Income' },
     { href: '/utilities', label: 'Utilities' },
     { href: '/recurring-bills', label: 'Recurring Bills' },
     { href: '/subscriptions', label: 'Subscriptions' },
