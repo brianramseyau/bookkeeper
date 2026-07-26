@@ -287,6 +287,14 @@
       : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
   }
 
+  // Re-fetches just the standard-month figures (totals, paid flags) without
+  // touching `loading` - toggling `loading` swaps the whole page to a
+  // "Loading…" placeholder, which unmounts the tables and is what caused the
+  // scroll-to-top jump on every Paid click.
+  async function refreshMonth() {
+    data = await getStandardMonth(year, month)
+  }
+
   async function togglePaid(line: StandardMonthLine, paid: boolean) {
     error = null
     savingPaidKey = line.key
@@ -301,7 +309,7 @@
         const subscriptionId = Number(line.key.slice('subscription-'.length))
         await upsertSubscriptionPayment(subscriptionId, year, month, paid)
       }
-      await load()
+      await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to update paid status'
     } finally {
@@ -546,6 +554,169 @@
     </div>
   </div>
 
+  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
+  <div
+    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
+  >
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 dark:border-slate-700">
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Projected</th
+          >
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Actual</th
+          >
+          <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
+            >Paid</th
+          >
+          <th class="px-3 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each sortedExpenseLines as line (line.key)}
+          {@const editable =
+            (line.key.startsWith('utility-') && line.editable) || line.key.startsWith('category-')}
+          {#if editingExpenseKey === line.key}
+            <tr
+              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+            >
+              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
+              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
+                {#if dueChipClass(line)}
+                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
+                    >{dueLabel(line)}</span
+                  >
+                {:else}
+                  {dueLabel(line)}
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                >{formatCurrency(line.projected)}</td
+              >
+              <td class="px-3 py-2 text-right">
+                {#if editExpenseMode === 'category-multiple'}
+                  <span class="text-xs text-slate-500 dark:text-slate-400">Multiple entries</span>
+                {:else}
+                  <input
+                    type="number"
+                    step="0.01"
+                    bind:value={editExpenseAmount}
+                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-center">
+                {#if resolveDueDate(line)}
+                  <input
+                    type="checkbox"
+                    checked={line.paid}
+                    disabled={savingPaidKey === line.key}
+                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
+                    aria-label="Paid"
+                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                  />
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap">
+                {#if editExpenseMode === 'category-multiple'}
+                  <a
+                    href="/categories/{editExpenseCategoryId}"
+                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    View all →
+                  </a>
+                {:else}
+                  <button
+                    type="button"
+                    onclick={saveExpenseEdit}
+                    disabled={savingExpense}
+                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Save
+                  </button>
+                  {#if editExpenseMode === 'category-edit'}
+                    <button
+                      type="button"
+                      onclick={removeExpenseActual}
+                      class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  {/if}
+                {/if}
+                <button
+                  type="button"
+                  onclick={cancelEditExpense}
+                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                >
+                  Cancel
+                </button>
+              </td>
+            </tr>
+          {:else}
+            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
+              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
+                {#if dueChipClass(line)}
+                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
+                    >{dueLabel(line)}</span
+                  >
+                {:else}
+                  {dueLabel(line)}
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                >{formatCurrency(line.projected)}</td
+              >
+              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+                >{formatCurrency(line.actual)}</td
+              >
+              <td class="px-3 py-2 text-center">
+                {#if resolveDueDate(line)}
+                  <input
+                    type="checkbox"
+                    checked={line.paid}
+                    disabled={savingPaidKey === line.key}
+                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
+                    aria-label="Paid"
+                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                  />
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-right whitespace-nowrap">
+                {#if editable}
+                  <button
+                    type="button"
+                    onclick={() => startEditExpense(line)}
+                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    Edit
+                  </button>
+                {/if}
+              </td>
+            </tr>
+          {/if}
+        {/each}
+      </tbody>
+      <tfoot>
+        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
+          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
+          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+            >{formatCurrency(data.expenses.projectedTotal)}</td
+          >
+          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
+            >{formatCurrency(data.expenses.actualTotal)}</td
+          >
+          <td class="px-3 py-2"></td>
+          <td class="px-3 py-2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
   <div class="mt-8 flex items-center justify-between">
     <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income</h2>
     <a
@@ -757,167 +928,4 @@
       {loggingEntry ? 'Logging…' : 'Log income'}
     </button>
   </form>
-
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
-  <div
-    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
-    <table class="w-full border-collapse text-sm">
-      <thead>
-        <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-            >Projected</th
-          >
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-            >Actual</th
-          >
-          <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
-            >Paid</th
-          >
-          <th class="px-3 py-2"></th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each sortedExpenseLines as line (line.key)}
-          {@const editable =
-            (line.key.startsWith('utility-') && line.editable) || line.key.startsWith('category-')}
-          {#if editingExpenseKey === line.key}
-            <tr
-              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
-            >
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
-                {#if dueChipClass(line)}
-                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
-                    >{dueLabel(line)}</span
-                  >
-                {:else}
-                  {dueLabel(line)}
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-                >{formatCurrency(line.projected)}</td
-              >
-              <td class="px-3 py-2 text-right">
-                {#if editExpenseMode === 'category-multiple'}
-                  <span class="text-xs text-slate-500 dark:text-slate-400">Multiple entries</span>
-                {:else}
-                  <input
-                    type="number"
-                    step="0.01"
-                    bind:value={editExpenseAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-center">
-                {#if resolveDueDate(line)}
-                  <input
-                    type="checkbox"
-                    checked={line.paid}
-                    disabled={savingPaidKey === line.key}
-                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
-                    aria-label="Paid"
-                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-                  />
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                {#if editExpenseMode === 'category-multiple'}
-                  <a
-                    href="/categories/{editExpenseCategoryId}"
-                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                  >
-                    View all →
-                  </a>
-                {:else}
-                  <button
-                    type="button"
-                    onclick={saveExpenseEdit}
-                    disabled={savingExpense}
-                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                  >
-                    Save
-                  </button>
-                  {#if editExpenseMode === 'category-edit'}
-                    <button
-                      type="button"
-                      onclick={removeExpenseActual}
-                      class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
-                    >
-                      Remove
-                    </button>
-                  {/if}
-                {/if}
-                <button
-                  type="button"
-                  onclick={cancelEditExpense}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
-                  Cancel
-                </button>
-              </td>
-            </tr>
-          {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
-                {#if dueChipClass(line)}
-                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
-                    >{dueLabel(line)}</span
-                  >
-                {:else}
-                  {dueLabel(line)}
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-                >{formatCurrency(line.projected)}</td
-              >
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-                >{formatCurrency(line.actual)}</td
-              >
-              <td class="px-3 py-2 text-center">
-                {#if resolveDueDate(line)}
-                  <input
-                    type="checkbox"
-                    checked={line.paid}
-                    disabled={savingPaidKey === line.key}
-                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
-                    aria-label="Paid"
-                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-                  />
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
-                {#if editable}
-                  <button
-                    type="button"
-                    onclick={() => startEditExpense(line)}
-                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
-                    Edit
-                  </button>
-                {/if}
-              </td>
-            </tr>
-          {/if}
-        {/each}
-      </tbody>
-      <tfoot>
-        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.expenses.projectedTotal)}</td
-          >
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.expenses.actualTotal)}</td
-          >
-          <td class="px-3 py-2"></td>
-          <td class="px-3 py-2"></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
 {/if}

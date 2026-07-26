@@ -385,7 +385,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    // Edit buttons in DOM order: carryover(0), Groceries(1), Electricity(2),
+    // then the income entry(3) - Expenses now renders above Income.
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[3]!)
     await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
@@ -409,7 +411,8 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    // Income entry's Edit button is index 3 - see comment above.
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[3]!)
     const amountInput = screen.getByDisplayValue('5000')
     await user.clear(amountInput)
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -429,7 +432,8 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    // Income entry's Edit button is index 3 - see comment above.
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[3]!)
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
@@ -523,7 +527,8 @@ describe('month page', () => {
     expect(dueSoonChip.className).toContain('bg-amber-100')
     expect(dueSoonChip.closest('td')!.getAttribute('title')).toBe('20 Mar 2026')
 
-    const rows = (await screen.findAllByRole('table'))[1]!.querySelectorAll('tbody tr')
+    // Expenses table renders first now, so it's tables[0].
+    const rows = (await screen.findAllByRole('table'))[0]!.querySelectorAll('tbody tr')
     expect(rows[0]!.textContent).toContain('Groceries')
     expect(rows[1]!.textContent).toContain('Electricity')
   })
@@ -885,10 +890,11 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    // Groceries (dueDay 5) now sorts ahead of Electricity (dueDate 20th), so
-    // Electricity's Edit button is index 3, not 2.
+    // Edit buttons in DOM order: carryover(0), Groceries(1), Electricity(2) -
+    // Expenses now renders above Income, and Groceries (dueDay 5) sorts
+    // ahead of Electricity (dueDate 20th).
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
     const amountInput = screen.getByDisplayValue('110')
     await user.clear(amountInput)
     await user.type(amountInput, '120')
@@ -904,13 +910,16 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    // Groceries (dueDay 5) now sorts ahead of Electricity, so its Edit
-    // button is index 2, not 3.
+    // Edit buttons in DOM order: carryover(0), Groceries(1) - see comment
+    // in the "edits a utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[1]!)
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument()
+    // The expense row's amount input is now the first spinbutton on the
+    // page (Expenses renders above the Income section's "Log income" form,
+    // whose Amount field is the other spinbutton).
     const amountInputs = screen.getAllByRole('spinbutton')
-    await user.type(amountInputs[amountInputs.length - 1]!, '650')
+    await user.type(amountInputs[0]!, '650')
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() =>
@@ -939,15 +948,17 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Groceries's Edit button is index 1 - see comment in the "edits a
+    // utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[1]!)
     await user.click(await screen.findByRole('button', { name: 'Save' }))
     await waitFor(() => expect(updateCategoryActual).toHaveBeenCalledWith(5, { amount: 620 }))
 
     await user.click(
-      await screen.findAllByRole('button', { name: 'Edit' }).then((btns) => btns[2]!)
+      await screen.findAllByRole('button', { name: 'Edit' }).then((btns) => btns[1]!)
     )
-    const expensesTable = (await screen.findAllByRole('table'))[1]!
+    const expensesTable = (await screen.findAllByRole('table'))[0]!
     await user.click(within(expensesTable).getByRole('button', { name: 'Remove' }))
     await waitFor(() => expect(deleteCategoryActual).toHaveBeenCalledWith(5))
   })
@@ -977,8 +988,10 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Groceries's Edit button is index 1 - see comment in the "edits a
+    // utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[1]!)
 
     expect(await screen.findByText('Multiple entries')).toBeInTheDocument()
     const viewAll = screen.getByRole('link', { name: 'View all →' })
@@ -992,8 +1005,10 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Electricity's Edit button is index 2 - see comment in the "edits a
+    // utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
 
     expect(upsertUtilityBill).not.toHaveBeenCalled()
@@ -1005,8 +1020,10 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Groceries's Edit button is index 1 - see comment in the "edits a
+    // utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[1]!)
 
     expect(await screen.findByText('Could not load actuals')).toBeInTheDocument()
   })
@@ -1017,8 +1034,10 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Electricity's Edit button is index 2 - see comment in the "edits a
+    // utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Could not save actual')).toBeInTheDocument()
@@ -1041,9 +1060,11 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Groceries's Edit button is index 1 - see comment in the "edits a
+    // utility expense line" test above.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
-    const expensesTable = (await screen.findAllByRole('table'))[1]!
+    await user.click(editButtons[1]!)
+    const expensesTable = (await screen.findAllByRole('table'))[0]!
     await user.click(within(expensesTable).getByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByText('Could not remove actual')).toBeInTheDocument()
@@ -1053,11 +1074,12 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
+    // Expenses table renders first now, so income's footer is tables[1].
     const tables = await screen.findAllByRole('table')
-    const incomeFooter = tables[0]!.querySelector('tfoot')!
+    const incomeFooter = tables[1]!.querySelector('tfoot')!
     expect(within(incomeFooter).getAllByText('$5,000.00')).toHaveLength(2)
-    expect(within(tables[1]!).getByText('$700.00')).toBeInTheDocument()
-    expect(within(tables[1]!).getByText('$730.00')).toBeInTheDocument()
+    expect(within(tables[0]!).getByText('$700.00')).toBeInTheDocument()
+    expect(within(tables[0]!).getByText('$730.00')).toBeInTheDocument()
   })
 
   it('does not show an Edit button for a non-editable expense line', async () => {
@@ -1087,8 +1109,9 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
+    // Expenses table renders first now, so it's tables[0].
     const tables = await screen.findAllByRole('table')
-    expect(within(tables[1]!).getByText('Water (shared)')).toBeInTheDocument()
-    expect(within(tables[1]!).queryByRole('button', { name: 'Edit' })).toBeNull()
+    expect(within(tables[0]!).getByText('Water (shared)')).toBeInTheDocument()
+    expect(within(tables[0]!).queryByRole('button', { name: 'Edit' })).toBeNull()
   })
 })
