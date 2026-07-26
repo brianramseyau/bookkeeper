@@ -176,3 +176,13 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   excluded sheet that's still expected to be modeled eventually.
 - **No notifications/reminders** for upcoming or overdue bills - you have
   to check the Dashboard or Recurring Bills page yourself.
+- **Clearing an amount field doesn't trigger client-side validation** -
+  several forms (e.g. the Monthly page's carried-over balance, income
+  entries, and expense actuals) guard against a missing amount with
+  `Number.isNaN(amount)`, but Svelte's `bind:value` on a number input
+  coerces an emptied field to `null`, not `NaN`. The guard only actually
+  catches a field that was *never* touched (its initial state is
+  genuinely `NaN`); clearing an existing value and saving silently sends
+  `amount: null` to the API instead of showing "Amount is required".
+  Fix is small (`Number.isNaN(x) || x === null` at each call site) but
+  hasn't been applied anywhere yet.
