@@ -5,4 +5,5 @@ afterEach(() => {
   vi.restoreAllMocks()
   vi.clearAllMocks()
   vi.unstubAllGlobals()
+  vi.useRealTimers()
 })

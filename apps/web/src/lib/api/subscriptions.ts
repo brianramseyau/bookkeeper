@@ -21,6 +21,16 @@ export interface SubscriptionSummary {
   count: number
 }
 
+export interface SubscriptionPayment {
+  id: number
+  userSubscriptionId: number
+  year: number
+  month: number
+  paid: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface SubscriptionInput {
   userId: number
   name: string
@@ -49,4 +59,18 @@ export function updateSubscription(id: number, input: Partial<SubscriptionInput>
 
 export function deleteSubscription(id: number) {
   return api.delete<void>(`/subscriptions/${id}`)
+}
+
+export function upsertSubscriptionPayment(
+  subscriptionId: number,
+  year: number,
+  month: number,
+  paid: boolean
+) {
+  return api.put<SubscriptionPayment>(
+    `/subscriptions/${subscriptionId}/payments/${year}/${month}`,
+    {
+      paid,
+    }
+  )
 }

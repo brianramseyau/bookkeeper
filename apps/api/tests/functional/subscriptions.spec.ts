@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -87,6 +88,84 @@ test.group('Subscriptions / destroy', () => {
     response.assertStatus(204)
     const reloaded = await UserSubscription.findOrFail(subscription.id)
     assert.equal(reloaded.isActive, false)
+  })
+})
+
+test.group('Subscriptions / upsertPayment', () => {
+  test('creates a payment row marking the month paid', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+
+    const response = await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+    assert.equal(response.body().data.userSubscriptionId, subscription.id)
+  })
+
+  test('updates the existing payment row for that month rather than duplicating it', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    const response = await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: false })
+
+    response.assertStatus(200)
+    assert.isFalse(response.body().data.paid)
+    const payments = await SubscriptionPayment.query().where('userSubscriptionId', subscription.id)
+    assert.lengthOf(payments, 1)
+  })
+
+  test('returns 404 for a non-existent subscription', async ({ client }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .put('/api/subscriptions/999999/payments/2026/3')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(404)
+  })
+
+  test('rejects a non-boolean paid value', async ({ client }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+
+    const response = await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: 'yes' })
+
+    response.assertStatus(422)
   })
 })
 

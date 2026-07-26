@@ -1,11 +1,14 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 import UserSubscriptionTransformer from '#transformers/user_subscription_transformer'
+import SubscriptionPaymentTransformer from '#transformers/subscription_payment_transformer'
 import {
   createUserSubscriptionValidator,
   updateUserSubscriptionValidator,
 } from '#validators/user_subscription'
+import { upsertSubscriptionPaymentValidator } from '#validators/subscription_payment'
 
 export default class SubscriptionsController {
   async index({ request, serialize }: HttpContext) {
@@ -47,6 +50,21 @@ export default class SubscriptionsController {
     subscription.isActive = false
     await subscription.save()
     return response.noContent()
+  }
+
+  async upsertPayment({ params, request, serialize }: HttpContext) {
+    const userSubscriptionId = Number(params.id)
+    await UserSubscription.findOrFail(userSubscriptionId)
+    const payload = await request.validateUsing(upsertSubscriptionPaymentValidator)
+    const year = Number(params.year)
+    const month = Number(params.month)
+
+    const payment = await SubscriptionPayment.updateOrCreate(
+      { userSubscriptionId, year, month },
+      { paid: payload.paid }
+    )
+
+    return serialize(SubscriptionPaymentTransformer.transform(payment))
   }
 
   async summary({ response }: HttpContext) {

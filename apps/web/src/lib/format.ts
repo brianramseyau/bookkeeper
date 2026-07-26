@@ -50,3 +50,29 @@ export function formatDaysUntilDue(days: number | null): string {
   if (days === 0) return 'Due today'
   return `Due in ${days} day${days === 1 ? '' : 's'}`
 }
+
+/** Whole calendar days between today and isoDate - negative if isoDate is in the past. */
+export function daysUntil(isoDate: string): number {
+  const due = new Date(isoDate)
+  const dueUtcMidnight = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate())
+  const now = new Date()
+  const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+  return Math.round((dueUtcMidnight - todayUtcMidnight) / 86_400_000)
+}
+
+/**
+ * Phrased relative to "now" rather than "due"/"overdue" - unlike
+ * formatDaysUntilDue, this labels dates that may be well in the past (e.g.
+ * browsing a bygone month), where "overdue" would misleadingly imply
+ * something still owed.
+ */
+export function formatRelativeDate(isoDate: string | null): string {
+  if (!isoDate) return '—'
+  const diffDays = daysUntil(isoDate)
+
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Tomorrow'
+  if (diffDays === -1) return 'Yesterday'
+  if (diffDays > 0) return `In ${diffDays} days`
+  return `${Math.abs(diffDays)} days ago`
+}

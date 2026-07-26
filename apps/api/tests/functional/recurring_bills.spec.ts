@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import User from '#models/user'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -135,6 +136,87 @@ test.group('RecurringBills / destroy', () => {
     response.assertStatus(204)
     const reloaded = await RecurringBill.findOrFail(bill.id)
     assert.equal(reloaded.isActive, false)
+  })
+})
+
+test.group('RecurringBills / upsertPayment', () => {
+  test('creates a payment row marking the month paid', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+
+    const response = await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+    assert.equal(response.body().data.recurringBillId, bill.id)
+  })
+
+  test('updates the existing payment row for that month rather than duplicating it', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    const response = await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: false })
+
+    response.assertStatus(200)
+    assert.isFalse(response.body().data.paid)
+    const payments = await RecurringBillPayment.query().where('recurringBillId', bill.id)
+    assert.lengthOf(payments, 1)
+  })
+
+  test('returns 404 for a non-existent recurring bill', async ({ client }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .put('/api/recurring-bills/999999/payments/2026/3')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(404)
+  })
+
+  test('rejects a non-boolean paid value', async ({ client }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+
+    const response = await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: 'yes' })
+
+    response.assertStatus(422)
   })
 })
 

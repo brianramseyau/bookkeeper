@@ -1,11 +1,14 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import { DateTime } from 'luxon'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 import RecurringBillTransformer from '#transformers/recurring_bill_transformer'
+import RecurringBillPaymentTransformer from '#transformers/recurring_bill_payment_transformer'
 import {
   createRecurringBillValidator,
   updateRecurringBillValidator,
 } from '#validators/recurring_bill'
+import { upsertRecurringBillPaymentValidator } from '#validators/recurring_bill_payment'
 
 const DUE_SOON_WINDOW_DAYS = 30
 
@@ -68,6 +71,21 @@ export default class RecurringBillsController {
     bill.isActive = false
     await bill.save()
     return response.noContent()
+  }
+
+  async upsertPayment({ params, request, serialize }: HttpContext) {
+    const recurringBillId = Number(params.id)
+    await RecurringBill.findOrFail(recurringBillId)
+    const payload = await request.validateUsing(upsertRecurringBillPaymentValidator)
+    const year = Number(params.year)
+    const month = Number(params.month)
+
+    const payment = await RecurringBillPayment.updateOrCreate(
+      { recurringBillId, year, month },
+      { paid: payload.paid }
+    )
+
+    return serialize(RecurringBillPaymentTransformer.transform(payment))
   }
 
   async upcoming({ serialize }: HttpContext) {

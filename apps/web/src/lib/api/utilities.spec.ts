@@ -40,9 +40,17 @@ describe('utilities api', () => {
     expect(api.get).toHaveBeenCalledWith('/utilities/1/trend')
   })
 
-  it('upserts a utility bill', () => {
+  it('upserts a utility bill without paid when not given', () => {
     upsertUtilityBill(1, 2026, 3, 409.08)
     expect(api.put).toHaveBeenCalledWith('/utilities/1/bills/2026/3', { amount: 409.08 })
+  })
+
+  it('upserts a utility bill including paid when given', () => {
+    upsertUtilityBill(1, 2026, 3, 409.08, true)
+    expect(api.put).toHaveBeenCalledWith('/utilities/1/bills/2026/3', {
+      amount: 409.08,
+      paid: true,
+    })
   })
 
   it('deletes a utility bill', () => {

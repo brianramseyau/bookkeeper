@@ -21,6 +21,7 @@ export interface UtilityBill {
   month: number
   amount: number
   notes: string | null
+  paid: boolean
   createdAt: string
   updatedAt: string
 }
@@ -76,8 +77,17 @@ export function getUtilityTrend(utilityId: number) {
   return api.get<UtilityTrend>(`/utilities/${utilityId}/trend`)
 }
 
-export function upsertUtilityBill(utilityId: number, year: number, month: number, amount: number) {
-  return api.put<UtilityBill>(`/utilities/${utilityId}/bills/${year}/${month}`, { amount })
+export function upsertUtilityBill(
+  utilityId: number,
+  year: number,
+  month: number,
+  amount: number,
+  paid?: boolean
+) {
+  return api.put<UtilityBill>(`/utilities/${utilityId}/bills/${year}/${month}`, {
+    amount,
+    ...(paid !== undefined ? { paid } : {}),
+  })
 }
 
 export function deleteUtilityBill(id: number) {

@@ -7,6 +7,8 @@ export interface StandardMonthLine {
   actual: number | null
   dueDay: number | null
   dueDate: string | null
+  /** Whether the money has actually left the account, independent of whether the amount is known. */
+  paid: boolean
   /**
    * False for a non-monthly utility line viewed in a month that isn't its
    * actual billing month - that figure is a computed share of a bill

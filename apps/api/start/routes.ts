@@ -57,12 +57,20 @@ router
         router.post('recurring-bills', [controllers.RecurringBills, 'store'])
         router.patch('recurring-bills/:id', [controllers.RecurringBills, 'update'])
         router.delete('recurring-bills/:id', [controllers.RecurringBills, 'destroy'])
+        router.put('recurring-bills/:id/payments/:year/:month', [
+          controllers.RecurringBills,
+          'upsertPayment',
+        ])
 
         router.get('subscriptions/summary', [controllers.Subscriptions, 'summary'])
         router.get('subscriptions', [controllers.Subscriptions, 'index'])
         router.post('subscriptions', [controllers.Subscriptions, 'store'])
         router.patch('subscriptions/:id', [controllers.Subscriptions, 'update'])
         router.delete('subscriptions/:id', [controllers.Subscriptions, 'destroy'])
+        router.put('subscriptions/:id/payments/:year/:month', [
+          controllers.Subscriptions,
+          'upsertPayment',
+        ])
 
         router.get('income-sources/summary', [controllers.IncomeSources, 'summary'])
         router.get('income-sources/ytd', [controllers.IncomeSources, 'ytd'])

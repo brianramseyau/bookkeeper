@@ -4,7 +4,9 @@ import MonthCarryover from '#models/month_carryover'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 import Category from '#models/category'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
@@ -32,6 +34,8 @@ export interface StandardMonthLine {
   dueDay: number | null
   /** Full due date (utilities only) - offset from month-end rather than a fixed day-of-month. */
   dueDate: string | null
+  /** Whether the money has actually left the account, independent of whether the amount is known. */
+  paid: boolean
   /**
    * False for a non-monthly utility line viewed in a month that isn't its
    * actual billing month - that month's figure is a computed share of a
@@ -116,12 +120,26 @@ export class StandardMonthService {
   private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {
     const lines: StandardMonthLine[] = []
 
+    // Recurring bills and subscriptions only get a payment row once someone
+    // actually ticks the checkbox - absence of one for a month that's
+    // already gone by just means nobody bothered, not that it's unpaid, so
+    // it defaults to paid rather than nagging about bills from three months
+    // ago forever. The current/future month still defaults to unpaid, since
+    // that's the one point where the reminder is actually useful. Utility
+    // bills aren't included in this: their `paid` column is set explicitly
+    // the moment the bill itself is entered, so there's no "no row yet"
+    // state to default - see the one-time backfill migration for how their
+    // pre-feature history was handled instead.
+    const today = DateTime.utc()
+    const isPastMonth = year < today.year || (year === today.year && month < today.month)
+
     const utilities = await Utility.query().where('isActive', true).orderBy('name', 'asc')
     for (const utility of utilities) {
       const bills = await UtilityBill.query().where('utilityId', utility.id)
       const shares = expandUtilityBillsToMonthlyShares(bills, utility.frequency)
       const trend = this.rollingAverage.computeTrend(shares)
       const monthShare = shares.find((share) => share.year === year && share.month === month)
+      const monthBill = monthShare ? bills.find((b) => b.id === monthShare.billId) : undefined
 
       lines.push({
         key: `utility-${utility.id}`,
@@ -130,6 +148,7 @@ export class StandardMonthService {
         actual: monthShare ? round(monthShare.amount) : null,
         dueDay: null,
         dueDate: this.utilityDueDate(utility, bills, year, month),
+        paid: monthBill?.paid ?? false,
         editable: isUtilityBillingMonth(utility, bills, year, month),
       })
     }
@@ -137,6 +156,19 @@ export class StandardMonthService {
     const recurringBills = await RecurringBill.query()
       .where('isActive', true)
       .orderBy('name', 'asc')
+    const monthlyBillIds = recurringBills
+      .filter((bill) => bill.frequency === 'monthly')
+      .map((bill) => bill.id)
+    const recurringBillPayments = monthlyBillIds.length
+      ? await RecurringBillPayment.query()
+          .whereIn('recurringBillId', monthlyBillIds)
+          .where('year', year)
+          .where('month', month)
+      : []
+    const recurringBillPaidById = new Map(
+      recurringBillPayments.map((payment) => [payment.recurringBillId, payment.paid])
+    )
+
     let nonMonthlyAmortizedTotal = 0
     for (const bill of recurringBills) {
       if (bill.frequency === 'monthly') {
@@ -147,6 +179,7 @@ export class StandardMonthService {
           actual: bill.amount,
           dueDay: bill.dueDay,
           dueDate: null,
+          paid: recurringBillPaidById.get(bill.id) ?? isPastMonth,
           editable: true,
         })
       } else {
@@ -169,28 +202,41 @@ export class StandardMonthService {
         actual: null,
         dueDay: null,
         dueDate: null,
+        paid: false,
         editable: true,
       })
     }
 
     const users = await User.query().orderBy('fullName', 'asc')
-    for (const user of users) {
-      const subscriptions = await UserSubscription.query()
-        .where('userId', user.id)
-        .where('isActive', true)
-        .where('includeInStandardMonth', true)
-      if (subscriptions.length === 0) continue
+    const subscriptions = await UserSubscription.query()
+      .where('isActive', true)
+      .where('includeInStandardMonth', true)
+      .orderBy('name', 'asc')
+    const subscriptionIds = subscriptions.map((sub) => sub.id)
+    const subscriptionPayments = subscriptionIds.length
+      ? await SubscriptionPayment.query()
+          .whereIn('userSubscriptionId', subscriptionIds)
+          .where('year', year)
+          .where('month', month)
+      : []
+    const subscriptionPaidById = new Map(
+      subscriptionPayments.map((payment) => [payment.userSubscriptionId, payment.paid])
+    )
 
-      const total = round(subscriptions.reduce((sum, sub) => sum + sub.amount, 0))
-      lines.push({
-        key: `subscriptions-${user.id}`,
-        label: `${user.fullName ?? user.email}'s Subscriptions`,
-        projected: total,
-        actual: total,
-        dueDay: null,
-        dueDate: null,
-        editable: true,
-      })
+    for (const user of users) {
+      const userSubscriptions = subscriptions.filter((sub) => sub.userId === user.id)
+      for (const sub of userSubscriptions) {
+        lines.push({
+          key: `subscription-${sub.id}`,
+          label: `${sub.name} (${user.fullName ?? user.email})`,
+          projected: sub.amount,
+          actual: sub.amount,
+          dueDay: sub.dayOfMonth,
+          dueDate: null,
+          paid: subscriptionPaidById.get(sub.id) ?? isPastMonth,
+          editable: true,
+        })
+      }
     }
 
     const categories = await Category.query()
@@ -227,6 +273,7 @@ export class StandardMonthService {
             : null,
         dueDay: null,
         dueDate: null,
+        paid: false,
         editable: true,
       })
     }

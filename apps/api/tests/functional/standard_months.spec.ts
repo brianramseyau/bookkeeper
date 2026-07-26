@@ -7,9 +7,11 @@ import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import MonthCarryover from '#models/month_carryover'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -68,7 +70,12 @@ test.group('StandardMonths / show', () => {
       nextDueOn: DateTime.fromISO('2026-01-31'),
     })
 
-    await UserSubscription.create({ userId: brian.id, name: 'Netflix', amount: 22.99 })
+    const netflix = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+      dayOfMonth: 10,
+    })
 
     const groceries = await Category.findByOrFail('name', 'Groceries')
     await CategoryMonthlyActual.create({
@@ -95,10 +102,14 @@ test.group('StandardMonths / show', () => {
     )
     assert.equal(electricityLine.projected, 400)
     assert.equal(electricityLine.actual, 420)
+    assert.equal(electricityLine.paid, false)
 
     const kayoLine = body.expenses.lines.find((l: { label: string }) => l.label === 'Kayo')
     assert.equal(kayoLine.projected, 45.99)
     assert.equal(kayoLine.actual, 45.99)
+    // Feb 2026 is in the past with no RecurringBillPayment row - defaults
+    // to paid rather than nagging about a bill from months ago.
+    assert.equal(kayoLine.paid, true)
 
     const recurringAvgLine = body.expenses.lines.find(
       (l: { key: string }) => l.key === 'recurring-bills-avg'
@@ -106,10 +117,14 @@ test.group('StandardMonths / show', () => {
     assert.equal(recurringAvgLine.projected, 5.42)
     assert.isNull(recurringAvgLine.actual)
 
-    const subscriptionsLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === `subscriptions-${brian.id}`
+    const subscriptionLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `subscription-${netflix.id}`
     )
-    assert.equal(subscriptionsLine.projected, 22.99)
+    assert.equal(subscriptionLine.projected, 22.99)
+    assert.equal(subscriptionLine.label, 'Netflix (Brian)')
+    assert.equal(subscriptionLine.dueDay, 10)
+    // Same past-month default as Kayo above.
+    assert.equal(subscriptionLine.paid, true)
 
     const groceriesLine = body.expenses.lines.find(
       (l: { key: string }) => l.key === `category-${groceries.id}`
@@ -202,12 +217,16 @@ test.group('StandardMonths / show', () => {
     const gas = await Utility.create({ name: 'Gas' })
     await UtilityBill.create({ utilityId: gas.id, year: 2026, month: 1, amount: 90 })
 
-    // A user with no fullName, whose subscriptions label falls back to email.
+    // A user with no fullName, whose subscription label falls back to email.
     const noName = await User.create({
       email: 'noname@example.com',
       password: 'password123',
     })
-    await UserSubscription.create({ userId: noName.id, name: 'Spotify', amount: 11.99 })
+    const spotify = await UserSubscription.create({
+      userId: noName.id,
+      name: 'Spotify',
+      amount: 11.99,
+    })
 
     const response = await client
       .get('/api/standard-month')
@@ -233,11 +252,12 @@ test.group('StandardMonths / show', () => {
 
     const gasLine = body.expenses.lines.find((l: { key: string }) => l.key === `utility-${gas.id}`)
     assert.isNull(gasLine.actual)
+    assert.equal(gasLine.paid, false)
 
     const noNameSubsLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === `subscriptions-${noName.id}`
+      (l: { key: string }) => l.key === `subscription-${spotify.id}`
     )
-    assert.equal(noNameSubsLine.label, "noname@example.com's Subscriptions")
+    assert.equal(noNameSubsLine.label, 'Spotify (noname@example.com)')
   })
 
   test('splits a quarterly utility bill evenly across its covered months, and only lets the billing month be edited', async ({
@@ -248,7 +268,13 @@ test.group('StandardMonths / show', () => {
 
     const water = await Utility.create({ name: 'Water', frequency: 'quarterly' })
     // Covers Feb-Apr 2026, billed in April.
-    await UtilityBill.create({ utilityId: water.id, year: 2026, month: 4, amount: 369.49 })
+    await UtilityBill.create({
+      utilityId: water.id,
+      year: 2026,
+      month: 4,
+      amount: 369.49,
+      paid: true,
+    })
 
     const billingMonth = await client
       .get('/api/standard-month')
@@ -260,6 +286,7 @@ test.group('StandardMonths / show', () => {
     assert.equal(billingLine.actual, 123.16)
     assert.equal(billingLine.projected, 123.16)
     assert.isTrue(billingLine.editable)
+    assert.equal(billingLine.paid, true)
 
     const coveredMonth = await client
       .get('/api/standard-month')
@@ -270,6 +297,10 @@ test.group('StandardMonths / show', () => {
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
     assert.equal(coveredLine.actual, 123.16)
     assert.isFalse(coveredLine.editable)
+    // The paid flag lives on the single underlying bill row, so it applies
+    // across every month that bill's amount was split into, not just the
+    // billing month itself.
+    assert.equal(coveredLine.paid, true)
 
     const uncoveredMonth = await client
       .get('/api/standard-month')
@@ -383,5 +414,165 @@ test.group('StandardMonths / show', () => {
 
     assert.lengthOf(line.payDates, 1)
     assert.equal(line.payDates[0].slice(0, 10), '2026-11-13')
+  })
+})
+
+test.group('StandardMonths / paid tracking', () => {
+  test("a recurring bill's line reflects a RecurringBillPayment row for the viewed month", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const kayo = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: kayo.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+
+    const kayoLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${kayo.id}`)
+    assert.equal(kayoLine.paid, true)
+  })
+
+  test("a RecurringBillPayment row for a different month doesn't leak into this month's line", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const kayo = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    // Explicitly false, so a leak is distinguishable from March's own
+    // past-month default (both 2026-02 and 2026-03 are in the past relative
+    // to "today" - if March's line leaked Feb's row it would read false;
+    // isolated correctly, it falls back to true instead).
+    await RecurringBillPayment.create({
+      recurringBillId: kayo.id,
+      year: 2026,
+      month: 2,
+      paid: false,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+
+    const kayoLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${kayo.id}`)
+    assert.equal(kayoLine.paid, true)
+  })
+
+  test("a subscription's line reflects a SubscriptionPayment row for the viewed month", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const netflix = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: netflix.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+
+    const netflixLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `subscription-${netflix.id}`)
+    assert.equal(netflixLine.paid, true)
+  })
+
+  test('defaults a recurring bill and a subscription to unpaid for the current month with no payment row', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.utc()
+    const kayo = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    const netflix = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: today.year, month: today.month })
+      .loginAs(brian)
+
+    const body = response.body()
+    const kayoLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `recurring-bill-${kayo.id}`
+    )
+    const netflixLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `subscription-${netflix.id}`
+    )
+    assert.equal(kayoLine.paid, false)
+    assert.equal(netflixLine.paid, false)
+  })
+
+  test('defaults a recurring bill and a subscription to paid for a past month with no payment row', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const lastMonth = DateTime.utc().minus({ months: 1 })
+    const kayo = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    const netflix = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: lastMonth.year, month: lastMonth.month })
+      .loginAs(brian)
+
+    const body = response.body()
+    const kayoLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `recurring-bill-${kayo.id}`
+    )
+    const netflixLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `subscription-${netflix.id}`
+    )
+    assert.equal(kayoLine.paid, true)
+    assert.equal(netflixLine.paid, true)
   })
 })

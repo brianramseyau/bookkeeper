@@ -51,10 +51,30 @@ export default class UtilityBillsController {
     const year = Number(params.year)
     const month = Number(params.month)
 
-    const bill = await UtilityBill.updateOrCreate(
-      { utilityId, year, month },
-      { amount: payload.amount, notes: payload.notes ?? null }
-    )
+    // A plain `updateOrCreate` payload can't distinguish "the client didn't
+    // send paid, leave it as-is" from "the client wants it unset" - and on
+    // the create path, a paid the client never sent must still resolve to
+    // an explicit `false` in memory (the DB column default isn't read back
+    // onto the in-memory instance), not stay `undefined`. Branching finds
+    // both needs without stomping an existing value on unrelated updates.
+    let bill = await UtilityBill.query().where({ utilityId, year, month }).first()
+    if (bill) {
+      bill.merge({
+        amount: payload.amount,
+        notes: payload.notes ?? null,
+        ...(payload.paid !== undefined ? { paid: payload.paid } : {}),
+      })
+      await bill.save()
+    } else {
+      bill = await UtilityBill.create({
+        utilityId,
+        year,
+        month,
+        amount: payload.amount,
+        notes: payload.notes ?? null,
+        paid: payload.paid ?? false,
+      })
+    }
 
     return serialize(UtilityBillTransformer.transform(bill))
   }

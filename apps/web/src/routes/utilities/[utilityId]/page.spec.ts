@@ -45,6 +45,7 @@ const aprilBill = {
   month: 4,
   amount: 300,
   notes: null,
+  paid: false,
   createdAt: '',
   updatedAt: '',
 }
@@ -239,6 +240,7 @@ describe('utility detail page', () => {
       month: 1,
       amount: 75.5,
       notes: null,
+      paid: false,
       createdAt: '',
       updatedAt: '',
     })
@@ -252,6 +254,7 @@ describe('utility detail page', () => {
           month: 1,
           amount: 75.5,
           notes: null,
+          paid: false,
           createdAt: '',
           updatedAt: '',
         },

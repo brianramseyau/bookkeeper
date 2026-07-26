@@ -1,5 +1,12 @@
-import { describe, expect, it } from 'vitest'
-import { formatCurrency, formatDate, formatDaysUntilDue, monthName, monthShortName } from './format'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  formatCurrency,
+  formatDate,
+  formatDaysUntilDue,
+  formatRelativeDate,
+  monthName,
+  monthShortName,
+} from './format'
 
 describe('formatCurrency', () => {
   it('formats a positive amount as AUD currency', () => {
@@ -66,5 +73,41 @@ describe('formatDaysUntilDue', () => {
   it('pluralizes overdue days', () => {
     expect(formatDaysUntilDue(-1)).toBe('Overdue by 1 day')
     expect(formatDaysUntilDue(-5)).toBe('Overdue by 5 days')
+  })
+})
+
+describe('formatRelativeDate', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('renders an em dash for null', () => {
+    expect(formatRelativeDate(null)).toBe('—')
+  })
+
+  it('renders "Today" for the current date', () => {
+    vi.setSystemTime(new Date('2026-03-15T09:00:00.000Z'))
+    expect(formatRelativeDate('2026-03-15T00:00:00.000+00:00')).toBe('Today')
+  })
+
+  it('renders "Tomorrow" and "Yesterday" for adjacent days', () => {
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    expect(formatRelativeDate('2026-03-16T00:00:00.000+00:00')).toBe('Tomorrow')
+    expect(formatRelativeDate('2026-03-14T00:00:00.000+00:00')).toBe('Yesterday')
+  })
+
+  it('renders a day count for a future date', () => {
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    expect(formatRelativeDate('2026-03-20T00:00:00.000+00:00')).toBe('In 5 days')
+  })
+
+  it('renders a day count for a past date', () => {
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    expect(formatRelativeDate('2026-03-05T00:00:00.000+00:00')).toBe('10 days ago')
+  })
+
+  it('ignores time-of-day when computing the day difference', () => {
+    vi.setSystemTime(new Date('2026-03-15T23:30:00.000Z'))
+    expect(formatRelativeDate('2026-03-16T00:10:00.000+00:00')).toBe('Tomorrow')
   })
 })

@@ -5,10 +5,11 @@ import {
   deleteRecurringBill,
   listUpcomingRecurringBills,
   updateRecurringBill,
+  upsertRecurringBillPayment,
 } from './recurring-bills'
 
 vi.mock('$lib/api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 
 describe('recurring bills api', () => {
@@ -40,5 +41,10 @@ describe('recurring bills api', () => {
   it('deletes a recurring bill', () => {
     deleteRecurringBill(4)
     expect(api.delete).toHaveBeenCalledWith('/recurring-bills/4')
+  })
+
+  it('upserts a recurring bill payment', () => {
+    upsertRecurringBillPayment(4, 2026, 3, true)
+    expect(api.put).toHaveBeenCalledWith('/recurring-bills/4/payments/2026/3', { paid: true })
   })
 })

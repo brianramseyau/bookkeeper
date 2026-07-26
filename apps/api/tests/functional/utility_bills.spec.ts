@@ -97,6 +97,83 @@ test.group('UtilityBills / upsert', () => {
     assert.lengthOf(bills, 1)
     assert.equal(bills[0]!.amount, 409.08)
   })
+
+  test('defaults paid to false when not sent', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08 })
+
+    response.assertStatus(200)
+    assert.isFalse(response.body().data.paid)
+  })
+
+  test('persists paid when sent', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08, paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+  })
+
+  test('updates paid on an existing bill when sent', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: 2026,
+      month: 2,
+      amount: 400,
+      paid: false,
+    })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08, paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+  })
+
+  test('leaves the existing paid value untouched when a later update omits it', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: 2026,
+      month: 2,
+      amount: 400,
+      paid: true,
+    })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08 })
+
+    response.assertStatus(200)
+    // Loose equal, not isTrue: this value came back through a fresh DB
+    // re-query inside the controller (to detect create-vs-update), and
+    // SQLite has no native boolean type - Lucid returns it as 1/0 for a
+    // row read this way rather than a genuine JS boolean.
+    assert.equal(response.body().data.paid, true)
+  })
 })
 
 test.group('UtilityBills / destroy', () => {

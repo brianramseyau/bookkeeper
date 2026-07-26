@@ -1,15 +1,13 @@
-import type UtilityBill from '#models/utility_bill'
+import type SubscriptionPayment from '#models/subscription_payment'
 import { BaseTransformer } from '@adonisjs/core/transformers'
 
-export default class UtilityBillTransformer extends BaseTransformer<UtilityBill> {
+export default class SubscriptionPaymentTransformer extends BaseTransformer<SubscriptionPayment> {
   toObject() {
     return this.pick(this.resource, [
       'id',
-      'utilityId',
+      'userSubscriptionId',
       'year',
       'month',
-      'amount',
-      'notes',
       'paid',
       'createdAt',
       'updatedAt',

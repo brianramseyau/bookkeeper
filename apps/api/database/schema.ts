@@ -194,6 +194,33 @@ export class MonthCarryoverSchema extends BaseModel {
   declare year: number
 }
 
+export class RecurringBillPaymentSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'id',
+    'month',
+    'paid',
+    'recurringBillId',
+    'updatedAt',
+    'year',
+  ] as const
+  $columns = RecurringBillPaymentSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare month: number
+  @column()
+  declare paid: boolean
+  @column()
+  declare recurringBillId: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
+}
+
 export class RecurringBillSchema extends BaseModel {
   static $columns = [
     'amount',
@@ -243,6 +270,33 @@ export class RecurringBillSchema extends BaseModel {
   declare notes: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class SubscriptionPaymentSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'id',
+    'month',
+    'paid',
+    'updatedAt',
+    'userSubscriptionId',
+    'year',
+  ] as const
+  $columns = SubscriptionPaymentSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare month: number
+  @column()
+  declare paid: boolean
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userSubscriptionId: number
+  @column()
+  declare year: number
 }
 
 export class UserSubscriptionSchema extends BaseModel {
@@ -348,6 +402,7 @@ export class UtilityBillSchema extends BaseModel {
     'id',
     'month',
     'notes',
+    'paid',
     'updatedAt',
     'utilityId',
     'year',
@@ -363,6 +418,8 @@ export class UtilityBillSchema extends BaseModel {
   declare month: number
   @column()
   declare notes: string | null
+  @column()
+  declare paid: boolean
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()

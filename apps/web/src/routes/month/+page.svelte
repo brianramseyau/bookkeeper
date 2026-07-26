@@ -2,7 +2,11 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { replaceState } from '$app/navigation'
-  import { getStandardMonth, type StandardMonthResult, type StandardMonthLine } from '$lib/api/standard-month'
+  import {
+    getStandardMonth,
+    type StandardMonthResult,
+    type StandardMonthLine,
+  } from '$lib/api/standard-month'
   import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
     listIncomeSources,
@@ -20,9 +24,16 @@
     updateCategoryActual,
     deleteCategoryActual,
   } from '$lib/api/category-actuals'
+  import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
+  import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
   import { listUsers, type UserSummary } from '$lib/api/users'
-  import { formatCurrency, formatDate, monthName } from '$lib/format'
+  import { formatCurrency, formatDate, formatRelativeDate, daysUntil, monthName } from '$lib/format'
   import { ApiError } from '$lib/api'
+
+  // Mirrors the API's DUE_SOON_WINDOW_DAYS (recurring_bills_controller.ts) so
+  // the Due chip here matches the Recurring Bills page: colored (and always
+  // shown) once a line is overdue or due within 30 days, plain text otherwise.
+  const DUE_SOON_WINDOW_DAYS = 30
 
   const today = new Date()
   const currentYear = today.getFullYear()
@@ -64,6 +75,7 @@
   let editExpenseCategoryId = $state<number | null>(null)
   let editExpenseAmount = $state<number>(NaN)
   let savingExpense = $state(false)
+  let savingPaidKey = $state<string | null>(null)
 
   onMount(load)
 
@@ -225,11 +237,90 @@
     return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
   }
 
-  function dueLabel(line: StandardMonthLine): string {
-    if (line.dueDate) return formatDate(line.dueDate)
-    if (line.dueDay) return `Day ${line.dueDay}`
-    return '—'
+  // `dueDay` is a bare day-of-month (from a monthly recurring bill, which
+  // has no month/year of its own) - resolve it against the month currently
+  // being viewed, clamping to that month's last day (e.g. a due day of 31
+  // in February).
+  //
+  // A utility's `dueDate` is a *predicted* payment date - for a non-monthly
+  // utility (e.g. quarterly Water, paid in arrears) it's populated as soon
+  // as the viewed month is cued up to be the next billing month, even
+  // before that quarter's bill has actually been entered. Only surface it
+  // once this month's actual is known; otherwise there's nothing concrete
+  // due yet and it should read as "-", not a countdown to a guessed date.
+  function resolveDueDate(line: StandardMonthLine): string | null {
+    if (line.dueDate) return line.actual !== null ? line.dueDate : null
+    if (line.dueDay) {
+      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+      const day = Math.min(line.dueDay, daysInMonth)
+      return new Date(Date.UTC(year, month - 1, day)).toISOString()
+    }
+    return null
   }
+
+  function dueLabel(line: StandardMonthLine): string {
+    return formatRelativeDate(resolveDueDate(line))
+  }
+
+  function dueTitle(line: StandardMonthLine): string | undefined {
+    const dueDate = resolveDueDate(line)
+    return dueDate ? formatDate(dueDate) : undefined
+  }
+
+  // Same red/amber pill as the Recurring Bills page's due-soon badge, so the
+  // two areas read consistently - null means "plain text, no chip" (a due
+  // date more than DUE_SOON_WINDOW_DAYS away, or no due date at all). `paid`
+  // (a real, user-set flag - see the Paid checkbox below) is the sole
+  // authority on green vs red/amber: it's a separate fact from whether the
+  // amount is merely known, which `actual` already covers via
+  // resolveDueDate's own gate above.
+  function dueChipClass(line: StandardMonthLine): string | null {
+    const dueDate = resolveDueDate(line)
+    if (!dueDate) return null
+    if (line.paid) {
+      return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+    }
+    const days = daysUntil(dueDate)
+    if (days > DUE_SOON_WINDOW_DAYS) return null
+    return days < 0
+      ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+  }
+
+  async function togglePaid(line: StandardMonthLine, paid: boolean) {
+    error = null
+    savingPaidKey = line.key
+    try {
+      if (line.key.startsWith('utility-') && line.actual !== null) {
+        const utilityId = Number(line.key.slice('utility-'.length))
+        await upsertUtilityBill(utilityId, year, month, line.actual, paid)
+      } else if (line.key.startsWith('recurring-bill-')) {
+        const recurringBillId = Number(line.key.slice('recurring-bill-'.length))
+        await upsertRecurringBillPayment(recurringBillId, year, month, paid)
+      } else if (line.key.startsWith('subscription-')) {
+        const subscriptionId = Number(line.key.slice('subscription-'.length))
+        await upsertSubscriptionPayment(subscriptionId, year, month, paid)
+      }
+      await load()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to update paid status'
+    } finally {
+      savingPaidKey = null
+    }
+  }
+
+  const sortedExpenseLines = $derived(
+    data
+      ? [...data.expenses.lines].sort((a, b) => {
+          const aDate = resolveDueDate(a)
+          const bDate = resolveDueDate(b)
+          if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime()
+          if (aDate) return -1
+          if (bDate) return 1
+          return 0
+        })
+      : []
+  )
 
   function cancelEditExpense() {
     editingExpenseKey = null
@@ -339,7 +430,8 @@
       ← Prev
     </button>
     <span class="w-36 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
-      {monthName(month)} {year}
+      {monthName(month)}
+      {year}
     </span>
     <button
       type="button"
@@ -359,7 +451,9 @@
   <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
 {:else if data}
   <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800">
+    <div
+      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+    >
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
         Carried over from last month
       </p>
@@ -400,7 +494,9 @@
         </button>
       {/if}
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800">
+    <div
+      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+    >
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Projected net</p>
       <p
         class={[
@@ -413,7 +509,9 @@
         {formatCurrency(data.projectedNet)}
       </p>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800">
+    <div
+      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+    >
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Actual net (so far)</p>
       <p
         class={[
@@ -426,8 +524,13 @@
         {formatCurrency(data.actualNet)}
       </p>
     </div>
-    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400" title="Actual net minus projected net">
+    <div
+      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+    >
+      <p
+        class="text-xs font-medium text-slate-500 dark:text-slate-400"
+        title="Actual net minus projected net"
+      >
         Variance
       </p>
       <p
@@ -452,14 +555,23 @@
       Manage income sources →
     </a>
   </div>
-  <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
+  <div
+    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
+  >
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
+            >Source</th
+          >
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th
+          >
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Projected</th
+          >
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Actual</th
+          >
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Note</th>
           <th class="px-3 py-2"></th>
@@ -474,14 +586,16 @@
               {line.label}
               {#if line.payDates.length > 0}
                 <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
-                  {line.payDates.length > 2 ? `${line.payDates.length} pay periods: ` : ''}{line.payDates
-                    .map((d) => formatDate(d))
-                    .join(', ')}
+                  {line.payDates.length > 2
+                    ? `${line.payDates.length} pay periods: `
+                    : ''}{line.payDates.map((d) => formatDate(d)).join(', ')}
                 </span>
               {/if}
             </td>
             <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
-              {line.userId !== null ? (users.find((u) => u.id === line.userId)?.fullName ?? '—') : '—'}
+              {line.userId !== null
+                ? (users.find((u) => u.id === line.userId)?.fullName ?? '—')
+                : '—'}
             </td>
             <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
               >{formatCurrency(line.projected)}</td
@@ -645,27 +759,44 @@
   </form>
 
   <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
-  <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800">
+  <div
+    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
+  >
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Projected</th>
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th>
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Projected</th
+          >
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Actual</th
+          >
+          <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
+            >Paid</th
+          >
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
       <tbody>
-        {#each data.expenses.lines as line (line.key)}
+        {#each sortedExpenseLines as line (line.key)}
           {@const editable =
             (line.key.startsWith('utility-') && line.editable) || line.key.startsWith('category-')}
           {#if editingExpenseKey === line.key}
-            <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
+            <tr
+              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+            >
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
-                >{dueLabel(line)}</td
-              >
+              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
+                {#if dueChipClass(line)}
+                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
+                    >{dueLabel(line)}</span
+                  >
+                {:else}
+                  {dueLabel(line)}
+                {/if}
+              </td>
               <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
                 >{formatCurrency(line.projected)}</td
               >
@@ -678,6 +809,18 @@
                     step="0.01"
                     bind:value={editExpenseAmount}
                     class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-center">
+                {#if resolveDueDate(line)}
+                  <input
+                    type="checkbox"
+                    checked={line.paid}
+                    disabled={savingPaidKey === line.key}
+                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
+                    aria-label="Paid"
+                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
                   />
                 {/if}
               </td>
@@ -720,15 +863,33 @@
           {:else}
             <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400"
-                >{dueLabel(line)}</td
-              >
+              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
+                {#if dueChipClass(line)}
+                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
+                    >{dueLabel(line)}</span
+                  >
+                {:else}
+                  {dueLabel(line)}
+                {/if}
+              </td>
               <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
                 >{formatCurrency(line.projected)}</td
               >
               <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
                 >{formatCurrency(line.actual)}</td
               >
+              <td class="px-3 py-2 text-center">
+                {#if resolveDueDate(line)}
+                  <input
+                    type="checkbox"
+                    checked={line.paid}
+                    disabled={savingPaidKey === line.key}
+                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
+                    aria-label="Paid"
+                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                  />
+                {/if}
+              </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 {#if editable}
                   <button
@@ -754,9 +915,9 @@
             >{formatCurrency(data.expenses.actualTotal)}</td
           >
           <td class="px-3 py-2"></td>
+          <td class="px-3 py-2"></td>
         </tr>
       </tfoot>
     </table>
   </div>
-
 {/if}

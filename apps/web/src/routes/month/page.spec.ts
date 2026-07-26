@@ -22,6 +22,8 @@ import {
   updateCategoryActual,
   type CategoryMonthlyActual,
 } from '$lib/api/category-actuals'
+import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
+import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
 import MonthPage from './+page.svelte'
@@ -44,6 +46,8 @@ vi.mock('$lib/api/category-actuals', () => ({
   updateCategoryActual: vi.fn(),
   deleteCategoryActual: vi.fn(),
 }))
+vi.mock('$lib/api/recurring-bills', () => ({ upsertRecurringBillPayment: vi.fn() }))
+vi.mock('$lib/api/subscriptions', () => ({ upsertSubscriptionPayment: vi.fn() }))
 vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
 
 // SvelteKit's real `Page.url` type brands `pathname` with a union of the
@@ -116,6 +120,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           actual: 110,
           dueDay: null,
           dueDate: '2026-03-20T00:00:00.000+00:00',
+          paid: false,
           editable: true,
         },
         {
@@ -125,6 +130,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           actual: 620,
           dueDay: 5,
           dueDate: null,
+          paid: true,
           editable: true,
         },
       ],
@@ -146,6 +152,10 @@ function setDefaultMocks() {
 
 describe('month page', () => {
   beforeEach(() => {
+    // Fixes "now" so the Due column's relative labels (formatRelativeDate)
+    // are deterministic regardless of when the suite actually runs - the
+    // fixture due dates below are all in March 2026.
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
     setPageUrl('http://localhost/month?year=2026&month=3')
     vi.mocked(getStandardMonth).mockReset()
     vi.mocked(listIncomeSources).mockReset()
@@ -160,6 +170,8 @@ describe('month page', () => {
     vi.mocked(createCategoryActual).mockReset()
     vi.mocked(updateCategoryActual).mockReset()
     vi.mocked(deleteCategoryActual).mockReset()
+    vi.mocked(upsertRecurringBillPayment).mockReset()
+    vi.mocked(upsertSubscriptionPayment).mockReset()
     vi.mocked(replaceState).mockReset()
   })
 
@@ -492,12 +504,368 @@ describe('month page', () => {
     expect(await screen.findByText('Could not log income')).toBeInTheDocument()
   })
 
-  it('shows the due date or due day for an expense line, falling back to an em dash', async () => {
+  it('shows due dates relative to today, sorted soonest-first, colored by paid rather than actual', async () => {
+    // "now" is pinned to 2026-03-15 in beforeEach. Electricity's dueDate is
+    // 2026-03-20 (5 days out, unpaid - amber); Groceries' dueDay of 5
+    // resolves against the viewed month (March 2026) to 2026-03-05 (10 days
+    // ago), but is marked paid - green despite being overdue, since `paid`
+    // (not `actual`) is what decides the color now. No more "Day 5"
+    // wording, and Groceries should sort ahead of Electricity.
     setDefaultMocks()
     render(MonthPage)
 
-    expect(await screen.findByText('20 Mar 2026')).toBeInTheDocument()
-    expect(screen.getByText('Day 5')).toBeInTheDocument()
+    const paidChip = await screen.findByText('10 days ago')
+    expect(paidChip.className).toContain('bg-green-100')
+    expect(paidChip.closest('td')!.getAttribute('title')).toBe('5 Mar 2026')
+
+    const dueSoonChip = screen.getByText('In 5 days')
+    expect(dueSoonChip.className).toContain('bg-amber-100')
+    expect(dueSoonChip.closest('td')!.getAttribute('title')).toBe('20 Mar 2026')
+
+    const rows = (await screen.findAllByRole('table'))[1]!.querySelectorAll('tbody tr')
+    expect(rows[0]!.textContent).toContain('Groceries')
+    expect(rows[1]!.textContent).toContain('Electricity')
+  })
+
+  it('shows a red chip for an overdue line with no actual recorded yet', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'recurring-bill-1',
+              label: 'Kayo',
+              projected: 45.99,
+              actual: null,
+              dueDay: 5,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 45.99,
+          actualTotal: 0,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const chip = await screen.findByText('10 days ago')
+    expect(chip.className).toContain('bg-red-100')
+  })
+
+  it('shows an amber chip for a line due soon with no actual recorded yet', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'recurring-bill-2',
+              label: 'Kayo',
+              projected: 45.99,
+              actual: null,
+              dueDay: 20,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 45.99,
+          actualTotal: 0,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const chip = await screen.findByText('In 5 days')
+    expect(chip.className).toContain('bg-amber-100')
+  })
+
+  it('shows a due date more than 30 days out as plain text, with no chip, while still unrecorded', async () => {
+    // A utility's dueDate is hidden outright once actual is null (see the
+    // "predicted billing month" test below), so the only way a due date can
+    // still be >30 days out AND unrecorded is a dueDay-based line viewed
+    // from far enough in the past - push "now" back to 2026-02-01 so
+    // Groceries' dueDay of 5 (2026-03-05) is 32 days out.
+    vi.setSystemTime(new Date('2026-02-01T00:00:00.000Z'))
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'recurring-bill-3',
+              label: 'Kayo',
+              projected: 45.99,
+              actual: null,
+              dueDay: 5,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 45.99,
+          actualTotal: 0,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const dueText = await screen.findByText('In 32 days')
+    expect(dueText.tagName).toBe('TD')
+    expect(dueText.getAttribute('title')).toBe('5 Mar 2026')
+  })
+
+  it('hides a utility due date when this month is only a predicted billing month with no actual entered yet', async () => {
+    // A quarterly utility (e.g. Water) gets a predicted dueDate as soon as
+    // the viewed month is cued up as its next billing month, even before
+    // that quarter's bill has actually been entered - showing a countdown
+    // to that guessed date reads as a real, imminent due date when nothing
+    // concrete is actually known yet, so it should be hidden until `actual`
+    // is set.
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'utility-3',
+              label: 'Water',
+              projected: 120,
+              actual: null,
+              dueDay: null,
+              dueDate: '2026-03-28T00:00:00.000+00:00',
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 120,
+          actualTotal: 0,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const dueCell = (await screen.findByText('Water')).closest('tr')!.children[1] as HTMLElement
+    expect(dueCell.textContent).toBe('—')
+    expect(dueCell.getAttribute('title')).toBeNull()
+  })
+
+  it('falls back to an em dash with no tooltip when a line has no due date at all', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'subscription-1',
+              label: 'Netflix (Brian)',
+              projected: 40,
+              actual: 40,
+              dueDay: null,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 40,
+          actualTotal: 40,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const dueCell = (await screen.findByText('Netflix (Brian)')).closest('tr')!
+      .children[1] as HTMLElement
+    expect(dueCell.textContent).toBe('—')
+    expect(dueCell.getAttribute('title')).toBeNull()
+  })
+
+  it('shows a Paid checkbox, checked per line, only for lines with a resolved due date', async () => {
+    // Groceries is marked paid in the base fixture, Electricity isn't - and
+    // sorts second (due later), so checkboxes[0] is Groceries' and
+    // checkboxes[1] is Electricity's.
+    setDefaultMocks()
+    render(MonthPage)
+
+    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    expect(checkboxes).toHaveLength(2)
+    expect(checkboxes[0]).toBeChecked()
+    expect(checkboxes[1]).not.toBeChecked()
+  })
+
+  it('does not show a Paid checkbox for a category line or one with no due date', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'category-1',
+              label: 'Groceries',
+              projected: 300,
+              actual: 300,
+              dueDay: null,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+            {
+              key: 'recurring-bills-avg',
+              label: 'Recurring Bills (avg)',
+              projected: 5.42,
+              actual: null,
+              dueDay: null,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 305.42,
+          actualTotal: 300,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    await screen.findByText('Groceries')
+    expect(screen.queryByRole('checkbox', { name: 'Paid' })).toBeNull()
+  })
+
+  it('ticking Paid on a utility line resends its known amount alongside paid', async () => {
+    setDefaultMocks()
+    vi.mocked(upsertUtilityBill).mockResolvedValue({
+      id: 1,
+      utilityId: 1,
+      year: 2026,
+      month: 3,
+      amount: 110,
+      notes: null,
+      paid: true,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    // Groceries (paid) sorts first, Electricity (unpaid, the utility line) second.
+    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    await user.click(checkboxes[1]!)
+
+    await waitFor(() => expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 110, true))
+    await waitFor(() => expect(getStandardMonth).toHaveBeenCalledTimes(2))
+  })
+
+  it('ticking Paid on a recurring bill line calls upsertRecurringBillPayment', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'recurring-bill-7',
+              label: 'Kayo',
+              projected: 45.99,
+              actual: 45.99,
+              dueDay: 20,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 45.99,
+          actualTotal: 45.99,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    vi.mocked(upsertRecurringBillPayment).mockResolvedValue({
+      id: 1,
+      recurringBillId: 7,
+      year: 2026,
+      month: 3,
+      paid: true,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    await user.click(checkbox)
+
+    await waitFor(() => expect(upsertRecurringBillPayment).toHaveBeenCalledWith(7, 2026, 3, true))
+  })
+
+  it('ticking Paid on a subscription line calls upsertSubscriptionPayment', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'subscription-9',
+              label: 'Netflix (Brian)',
+              projected: 22.99,
+              actual: 22.99,
+              dueDay: 10,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 22.99,
+          actualTotal: 22.99,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    vi.mocked(upsertSubscriptionPayment).mockResolvedValue({
+      id: 1,
+      userSubscriptionId: 9,
+      year: 2026,
+      month: 3,
+      paid: true,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    await user.click(checkbox)
+
+    await waitFor(() => expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, true))
+  })
+
+  it('shows an error when toggling paid fails', async () => {
+    setDefaultMocks()
+    vi.mocked(upsertUtilityBill).mockRejectedValue(
+      new ApiError(500, 'Could not update paid status')
+    )
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    await user.click(checkboxes[1]!)
+
+    expect(await screen.findByText('Could not update paid status')).toBeInTheDocument()
   })
 
   it('edits a utility expense line', async () => {
@@ -509,14 +877,17 @@ describe('month page', () => {
       month: 3,
       amount: 120,
       notes: null,
+      paid: false,
       createdAt: '',
       updatedAt: '',
     })
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Groceries (dueDay 5) now sorts ahead of Electricity (dueDate 20th), so
+    // Electricity's Edit button is index 3, not 2.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[3]!)
     const amountInput = screen.getByDisplayValue('110')
     await user.clear(amountInput)
     await user.type(amountInput, '120')
@@ -532,8 +903,10 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
+    // Groceries (dueDay 5) now sorts ahead of Electricity, so its Edit
+    // button is index 2, not 3.
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
     expect(await screen.findByRole('button', { name: 'Save' })).toBeInTheDocument()
     const amountInputs = screen.getAllByRole('spinbutton')
     await user.type(amountInputs[amountInputs.length - 1]!, '650')
@@ -566,12 +939,12 @@ describe('month page', () => {
     render(MonthPage)
 
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
     await user.click(await screen.findByRole('button', { name: 'Save' }))
     await waitFor(() => expect(updateCategoryActual).toHaveBeenCalledWith(5, { amount: 620 }))
 
     await user.click(
-      await screen.findAllByRole('button', { name: 'Edit' }).then((btns) => btns[3]!)
+      await screen.findAllByRole('button', { name: 'Edit' }).then((btns) => btns[2]!)
     )
     const expensesTable = (await screen.findAllByRole('table'))[1]!
     await user.click(within(expensesTable).getByRole('button', { name: 'Remove' }))
@@ -604,7 +977,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
 
     expect(await screen.findByText('Multiple entries')).toBeInTheDocument()
     const viewAll = screen.getByRole('link', { name: 'View all →' })
@@ -619,7 +992,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[3]!)
     await user.click(await screen.findByRole('button', { name: 'Cancel' }))
 
     expect(upsertUtilityBill).not.toHaveBeenCalled()
@@ -632,7 +1005,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
 
     expect(await screen.findByText('Could not load actuals')).toBeInTheDocument()
   })
@@ -644,7 +1017,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[2]!)
+    await user.click(editButtons[3]!)
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     expect(await screen.findByText('Could not save actual')).toBeInTheDocument()
@@ -668,7 +1041,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const editButtons = await screen.findAllByRole('button', { name: 'Edit' })
-    await user.click(editButtons[3]!)
+    await user.click(editButtons[2]!)
     const expensesTable = (await screen.findAllByRole('table'))[1]!
     await user.click(within(expensesTable).getByRole('button', { name: 'Remove' }))
 
@@ -699,6 +1072,7 @@ describe('month page', () => {
               actual: 40,
               dueDay: null,
               dueDate: null,
+              paid: false,
               editable: false,
             },
           ],

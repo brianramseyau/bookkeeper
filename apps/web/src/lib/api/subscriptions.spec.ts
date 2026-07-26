@@ -6,10 +6,11 @@ import {
   getSubscriptionsSummary,
   listSubscriptions,
   updateSubscription,
+  upsertSubscriptionPayment,
 } from './subscriptions'
 
 vi.mock('$lib/api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }))
 
 describe('subscriptions api', () => {
@@ -45,5 +46,10 @@ describe('subscriptions api', () => {
   it('deletes a subscription', () => {
     deleteSubscription(9)
     expect(api.delete).toHaveBeenCalledWith('/subscriptions/9')
+  })
+
+  it('upserts a subscription payment', () => {
+    upsertSubscriptionPayment(9, 2026, 3, true)
+    expect(api.put).toHaveBeenCalledWith('/subscriptions/9/payments/2026/3', { paid: true })
   })
 })

@@ -26,6 +26,16 @@ export interface UpcomingRecurringBill extends RecurringBill {
   dueSoon: boolean
 }
 
+export interface RecurringBillPayment {
+  id: number
+  recurringBillId: number
+  year: number
+  month: number
+  paid: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface RecurringBillInput {
   name: string
   categoryId?: number | null
@@ -51,4 +61,16 @@ export function updateRecurringBill(id: number, input: Partial<RecurringBillInpu
 
 export function deleteRecurringBill(id: number) {
   return api.delete<void>(`/recurring-bills/${id}`)
+}
+
+export function upsertRecurringBillPayment(
+  recurringBillId: number,
+  year: number,
+  month: number,
+  paid: boolean
+) {
+  return api.put<RecurringBillPayment>(
+    `/recurring-bills/${recurringBillId}/payments/${year}/${month}`,
+    { paid }
+  )
 }
