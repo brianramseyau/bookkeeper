@@ -28,8 +28,8 @@ import { parseRollingSheet } from '#services/import/parse_rolling_sheet'
 const UTILITY_SHEETS = ['Electricity', 'Gas', 'Water']
 
 /**
- * Days after the billing period end that each utility's bill is due -
- * confirmed with the user, since the workbook has no column for this.
+ * Day of the billing month each utility's bill is due - confirmed with the
+ * user, since the workbook has no column for this.
  */
 const UTILITY_DUE_OFFSET_DAYS: Record<string, number> = {
   Electricity: 13,
@@ -362,13 +362,12 @@ export default class ImportXlsx extends BaseCommand {
             )
 
             if (ANNUAL_BILLS_MANAGED_AS_UTILITIES.has(row.name)) {
-              // Due date = (billing month's end) + dueOffsetDays always lands
-              // on day `dueOffsetDays` of the following month, so the day
-              // component of the due date doubles as the offset. The actual
-              // UtilityBill row(s) come from the Rolling sheet below (see
-              // ROLLING_UTILITY_NOTES), which has real per-period amounts -
-              // this just establishes the Utility shell so those bills have
-              // somewhere to land.
+              // The due date shown is day `dueOffsetDays` of the billing
+              // month itself, so the sheet's own due-day doubles as the
+              // offset directly. The actual UtilityBill row(s) come from the
+              // Rolling sheet below (see ROLLING_UTILITY_NOTES), which has
+              // real per-period amounts - this just establishes the Utility
+              // shell so those bills have somewhere to land.
               await Utility.firstOrCreate(
                 { name: row.name },
                 {

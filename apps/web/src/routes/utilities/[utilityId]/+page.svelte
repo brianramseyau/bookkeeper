@@ -253,7 +253,7 @@
         </label>
         <label class="flex flex-col gap-1">
           <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-            >Due (days after billing period ends)</span
+            >Due (day of the billing month)</span
           >
           <input
             type="number"
@@ -286,8 +286,7 @@
             >{utility.frequency}</span
           >
           {#if utility.dueOffsetDays !== null}
-            · due {utility.dueOffsetDays} day{utility.dueOffsetDays === 1 ? '' : 's'} after billing
-            period ends
+            · due on day {utility.dueOffsetDays} of the billing month
           {:else}
             · no due-date offset set
           {/if}

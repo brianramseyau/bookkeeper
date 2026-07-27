@@ -53,22 +53,35 @@ test.group('StandardMonthService.utilityDueDate', () => {
     assert.isNull(result)
   })
 
-  test('a monthly utility gets a due date every month, offset from month-end', ({ assert }) => {
+  test('a monthly utility gets a due date every month, on the configured day of that month', ({
+    assert,
+  }) => {
+    const service = new StandardMonthService()
+    const utility = fakeUtility({ dueOffsetDays: 13, frequency: 'monthly' })
+
+    const result = callUtilityDueDate(service, utility, [], 2026, 1)
+
+    assert.equal(result, '2026-01-13T00:00:00.000Z')
+  })
+
+  test('clamps the due day to the last day of a shorter month (Water: 28 days, Feb)', ({
+    assert,
+  }) => {
+    const service = new StandardMonthService()
+    const utility = fakeUtility({ dueOffsetDays: 30, frequency: 'monthly' })
+
+    const result = callUtilityDueDate(service, utility, [], 2026, 2)
+
+    assert.equal(result, '2026-02-28T00:00:00.000Z')
+  })
+
+  test('treats a configured day of 0 as day 1', ({ assert }) => {
     const service = new StandardMonthService()
     const utility = fakeUtility({ dueOffsetDays: 0, frequency: 'monthly' })
 
     const result = callUtilityDueDate(service, utility, [], 2026, 1)
 
-    assert.equal(result, '2026-01-31T00:00:00.000Z')
-  })
-
-  test('applies the configured day offset from month-end (Water: 28 days)', ({ assert }) => {
-    const service = new StandardMonthService()
-    const utility = fakeUtility({ dueOffsetDays: 28, frequency: 'monthly' })
-
-    const result = callUtilityDueDate(service, utility, [], 2026, 2)
-
-    assert.equal(result, '2026-03-28T00:00:00.000Z')
+    assert.equal(result, '2026-01-01T00:00:00.000Z')
   })
 
   test('a quarterly utility only shows a due date in months aligned to its last bill', ({

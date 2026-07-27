@@ -172,7 +172,7 @@ describe('utility detail page', () => {
 
     await screen.findByRole('heading', { name: 'Electricity' })
     expect(screen.getByText('quarterly')).toBeInTheDocument()
-    expect(screen.getByText(/due 14 days after billing period ends/)).toBeInTheDocument()
+    expect(screen.getByText(/due on day 14 of the billing month/)).toBeInTheDocument()
     expect(screen.getByText(/Click the month it's actually billed in/)).toBeInTheDocument()
   })
 
@@ -189,13 +189,13 @@ describe('utility detail page', () => {
     expect(screen.queryByText(/Click the month it's actually billed in/)).toBeNull()
   })
 
-  it('shows a singular "day" for a due-date offset of 1', async () => {
+  it('shows the configured due day for an offset of 1', async () => {
     vi.mocked(listUtilities).mockResolvedValue([{ ...electricity, dueOffsetDays: 1 }])
     vi.mocked(getUtilityBills).mockResolvedValue(emptyBillsResponse)
     vi.mocked(getUtilityTrend).mockResolvedValue(emptyTrend)
     render(UtilityDetailPage)
 
-    expect(await screen.findByText(/due 1 day after billing period ends/)).toBeInTheDocument()
+    expect(await screen.findByText(/due on day 1 of the billing month/)).toBeInTheDocument()
   })
 
   it('shows a read-only, italicized computed share for a non-billing month', async () => {
@@ -402,7 +402,7 @@ describe('utility detail page', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Edit' }))
     await user.selectOptions(screen.getByLabelText('Frequency'), 'annual')
-    const offsetInput = screen.getByLabelText('Due (days after billing period ends)')
+    const offsetInput = screen.getByLabelText('Due (day of the billing month)')
     await user.clear(offsetInput)
     await user.type(offsetInput, '30')
     await user.click(screen.getByRole('button', { name: 'Save' }))

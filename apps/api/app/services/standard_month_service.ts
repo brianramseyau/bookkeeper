@@ -289,11 +289,12 @@ export class StandardMonthService {
 
   /**
    * Utilities aren't billed on a fixed calendar day like recurring bills -
-   * a bill covers a period ending in some month, and payment is due a
-   * configured number of days after that. Anchors the billing cycle on the
-   * utility's most recent actual bill so non-monthly utilities (e.g. a
-   * quarterly water bill) only show a due date in the months they're
-   * actually billed, not every month.
+   * a bill covers a period, and payment is due on a configured day of that
+   * same billing month (`dueOffsetDays` doubles as a day-of-month here,
+   * clamped to however many days that month actually has). Anchors the
+   * billing cycle on the utility's most recent actual bill so non-monthly
+   * utilities (e.g. a quarterly water bill) only show a due date in the
+   * months they're actually billed, not every month.
    */
   private utilityDueDate(
     utility: Utility,
@@ -315,14 +316,13 @@ export class StandardMonthService {
       }
     }
 
+    const daysInMonth = DateTime.utc(year, month, 1).daysInMonth ?? 31
+    const day = Math.min(Math.max(utility.dueOffsetDays, 1), daysInMonth)
+
     // Full ISO datetime (not just a date) to match how every other date
     // field in the API is returned - the frontend's formatDate() expects
     // this and doesn't do timezone-safe parsing of bare date strings.
-    return DateTime.utc(year, month, 1)
-      .endOf('month')
-      .startOf('day')
-      .plus({ days: utility.dueOffsetDays })
-      .toISO()
+    return DateTime.utc(year, month, day).toISO()
   }
 
   private customPeriodsPerYear(value: number | null, unit: string | null): number {
