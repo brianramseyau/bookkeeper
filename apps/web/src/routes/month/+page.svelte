@@ -6,6 +6,7 @@
     getStandardMonth,
     type StandardMonthResult,
     type StandardMonthLine,
+    type StandardMonthAmortizedBill,
   } from '$lib/api/standard-month'
   import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
@@ -77,6 +78,7 @@
   let editExpenseAmount = $state<number>(NaN)
   let savingExpense = $state(false)
   let savingPaidKey = $state<string | null>(null)
+  let amortizedExpanded = $state(false)
 
   onMount(load)
 
@@ -301,7 +303,7 @@
   // like the other line types would hide it for every category, always.
   // Instead, show it whenever there's an actual to reconcile against - a
   // category with nothing logged this month (actual === null) has nothing
-  // to mark paid, same reasoning as the hidden "Recurring Bills (avg)" line.
+  // to mark paid.
   function canTrackPaid(line: StandardMonthLine): boolean {
     if (line.key.startsWith('category-')) return line.actual !== null
     return resolveDueDate(line) !== null
@@ -430,6 +432,10 @@
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }
+  }
+
+  function frequencyLabel(item: StandardMonthAmortizedBill): string {
+    return item.frequency.charAt(0).toUpperCase() + item.frequency.slice(1)
   }
 </script>
 
@@ -723,6 +729,61 @@
             </tr>
           {/if}
         {/each}
+        {#if data.expenses.amortizedBills.items.length > 0}
+          <tr
+            class={[
+              'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
+              amortizedExpanded && 'bg-slate-100 dark:bg-slate-900/50',
+            ]}
+          >
+            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+              <button
+                type="button"
+                onclick={() => (amortizedExpanded = !amortizedExpanded)}
+                class="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400"
+              >
+                <span class="text-slate-400 dark:text-slate-500" aria-hidden="true"
+                  >{amortizedExpanded ? '▾' : '▸'}</span
+                >
+                {data.expenses.amortizedBills.label}
+              </button>
+              <a
+                href="/recurring-bills#annual"
+                class="ml-2 text-xs font-normal text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+              >
+                View bills →
+              </a>
+            </td>
+            <td class="px-3 py-2 text-slate-600 dark:text-slate-400">—</td>
+            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+              >{formatCurrency(data.expenses.amortizedBills.total)}</td
+            >
+            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">—</td>
+            <td class="px-3 py-2"></td>
+            <td class="px-3 py-2"></td>
+          </tr>
+          {#if amortizedExpanded}
+            {#each data.expenses.amortizedBills.items as item (item.key)}
+              <tr
+                class="border-b border-slate-100 bg-slate-50 last:border-0 dark:border-slate-700/60 dark:bg-slate-900/25"
+              >
+                <td class="py-2 pr-3 pl-8 text-slate-700 dark:text-slate-300">
+                  {item.label}
+                  <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
+                    {frequencyLabel(item)} · {formatCurrency(item.amount)}
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">—</td>
+                <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                  >{formatCurrency(item.monthlyShare)}</td
+                >
+                <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">—</td>
+                <td class="px-3 py-2"></td>
+                <td class="px-3 py-2"></td>
+              </tr>
+            {/each}
+          {/if}
+        {/if}
       </tbody>
       <tfoot>
         <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">

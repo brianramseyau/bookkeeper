@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import {
     listUpcomingRecurringBills,
     createRecurringBill,
@@ -77,6 +77,16 @@
       error = err instanceof ApiError ? err.message : 'Failed to load recurring bills'
     } finally {
       loading = false
+    }
+
+    // The frequency group headers (e.g. #annual, linked from the Monthly
+    // page's amortized-bills row) only exist once `bills` has loaded and
+    // rendered - the browser's own load-time hash scroll runs too early to
+    // find them in this client-rendered SPA, so it has to be redone by hand
+    // once the DOM actually reflects the fetched data.
+    if (window.location.hash) {
+      await tick()
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView()
     }
   }
 
@@ -391,6 +401,7 @@
       <tbody>
         {#each groupedBills as group (group.value)}
           <tr
+            id={group.value}
             class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
           >
             <td

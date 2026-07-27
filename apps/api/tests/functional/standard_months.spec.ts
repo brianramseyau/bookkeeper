@@ -112,11 +112,17 @@ test.group('StandardMonths / show', () => {
     // to paid rather than nagging about a bill from months ago.
     assert.equal(kayoLine.paid, true)
 
-    const recurringAvgLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === 'recurring-bills-avg'
+    assert.notInclude(
+      body.expenses.lines.map((l: { key: string }) => l.key),
+      'recurring-bills-avg'
     )
-    assert.equal(recurringAvgLine.projected, 5.42)
-    assert.isNull(recurringAvgLine.actual)
+    assert.equal(body.expenses.amortizedBills.total, 5.42)
+    const costcoAmortized = body.expenses.amortizedBills.items.find(
+      (i: { label: string }) => i.label === 'Costco Membership'
+    )
+    assert.equal(costcoAmortized.amount, 65)
+    assert.equal(costcoAmortized.frequency, 'annual')
+    assert.equal(costcoAmortized.monthlyShare, 5.42)
 
     const subscriptionLine = body.expenses.lines.find(
       (l: { key: string }) => l.key === `subscription-${netflix.id}`
@@ -233,11 +239,12 @@ test.group('StandardMonths / show', () => {
     response.assertStatus(200)
     const body = response.body()
 
-    const recurringAvgLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === 'recurring-bills-avg'
-    )
     // 60 * (52/2) periods/year / 12 months = 130/mo, rounded to 2dp.
-    assert.equal(recurringAvgLine.projected, 130)
+    assert.equal(body.expenses.amortizedBills.total, 130)
+    const cleanerAmortized = body.expenses.amortizedBills.items.find(
+      (i: { label: string }) => i.label === 'Cleaner'
+    )
+    assert.equal(cleanerAmortized.monthlyShare, 130)
 
     const householdLine = body.expenses.lines.find(
       (l: { key: string }) => l.key === `category-${household.id}`

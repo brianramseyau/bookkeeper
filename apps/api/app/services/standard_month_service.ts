@@ -47,6 +47,19 @@ export interface StandardMonthLine {
 
 export type StandardMonthIncomeLine = IncomeLine
 
+/**
+ * A non-monthly recurring bill's contribution to the amortized-bills
+ * section - `amount` is the real per-occurrence amount (what the Bills page
+ * shows), `monthlyShare` is that spread evenly across the year.
+ */
+export interface StandardMonthAmortizedBill {
+  key: string
+  label: string
+  amount: number
+  frequency: string
+  monthlyShare: number
+}
+
 export interface StandardMonthResult {
   year: number
   month: number
@@ -66,6 +79,18 @@ export interface StandardMonthResult {
     lines: StandardMonthLine[]
     projectedTotal: number
     actualTotal: number
+    /**
+     * Non-monthly recurring bills (quarterly/biannual/annual/custom),
+     * amortized into one monthly figure - kept out of `lines` and its own
+     * section instead, since each bill already has its own due date/amount
+     * tracked individually on the Bills page and doesn't need a second,
+     * itemized home here too.
+     */
+    amortizedBills: {
+      label: string
+      total: number
+      items: StandardMonthAmortizedBill[]
+    }
   }
   projectedNet: number
   actualNet: number
@@ -85,14 +110,14 @@ export class StandardMonthService {
   private rollingAverage = new RollingAverageService()
 
   async compute(year: number, month: number): Promise<StandardMonthResult> {
-    const [carryover, income, expenseLines] = await Promise.all([
+    const [carryover, income, { lines: expenseLines, amortizedBills }] = await Promise.all([
       this.computeCarryover(year, month),
       computeIncomeLines(year, month),
       this.computeExpenseLines(year, month),
     ])
 
     const expensesProjectedTotal = round(
-      expenseLines.reduce((sum, line) => sum + line.projected, 0)
+      expenseLines.reduce((sum, line) => sum + line.projected, 0) + amortizedBills.total
     )
     const expensesActualTotal = round(
       expenseLines.reduce((sum, line) => sum + (line.actual ?? 0), 0)
@@ -107,6 +132,7 @@ export class StandardMonthService {
         lines: expenseLines,
         projectedTotal: expensesProjectedTotal,
         actualTotal: expensesActualTotal,
+        amortizedBills,
       },
       projectedNet: round(carryover + income.projectedTotal - expensesProjectedTotal),
       actualNet: round(carryover + income.actualTotal - expensesActualTotal),
@@ -118,7 +144,13 @@ export class StandardMonthService {
     return carryover?.amount ?? 0
   }
 
-  private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {
+  private async computeExpenseLines(
+    year: number,
+    month: number
+  ): Promise<{
+    lines: StandardMonthLine[]
+    amortizedBills: StandardMonthResult['expenses']['amortizedBills']
+  }> {
     const lines: StandardMonthLine[] = []
 
     // Recurring bills and subscriptions only get a payment row once someone
@@ -200,6 +232,7 @@ export class StandardMonthService {
     )
 
     let nonMonthlyAmortizedTotal = 0
+    const amortizedBillItems: StandardMonthAmortizedBill[] = []
     for (const bill of recurringBills) {
       if (bill.frequency === 'monthly') {
         lines.push({
@@ -221,20 +254,21 @@ export class StandardMonthService {
           bill.frequency === 'custom'
             ? this.customPeriodsPerYear(bill.customIntervalValue, bill.customIntervalUnit)
             : /* c8 ignore next */ (PERIODS_PER_YEAR[bill.frequency] ?? 1)
-        nonMonthlyAmortizedTotal += (bill.amount * periodsPerYear) / 12
+        const monthlyShare = (bill.amount * periodsPerYear) / 12
+        nonMonthlyAmortizedTotal += monthlyShare
+        amortizedBillItems.push({
+          key: `recurring-bill-${bill.id}`,
+          label: bill.name,
+          amount: bill.amount,
+          frequency: bill.frequency,
+          monthlyShare: round(monthlyShare),
+        })
       }
     }
-    if (nonMonthlyAmortizedTotal > 0) {
-      lines.push({
-        key: 'recurring-bills-avg',
-        label: 'Recurring Bills (avg)',
-        projected: round(nonMonthlyAmortizedTotal),
-        actual: null,
-        dueDay: null,
-        dueDate: null,
-        paid: false,
-        editable: true,
-      })
+    const amortizedBills = {
+      label: 'Annual Bills (amortized)',
+      total: round(nonMonthlyAmortizedTotal),
+      items: amortizedBillItems,
     }
 
     const users = await User.query().orderBy('fullName', 'asc')
@@ -325,7 +359,7 @@ export class StandardMonthService {
       })
     }
 
-    return lines
+    return { lines, amortizedBills }
   }
 
   /**

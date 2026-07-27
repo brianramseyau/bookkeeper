@@ -17,6 +17,14 @@ export interface StandardMonthLine {
   editable: boolean
 }
 
+export interface StandardMonthAmortizedBill {
+  key: string
+  label: string
+  amount: number
+  frequency: string
+  monthlyShare: number
+}
+
 export interface StandardMonthIncomeLine {
   key: string
   label: string
@@ -45,6 +53,11 @@ export interface StandardMonthResult {
     lines: StandardMonthLine[]
     projectedTotal: number
     actualTotal: number
+    amortizedBills: {
+      label: string
+      total: number
+      items: StandardMonthAmortizedBill[]
+    }
   }
   projectedNet: number
   actualNet: number
