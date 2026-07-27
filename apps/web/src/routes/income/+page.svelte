@@ -7,13 +7,18 @@
     deleteIncomeSource,
     getIncomeSourcesSummary,
     getIncomeYtd,
+    listIncomeEntries,
+    createIncomeEntry,
+    updateIncomeEntry,
+    deleteIncomeEntry,
     type IncomeSource,
     type IncomeSourceFrequency,
     type IncomeSourceSummary,
     type IncomeYtd,
+    type IncomeEntry,
   } from '$lib/api/income'
   import { listUsers, type UserSummary } from '$lib/api/users'
-  import { formatCurrency, monthName } from '$lib/format'
+  import { formatCurrency, formatDate, monthName } from '$lib/format'
   import { ApiError } from '$lib/api'
 
   const FREQUENCIES: { value: IncomeSourceFrequency; label: string }[] = [
@@ -51,6 +56,22 @@
   let editAnchorDate = $state('')
   let editTaxWithheld = $state(true)
   let savingEdit = $state(false)
+
+  let expandedMonth = $state<number | null>(null)
+  let monthEntries = $state<IncomeEntry[]>([])
+  let entriesLoading = $state(false)
+
+  let entrySourceId = $state('')
+  let entryAmount = $state<number>(NaN)
+  let entryReceivedOn = $state('')
+  let entryNote = $state('')
+  let loggingEntry = $state(false)
+
+  let editingEntryId = $state<number | null>(null)
+  let editEntryAmount = $state<number>(NaN)
+  let editEntryReceivedOn = $state('')
+  let editEntryNote = $state('')
+  let savingEntryEdit = $state(false)
 
   const visibleSources = $derived(sources.filter((s) => s.userId === selectedUserId))
 
@@ -102,17 +123,21 @@
 
   function selectUser(userId: number) {
     selectedUserId = userId
+    expandedMonth = null
     void loadYtd()
   }
 
   function changeYear(delta: number) {
     selectedYear += delta
+    expandedMonth = null
     void loadYtd()
   }
 
   function cadenceLabel(source: IncomeSource): string {
     if (source.frequency === 'fortnightly') {
-      return source.anchorDate ? `Fortnightly (from ${source.anchorDate.slice(0, 10)})` : 'Fortnightly'
+      return source.anchorDate
+        ? `Fortnightly (from ${source.anchorDate.slice(0, 10)})`
+        : 'Fortnightly'
     }
     if (source.payDayOfMonth === null) return 'Monthly'
     return `Monthly, day ${source.payDayOfMonth}${source.weekendRollback ? ' (or preceding Fri)' : ''}`
@@ -218,6 +243,123 @@
     } finally {
       savingEdit = false
     }
+  }
+
+  // Entries for a source-total cell aren't fetched until that month is
+  // expanded - the YTD table already shows the aggregate, so there's no
+  // need to pull every entry for the year up front.
+  async function loadMonthEntries(month: number) {
+    entriesLoading = true
+    try {
+      const monthEntryList = await listIncomeEntries(selectedYear, month)
+      const visibleIds = new Set(visibleSources.map((s) => s.id))
+      monthEntries = monthEntryList.filter(
+        (entry) => entry.incomeSourceId !== null && visibleIds.has(entry.incomeSourceId)
+      )
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to load income entries'
+    } finally {
+      entriesLoading = false
+    }
+  }
+
+  function toggleMonth(month: number) {
+    editingEntryId = null
+    if (expandedMonth === month) {
+      expandedMonth = null
+      return
+    }
+    expandedMonth = month
+    entrySourceId = visibleSources[0]?.id !== undefined ? String(visibleSources[0].id) : ''
+    entryAmount = NaN
+    entryReceivedOn = ''
+    entryNote = ''
+    void loadMonthEntries(month)
+  }
+
+  async function refreshEntries() {
+    if (expandedMonth === null) return
+    await Promise.all([loadMonthEntries(expandedMonth), loadYtd()])
+  }
+
+  async function handleAddEntry(event: SubmitEvent) {
+    event.preventDefault()
+    if (
+      expandedMonth === null ||
+      entrySourceId === '' ||
+      Number.isNaN(entryAmount) ||
+      entryAmount === null
+    ) {
+      error = 'Source and amount are required'
+      return
+    }
+    loggingEntry = true
+    error = null
+    try {
+      await createIncomeEntry({
+        incomeSourceId: Number(entrySourceId),
+        year: selectedYear,
+        month: expandedMonth,
+        amount: entryAmount,
+        receivedOn: entryReceivedOn === '' ? null : entryReceivedOn,
+        note: entryNote.trim() === '' ? null : entryNote.trim(),
+      })
+      entryAmount = NaN
+      entryReceivedOn = ''
+      entryNote = ''
+      await refreshEntries()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to log income'
+    } finally {
+      loggingEntry = false
+    }
+  }
+
+  function startEditEntry(entry: IncomeEntry) {
+    editingEntryId = entry.id
+    editEntryAmount = entry.amount
+    editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
+    editEntryNote = entry.note ?? ''
+  }
+
+  function cancelEditEntry() {
+    editingEntryId = null
+  }
+
+  async function saveEntryEdit(entry: IncomeEntry) {
+    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
+      error = 'Amount is required'
+      return
+    }
+    savingEntryEdit = true
+    error = null
+    try {
+      await updateIncomeEntry(entry.id, {
+        amount: editEntryAmount,
+        receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
+        note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
+      })
+      editingEntryId = null
+      await refreshEntries()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save changes'
+    } finally {
+      savingEntryEdit = false
+    }
+  }
+
+  async function handleDeleteEntry(entry: IncomeEntry) {
+    error = null
+    try {
+      await deleteIncomeEntry(entry.id)
+      await refreshEntries()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to delete entry'
+    }
+  }
+
+  function sourceName(sourceId: number | null): string {
+    return sources.find((s) => s.id === sourceId)?.name ?? 'Unknown'
   }
 </script>
 
@@ -427,9 +569,7 @@
         />
       </label>
       <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-          >Expected per pay</span
-        >
+        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Expected per pay</span>
         <input
           type="number"
           step="0.01"
@@ -460,9 +600,7 @@
             class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </label>
-        <label
-          class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400"
-        >
+        <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
           <input type="checkbox" bind:checked={weekendRollback} />
           Roll to preceding Friday on a weekend
         </label>
@@ -546,9 +684,24 @@
           </thead>
           <tbody>
             {#each ytd.months as monthRow, i (monthRow.month)}
-              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+              {@const expanded = expandedMonth === monthRow.month}
+              <tr
+                class={[
+                  'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
+                  expanded && 'bg-slate-100 dark:bg-slate-900/50',
+                ]}
+              >
                 <td class="px-3 py-2 text-slate-900 dark:text-slate-100">
-                  {monthName(monthRow.month)}
+                  <button
+                    type="button"
+                    onclick={() => toggleMonth(monthRow.month)}
+                    class="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400"
+                  >
+                    <span class="text-slate-400 dark:text-slate-500" aria-hidden="true"
+                      >{expanded ? '▾' : '▸'}</span
+                    >
+                    {monthName(monthRow.month)}
+                  </button>
                 </td>
                 {#each ytd.sources as source (source.id)}
                   <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400">
@@ -569,12 +722,201 @@
                   {formatCurrency(runningTotals[i]!)}
                 </td>
               </tr>
+              {#if expanded}
+                <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                  <td
+                    colspan={ytd.sources.length + 3}
+                    class="bg-slate-50 px-3 py-3 dark:bg-slate-900/25"
+                  >
+                    {#if entriesLoading}
+                      <p class="text-xs text-slate-400 dark:text-slate-500">Loading entries…</p>
+                    {:else}
+                      <table class="w-full border-collapse text-sm">
+                        <thead>
+                          <tr class="border-b border-slate-200 dark:border-slate-700">
+                            <th
+                              class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
+                              >Source</th
+                            >
+                            <th
+                              class="py-1.5 pr-3 text-right font-semibold text-slate-500 dark:text-slate-400"
+                              >Amount</th
+                            >
+                            <th
+                              class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
+                              >Date</th
+                            >
+                            <th
+                              class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
+                              >Note</th
+                            >
+                            <th class="py-1.5"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {#each monthEntries as entry (entry.id)}
+                            {#if editingEntryId === entry.id}
+                              <tr
+                                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                              >
+                                <td class="py-1.5 pr-3 text-slate-700 dark:text-slate-300">
+                                  {sourceName(entry.incomeSourceId)}
+                                </td>
+                                <td class="py-1.5 pr-3 text-right">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    bind:value={editEntryAmount}
+                                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                  />
+                                </td>
+                                <td class="py-1.5 pr-3">
+                                  <input
+                                    type="date"
+                                    bind:value={editEntryReceivedOn}
+                                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                  />
+                                </td>
+                                <td class="py-1.5 pr-3">
+                                  <input
+                                    type="text"
+                                    bind:value={editEntryNote}
+                                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                                  />
+                                </td>
+                                <td class="py-1.5 text-right whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onclick={() => saveEntryEdit(entry)}
+                                    disabled={savingEntryEdit}
+                                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onclick={cancelEditEntry}
+                                    class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                                  >
+                                    Cancel
+                                  </button>
+                                </td>
+                              </tr>
+                            {:else}
+                              <tr
+                                class="border-b border-slate-100 last:border-0 dark:border-slate-700/60"
+                              >
+                                <td class="py-1.5 pr-3 text-slate-700 dark:text-slate-300">
+                                  {sourceName(entry.incomeSourceId)}
+                                </td>
+                                <td
+                                  class="py-1.5 pr-3 text-right text-slate-900 dark:text-slate-100"
+                                >
+                                  {formatCurrency(entry.amount)}
+                                </td>
+                                <td class="py-1.5 pr-3 text-slate-500 dark:text-slate-400">
+                                  {formatDate(entry.receivedOn)}
+                                </td>
+                                <td class="py-1.5 pr-3 text-slate-500 dark:text-slate-400"
+                                  >{entry.note ?? '—'}</td
+                                >
+                                <td class="py-1.5 text-right whitespace-nowrap">
+                                  <button
+                                    type="button"
+                                    onclick={() => startEditEntry(entry)}
+                                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onclick={() => handleDeleteEntry(entry)}
+                                    class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            {/if}
+                          {:else}
+                            <tr>
+                              <td
+                                colspan="5"
+                                class="py-3 text-center text-xs text-slate-400 dark:text-slate-500"
+                              >
+                                No entries logged for {monthName(monthRow.month)}.
+                              </td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                      <form onsubmit={handleAddEntry} class="mt-3 flex flex-wrap items-end gap-3">
+                        <label class="flex flex-col gap-1">
+                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >Source</span
+                          >
+                          <select
+                            bind:value={entrySourceId}
+                            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          >
+                            {#each visibleSources as source (source.id)}
+                              <option value={source.id}>{source.name}</option>
+                            {/each}
+                          </select>
+                        </label>
+                        <label class="flex flex-col gap-1">
+                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >Amount</span
+                          >
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            bind:value={entryAmount}
+                            class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </label>
+                        <label class="flex flex-col gap-1">
+                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >Received on</span
+                          >
+                          <input
+                            type="date"
+                            bind:value={entryReceivedOn}
+                            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </label>
+                        <label class="flex flex-col gap-1">
+                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+                            >Note</span
+                          >
+                          <input
+                            type="text"
+                            placeholder="optional"
+                            bind:value={entryNote}
+                            class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </label>
+                        <button
+                          type="submit"
+                          disabled={loggingEntry || visibleSources.length === 0}
+                          class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                        >
+                          {loggingEntry ? 'Logging…' : 'Log income'}
+                        </button>
+                      </form>
+                    {/if}
+                  </td>
+                </tr>
+              {/if}
             {/each}
           </tbody>
           <tfoot>
             <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-              <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan={1 + ytd.sources.length}
-                >Year to date</td
+              <td
+                class="px-3 py-2 text-slate-900 dark:text-slate-100"
+                colspan={1 + ytd.sources.length}>Year to date</td
               >
               <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100" colspan="2"
                 >{formatCurrency(ytd.ytdTotal)}</td

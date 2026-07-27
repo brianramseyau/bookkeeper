@@ -8,9 +8,14 @@ import {
   getIncomeYtd,
   listIncomeSources,
   updateIncomeSource,
+  listIncomeEntries,
+  createIncomeEntry,
+  updateIncomeEntry,
+  deleteIncomeEntry,
   type IncomeSource,
   type IncomeSourceSummary,
   type IncomeYtd,
+  type IncomeEntry,
 } from '$lib/api/income'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
@@ -23,6 +28,10 @@ vi.mock('$lib/api/income', () => ({
   deleteIncomeSource: vi.fn(),
   getIncomeSourcesSummary: vi.fn(),
   getIncomeYtd: vi.fn(),
+  listIncomeEntries: vi.fn(),
+  createIncomeEntry: vi.fn(),
+  updateIncomeEntry: vi.fn(),
+  deleteIncomeEntry: vi.fn(),
 }))
 vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
 
@@ -75,6 +84,24 @@ const summaries: IncomeSourceSummary[] = [
 
 const emptyYtd: IncomeYtd = { year: 2026, sources: [], months: [], ytdTotal: 0 }
 
+const januaryYtd: IncomeYtd = {
+  year: 2026,
+  sources: [{ id: 1, name: 'Brian Income' }],
+  months: [{ month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false }],
+  ytdTotal: 5000,
+}
+
+const janEntry: IncomeEntry = {
+  id: 10,
+  incomeSourceId: 1,
+  userId: null,
+  year: 2026,
+  month: 1,
+  receivedOn: '2026-01-14T00:00:00.000+00:00',
+  amount: 5000,
+  note: 'Payslip',
+}
+
 function setDefaultMocks() {
   vi.mocked(listUsers).mockResolvedValue([brian, ariel])
   vi.mocked(listIncomeSources).mockResolvedValue([brianSalary, arielWages])
@@ -91,6 +118,10 @@ describe('income page', () => {
     vi.mocked(createIncomeSource).mockReset()
     vi.mocked(updateIncomeSource).mockReset()
     vi.mocked(deleteIncomeSource).mockReset()
+    vi.mocked(listIncomeEntries).mockReset()
+    vi.mocked(createIncomeEntry).mockReset()
+    vi.mocked(updateIncomeEntry).mockReset()
+    vi.mocked(deleteIncomeEntry).mockReset()
   })
 
   it('shows a loading state, then an API error on failure', async () => {
@@ -359,5 +390,238 @@ describe('income page', () => {
     vi.mocked(getIncomeYtd).mockRejectedValue(new ApiError(500, 'Could not load YTD'))
     render(IncomePage)
     expect(await screen.findByText('Could not load YTD')).toBeInTheDocument()
+  })
+
+  it('expands a month row and loads its income entries', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+
+    expect(listIncomeEntries).toHaveBeenCalledWith(2026, 1)
+    expect(await screen.findByText('Payslip')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
+  })
+
+  it('filters out entries whose source belongs to another user', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([
+      janEntry,
+      { ...janEntry, id: 11, incomeSourceId: 2, note: 'Ariel entry' },
+    ])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+
+    expect(await screen.findByText('Payslip')).toBeInTheDocument()
+    expect(screen.queryByText('Ariel entry')).toBeNull()
+  })
+
+  it('collapses an expanded month on a second click', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    const toggle = await screen.findByRole('button', { name: 'January' })
+    await user.click(toggle)
+    await screen.findByText('Payslip')
+    await user.click(toggle)
+
+    expect(screen.queryByText('Payslip')).toBeNull()
+  })
+
+  it('shows a "no entries" message for an expanded month with nothing logged', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+
+    expect(await screen.findByText('No entries logged for January.')).toBeInTheDocument()
+  })
+
+  it('shows an API error when loading a month’s entries fails', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockRejectedValue(new ApiError(500, 'Could not load entries'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+
+    expect(await screen.findByText('Could not load entries')).toBeInTheDocument()
+  })
+
+  it('requires a source and amount to log an entry', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('No entries logged for January.')
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    expect(await screen.findByText('Source and amount are required')).toBeInTheDocument()
+    expect(createIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('logs a new income entry for the expanded month and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(createIncomeEntry).mockResolvedValue(janEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('No entries logged for January.')
+    await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '5000')
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    await waitFor(() =>
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        incomeSourceId: 1,
+        year: 2026,
+        month: 1,
+        amount: 5000,
+        receivedOn: null,
+        note: null,
+      })
+    )
+    expect(listIncomeEntries).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows an API error when logging an entry fails', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(createIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not log income'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('No entries logged for January.')
+    await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '5000')
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    expect(await screen.findByText('Could not log income')).toBeInTheDocument()
+  })
+
+  it('edits an income entry inline and cancels without saving', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('Payslip')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByDisplayValue('5000')).toBeNull()
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('saves an edited income entry and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    vi.mocked(updateIncomeEntry).mockResolvedValue(janEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('Payslip')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    const amountInput = screen.getByDisplayValue('5000')
+    await user.clear(amountInput)
+    await user.type(amountInput, '5200')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
+        amount: 5200,
+        receivedOn: '2026-01-14',
+        note: 'Payslip',
+      })
+    )
+    expect(listIncomeEntries).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows an API error when saving an entry edit fails', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    vi.mocked(updateIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not save entry'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('Payslip')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
+  })
+
+  it('requires an amount when saving an entry edit', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('Payslip')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    await user.clear(screen.getByDisplayValue('5000'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Amount is required')).toBeInTheDocument()
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('deletes an income entry and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    vi.mocked(deleteIncomeEntry).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('Payslip')
+    await user.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!)
+
+    await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
+    expect(listIncomeEntries).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows an API error when deleting an entry fails', async () => {
+    setDefaultMocks()
+    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
+    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    vi.mocked(deleteIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not delete entry'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await screen.findByText('Payslip')
+    await user.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!)
+
+    expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
   })
 })
