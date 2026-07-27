@@ -9,16 +9,20 @@ async function loginAsBrian() {
 test.group('Utilities / index', () => {
   test('lists utilities ordered by name', async ({ client, assert }) => {
     const brian = await loginAsBrian()
-    await Utility.create({ name: 'Water' })
-    await Utility.create({ name: 'Electricity' })
+    await Utility.create({ name: 'Test Water' })
+    await Utility.create({ name: 'Test Electricity' })
 
     const response = await client.get('/api/utilities').loginAs(brian)
 
     response.assertStatus(200)
-    assert.deepEqual(
-      response.body().data.map((u: { name: string }) => u.name),
-      ['Electricity', 'Water']
-    )
+    // Filtered to this test's own rows - the "Internet" utility from
+    // internet_utility_actuals_seeder.ts is real seed data present in every
+    // test run, not something this test should need to know about.
+    const names = response
+      .body()
+      .data.map((u: { name: string }) => u.name)
+      .filter((name: string) => name.startsWith('Test '))
+    assert.deepEqual(names, ['Test Electricity', 'Test Water'])
   })
 })
 
