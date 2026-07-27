@@ -257,8 +257,10 @@ test.group('StandardMonths / show', () => {
       payDayOfMonth: 15,
     })
 
-    // A utility with no bills at all yet.
-    const internet = await Utility.create({ name: 'Internet' })
+    // A utility with no bills at all yet. Named distinctly from the
+    // "Internet" utility the dev-data seeder creates, to avoid colliding
+    // with it under the unique name constraint.
+    const broadband = await Utility.create({ name: 'Broadband' })
     // A utility with bills, but none for the viewed month.
     const gas = await Utility.create({ name: 'Gas' })
     await UtilityBill.create({ utilityId: gas.id, year: 2026, month: 1, amount: 90 })
@@ -290,13 +292,33 @@ test.group('StandardMonths / show', () => {
     assert.equal(salaryLine.actual, 5000)
     assert.isTrue(salaryLine.estimated)
 
-    const internetLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === `utility-${internet.id}`
+    // A utility with no recorded amount for the viewed month is only shown
+    // as a placeholder for the current/future month (a live reminder) - Feb
+    // 2026 is in the past, so both utilities are hidden entirely here. See
+    // the current-month request below for the placeholder-fallback case.
+    assert.isUndefined(
+      body.expenses.lines.find((l: { key: string }) => l.key === `utility-${broadband.id}`)
     )
-    assert.equal(internetLine.projected, 0)
-    assert.isNull(internetLine.actual)
+    assert.isUndefined(
+      body.expenses.lines.find((l: { key: string }) => l.key === `utility-${gas.id}`)
+    )
 
-    const gasLine = body.expenses.lines.find((l: { key: string }) => l.key === `utility-${gas.id}`)
+    const today = DateTime.utc()
+    const currentMonthResponse = await client
+      .get('/api/standard-month')
+      .qs({ year: today.year, month: today.month })
+      .loginAs(brian)
+    const currentMonthBody = currentMonthResponse.body()
+
+    const broadbandLine = currentMonthBody.expenses.lines.find(
+      (l: { key: string }) => l.key === `utility-${broadband.id}`
+    )
+    assert.equal(broadbandLine.projected, 0)
+    assert.isNull(broadbandLine.actual)
+
+    const gasLine = currentMonthBody.expenses.lines.find(
+      (l: { key: string }) => l.key === `utility-${gas.id}`
+    )
     assert.isNull(gasLine.actual)
     assert.equal(gasLine.paid, false)
 
@@ -329,8 +351,12 @@ test.group('StandardMonths / show', () => {
     const billingLine = billingMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
-    assert.equal(billingLine.actual, 123.16)
-    assert.equal(billingLine.projected, 123.16)
+    // The billing month shows the real full bill amount for both actual
+    // and projected, not the smoothed per-month share used the rest of
+    // the year - with only one bill on record, the "average" of the full
+    // bill amounts is just that one bill's total.
+    assert.equal(billingLine.actual, 369.49)
+    assert.equal(billingLine.projected, 369.49)
     assert.isTrue(billingLine.editable)
     assert.equal(billingLine.paid, true)
 
@@ -341,7 +367,10 @@ test.group('StandardMonths / show', () => {
     const coveredLine = coveredMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
+    // Not the billing month - both actual and projected still show the
+    // fractional share, since nothing actually left the account this month.
     assert.equal(coveredLine.actual, 123.16)
+    assert.equal(coveredLine.projected, 123.16)
     assert.isFalse(coveredLine.editable)
     // The paid flag lives on the single underlying bill row, so it applies
     // across every month that bill's amount was split into, not just the
@@ -355,10 +384,11 @@ test.group('StandardMonths / show', () => {
     const uncoveredLine = uncoveredMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
-    assert.isNull(uncoveredLine.actual)
     // 2026-12 is 8 months after the Apr anchor - not aligned to the 3-month
-    // cadence (diff 8 % 3 = 2), so it isn't a predicted billing month either.
-    assert.isFalse(uncoveredLine.editable)
+    // cadence (diff 8 % 3 = 2), so it isn't a predicted billing month either
+    // - with no recorded amount and no live billing obligation, the line is
+    // dropped entirely rather than shown as an empty placeholder.
+    assert.isUndefined(uncoveredLine)
   })
 
   test('projects 3 pay periods in a month a fortnightly income source lands on 3 times', async ({
