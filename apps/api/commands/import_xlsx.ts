@@ -27,6 +27,16 @@ import { parseRollingSheet } from '#services/import/parse_rolling_sheet'
 /** Sheet name -> utility name. */
 const UTILITY_SHEETS = ['Electricity', 'Gas', 'Water']
 
+/**
+ * Days after the billing period end that each utility's bill is due -
+ * confirmed with the user, since the workbook has no column for this.
+ */
+const UTILITY_DUE_OFFSET_DAYS: Record<string, number> = {
+  Electricity: 13,
+  Gas: 16,
+  Water: 28,
+}
+
 /** Sheet name -> user full_name. Each sheet lists that person's personal subscriptions. */
 const SUBSCRIPTION_SHEETS = ['Brian', 'Ariel']
 
@@ -42,6 +52,35 @@ const CATEGORY_ACTUAL_SHEETS: { sheet: string; category: string }[] = [
  */
 const FREQUENCY_CORRECTIONS: Record<string, string> = {
   'Strata Fees': "shows twice yearly ($640 x 2) against an annual total - likely 'biannual'",
+}
+
+/**
+ * Annual-sheet bills confirmed to actually be provider utility bills (like
+ * Electricity/Gas/Water) rather than fixed recurring payments - imported as
+ * a Utility (with an anchor UtilityBill derived from the sheet's Day/Month)
+ * instead of a recurring_bills row.
+ */
+const ANNUAL_BILLS_MANAGED_AS_UTILITIES = new Set(['Phones'])
+
+/**
+ * Annual-sheet bills the importer can't categorize on its own - confirmed
+ * with the user. "Insurance" and "Home & Property" aren't seeded by
+ * category_seeder, so they're created on demand below.
+ */
+const ANNUAL_BILL_CATEGORIES: Record<string, string> = {
+  'Amazon Prime': 'Subscriptions',
+  'Bitwarden': 'Subscriptions',
+  'Google One': 'Subscriptions',
+  'Microsoft 365': 'Subscriptions',
+  'Nintendo': 'Subscriptions',
+  'VPN': 'Subscriptions',
+  'Home Assistant': 'Subscriptions',
+  'Telescopius': 'Subscriptions',
+  'Manscaped': 'Subscriptions',
+  'Costco Membership': 'Groceries',
+  'Contents Insurance': 'Insurance',
+  'Council Rates': 'Home & Property',
+  'Strata Fees': 'Home & Property',
 }
 
 /**
@@ -85,6 +124,7 @@ const ROLLING_RECURRING_BILL_NOTES: Record<string, string | null> = {
  */
 const ROLLING_UTILITY_NOTES: Record<string, string> = {
   'Internet Bill': 'Internet',
+  'Phones': 'Phones',
 }
 
 /**
@@ -261,7 +301,11 @@ export default class ImportXlsx extends BaseCommand {
       await db.transaction(async (trx) => {
         const utility = await Utility.firstOrCreate(
           { name: sheetName },
-          { name: sheetName, categoryId: utilitiesCategory.id },
+          {
+            name: sheetName,
+            categoryId: utilitiesCategory.id,
+            dueOffsetDays: UTILITY_DUE_OFFSET_DAYS[sheetName] ?? null,
+          },
           { client: trx }
         )
 
@@ -295,6 +339,8 @@ export default class ImportXlsx extends BaseCommand {
             await RecurringBill.query({ client: trx }).delete()
           }
 
+          const categoryIdByName = new Map<string, number>()
+
           for (const row of rows) {
             if (row.dueDay === null || row.dueMonth === null) {
               this.logger.warning(`  "${row.name}" has no parseable Day/Month - skipping`)
@@ -315,6 +361,44 @@ export default class ImportXlsx extends BaseCommand {
               row.dueYear ?? DateTime.utc().year
             )
 
+            if (ANNUAL_BILLS_MANAGED_AS_UTILITIES.has(row.name)) {
+              // Due date = (billing month's end) + dueOffsetDays always lands
+              // on day `dueOffsetDays` of the following month, so the day
+              // component of the due date doubles as the offset. The actual
+              // UtilityBill row(s) come from the Rolling sheet below (see
+              // ROLLING_UTILITY_NOTES), which has real per-period amounts -
+              // this just establishes the Utility shell so those bills have
+              // somewhere to land.
+              await Utility.firstOrCreate(
+                { name: row.name },
+                {
+                  name: row.name,
+                  categoryId: utilitiesCategory.id,
+                  frequency: 'annual',
+                  dueOffsetDays: row.dueDay,
+                },
+                { client: trx }
+              )
+
+              this.logger.info(`  "${row.name}" is managed as a Utility - skipping recurring bill`)
+              continue
+            }
+
+            const categoryName = ANNUAL_BILL_CATEGORIES[row.name]
+            let categoryId: number | null = null
+            if (categoryName) {
+              categoryId = categoryIdByName.get(categoryName) ?? null
+              if (categoryId === null) {
+                const category = await Category.firstOrCreate(
+                  { name: categoryName },
+                  { name: categoryName },
+                  { client: trx }
+                )
+                categoryId = category.id
+                categoryIdByName.set(categoryName, categoryId)
+              }
+            }
+
             await RecurringBill.updateOrCreate(
               { name: row.name },
               {
@@ -325,6 +409,7 @@ export default class ImportXlsx extends BaseCommand {
                 dueMonth: row.dueMonth,
                 dueYear: row.dueYear,
                 nextDueOn,
+                categoryId,
               },
               { client: trx }
             )
@@ -341,6 +426,8 @@ export default class ImportXlsx extends BaseCommand {
         }
       }
     }
+
+    const subscriptionsCategory = await Category.findByOrFail('name', 'Subscriptions')
 
     let totalSubscriptions = 0
     for (const sheetName of SUBSCRIPTION_SHEETS) {
@@ -374,7 +461,11 @@ export default class ImportXlsx extends BaseCommand {
           for (const row of rows) {
             await UserSubscription.updateOrCreate(
               { userId: user.id, name: row.name },
-              { amount: row.amount, dayOfMonth: row.dayOfMonth },
+              {
+                amount: row.amount,
+                dayOfMonth: row.dayOfMonth,
+                categoryId: subscriptionsCategory.id,
+              },
               { client: trx }
             )
           }

@@ -17,9 +17,24 @@ test.group('parseUsersSheet', () => {
     const rows = parseUsersSheet(sheet)
 
     assert.deepEqual(rows, [
-      { fullName: 'Brian', email: 'brian@example.com', password: 'hunter2' },
-      { fullName: 'Ariel', email: 'ariel@example.com', password: 'correct-horse' },
+      { fullName: 'Brian', email: 'brian@example.com', password: 'hunter2', displayColor: null },
+      {
+        fullName: 'Ariel',
+        email: 'ariel@example.com',
+        password: 'correct-horse',
+        displayColor: null,
+      },
     ])
+  })
+
+  test('parses an optional Color column', ({ assert }) => {
+    const sheet = buildSheet()
+    sheet.getRow(1).values = ['Name', 'Email', 'Password', 'Color']
+    sheet.getRow(2).values = ['Brian', 'brian@example.com', 'hunter2', '#e7970d']
+
+    const rows = parseUsersSheet(sheet)
+
+    assert.equal(rows[0].displayColor, '#e7970d')
   })
 
   test('reads the email from a mailto: hyperlink cell', ({ assert }) => {

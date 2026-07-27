@@ -21,13 +21,19 @@ export default class extends BaseSeeder {
       throw new Error(`"Users" sheet in workbook at "${workbookPath}" has no data rows`)
     }
 
-    await User.updateOrCreateMany(
-      'email',
-      rows.map((row) => ({
-        fullName: row.fullName,
-        email: row.email,
-        password: row.password,
-      }))
-    )
+    for (const row of rows) {
+      const user = await User.updateOrCreate(
+        { email: row.email },
+        { fullName: row.fullName, password: row.password }
+      )
+
+      // Only overwrite displayColor when the sheet actually provides one -
+      // preserves a color set manually via the app's settings page for
+      // users the sheet leaves blank.
+      if (row.displayColor && user.displayColor !== row.displayColor) {
+        user.displayColor = row.displayColor
+        await user.save()
+      }
+    }
   }
 }

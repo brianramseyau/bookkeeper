@@ -4,6 +4,7 @@ export interface UserSheetRow {
   fullName: string
   email: string
   password: string
+  displayColor: string | null
 }
 
 function cellText(value: unknown): string | null {
@@ -24,8 +25,9 @@ function cellText(value: unknown): string | null {
 }
 
 /**
- * Parses the Users sheet: columns Name, Email, Password, header on row 1.
- * Stops at the first row missing any of the three values.
+ * Parses the Users sheet: columns Name, Email, Password, Color (optional),
+ * header on row 1. Stops at the first row missing any of the first three
+ * values.
  */
 export function parseUsersSheet(sheet: Worksheet): UserSheetRow[] {
   const rows: UserSheetRow[] = []
@@ -36,10 +38,11 @@ export function parseUsersSheet(sheet: Worksheet): UserSheetRow[] {
     const fullName = cellText(row.getCell(1).value)
     const email = cellText(row.getCell(2).value)
     const password = cellText(row.getCell(3).value)
+    const displayColor = cellText(row.getCell(4).value)
 
     if (!fullName || !email || !password) break
 
-    rows.push({ fullName, email, password })
+    rows.push({ fullName, email, password, displayColor })
     rowNumber += 1
   }
 
