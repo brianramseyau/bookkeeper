@@ -41,3 +41,22 @@ export function updateCategory(id: number, input: Partial<CategoryInput>) {
 export function deleteCategory(id: number) {
   return api.delete<void>(`/categories/${id}`)
 }
+
+export interface CategoryPayment {
+  id: number
+  categoryId: number
+  year: number
+  month: number
+  paid: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export function upsertCategoryPayment(
+  categoryId: number,
+  year: number,
+  month: number,
+  paid: boolean
+) {
+  return api.put<CategoryPayment>(`/categories/${categoryId}/payments/${year}/${month}`, { paid })
+}

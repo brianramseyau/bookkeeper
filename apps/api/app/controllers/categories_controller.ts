@@ -2,11 +2,14 @@ import type { HttpContext } from '@adonisjs/core/http'
 import Category from '#models/category'
 import CategoryBudgetItem from '#models/category_budget_item'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import CategoryPayment from '#models/category_payment'
 import RecurringBill from '#models/recurring_bill'
 import UserSubscription from '#models/user_subscription'
 import Utility from '#models/utility'
 import CategoryTransformer from '#transformers/category_transformer'
+import CategoryPaymentTransformer from '#transformers/category_payment_transformer'
 import { createCategoryValidator, updateCategoryValidator } from '#validators/category'
+import { upsertCategoryPaymentValidator } from '#validators/category_payment'
 
 export default class CategoriesController {
   async index({ request, serialize }: HttpContext) {
@@ -63,8 +66,24 @@ export default class CategoriesController {
     await RecurringBill.query().where('categoryId', category.id).update({ categoryId: null })
     await UserSubscription.query().where('categoryId', category.id).update({ categoryId: null })
     await Utility.query().where('categoryId', category.id).update({ categoryId: null })
+    await CategoryPayment.query().where('categoryId', category.id).delete()
     await category.delete()
 
     return response.noContent()
+  }
+
+  async upsertPayment({ params, request, serialize }: HttpContext) {
+    const categoryId = Number(params.id)
+    await Category.findOrFail(categoryId)
+    const payload = await request.validateUsing(upsertCategoryPaymentValidator)
+    const year = Number(params.year)
+    const month = Number(params.month)
+
+    const payment = await CategoryPayment.updateOrCreate(
+      { categoryId, year, month },
+      { paid: payload.paid }
+    )
+
+    return serialize(CategoryPaymentTransformer.transform(payment))
   }
 }

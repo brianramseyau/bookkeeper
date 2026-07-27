@@ -4,6 +4,7 @@ import User from '#models/user'
 import Category from '#models/category'
 import CategoryBudgetItem from '#models/category_budget_item'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import CategoryPayment from '#models/category_payment'
 import RecurringBill from '#models/recurring_bill'
 
 async function loginAsBrian() {
@@ -185,6 +186,7 @@ test.group('Categories / destroy', () => {
       amount: 10,
       frequency: 'monthly',
     })
+    await CategoryPayment.create({ categoryId: category.id, year: 2026, month: 1, paid: true })
 
     const response = await client
       .delete(`/api/categories/${category.id}`)
@@ -195,7 +197,74 @@ test.group('Categories / destroy', () => {
     assert.isNull(await Category.find(category.id))
     assert.lengthOf(await CategoryBudgetItem.query().where('categoryId', category.id), 0)
     assert.lengthOf(await CategoryMonthlyActual.query().where('categoryId', category.id), 0)
+    assert.lengthOf(await CategoryPayment.query().where('categoryId', category.id), 0)
     await bill.refresh()
     assert.isNull(bill.categoryId)
+  })
+})
+
+test.group('Categories / upsertPayment', () => {
+  test('creates a payment row marking the month paid', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const category = await Category.create({ name: 'Groceries3' })
+
+    const response = await client
+      .put(`/api/categories/${category.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+    assert.equal(response.body().data.categoryId, category.id)
+  })
+
+  test('updates the existing payment row for that month rather than duplicating it', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const category = await Category.create({ name: 'Groceries3' })
+    await client
+      .put(`/api/categories/${category.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    const response = await client
+      .put(`/api/categories/${category.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: false })
+
+    response.assertStatus(200)
+    assert.isFalse(response.body().data.paid)
+    const payments = await CategoryPayment.query().where('categoryId', category.id)
+    assert.lengthOf(payments, 1)
+  })
+
+  test('returns 404 for a non-existent category', async ({ client }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .put('/api/categories/999999/payments/2026/3')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(404)
+  })
+
+  test('rejects a non-boolean paid value', async ({ client }) => {
+    const brian = await loginAsBrian()
+    const category = await Category.create({ name: 'Groceries3' })
+
+    const response = await client
+      .put(`/api/categories/${category.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: 'yes' })
+
+    response.assertStatus(422)
   })
 })

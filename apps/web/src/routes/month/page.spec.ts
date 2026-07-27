@@ -24,6 +24,7 @@ import {
 } from '$lib/api/category-actuals'
 import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
 import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
+import { upsertCategoryPayment } from '$lib/api/categories'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
 import MonthPage from './+page.svelte'
@@ -48,6 +49,7 @@ vi.mock('$lib/api/category-actuals', () => ({
 }))
 vi.mock('$lib/api/recurring-bills', () => ({ upsertRecurringBillPayment: vi.fn() }))
 vi.mock('$lib/api/subscriptions', () => ({ upsertSubscriptionPayment: vi.fn() }))
+vi.mock('$lib/api/categories', () => ({ upsertCategoryPayment: vi.fn() }))
 vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
 
 // SvelteKit's real `Page.url` type brands `pathname` with a union of the
@@ -172,6 +174,7 @@ describe('month page', () => {
     vi.mocked(deleteCategoryActual).mockReset()
     vi.mocked(upsertRecurringBillPayment).mockReset()
     vi.mocked(upsertSubscriptionPayment).mockReset()
+    vi.mocked(upsertCategoryPayment).mockReset()
     vi.mocked(replaceState).mockReset()
   })
 
@@ -712,7 +715,7 @@ describe('month page', () => {
     expect(checkboxes[1]).not.toBeChecked()
   })
 
-  it('does not show a Paid checkbox for a category line or one with no due date', async () => {
+  it('does not show a Paid checkbox for a line with no due date and no known actual', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
@@ -721,7 +724,7 @@ describe('month page', () => {
               key: 'category-1',
               label: 'Groceries',
               projected: 300,
-              actual: 300,
+              actual: null,
               dueDay: null,
               dueDate: null,
               paid: false,
@@ -739,7 +742,7 @@ describe('month page', () => {
             },
           ],
           projectedTotal: 305.42,
-          actualTotal: 300,
+          actualTotal: 0,
         },
       })
     )
@@ -750,6 +753,78 @@ describe('month page', () => {
 
     await screen.findByText('Groceries')
     expect(screen.queryByRole('checkbox', { name: 'Paid' })).toBeNull()
+  })
+
+  it('shows a Paid checkbox for a category line once it has a known actual, even with no due date', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'category-1',
+              label: 'Groceries',
+              projected: 300,
+              actual: 300,
+              dueDay: null,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 300,
+          actualTotal: 300,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    expect(checkbox).not.toBeChecked()
+  })
+
+  it('ticking Paid on a category line calls upsertCategoryPayment', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'category-1',
+              label: 'Groceries',
+              projected: 300,
+              actual: 300,
+              dueDay: null,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 300,
+          actualTotal: 300,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    vi.mocked(upsertCategoryPayment).mockResolvedValue({
+      id: 1,
+      categoryId: 1,
+      year: 2026,
+      month: 3,
+      paid: true,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    await user.click(checkbox)
+
+    await waitFor(() => expect(upsertCategoryPayment).toHaveBeenCalledWith(1, 2026, 3, true))
   })
 
   it('ticking Paid on a utility line resends its known amount alongside paid', async () => {

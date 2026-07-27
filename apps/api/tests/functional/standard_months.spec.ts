@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import User from '#models/user'
 import Category from '#models/category'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import CategoryPayment from '#models/category_payment'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import MonthCarryover from '#models/month_carryover'
@@ -131,6 +132,9 @@ test.group('StandardMonths / show', () => {
     )
     assert.equal(groceriesLine.projected, 300)
     assert.equal(groceriesLine.actual, 300)
+    // Feb 2026 is in the past with no CategoryPayment row - same
+    // past-month-defaults-to-paid rule as Kayo and Netflix above.
+    assert.equal(groceriesLine.paid, true)
 
     assert.equal(body.expenses.projectedTotal, 774.4)
     assert.equal(body.expenses.actualTotal, 788.98)
@@ -650,5 +654,99 @@ test.group('StandardMonths / paid tracking', () => {
     )
     assert.equal(kayoLine.paid, true)
     assert.equal(netflixLine.paid, true)
+  })
+
+  test("a category's line reflects a CategoryPayment row for the viewed month", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const groceries = await Category.findByOrFail('name', 'Groceries')
+    await CategoryMonthlyActual.create({
+      categoryId: groceries.id,
+      occurredOn: DateTime.fromISO('2026-03-01'),
+      amount: 300,
+    })
+    await CategoryPayment.create({ categoryId: groceries.id, year: 2026, month: 3, paid: true })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+
+    const groceriesLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `category-${groceries.id}`)
+    assert.equal(groceriesLine.paid, true)
+  })
+
+  test("a CategoryPayment row for a different month doesn't leak into this month's line", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const groceries = await Category.findByOrFail('name', 'Groceries')
+    await CategoryMonthlyActual.create({
+      categoryId: groceries.id,
+      occurredOn: DateTime.fromISO('2026-03-01'),
+      amount: 300,
+    })
+    // Explicitly false, so a leak is distinguishable from March's own
+    // past-month default (both 2026-02 and 2026-03 are in the past relative
+    // to "today" - if March's line leaked Feb's row it would read false;
+    // isolated correctly, it falls back to true instead).
+    await CategoryPayment.create({ categoryId: groceries.id, year: 2026, month: 2, paid: false })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+
+    const groceriesLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `category-${groceries.id}`)
+    assert.equal(groceriesLine.paid, true)
+  })
+
+  test('defaults a category to unpaid for the current month with no payment row', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.utc()
+    const groceries = await Category.findByOrFail('name', 'Groceries')
+    await CategoryMonthlyActual.create({
+      categoryId: groceries.id,
+      occurredOn: today,
+      amount: 300,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: today.year, month: today.month })
+      .loginAs(brian)
+
+    const groceriesLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `category-${groceries.id}`)
+    assert.equal(groceriesLine.paid, false)
+  })
+
+  test('skips the CategoryPayment lookup entirely when there are no categories', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    await Category.query().delete()
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    assert.isEmpty(
+      response.body().expenses.lines.filter((l: { key: string }) => l.key.startsWith('category-'))
+    )
   })
 })

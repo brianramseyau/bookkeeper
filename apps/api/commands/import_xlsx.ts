@@ -12,6 +12,7 @@ import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import CategoryPayment from '#models/category_payment'
 import CategoryBudgetItem from '#models/category_budget_item'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
@@ -314,15 +315,17 @@ export default class ImportXlsx extends BaseCommand {
 
   /**
    * Marks CONFIRMED_PAID_THROUGH_MONTH's payment row as paid for every
-   * monthly recurring bill and active subscription - the same confirmation
-   * `isPastBillMonth` applies to utility bills, but utilities set `paid`
-   * directly on their bill row while recurring bills/subscriptions track it
-   * in a separate payment row that only exists once checked, and the
-   * current month intentionally defaults to unpaid otherwise (see
+   * monthly recurring bill, active subscription, and category with an
+   * actual logged that month - the same confirmation `isPastBillMonth`
+   * applies to utility bills, but utilities set `paid` directly on their
+   * bill row while recurring bills/subscriptions/categories track it in a
+   * separate payment row that only exists once checked, and the current
+   * month intentionally defaults to unpaid otherwise (see
    * standard_month_service's `isPastMonth` fallback) - so it has to be
    * written explicitly rather than falling out of the same date check.
    * Non-monthly bills (quarterly/annual/etc.) have no such per-month
-   * checkbox to set, so they're left alone.
+   * checkbox to set, so they're left alone; categories with no actual
+   * logged for the month have no checkbox to check either.
    */
   private async markConfirmedPaidThrough() {
     await db.transaction(async (trx) => {
@@ -354,6 +357,38 @@ export default class ImportXlsx extends BaseCommand {
         await SubscriptionPayment.updateOrCreate(
           {
             userSubscriptionId: subscription.id,
+            year: CONFIRMED_PAID_THROUGH_MONTH.year,
+            month: CONFIRMED_PAID_THROUGH_MONTH.month,
+          },
+          { paid: true },
+          { client: trx }
+        )
+      }
+
+      // Categories have no per-month checkbox until an actual is logged for
+      // that month - only mark the ones with a real actual in the confirmed
+      // month, mirroring standard_month_service's own category query.
+      const categories = await Category.query({ client: trx })
+        .where('isActive', true)
+        .andWhere('isPaused', false)
+        .andWhere('isArchived', false)
+        .andWhere('includeInStandardMonth', true)
+
+      for (const category of categories) {
+        const actuals = await CategoryMonthlyActual.query({ client: trx }).where(
+          'categoryId',
+          category.id
+        )
+        const hasActualThisMonth = actuals.some(
+          (actual) =>
+            actual.occurredOn.year === CONFIRMED_PAID_THROUGH_MONTH.year &&
+            actual.occurredOn.month === CONFIRMED_PAID_THROUGH_MONTH.month
+        )
+        if (!hasActualThisMonth) continue
+
+        await CategoryPayment.updateOrCreate(
+          {
+            categoryId: category.id,
             year: CONFIRMED_PAID_THROUGH_MONTH.year,
             month: CONFIRMED_PAID_THROUGH_MONTH.month,
           },

@@ -100,6 +100,25 @@ export class CategoryMonthlyActualSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class CategoryPaymentSchema extends BaseModel {
+  static $columns = ['categoryId', 'createdAt', 'id', 'month', 'paid', 'updatedAt', 'year'] as const
+  $columns = CategoryPaymentSchema.$columns
+  @column()
+  declare categoryId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare month: number
+  @column()
+  declare paid: boolean
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
+}
+
 export class IncomeEntrySchema extends BaseModel {
   static $columns = [
     'amount',

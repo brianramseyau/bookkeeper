@@ -25,6 +25,10 @@ router
         router.post('categories', [controllers.Categories, 'store'])
         router.patch('categories/:id', [controllers.Categories, 'update'])
         router.delete('categories/:id', [controllers.Categories, 'destroy'])
+        router.put('categories/:id/payments/:year/:month', [
+          controllers.Categories,
+          'upsertPayment',
+        ])
 
         router.get('categories/:id/actuals', [controllers.CategoryActuals, 'index'])
         router.post('categories/:id/actuals', [controllers.CategoryActuals, 'store'])

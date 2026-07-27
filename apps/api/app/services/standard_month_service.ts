@@ -9,6 +9,7 @@ import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 import Category from '#models/category'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
+import CategoryPayment from '#models/category_payment'
 import { RollingAverageService } from '#services/rolling_average_service'
 import {
   expandUtilityBillsToMonthlyShares,
@@ -276,6 +277,16 @@ export class StandardMonthService {
       .andWhere('isArchived', false)
       .where('includeInStandardMonth', true)
       .orderBy('sortOrder', 'asc')
+    const categoryIds = categories.map((category) => category.id)
+    const categoryPayments = categoryIds.length
+      ? await CategoryPayment.query()
+          .whereIn('categoryId', categoryIds)
+          .where('year', year)
+          .where('month', month)
+      : []
+    const categoryPaidById = new Map(
+      categoryPayments.map((payment) => [payment.categoryId, payment.paid])
+    )
     for (const category of categories) {
       const actuals = await CategoryMonthlyActual.query().where('categoryId', category.id)
       if (actuals.length === 0 && category.budgetAmount === null) continue
@@ -306,7 +317,10 @@ export class StandardMonthService {
             : null,
         dueDay: null,
         dueDate: null,
-        paid: false,
+        // Same past-month-defaults-to-paid rule as recurring bills/subscriptions
+        // above - only meaningful once there's an actual to reconcile against,
+        // since the checkbox itself is hidden while `actual` is null.
+        paid: categoryPaidById.get(category.id) ?? isPastMonth,
         editable: true,
       })
     }

@@ -24,6 +24,7 @@
     updateCategoryActual,
     deleteCategoryActual,
   } from '$lib/api/category-actuals'
+  import { upsertCategoryPayment } from '$lib/api/categories'
   import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
   import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
   import { listUsers, type UserSummary } from '$lib/api/users'
@@ -294,6 +295,18 @@
       : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
   }
 
+  // Category lines have no due date (they're not a single billed obligation
+  // like a utility/recurring bill/subscription, just an aggregate of
+  // whatever actuals were logged), so gating the checkbox on resolveDueDate
+  // like the other line types would hide it for every category, always.
+  // Instead, show it whenever there's an actual to reconcile against - a
+  // category with nothing logged this month (actual === null) has nothing
+  // to mark paid, same reasoning as the hidden "Recurring Bills (avg)" line.
+  function canTrackPaid(line: StandardMonthLine): boolean {
+    if (line.key.startsWith('category-')) return line.actual !== null
+    return resolveDueDate(line) !== null
+  }
+
   // Re-fetches just the standard-month figures (totals, paid flags) without
   // touching `loading` - toggling `loading` swaps the whole page to a
   // "Loading…" placeholder, which unmounts the tables and is what caused the
@@ -315,6 +328,9 @@
       } else if (line.key.startsWith('subscription-')) {
         const subscriptionId = Number(line.key.slice('subscription-'.length))
         await upsertSubscriptionPayment(subscriptionId, year, month, paid)
+      } else if (line.key.startsWith('category-')) {
+        const categoryId = Number(line.key.slice('category-'.length))
+        await upsertCategoryPayment(categoryId, year, month, paid)
       }
       await refreshMonth()
     } catch (err) {
@@ -616,7 +632,7 @@
                 {/if}
               </td>
               <td class="px-3 py-2 text-center">
-                {#if resolveDueDate(line)}
+                {#if canTrackPaid(line)}
                   <input
                     type="checkbox"
                     checked={line.paid}
@@ -682,7 +698,7 @@
                 >{formatCurrency(line.actual)}</td
               >
               <td class="px-3 py-2 text-center">
-                {#if resolveDueDate(line)}
+                {#if canTrackPaid(line)}
                   <input
                     type="checkbox"
                     checked={line.paid}
