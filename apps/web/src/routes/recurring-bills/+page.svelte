@@ -438,6 +438,10 @@
                     >
                       {formatDaysUntilDue(bill.daysUntilDue)}
                     </span>
+                  {:else}
+                    <span class="text-xs text-slate-500 dark:text-slate-400">
+                      {formatDaysUntilDue(bill.daysUntilDue)}
+                    </span>
                   {/if}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">

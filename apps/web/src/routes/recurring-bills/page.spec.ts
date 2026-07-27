@@ -159,7 +159,9 @@ describe('recurring bills page', () => {
     const overdueBadge = screen.getByText(formatDaysUntilDue(-3))
     expect(overdueBadge.className).toContain('bg-red-100')
 
-    expect(within(gymRow).queryByText(/Due/)).toBeNull()
+    const gymDue = within(gymRow).getByText(formatDaysUntilDue(37))
+    expect(gymDue.className).not.toContain('bg-amber-100')
+    expect(gymDue.className).not.toContain('bg-red-100')
   })
 
   it('changes a bill category and reloads', async () => {

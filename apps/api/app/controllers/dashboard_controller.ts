@@ -7,6 +7,7 @@ import CategoryMonthlyActual from '#models/category_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { StandardMonthService } from '#services/standard_month_service'
 import { expandUtilityBillsToMonthlyShares } from '#services/utility_billing_period'
+import { compareByDaysUntilDue, resolveNextOccurrence } from '#services/recurring_bill_due_date'
 
 const UPCOMING_BILLS_LIMIT = 5
 const MONTHLY_EXPENSE_WINDOW = 12
@@ -62,21 +63,30 @@ export default class DashboardController {
   }
 
   private async upcomingBills() {
-    const bills = await RecurringBill.query()
-      .where('isActive', true)
-      .whereNotNull('nextDueOn')
-      .orderBy('nextDueOn', 'asc')
-      .limit(UPCOMING_BILLS_LIMIT)
+    const bills = await RecurringBill.query().where('isActive', true).whereNotNull('nextDueOn')
 
     const todayStart = DateTime.utc().startOf('day')
-    return bills.map((bill) => ({
-      id: bill.id,
-      name: bill.name,
-      amount: bill.amount,
-      // whereNotNull('nextDueOn') above guarantees this is always set.
-      nextDueOn: bill.nextDueOn!.toISODate(),
-      daysUntilDue: Math.floor(bill.nextDueOn!.diff(todayStart, 'days').days),
-    }))
+    return bills
+      .map((bill) => {
+        // whereNotNull('nextDueOn') above guarantees resolveNextOccurrence
+        // returns non-null here too.
+        const nextOccurrence = resolveNextOccurrence(
+          bill.nextDueOn,
+          bill.frequency,
+          bill.customIntervalValue,
+          bill.customIntervalUnit,
+          todayStart
+        )!
+        return {
+          id: bill.id,
+          name: bill.name,
+          amount: bill.amount,
+          nextDueOn: nextOccurrence.toISODate(),
+          daysUntilDue: Math.floor(nextOccurrence.diff(todayStart, 'days').days),
+        }
+      })
+      .sort((a, b) => compareByDaysUntilDue(a.daysUntilDue, b.daysUntilDue))
+      .slice(0, UPCOMING_BILLS_LIMIT)
   }
 
   /**

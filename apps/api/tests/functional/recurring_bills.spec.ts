@@ -327,15 +327,79 @@ test.group('RecurringBills / upcoming', () => {
       frequency: 'monthly',
       nextDueOn: null,
     })
+    await RecurringBill.create({
+      name: 'Also no next due date',
+      amount: 10,
+      frequency: 'monthly',
+      nextDueOn: null,
+    })
 
     const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
 
     response.assertStatus(200)
     const names = response.body().data.map((b: { name: string }) => b.name)
-    assert.deepEqual(names, ['Due in 10 days', 'Due in 60 days', 'No next due date'])
+    assert.deepEqual(names.slice(0, 2), ['Due in 10 days', 'Due in 60 days'])
+    assert.sameMembers(names.slice(2), ['No next due date', 'Also no next due date'])
     assert.isTrue(response.body().data[0].dueSoon)
     assert.isFalse(response.body().data[1].dueSoon)
     assert.isNull(response.body().data[2].daysUntilDue)
+    assert.isNull(response.body().data[3].daysUntilDue)
+  })
+
+  test('rolls a stale nextDueOn forward by frequency instead of showing it as ever more overdue', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.utc().startOf('day')
+    const carStart = today.minus({ years: 1, days: 10 })
+    const streamingStart = today.minus({ months: 2, days: 3 })
+    const pestStart = today.minus({ months: 4 })
+    await RecurringBill.create({
+      name: 'Car Insurance',
+      amount: 600,
+      frequency: 'annual',
+      nextDueOn: carStart,
+    })
+    await RecurringBill.create({
+      name: 'Streaming',
+      amount: 15,
+      frequency: 'monthly',
+      nextDueOn: streamingStart,
+    })
+    await RecurringBill.create({
+      name: 'Pest Control',
+      amount: 120,
+      frequency: 'custom',
+      customIntervalValue: 3,
+      customIntervalUnit: 'months',
+      nextDueOn: pestStart,
+    })
+
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+
+    response.assertStatus(200)
+    const byName = new Map<string, { daysUntilDue: number; nextDueOn: string }>(
+      response
+        .body()
+        .data.map((b: { name: string; daysUntilDue: number; nextDueOn: string }) => [b.name, b])
+    )
+
+    // Each bill's raw stored date is well in the past; the API should roll
+    // it forward - by whole periods of the bill's own frequency - to the
+    // next occurrence on or after today, not just report it as overdue.
+    const car = byName.get('Car Insurance')!
+    assert.isAtLeast(car.daysUntilDue, 0)
+    assert.isTrue(DateTime.fromISO(car.nextDueOn) >= today)
+    assert.isTrue(DateTime.fromISO(car.nextDueOn) < carStart.plus({ years: 3 }))
+
+    const streaming = byName.get('Streaming')!
+    assert.isAtLeast(streaming.daysUntilDue, 0)
+    assert.isBelow(streaming.daysUntilDue, 31)
+
+    const pest = byName.get('Pest Control')!
+    assert.isAtLeast(pest.daysUntilDue, 0)
+    assert.isBelow(pest.daysUntilDue, 92)
   })
 
   test('excludes inactive bills', async ({ client, assert }) => {

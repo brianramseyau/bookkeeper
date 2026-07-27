@@ -9,6 +9,7 @@ import {
   updateRecurringBillValidator,
 } from '#validators/recurring_bill'
 import { upsertRecurringBillPaymentValidator } from '#validators/recurring_bill_payment'
+import { compareByDaysUntilDue, resolveNextOccurrence } from '#services/recurring_bill_due_date'
 
 const DUE_SOON_WINDOW_DAYS = 30
 
@@ -103,8 +104,6 @@ export default class RecurringBillsController {
 
   async upcoming({ request, serialize }: HttpContext) {
     const query = RecurringBill.query()
-      .orderByRaw('next_due_on IS NULL')
-      .orderBy('nextDueOn', 'asc')
     if (!request.input('includeHidden')) {
       query.where('isActive', true).andWhere('isPaused', false).andWhere('isArchived', false)
     }
@@ -115,15 +114,29 @@ export default class RecurringBillsController {
 
     const results = serialized.map((item, index) => {
       const bill = bills[index]!
-      const daysUntilDue = bill.nextDueOn
-        ? Math.floor(bill.nextDueOn.diff(today, 'days').days)
+      const nextOccurrence = resolveNextOccurrence(
+        bill.nextDueOn,
+        bill.frequency,
+        bill.customIntervalValue,
+        bill.customIntervalUnit,
+        today
+      )
+      const daysUntilDue = nextOccurrence
+        ? Math.floor(nextOccurrence.diff(today, 'days').days)
         : null
       return {
         ...item,
+        nextDueOn: nextOccurrence ?? item.nextDueOn,
         daysUntilDue,
         dueSoon: daysUntilDue !== null && daysUntilDue <= DUE_SOON_WINDOW_DAYS,
       }
     })
+
+    // Sorted here (rather than in the query) because the rolled-forward
+    // `daysUntilDue` above can reorder bills relative to their raw stored
+    // `nextDueOn` - a bill overdue by months now sorts by its *next*
+    // upcoming occurrence, not the stale anchor date.
+    results.sort((a, b) => compareByDaysUntilDue(a.daysUntilDue, b.daysUntilDue))
 
     return { data: results }
   }

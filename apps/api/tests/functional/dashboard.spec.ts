@@ -99,6 +99,36 @@ test.group('Dashboard / summary', () => {
     assert.equal(response.body().upcomingBills[0].name, 'Bill 5')
   })
 
+  test('rolls a stale nextDueOn forward instead of leaving a bill perpetually overdue', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.utc().startOf('day')
+
+    // Stale by over a year - without rollover this would sort first (most
+    // overdue) and report an ever-growing overdue count.
+    await RecurringBill.create({
+      name: 'Car Insurance',
+      amount: 600,
+      frequency: 'annual',
+      nextDueOn: today.minus({ years: 1, days: 10 }),
+    })
+    await RecurringBill.create({
+      name: 'Rent',
+      amount: 2000,
+      frequency: 'monthly',
+      nextDueOn: today.plus({ days: 3 }),
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+
+    const bills = response.body().upcomingBills as { name: string; daysUntilDue: number }[]
+    assert.equal(bills[0].name, 'Rent')
+    const car = bills.find((b) => b.name === 'Car Insurance')!
+    assert.isAtLeast(car.daysUntilDue, 0)
+  })
+
   test('sums utility bills and category actuals into the monthlyExpenses window', async ({
     client,
     assert,
