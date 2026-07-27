@@ -62,6 +62,17 @@
     loading = true
     error = null
     try {
+      await refresh()
+    } finally {
+      loading = false
+    }
+  }
+
+  // Re-fetches without touching `loading` - toggling `loading` swaps the
+  // whole page to a "Loading…" placeholder, which unmounts the tables and
+  // resets scroll position when adding or editing an actual.
+  async function refresh() {
+    try {
       const [categories, actualList, trendResult, itemList] = await Promise.all([
         listCategories(),
         listCategoryActuals(categoryId),
@@ -74,8 +85,6 @@
       budgetItems = itemList
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load category'
-    } finally {
-      loading = false
     }
   }
 
@@ -157,7 +166,7 @@
       occurredOn = ''
       amount = NaN
       notes = ''
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add entry'
     } finally {
@@ -190,7 +199,7 @@
         notes: editNotes.trim() === '' ? null : editNotes.trim(),
       })
       editingId = null
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {

@@ -157,7 +157,7 @@
     try {
       await setMonthCarryover(year, month, editCarryoverAmount)
       editingCarryover = false
-      await load()
+      await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
     } finally {
@@ -186,7 +186,7 @@
       logAmount = NaN
       logReceivedOn = ''
       logNote = ''
-      await load()
+      await refreshIncome()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to log income'
     } finally {
@@ -198,7 +198,7 @@
     error = null
     try {
       await deleteIncomeEntry(entry.id)
-      await load()
+      await refreshIncome()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete entry'
     }
@@ -229,7 +229,7 @@
         note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
       })
       editingEntryId = null
-      await load()
+      await refreshIncome()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {
@@ -322,12 +322,27 @@
       : 'No due date to reconcile against this month'
   }
 
-  // Re-fetches just the standard-month figures (totals, paid flags) without
-  // touching `loading` - toggling `loading` swaps the whole page to a
-  // "Loading…" placeholder, which unmounts the tables and is what caused the
-  // scroll-to-top jump on every Paid click.
+  // Re-fetches just the standard-month figures (totals, actuals, paid flags,
+  // carryover) without touching `loading` - toggling `loading` swaps the
+  // whole page to a "Loading…" placeholder, which unmounts the tables and
+  // causes a scroll-to-top jump. Used after any edit that only changes
+  // `data` (Paid toggle, expense actual save/remove, carryover save).
+  // Income entry mutations use refreshIncome below instead, since those
+  // also need to update the entries list itself.
   async function refreshMonth() {
     data = await getStandardMonth(year, month)
+  }
+
+  // Same idea as refreshMonth, but also re-fetches income entries - used
+  // after logging/editing/deleting an entry, which changes both the entries
+  // list and the totals derived from it.
+  async function refreshIncome() {
+    const [monthResult, entryList] = await Promise.all([
+      getStandardMonth(year, month),
+      listIncomeEntries(year, month),
+    ])
+    data = monthResult
+    entries = entryList
   }
 
   async function togglePaid(line: StandardMonthLine, paid: boolean) {
@@ -427,7 +442,7 @@
         await updateCategoryActual(editExpenseTargetId, { amount: editExpenseAmount })
       }
       cancelEditExpense()
-      await load()
+      await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save actual'
     } finally {
@@ -441,7 +456,7 @@
     try {
       await deleteCategoryActual(editExpenseTargetId)
       cancelEditExpense()
-      await load()
+      await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }

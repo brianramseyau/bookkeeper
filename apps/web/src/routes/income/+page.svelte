@@ -60,6 +60,18 @@
     loading = true
     error = null
     try {
+      await refresh()
+    } finally {
+      loading = false
+    }
+    await loadYtd()
+  }
+
+  // Re-fetches without touching `loading` - toggling `loading` swaps the
+  // whole page to a "Loading…" placeholder, which unmounts the table and
+  // resets scroll position on every add/edit action.
+  async function refresh() {
+    try {
       const [userList, sourceList, summaryList] = await Promise.all([
         listUsers(),
         listIncomeSources(),
@@ -73,10 +85,7 @@
       }
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load income sources'
-    } finally {
-      loading = false
     }
-    await loadYtd()
   }
 
   async function loadYtd() {
@@ -154,7 +163,7 @@
       weekendRollback = false
       anchorDate = ''
       taxWithheld = true
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add income source'
     } finally {
@@ -203,7 +212,7 @@
         taxWithheld: editTaxWithheld,
       })
       editingId = null
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {

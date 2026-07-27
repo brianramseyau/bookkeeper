@@ -53,6 +53,17 @@
     loading = true
     error = null
     try {
+      await refresh()
+    } finally {
+      loading = false
+    }
+  }
+
+  // Re-fetches without touching `loading` - toggling `loading` swaps the
+  // whole page to a "Loading…" placeholder, which unmounts the table and
+  // resets scroll position on every add/edit/pause/archive action.
+  async function refresh() {
+    try {
       const [userList, summaryList, categoryList, subscriptionList] = await Promise.all([
         listUsers(),
         getSubscriptionsSummary(),
@@ -68,8 +79,6 @@
       }
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load subscriptions'
-    } finally {
-      loading = false
     }
   }
 
@@ -77,7 +86,7 @@
     error = null
     try {
       await updateSubscription(sub.id, { categoryId: value === '' ? null : Number(value) })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to update category'
     }
@@ -88,7 +97,7 @@
     error = null
     try {
       await deleteSubscription(sub.id)
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
     }
@@ -98,7 +107,7 @@
     error = null
     try {
       await updateSubscription(sub.id, { isPaused: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to pause'
     }
@@ -108,7 +117,7 @@
     error = null
     try {
       await updateSubscription(sub.id, { isPaused: false })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to unpause'
     }
@@ -118,7 +127,7 @@
     error = null
     try {
       await updateSubscription(sub.id, { isArchived: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to archive'
     }
@@ -128,7 +137,7 @@
     error = null
     try {
       await updateSubscription(sub.id, { isArchived: false })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to unarchive'
     }
@@ -138,7 +147,7 @@
     error = null
     try {
       await updateSubscription(sub.id, { isActive: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to restore'
     }
@@ -164,7 +173,7 @@
       amount = NaN
       dayOfMonth = NaN
       categoryId = ''
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add subscription'
     } finally {
@@ -197,7 +206,7 @@
         dayOfMonth: Number.isNaN(editDayOfMonth) ? null : editDayOfMonth,
       })
       editingId = null
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {

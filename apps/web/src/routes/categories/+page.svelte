@@ -47,13 +47,22 @@
     loading = true
     error = null
     try {
+      await refresh()
+    } finally {
+      loading = false
+    }
+  }
+
+  // Re-fetches rows without touching `loading` - toggling `loading` swaps
+  // the whole page to a "Loading…" placeholder, which unmounts the table and
+  // resets scroll position on every add/edit/pause/archive/reorder action.
+  async function refresh() {
+    try {
       const categories = await listCategories({ includeHidden: true })
       const trends = await Promise.all(categories.map((c) => getCategoryTrend(c.id)))
       rows = categories.map((category, i) => ({ category, trend: trends[i] ?? null }))
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load categories'
-    } finally {
-      loading = false
     }
   }
 
@@ -65,7 +74,7 @@
     try {
       await createCategory({ name: newName.trim() })
       newName = ''
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add category'
     } finally {
@@ -104,7 +113,7 @@
         includeInStandardMonth: editIncludeInStandardMonth,
       })
       editingId = null
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {
@@ -117,7 +126,7 @@
     error = null
     try {
       await deleteCategory(category.id)
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove'
     }
@@ -127,7 +136,7 @@
     error = null
     try {
       await updateCategory(category.id, { isPaused: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to pause'
     }
@@ -137,7 +146,7 @@
     error = null
     try {
       await updateCategory(category.id, { isPaused: false })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to unpause'
     }
@@ -147,7 +156,7 @@
     error = null
     try {
       await updateCategory(category.id, { isArchived: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to archive'
     }
@@ -157,7 +166,7 @@
     error = null
     try {
       await updateCategory(category.id, { isArchived: false })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to unarchive'
     }
@@ -167,7 +176,7 @@
     error = null
     try {
       await updateCategory(category.id, { isActive: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to restore'
     }
@@ -186,7 +195,7 @@
         updateCategory(current.id, { sortOrder: target.sortOrder }),
         updateCategory(target.id, { sortOrder: current.sortOrder }),
       ])
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to reorder'
     } finally {

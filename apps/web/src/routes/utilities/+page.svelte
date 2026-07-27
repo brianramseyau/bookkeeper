@@ -27,13 +27,22 @@
     loading = true
     error = null
     try {
+      await refresh()
+    } finally {
+      loading = false
+    }
+  }
+
+  // Re-fetches without touching `loading` - toggling `loading` swaps the
+  // whole page to a "Loading…" placeholder, which unmounts the table and
+  // resets scroll position when adding a utility.
+  async function refresh() {
+    try {
       const utilities = await listUtilities()
       const trends = await Promise.all(utilities.map((u) => getUtilityTrend(u.id)))
       rows = utilities.map((utility, i) => ({ utility, trend: trends[i] ?? null }))
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load utilities'
-    } finally {
-      loading = false
     }
   }
 
@@ -45,7 +54,7 @@
     try {
       await createUtility(newUtilityName.trim())
       newUtilityName = ''
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add utility'
     } finally {

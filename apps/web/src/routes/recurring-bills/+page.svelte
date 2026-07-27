@@ -67,14 +67,7 @@
     loading = true
     error = null
     try {
-      const [billList, categoryList] = await Promise.all([
-        listUpcomingRecurringBills({ includeHidden: true }),
-        listCategories(),
-      ])
-      bills = billList
-      categories = categoryList
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to load recurring bills'
+      await refresh()
     } finally {
       loading = false
     }
@@ -87,6 +80,22 @@
     if (window.location.hash) {
       await tick()
       document.getElementById(window.location.hash.slice(1))?.scrollIntoView()
+    }
+  }
+
+  // Re-fetches without touching `loading` - toggling `loading` swaps the
+  // whole page to a "Loading…" placeholder, which unmounts the table and
+  // resets scroll position on every add/edit/pause/archive action.
+  async function refresh() {
+    try {
+      const [billList, categoryList] = await Promise.all([
+        listUpcomingRecurringBills({ includeHidden: true }),
+        listCategories(),
+      ])
+      bills = billList
+      categories = categoryList
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to load recurring bills'
     }
   }
 
@@ -105,7 +114,7 @@
       await updateRecurringBill(bill.id, {
         categoryId: value === '' ? null : Number(value),
       })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to update category'
     }
@@ -116,7 +125,7 @@
     error = null
     try {
       await deleteRecurringBill(bill.id)
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
     }
@@ -126,7 +135,7 @@
     error = null
     try {
       await updateRecurringBill(bill.id, { isPaused: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to pause'
     }
@@ -136,7 +145,7 @@
     error = null
     try {
       await updateRecurringBill(bill.id, { isPaused: false })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to unpause'
     }
@@ -146,7 +155,7 @@
     error = null
     try {
       await updateRecurringBill(bill.id, { isArchived: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to archive'
     }
@@ -156,7 +165,7 @@
     error = null
     try {
       await updateRecurringBill(bill.id, { isArchived: false })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to unarchive'
     }
@@ -166,7 +175,7 @@
     error = null
     try {
       await updateRecurringBill(bill.id, { isActive: true })
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to restore'
     }
@@ -199,7 +208,7 @@
       customIntervalValue = NaN
       nextDueOn = ''
       categoryId = ''
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add recurring bill'
     } finally {
@@ -241,7 +250,7 @@
         nextDueOn: editNextDueOn,
       })
       editingId = null
-      await load()
+      await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {
