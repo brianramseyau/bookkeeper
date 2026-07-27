@@ -68,10 +68,23 @@ const ROLLING_SKIP_NOTES = new Set([
 const ROLLING_RECURRING_BILL_NOTES: Record<string, string | null> = {
   'Kayo': 'Subscriptions',
   'YouTube': 'Subscriptions',
-  'Internet Bill': 'Utilities',
   'Health Insurance': 'Household',
   'Ariel Allowance': null,
   'Brian Allowance': null,
+}
+
+/**
+ * Rolling-sheet notes confirmed to be utility-provider bills (billed by a
+ * utility the same as Electricity/Gas/Water, even if the amount happens to
+ * be mostly flat) rather than fixed recurring payments - each maps to the
+ * utility name its monthly actuals should be filed under, mirroring the
+ * UTILITY_SHEETS handling above but sourced from Rolling's per-month Actual
+ * column instead of a dedicated sheet (these never got their own sheet in
+ * the workbook, which is a spreadsheet-management artifact, not a sign they
+ * belong with recurring bills instead).
+ */
+const ROLLING_UTILITY_NOTES: Record<string, string> = {
+  'Internet Bill': 'Internet',
 }
 
 /**
@@ -444,6 +457,7 @@ export default class ImportXlsx extends BaseCommand {
     }
 
     let totalRollingRecurringBills = 0
+    let totalRollingUtilityBills = 0
     let totalDueDateCorrections = 0
     let totalIncomeEntries = 0
     let totalCarryoversImported = 0
@@ -484,7 +498,38 @@ export default class ImportXlsx extends BaseCommand {
       }
 
       for (const [note, noteEntries] of byNote) {
-        if (note in ROLLING_RECURRING_BILL_NOTES) {
+        if (note in ROLLING_UTILITY_NOTES) {
+          const utilityName = ROLLING_UTILITY_NOTES[note]!
+          const actualRows = noteEntries.filter((entry) => entry.actual !== null)
+
+          this.logger.info(
+            `Rolling: "${note}" -> utility "${utilityName}", ${actualRows.length} monthly actual(s)`
+          )
+
+          if (!this.dryRun) {
+            await db.transaction(async (trx) => {
+              const utility = await Utility.firstOrCreate(
+                { name: utilityName },
+                { name: utilityName, categoryId: utilitiesCategory.id, frequency: 'monthly' },
+                { client: trx }
+              )
+
+              if (this.truncate) {
+                await UtilityBill.query({ client: trx }).where('utilityId', utility.id).delete()
+              }
+
+              for (const entry of actualRows) {
+                await UtilityBill.updateOrCreate(
+                  { utilityId: utility.id, year: entry.year, month: entry.month },
+                  { amount: entry.actual! },
+                  { client: trx }
+                )
+              }
+            })
+          }
+
+          totalRollingUtilityBills += actualRows.length
+        } else if (note in ROLLING_RECURRING_BILL_NOTES) {
           const categoryName = ROLLING_RECURRING_BILL_NOTES[note]
           const latest = noteEntries[noteEntries.length - 1]!
           const amount = latest.budget ?? latest.actual ?? 0
@@ -686,7 +731,7 @@ export default class ImportXlsx extends BaseCommand {
       this.logger.success('Dry run complete - no changes written')
     } else {
       this.logger.success(
-        `Imported ${totalImported} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, and ${totalCarryoversImported} carryover balance(s)`
+        `Imported ${totalImported + totalRollingUtilityBills} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, and ${totalCarryoversImported} carryover balance(s)`
       )
     }
   }
