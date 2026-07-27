@@ -309,6 +309,19 @@
     return resolveDueDate(line) !== null
   }
 
+  // The checkbox itself stays visible even when it can't be tracked yet
+  // (greyed out via `disabled`) rather than disappearing, so the column
+  // reads consistently row to row - this explains why to anyone who hovers.
+  function paidTooltip(line: StandardMonthLine): string | undefined {
+    if (canTrackPaid(line)) return undefined
+    if (line.key.startsWith('category-')) {
+      return 'No actual amount logged for this category this month'
+    }
+    return line.actual === null
+      ? 'No actual amount recorded for this month yet'
+      : 'No due date to reconcile against this month'
+  }
+
   // Re-fetches just the standard-month figures (totals, paid flags) without
   // touching `loading` - toggling `loading` swaps the whole page to a
   // "Loading…" placeholder, which unmounts the tables and is what caused the
@@ -638,16 +651,15 @@
                 {/if}
               </td>
               <td class="px-3 py-2 text-center">
-                {#if canTrackPaid(line)}
-                  <input
-                    type="checkbox"
-                    checked={line.paid}
-                    disabled={savingPaidKey === line.key}
-                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
-                    aria-label="Paid"
-                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-                  />
-                {/if}
+                <input
+                  type="checkbox"
+                  checked={line.paid}
+                  disabled={savingPaidKey === line.key || !canTrackPaid(line)}
+                  onchange={(e) => togglePaid(line, e.currentTarget.checked)}
+                  aria-label="Paid"
+                  title={paidTooltip(line)}
+                  class="h-4 w-4 rounded border-slate-300 text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
+                />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 {#if editExpenseMode === 'category-multiple'}
@@ -704,16 +716,15 @@
                 >{formatCurrency(line.actual)}</td
               >
               <td class="px-3 py-2 text-center">
-                {#if canTrackPaid(line)}
-                  <input
-                    type="checkbox"
-                    checked={line.paid}
-                    disabled={savingPaidKey === line.key}
-                    onchange={(e) => togglePaid(line, e.currentTarget.checked)}
-                    aria-label="Paid"
-                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-                  />
-                {/if}
+                <input
+                  type="checkbox"
+                  checked={line.paid}
+                  disabled={savingPaidKey === line.key || !canTrackPaid(line)}
+                  onchange={(e) => togglePaid(line, e.currentTarget.checked)}
+                  aria-label="Paid"
+                  title={paidTooltip(line)}
+                  class="h-4 w-4 rounded border-slate-300 text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
+                />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 {#if editable}

@@ -708,7 +708,7 @@ describe('month page', () => {
     expect(dueCell.getAttribute('title')).toBeNull()
   })
 
-  it('shows a Paid checkbox, checked per line, only for lines with a resolved due date', async () => {
+  it('shows a Paid checkbox, checked per line, only enabled for lines with a resolved due date', async () => {
     // Groceries is marked paid in the base fixture, Electricity isn't - and
     // sorts second (due later), so checkboxes[0] is Groceries' and
     // checkboxes[1] is Electricity's.
@@ -718,10 +718,12 @@ describe('month page', () => {
     const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
     expect(checkboxes).toHaveLength(2)
     expect(checkboxes[0]).toBeChecked()
+    expect(checkboxes[0]).toBeEnabled()
     expect(checkboxes[1]).not.toBeChecked()
+    expect(checkboxes[1]).toBeEnabled()
   })
 
-  it('does not show a Paid checkbox for a line with no due date and no known actual', async () => {
+  it('shows a disabled, tooltipped Paid checkbox for a line with no due date and no known actual', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
@@ -759,7 +761,15 @@ describe('month page', () => {
     render(MonthPage)
 
     await screen.findByText('Groceries')
-    expect(screen.queryByRole('checkbox', { name: 'Paid' })).toBeNull()
+    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    expect(checkboxes).toHaveLength(2)
+    expect(checkboxes[0]).toBeDisabled()
+    expect(checkboxes[0]).toHaveAttribute(
+      'title',
+      'No actual amount logged for this category this month'
+    )
+    expect(checkboxes[1]).toBeDisabled()
+    expect(checkboxes[1]).toHaveAttribute('title', 'No actual amount recorded for this month yet')
   })
 
   it('shows a Paid checkbox for a category line once it has a known actual, even with no due date', async () => {
