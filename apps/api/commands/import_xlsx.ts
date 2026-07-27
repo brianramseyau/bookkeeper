@@ -7,8 +7,10 @@ import Category from '#models/category'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
 import CategoryBudgetItem from '#models/category_budget_item'
 import IncomeSource from '#models/income_source'
@@ -175,9 +177,7 @@ const CONFIRMED_PAID_THROUGH_MONTH = { year: 2026, month: 7 }
 function isPastBillMonth(year: number, month: number): boolean {
   const today = DateTime.utc()
   if (year < today.year || (year === today.year && month < today.month)) return true
-  return (
-    year === CONFIRMED_PAID_THROUGH_MONTH.year && month === CONFIRMED_PAID_THROUGH_MONTH.month
-  )
+  return year === CONFIRMED_PAID_THROUGH_MONTH.year && month === CONFIRMED_PAID_THROUGH_MONTH.month
 }
 
 function nextMonthlyOccurrence(dayOfMonth: number): DateTime {
@@ -301,6 +301,58 @@ export default class ImportXlsx extends BaseCommand {
 
         await CategoryMonthlyActual.create(
           { categoryId: category.id, occurredOn, amount: row.amount, notes: row.notes },
+          { client: trx }
+        )
+      }
+    })
+  }
+
+  /**
+   * Marks CONFIRMED_PAID_THROUGH_MONTH's payment row as paid for every
+   * monthly recurring bill and active subscription - the same confirmation
+   * `isPastBillMonth` applies to utility bills, but utilities set `paid`
+   * directly on their bill row while recurring bills/subscriptions track it
+   * in a separate payment row that only exists once checked, and the
+   * current month intentionally defaults to unpaid otherwise (see
+   * standard_month_service's `isPastMonth` fallback) - so it has to be
+   * written explicitly rather than falling out of the same date check.
+   * Non-monthly bills (quarterly/annual/etc.) have no such per-month
+   * checkbox to set, so they're left alone.
+   */
+  private async markConfirmedPaidThrough() {
+    await db.transaction(async (trx) => {
+      const monthlyBills = await RecurringBill.query({ client: trx })
+        .where('isActive', true)
+        .andWhere('isPaused', false)
+        .andWhere('isArchived', false)
+        .andWhere('frequency', 'monthly')
+
+      for (const bill of monthlyBills) {
+        await RecurringBillPayment.updateOrCreate(
+          {
+            recurringBillId: bill.id,
+            year: CONFIRMED_PAID_THROUGH_MONTH.year,
+            month: CONFIRMED_PAID_THROUGH_MONTH.month,
+          },
+          { paid: true },
+          { client: trx }
+        )
+      }
+
+      const subscriptions = await UserSubscription.query({ client: trx })
+        .where('isActive', true)
+        .andWhere('isPaused', false)
+        .andWhere('isArchived', false)
+        .andWhere('includeInStandardMonth', true)
+
+      for (const subscription of subscriptions) {
+        await SubscriptionPayment.updateOrCreate(
+          {
+            userSubscriptionId: subscription.id,
+            year: CONFIRMED_PAID_THROUGH_MONTH.year,
+            month: CONFIRMED_PAID_THROUGH_MONTH.month,
+          },
+          { paid: true },
           { client: trx }
         )
       }
@@ -866,6 +918,7 @@ export default class ImportXlsx extends BaseCommand {
     if (this.dryRun) {
       this.logger.success('Dry run complete - no changes written')
     } else {
+      await this.markConfirmedPaidThrough()
       this.logger.success(
         `Imported ${totalImported + totalRollingUtilityBills} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, and ${totalCarryoversImported} carryover balance(s)`
       )
