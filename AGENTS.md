@@ -13,6 +13,14 @@ home server (unRAID) with no cloud dependency — one SQLite file holds all
 data. See [README.md](README.md) for product-level detail, backup
 procedures, and the list of permanent non-goals / deferred work.
 
+## Courtesy
+The end user checks all changes after being made and before committing,
+always ask before committing and pushing.
+The local dev server should always be left running after work is completed
+and if it is required to be turned off for a change, it should be returned
+to running again at the end of the session.
+Clean up after yourself, do not leave any other sessions active.
+
 ## Monorepo layout
 
 pnpm workspace with two apps, no shared packages:
