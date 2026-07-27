@@ -96,6 +96,13 @@ const ROLLING_SKIP_NOTES = new Set([
   'Takeaway/Eating Out',
   'Transport',
   'Clothing',
+  // "Ariel/Brian Allowance" here are VLOOKUPs against Monthly!E19/E20, which
+  // are themselves `ROUNDUP(SUM(Brian[Amount]), -1)` / `ROUNDUP(SUM(Ariel[Amount]), -1)`
+  // - a ceiling-rounded aggregate of the same line items already imported
+  // individually from the Brian/Ariel sheets as personal subscriptions.
+  // Importing these as recurring bills too double-counts that spend.
+  'Ariel Allowance',
+  'Brian Allowance',
 ])
 
 /**
@@ -108,8 +115,6 @@ const ROLLING_RECURRING_BILL_NOTES: Record<string, string | null> = {
   'Kayo': 'Subscriptions',
   'YouTube': 'Subscriptions',
   'Health Insurance': 'Household',
-  'Ariel Allowance': null,
-  'Brian Allowance': null,
 }
 
 /**
@@ -153,15 +158,26 @@ function lastDayOfMonth(year: number, month: number): string {
 }
 
 /**
- * Whether (year, month) is strictly before the current calendar month - the
- * imported workbook has no "have you paid this" column, but everything
- * before the current month is, in reality, long since paid. The current
- * month is left alone since its checkbox is there to track what's still
- * outstanding.
+ * Confirmed with the user: as of this import, every bill due in this
+ * calendar month has already been paid, even though it's still "current" -
+ * update this (or clear it) the next time the importer is re-run once the
+ * month has moved on, rather than leaving it stale.
+ */
+const CONFIRMED_PAID_THROUGH_MONTH = { year: 2026, month: 7 }
+
+/**
+ * Whether (year, month) is on or before the confirmed-paid cutoff above -
+ * the imported workbook has no "have you paid this" column, but everything
+ * before the current month is, in reality, long since paid, and the current
+ * month is included too once confirmed. Otherwise the current month is left
+ * alone since its checkbox is there to track what's still outstanding.
  */
 function isPastBillMonth(year: number, month: number): boolean {
   const today = DateTime.utc()
-  return year < today.year || (year === today.year && month < today.month)
+  if (year < today.year || (year === today.year && month < today.month)) return true
+  return (
+    year === CONFIRMED_PAID_THROUGH_MONTH.year && month === CONFIRMED_PAID_THROUGH_MONTH.month
+  )
 }
 
 function nextMonthlyOccurrence(dayOfMonth: number): DateTime {
