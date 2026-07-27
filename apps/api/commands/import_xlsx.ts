@@ -243,9 +243,12 @@ export default class ImportXlsx extends BaseCommand {
 
   /**
    * findOrCreates a category by name and inserts the given actual rows
-   * under it. category_monthly_actuals intentionally has no unique
-   * constraint (corrections are just new rows), so re-running this without
-   * --truncate duplicates data - that's expected for a one-time import.
+   * under it. The sheet gives no stable row id, so (category, date, amount,
+   * notes) stands in as the natural key - re-running the import without
+   * --truncate upserts onto the same rows instead of duplicating them. A
+   * real second transaction that happens to match all four fields exactly
+   * would collapse into one row, but that's the same reproducibility
+   * tradeoff the rest of the importer already makes.
    */
   private async importCategoryActuals(categoryName: string, rows: SimpleActualRow[]) {
     if (rows.length === 0) return
@@ -262,13 +265,26 @@ export default class ImportXlsx extends BaseCommand {
       }
 
       for (const row of rows) {
+        const occurredOn = DateTime.fromISO(row.occurredOn, { zone: 'utc' })
+
+        // `updateOrCreate`'s search payload gets passed straight to `.where()`,
+        // which binds column values verbatim rather than running them through
+        // the column's DateTime -> SQL prepare step - a DateTime instance
+        // there makes better-sqlite3 reject the bind param outright, so the
+        // lookup needs the already-formatted SQL date string instead.
+        const existing = await CategoryMonthlyActual.query({ client: trx })
+          .where('categoryId', category.id)
+          .where('occurredOn', occurredOn.toISODate()!)
+          .where('amount', row.amount)
+          .where((query) =>
+            row.notes === null ? query.whereNull('notes') : query.where('notes', row.notes)
+          )
+          .first()
+
+        if (existing) continue
+
         await CategoryMonthlyActual.create(
-          {
-            categoryId: category.id,
-            occurredOn: DateTime.fromISO(row.occurredOn, { zone: 'utc' }),
-            amount: row.amount,
-            notes: row.notes,
-          },
+          { categoryId: category.id, occurredOn, amount: row.amount, notes: row.notes },
           { client: trx }
         )
       }
@@ -782,43 +798,39 @@ export default class ImportXlsx extends BaseCommand {
             }
 
             for (const block of rollingIncome) {
-              for (const [index, amount] of block.values.entries()) {
-                if (index === 0) {
-                  await IncomeEntry.create(
-                    {
-                      incomeSourceId: primarySource.id,
-                      userId: primaryUser.id,
-                      year: block.year,
-                      month: block.month,
-                      amount,
-                    },
-                    { client: trx }
-                  )
-                  totalIncomeEntries += 1
-                } else if (index === 1) {
-                  await IncomeEntry.create(
-                    {
-                      incomeSourceId: secondarySource.id,
-                      userId: secondaryUser.id,
-                      year: block.year,
-                      month: block.month,
-                      amount,
-                    },
-                    { client: trx }
-                  )
-                  totalIncomeEntries += 1
-                } else {
-                  const existing = await MonthCarryover.query({ client: trx })
-                    .where('year', block.year)
-                    .where('month', block.month)
-                    .first()
-                  await MonthCarryover.updateOrCreate(
-                    { year: block.year, month: block.month },
-                    { amount: (existing?.amount ?? 0) + amount },
-                    { client: trx }
-                  )
-                  totalCarryoversImported += 1
-                }
+              if (block.values[0] !== undefined) {
+                await IncomeEntry.updateOrCreate(
+                  {
+                    incomeSourceId: primarySource.id,
+                    year: block.year,
+                    month: block.month,
+                  },
+                  { userId: primaryUser.id, amount: block.values[0] },
+                  { client: trx }
+                )
+                totalIncomeEntries += 1
+              }
+              if (block.values[1] !== undefined) {
+                await IncomeEntry.updateOrCreate(
+                  {
+                    incomeSourceId: secondarySource.id,
+                    year: block.year,
+                    month: block.month,
+                  },
+                  { userId: secondaryUser.id, amount: block.values[1] },
+                  { client: trx }
+                )
+                totalIncomeEntries += 1
+              }
+
+              const leftover = block.values.slice(2)
+              if (leftover.length > 0) {
+                await MonthCarryover.updateOrCreate(
+                  { year: block.year, month: block.month },
+                  { amount: leftover.reduce((sum, amount) => sum + amount, 0) },
+                  { client: trx }
+                )
+                totalCarryoversImported += leftover.length
               }
             }
           })
