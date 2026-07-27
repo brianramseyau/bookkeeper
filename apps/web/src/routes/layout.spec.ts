@@ -87,7 +87,7 @@ describe('+layout.svelte', () => {
 
     expect(await screen.findByText('Bookkeeper')).toBeInTheDocument()
     expect(screen.getAllByText('Monthly').length).toBeGreaterThan(0)
-    expect(screen.getByText('Brian')).toBeInTheDocument()
+    expect(screen.getAllByTitle('Brian').length).toBeGreaterThan(0)
     expect(screen.getByTestId('child-content')).toBeInTheDocument()
   })
 
@@ -97,7 +97,7 @@ describe('+layout.svelte', () => {
 
     render(Layout, { children: childrenSnippet })
 
-    expect(await screen.findByText('brian@example.com')).toBeInTheDocument()
+    expect(await screen.findAllByTitle('brian@example.com')).not.toHaveLength(0)
   })
 
   it('logs out and redirects to /login', async () => {
