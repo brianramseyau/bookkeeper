@@ -26,7 +26,8 @@ import {
   type SimpleActualRow,
 } from '#services/import/parse_simple_actuals_sheet'
 import { parseFoodSheet } from '#services/import/parse_food_sheet'
-import { parseRollingSheet } from '#services/import/parse_rolling_sheet'
+import { parseRollingSheet, type RollingIncomeBlock } from '#services/import/parse_rolling_sheet'
+import { payDatesInMonth, payPeriodsInMonth } from '#services/income_cadence'
 import {
   parseNonPaygIncomeSheet,
   type NonPaygIncomeRow,
@@ -52,6 +53,36 @@ const UTILITY_DUE_OFFSET_DAYS: Record<string, number> = {
 
 /** Sheet name -> user full_name. Each sheet lists that person's personal subscriptions. */
 const SUBSCRIPTION_SHEETS = ['Brian', 'Ariel']
+
+/**
+ * Real-world pay cadence for the two income sources - the workbook has no
+ * column for this, so it's confirmed with the household directly rather
+ * than inferred. Brian is paid monthly on the 14th (rolled back to the
+ * preceding Friday on a weekend); Ariel is paid fortnightly, anchored on a
+ * confirmed real payday (any date on the correct 14-day cycle works, so
+ * re-asserting this on every import is harmless). Keyed by the user's
+ * `fullName`, not the income source's name - both sources are just named
+ * "Paycheque" (see MAIN_PAYCHEQUE_NAME below), owner already being implicit
+ * via `userId`.
+ */
+interface IncomeCadence {
+  frequency: string
+  payDayOfMonth?: number
+  weekendRollback?: boolean
+  anchorDate?: string
+}
+const INCOME_CADENCE: Record<string, IncomeCadence> = {
+  Brian: { frequency: 'monthly', payDayOfMonth: 14, weekendRollback: true },
+  Ariel: { frequency: 'fortnightly', anchorDate: '2026-07-22' },
+}
+
+/**
+ * Name the importer seeds each user's main income source under - just
+ * "Paycheque" rather than "${fullName} Income", since the owner is already
+ * shown separately (by `userId`) and "Income" reads ambiguous now that a
+ * user can have several income sources.
+ */
+const MAIN_PAYCHEQUE_NAME = 'Paycheque'
 
 /** Simple Date/Amount/Notes sheets -> the category their actuals belong to. */
 const CATEGORY_ACTUAL_SHEETS: { sheet: string; category: string }[] = [
@@ -160,10 +191,54 @@ const ROLLING_CATEGORY_NOTES: Record<string, string> = {
   'Stump removal': 'Household',
 }
 
+function round(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
   const mid = Math.floor(sorted.length / 2)
   return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!
+}
+
+/**
+ * The Rolling sheet's Income column has one consolidated figure per month
+ * (the workbook never itemized per pay period), so for a fortnightly
+ * source that figure is 2-3 pays lumped together - most months 2, plus a
+ * 3-pay month a couple of times a year (see `payPeriodsInMonth`). Dividing
+ * each month's value by its real pay-period count before taking the median
+ * gives the true per-pay-period expected amount instead of a 2-3x inflated
+ * one; a monthly source always has exactly 1 period so this is a no-op for
+ * it.
+ */
+function medianPerPayPeriod(
+  blocks: RollingIncomeBlock[],
+  valueIndex: number,
+  cadence: IncomeCadence | undefined
+): number {
+  const perPeriodValues: number[] = []
+  for (const block of blocks) {
+    const value = block.values[valueIndex]
+    if (value === undefined) continue
+    if (!cadence) {
+      perPeriodValues.push(value)
+      continue
+    }
+    const periods = payPeriodsInMonth(
+      {
+        frequency: cadence.frequency,
+        payDayOfMonth: cadence.payDayOfMonth ?? null,
+        weekendRollback: cadence.weekendRollback ?? false,
+        anchorDate: cadence.anchorDate
+          ? DateTime.fromISO(cadence.anchorDate, { zone: 'utc' })
+          : null,
+      } as IncomeSource,
+      block.year,
+      block.month
+    )
+    perPeriodValues.push(periods > 0 ? value / periods : value)
+  }
+  return perPeriodValues.length > 0 ? median(perPeriodValues) : 0
 }
 
 /** The ending year of the Jul-Jun Australian financial year an ISO date falls in. */
@@ -951,12 +1026,8 @@ export default class ImportXlsx extends BaseCommand {
       if (!primaryUser || !secondaryUser) {
         this.logger.warning('Fewer than 2 users seeded - skipping income import')
       } else {
-        const primaryValues = rollingIncome
-          .map((block) => block.values[0])
-          .filter((v) => v !== undefined)
-        const secondaryValues = rollingIncome
-          .map((block) => block.values[1])
-          .filter((v) => v !== undefined)
+        const primaryCadence = INCOME_CADENCE[primaryUser.fullName ?? '']
+        const secondaryCadence = INCOME_CADENCE[secondaryUser.fullName ?? '']
 
         this.logger.info(
           `Rolling: parsed income for ${rollingIncome.length} month(s), seeding income sources for ${primaryUser.fullName}/${secondaryUser.fullName}`
@@ -964,14 +1035,45 @@ export default class ImportXlsx extends BaseCommand {
 
         if (!this.dryRun) {
           await db.transaction(async (trx) => {
+            // One-time in-place rename from the old "${fullName} Income"
+            // name to MAIN_PAYCHEQUE_NAME, so a re-import reuses the
+            // existing source (and its entries/history) instead of
+            // creating an orphaned duplicate under the new name.
+            for (const user of [primaryUser, secondaryUser]) {
+              await IncomeSource.query({ client: trx })
+                .where('userId', user.id)
+                .where('name', `${user.fullName} Income`)
+                .update({ name: MAIN_PAYCHEQUE_NAME })
+            }
+
             const primarySource = await IncomeSource.updateOrCreate(
-              { userId: primaryUser.id, name: `${primaryUser.fullName} Income` },
-              { expectedAmount: primaryValues.length > 0 ? median(primaryValues) : 0 },
+              { userId: primaryUser.id, name: MAIN_PAYCHEQUE_NAME },
+              {
+                expectedAmount: medianPerPayPeriod(rollingIncome, 0, primaryCadence),
+                ...(primaryCadence && {
+                  frequency: primaryCadence.frequency,
+                  payDayOfMonth: primaryCadence.payDayOfMonth ?? null,
+                  weekendRollback: primaryCadence.weekendRollback ?? false,
+                  anchorDate: primaryCadence.anchorDate
+                    ? DateTime.fromISO(primaryCadence.anchorDate, { zone: 'utc' })
+                    : null,
+                }),
+              },
               { client: trx }
             )
             const secondarySource = await IncomeSource.updateOrCreate(
-              { userId: secondaryUser.id, name: `${secondaryUser.fullName} Income` },
-              { expectedAmount: secondaryValues.length > 0 ? median(secondaryValues) : 0 },
+              { userId: secondaryUser.id, name: MAIN_PAYCHEQUE_NAME },
+              {
+                expectedAmount: medianPerPayPeriod(rollingIncome, 1, secondaryCadence),
+                ...(secondaryCadence && {
+                  frequency: secondaryCadence.frequency,
+                  payDayOfMonth: secondaryCadence.payDayOfMonth ?? null,
+                  weekendRollback: secondaryCadence.weekendRollback ?? false,
+                  anchorDate: secondaryCadence.anchorDate
+                    ? DateTime.fromISO(secondaryCadence.anchorDate, { zone: 'utc' })
+                    : null,
+                }),
+              },
               { client: trx }
             )
 
@@ -987,30 +1089,77 @@ export default class ImportXlsx extends BaseCommand {
               }
             }
 
+            // The Rolling sheet's Income column has one consolidated figure
+            // per month - split it into one real IncomeEntry per actual
+            // payday (2, or 3 in the rare month) rather than importing it
+            // as a single lump sum, so the Income/Monthly pages show each
+            // pay separately instead of a frontend having to re-derive the
+            // split from a combined number.
+            async function seedIncomeEntries(
+              source: IncomeSource,
+              userId: number,
+              block: RollingIncomeBlock,
+              rawAmount: number
+            ): Promise<number> {
+              const dates = payDatesInMonth(source, block.year, block.month)
+              if (dates.length === 0) {
+                await IncomeEntry.updateOrCreate(
+                  { incomeSourceId: source.id, year: block.year, month: block.month },
+                  { userId, amount: round(rawAmount) },
+                  { client: trx }
+                )
+                return 1
+              }
+              const perPeriod = round(rawAmount / dates.length)
+              for (const date of dates) {
+                // Mirrors the CategoryMonthlyActual lookup above - a date
+                // column in `updateOrCreate`'s search payload gets bound
+                // straight to `.where()`, skipping the DateTime -> SQL
+                // prepare step, so the lookup needs the formatted string
+                // and a manual find-then-write instead.
+                const existing = await IncomeEntry.query({ client: trx })
+                  .where('incomeSourceId', source.id)
+                  .where('year', block.year)
+                  .where('month', block.month)
+                  .where('receivedOn', date.toISODate()!)
+                  .first()
+
+                if (existing) {
+                  existing.merge({ userId, amount: perPeriod })
+                  await existing.useTransaction(trx).save()
+                } else {
+                  await IncomeEntry.create(
+                    {
+                      incomeSourceId: source.id,
+                      year: block.year,
+                      month: block.month,
+                      userId,
+                      amount: perPeriod,
+                      receivedOn: date,
+                    },
+                    { client: trx }
+                  )
+                }
+              }
+              return dates.length
+            }
+
             for (const block of rollingIncome) {
               if (block.values[0] !== undefined) {
-                await IncomeEntry.updateOrCreate(
-                  {
-                    incomeSourceId: primarySource.id,
-                    year: block.year,
-                    month: block.month,
-                  },
-                  { userId: primaryUser.id, amount: block.values[0] },
-                  { client: trx }
+                totalIncomeEntries += await seedIncomeEntries(
+                  primarySource,
+                  primaryUser.id,
+                  block,
+                  block.values[0]
                 )
-                totalIncomeEntries += 1
               }
               if (block.values[1] !== undefined) {
-                await IncomeEntry.updateOrCreate(
-                  {
-                    incomeSourceId: secondarySource.id,
-                    year: block.year,
-                    month: block.month,
-                  },
-                  { userId: secondaryUser.id, amount: block.values[1] },
-                  { client: trx }
+                totalIncomeEntries += await seedIncomeEntries(
+                  secondarySource,
+                  secondaryUser.id,
+                  block,
+                  block.values[1]
                 )
-                totalIncomeEntries += 1
               }
 
               const leftover = block.values.slice(2)

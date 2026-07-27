@@ -94,7 +94,12 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   members), seeded via `db:seed` from the workbook's "Users" sheet (not
   `.env` — see `database/seeders/user_seeder.ts` and
   `app/services/import/parse_users_sheet.ts`). No self-registration, no
-  roles/permissions system — don't build toward multi-tenancy.
+  roles/permissions system — don't build toward multi-tenancy. If you need
+  to actually log in to the running app (e.g. to verify a UI change in a
+  browser), the login credentials (`Name`, `Email`, `Password` columns) are
+  in the same `Joint Account Workbook.xlsx` referenced by
+  `SEED_WORKBOOK_PATH`, under its "Users" sheet — never hardcode or commit
+  the actual email/password anywhere in this repo.
 - **HotHook** boundaries are configured for controllers and middleware
   (`hotHook` in `package.json`) — the dev server HMRs those without a full
   restart.
