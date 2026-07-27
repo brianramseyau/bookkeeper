@@ -31,12 +31,17 @@ const UTILITY_SHEETS = ['Electricity', 'Gas', 'Water']
 
 /**
  * Day of the billing month each utility's bill is due - confirmed with the
- * user, since the workbook has no column for this.
+ * user, since the workbook has no column for this. Covers both the
+ * UTILITY_SHEETS utilities and the ones sourced from Rolling's notes
+ * (see ROLLING_UTILITY_NOTES) - Phones isn't listed here since it's
+ * created earlier (as an Annual-sheet bill) with its own due day already
+ * set, before Rolling ever reaches it.
  */
 const UTILITY_DUE_OFFSET_DAYS: Record<string, number> = {
   Electricity: 13,
   Gas: 16,
   Water: 28,
+  Internet: 14,
 }
 
 /** Sheet name -> user full_name. Each sheet lists that person's personal subscriptions. */
@@ -699,7 +704,12 @@ export default class ImportXlsx extends BaseCommand {
             await db.transaction(async (trx) => {
               const utility = await Utility.firstOrCreate(
                 { name: utilityName },
-                { name: utilityName, categoryId: utilitiesCategory.id, frequency: 'monthly' },
+                {
+                  name: utilityName,
+                  categoryId: utilitiesCategory.id,
+                  frequency: 'monthly',
+                  dueOffsetDays: UTILITY_DUE_OFFSET_DAYS[utilityName] ?? null,
+                },
                 { client: trx }
               )
 
