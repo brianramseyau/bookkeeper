@@ -270,7 +270,7 @@ describe('month page', () => {
     expect(await screen.findByText('Could not save carryover')).toBeInTheDocument()
   })
 
-  it('navigates to the previous and next month, wrapping the year, and clears URL params', async () => {
+  it('navigates to the previous and next month, wrapping the year, and updates URL params', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(MonthPage)
@@ -278,7 +278,7 @@ describe('month page', () => {
 
     await user.click(screen.getByRole('button', { name: '← Prev' }))
     expect(await screen.findByText('February 2026')).toBeInTheDocument()
-    expect(replaceState).toHaveBeenCalledWith('/month', {})
+    expect(replaceState).toHaveBeenCalledWith('/month?year=2026&month=2', {})
     expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2)
 
     for (let i = 0; i < 2; i++) {

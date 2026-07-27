@@ -108,6 +108,13 @@
     }
   }
 
+  // Mirrors the format the Dashboard's graph links use (see onSelectMonth in
+  // routes/+page.svelte) so the URL can be copy/pasted or reloaded to return
+  // to the same month.
+  function setUrlParams(y: number, m: number) {
+    replaceState(`/month?year=${y}&month=${m}`, {})
+  }
+
   function changeMonth(delta: number) {
     let newMonth = month + delta
     let newYear = year
@@ -120,7 +127,7 @@
     }
     month = newMonth
     year = newYear
-    clearUrlParams()
+    setUrlParams(year, month)
     void load()
   }
 
