@@ -152,6 +152,18 @@ function lastDayOfMonth(year: number, month: number): string {
   return DateTime.utc(year, month, 1).endOf('month').toISODate()!
 }
 
+/**
+ * Whether (year, month) is strictly before the current calendar month - the
+ * imported workbook has no "have you paid this" column, but everything
+ * before the current month is, in reality, long since paid. The current
+ * month is left alone since its checkbox is there to track what's still
+ * outstanding.
+ */
+function isPastBillMonth(year: number, month: number): boolean {
+  const today = DateTime.utc()
+  return year < today.year || (year === today.year && month < today.month)
+}
+
 function nextMonthlyOccurrence(dayOfMonth: number): DateTime {
   const today = DateTime.utc().startOf('day')
   let candidate = today.set({ day: Math.min(dayOfMonth, today.daysInMonth) })
@@ -316,7 +328,10 @@ export default class ImportXlsx extends BaseCommand {
         for (const entry of entries) {
           await UtilityBill.updateOrCreate(
             { utilityId: utility.id, year: entry.year, month: entry.month },
-            { amount: entry.amount },
+            {
+              amount: entry.amount,
+              ...(isPastBillMonth(entry.year, entry.month) ? { paid: true } : {}),
+            },
             { client: trx }
           )
         }
@@ -611,7 +626,10 @@ export default class ImportXlsx extends BaseCommand {
               for (const entry of actualRows) {
                 await UtilityBill.updateOrCreate(
                   { utilityId: utility.id, year: entry.year, month: entry.month },
-                  { amount: entry.actual! },
+                  {
+                    amount: entry.actual!,
+                    ...(isPastBillMonth(entry.year, entry.month) ? { paid: true } : {}),
+                  },
                   { client: trx }
                 )
               }

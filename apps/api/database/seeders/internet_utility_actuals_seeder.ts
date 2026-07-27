@@ -1,7 +1,14 @@
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
+import { DateTime } from 'luxon'
 import Category from '#models/category'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
+
+/** Mirrors the same-named helper in commands/import_xlsx.ts. */
+function isPastBillMonth(year: number, month: number): boolean {
+  const today = DateTime.utc()
+  return year < today.year || (year === today.year && month < today.month)
+}
 
 /**
  * The workbook's Rolling sheet (what import:xlsx sources Internet's actuals
@@ -25,7 +32,10 @@ export default class extends BaseSeeder {
     )
 
     for (const { year, month, amount } of HISTORICAL_ACTUALS) {
-      await UtilityBill.updateOrCreate({ utilityId: utility.id, year, month }, { amount })
+      await UtilityBill.updateOrCreate(
+        { utilityId: utility.id, year, month },
+        { amount, ...(isPastBillMonth(year, month) ? { paid: true } : {}) }
+      )
     }
   }
 }
