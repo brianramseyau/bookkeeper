@@ -31,6 +31,23 @@ export function monthShortName(month: number): string {
   return monthName(month).slice(0, 3)
 }
 
+/** The ending year of the Jul-Jun Australian financial year containing today. */
+export function currentFinancialYear(): number {
+  const now = new Date()
+  return now.getMonth() + 1 >= 7 ? now.getFullYear() + 1 : now.getFullYear()
+}
+
+/** e.g. `financialYearLabel(2026)` -> `"FY 2025-26"` (Jul 2025 - Jun 2026). */
+export function financialYearLabel(fyEndYear: number): string {
+  const shortEndYear = String(fyEndYear).slice(-2)
+  return `FY ${fyEndYear - 1}-${shortEndYear}`
+}
+
+/** e.g. `monthYearLabel(2025, 7)` -> `"Jul 2025"`. */
+export function monthYearLabel(year: number, month: number): string {
+  return `${monthShortName(month)} ${year}`
+}
+
 const dateFormatter = new Intl.DateTimeFormat('en-AU', {
   day: 'numeric',
   month: 'short',

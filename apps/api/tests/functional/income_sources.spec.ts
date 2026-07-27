@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import User from '#models/user'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
+import { currentFinancialYear, financialYearMonths } from '#services/financial_year'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -238,12 +239,17 @@ test.group('IncomeSources / summary', () => {
 })
 
 test.group('IncomeSources / ytd', () => {
-  test('sums actual income per month for a full past year, per source', async ({
+  test('sums actual income per month for a full past financial year, per source', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
-    const past = DateTime.local().minus({ years: 1 })
+    const financialYear = currentFinancialYear() - 1
+    const months = financialYearMonths(financialYear)
+    const [firstMonth, secondMonth] = months as [
+      { year: number; month: number },
+      { year: number; month: number },
+    ]
     const source = await IncomeSource.create({
       userId: brian.id,
       name: 'Salary',
@@ -253,40 +259,47 @@ test.group('IncomeSources / ytd', () => {
     })
     await IncomeEntry.create({
       incomeSourceId: source.id,
-      year: past.year,
-      month: 1,
+      year: firstMonth.year,
+      month: firstMonth.month,
       amount: 4800,
     })
     await IncomeEntry.create({
       incomeSourceId: source.id,
-      year: past.year,
-      month: 2,
+      year: secondMonth.year,
+      month: secondMonth.month,
       amount: 5100,
     })
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, year: past.year })
+      .qs({ userId: brian.id, financialYear })
       .loginAs(brian)
 
     response.assertStatus(200)
     const body = response.body()
     assert.lengthOf(body.months, 12)
+    assert.equal(body.months[0].year, firstMonth.year)
+    assert.equal(body.months[0].month, firstMonth.month)
     assert.equal(body.months[0].bySource[source.id], 4800)
     assert.equal(body.months[1].bySource[source.id], 5100)
-    // Every other month in that past year has no entry, so it's backfilled
-    // from projected (5000) rather than showing $0.
+    // Every other month in that past financial year has no entry, so it's
+    // backfilled from projected (5000) rather than showing $0.
     assert.equal(body.months[2].total, 5000)
     assert.isTrue(body.months[2].estimated)
     assert.equal(body.ytdTotal, 4800 + 5100 + 5000 * 10)
   })
 
-  test('only includes months up to the current one for the current year', async ({
+  test('only includes months up to the current one for the current financial year', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
+    const financialYear = currentFinancialYear()
     const now = DateTime.local()
+    const expectedCount =
+      financialYearMonths(financialYear).findIndex(
+        (m) => m.year === now.year && m.month === now.month
+      ) + 1
     await IncomeSource.create({
       userId: brian.id,
       name: 'Salary',
@@ -297,24 +310,84 @@ test.group('IncomeSources / ytd', () => {
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, year: now.year })
+      .qs({ userId: brian.id, financialYear })
       .loginAs(brian)
 
     response.assertStatus(200)
-    assert.lengthOf(response.body().months, now.month)
+    assert.lengthOf(response.body().months, expectedCount)
   })
 
-  test('returns no months for a future year', async ({ client, assert }) => {
+  test('returns no months for a future financial year', async ({ client, assert }) => {
     const brian = await loginAsBrian()
-    const future = DateTime.local().plus({ years: 1 })
+    const financialYear = currentFinancialYear() + 1
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, year: future.year })
+      .qs({ userId: brian.id, financialYear })
       .loginAs(brian)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().months, 0)
     assert.equal(response.body().ytdTotal, 0)
+  })
+
+  test('attributes unattributed entries to the right person, not the household', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const ariel = await User.findByOrFail('fullName', 'Ariel')
+    const financialYear = currentFinancialYear() - 1
+    const firstMonth = financialYearMonths(financialYear)[0]!
+    await IncomeEntry.create({
+      userId: brian.id,
+      year: firstMonth.year,
+      month: firstMonth.month,
+      amount: 700,
+      note: 'Dividend',
+      taxWithheld: false,
+    })
+    await IncomeEntry.create({
+      userId: ariel.id,
+      year: firstMonth.year,
+      month: firstMonth.month,
+      amount: 300,
+      note: 'Bonus',
+      taxWithheld: true,
+    })
+
+    const brianResponse = await client
+      .get('/api/income-sources/ytd')
+      .qs({ userId: brian.id, financialYear })
+      .loginAs(brian)
+    const arielResponse = await client
+      .get('/api/income-sources/ytd')
+      .qs({ userId: ariel.id, financialYear })
+      .loginAs(brian)
+
+    assert.equal(brianResponse.body().months[0].total, 700)
+    assert.equal(arielResponse.body().months[0].total, 300)
+  })
+
+  test('does not add an "Other income" line for a zero-amount unattributed entry', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const financialYear = currentFinancialYear() - 1
+    const firstMonth = financialYearMonths(financialYear)[0]!
+    await IncomeEntry.create({
+      userId: brian.id,
+      year: firstMonth.year,
+      month: firstMonth.month,
+      amount: 0,
+    })
+
+    const response = await client
+      .get('/api/income-sources/ytd')
+      .qs({ userId: brian.id, financialYear })
+      .loginAs(brian)
+
+    assert.equal(response.body().months[0].total, 0)
   })
 })

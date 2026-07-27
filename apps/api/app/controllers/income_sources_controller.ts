@@ -6,6 +6,7 @@ import IncomeSourceTransformer from '#transformers/income_source_transformer'
 import { createIncomeSourceValidator, updateIncomeSourceValidator } from '#validators/income_source'
 import { monthlyEquivalentAmount } from '#services/income_cadence'
 import { computeIncomeLines } from '#services/income_lines'
+import { financialYearMonths } from '#services/financial_year'
 
 function round(value: number): number {
   return Math.round(value * 100) / 100
@@ -44,13 +45,13 @@ export default class IncomeSourcesController {
 
   async ytd({ request, response }: HttpContext) {
     const userId = Number(request.input('userId'))
-    const year = Number(request.input('year'))
+    const financialYear = Number(request.input('financialYear'))
     const now = DateTime.now()
-    const maxMonth = year < now.year ? 12 : year === now.year ? now.month : 0
 
     const sources = await IncomeSource.query().where('userId', userId).orderBy('name', 'asc')
 
     const months: {
+      year: number
       month: number
       bySource: Record<number, number>
       total: number
@@ -58,7 +59,9 @@ export default class IncomeSourcesController {
     }[] = []
     let ytdTotal = 0
 
-    for (let month = 1; month <= maxMonth; month++) {
+    for (const { year, month } of financialYearMonths(financialYear)) {
+      if (year * 12 + month > now.year * 12 + now.month) continue
+
       const { lines } = await computeIncomeLines(year, month)
       const userLines = lines.filter((line) => line.userId === userId)
       const bySource: Record<number, number> = {}
@@ -69,12 +72,12 @@ export default class IncomeSourcesController {
         total += line.actual
         if (line.estimated) estimated = true
       }
-      months.push({ month, bySource, total: round(total), estimated })
+      months.push({ year, month, bySource, total: round(total), estimated })
       ytdTotal += total
     }
 
     return response.json({
-      year,
+      financialYear,
       sources: sources.map((source) => ({ id: source.id, name: source.name })),
       months,
       ytdTotal: round(ytdTotal),

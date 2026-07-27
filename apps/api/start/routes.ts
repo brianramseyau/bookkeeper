@@ -88,6 +88,9 @@ router
         router.patch('income-entries/:id', [controllers.IncomeEntries, 'update'])
         router.delete('income-entries/:id', [controllers.IncomeEntries, 'destroy'])
 
+        router.get('income-tax-settings', [controllers.IncomeTaxSettings, 'show'])
+        router.put('income-tax-settings', [controllers.IncomeTaxSettings, 'upsert'])
+
         router.get('standard-month', [controllers.StandardMonths, 'show'])
 
         router.get('month-carryovers/:year/:month', [controllers.MonthCarryovers, 'show'])

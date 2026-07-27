@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  currentFinancialYear,
+  financialYearLabel,
   formatCurrency,
   formatDate,
   formatDaysUntilDue,
   formatRelativeDate,
   monthName,
   monthShortName,
+  monthYearLabel,
 } from './format'
 
 describe('formatCurrency', () => {
@@ -43,6 +46,34 @@ describe('monthShortName', () => {
   it('truncates the full month name to three letters', () => {
     expect(monthShortName(1)).toBe('Jan')
     expect(monthShortName(9)).toBe('Sep')
+  })
+})
+
+describe('currentFinancialYear', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('returns the current calendar year when still before July', () => {
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    expect(currentFinancialYear()).toBe(2026)
+  })
+
+  it('returns next year once July starts', () => {
+    vi.setSystemTime(new Date('2026-07-01T00:00:00.000Z'))
+    expect(currentFinancialYear()).toBe(2027)
+  })
+})
+
+describe('financialYearLabel', () => {
+  it('formats as FY <start>-<short end>', () => {
+    expect(financialYearLabel(2026)).toBe('FY 2025-26')
+  })
+})
+
+describe('monthYearLabel', () => {
+  it('combines the short month name and year', () => {
+    expect(monthYearLabel(2025, 7)).toBe('Jul 2025')
   })
 })
 

@@ -6,6 +6,7 @@
     getStandardMonth,
     type StandardMonthResult,
     type StandardMonthLine,
+    type StandardMonthIncomeLine,
     type StandardMonthAmortizedBill,
   } from '$lib/api/standard-month'
   import { setMonthCarryover } from '$lib/api/month-carryover'
@@ -59,15 +60,19 @@
   let savingCarryover = $state(false)
 
   let logSourceId = $state('')
+  let logUserId = $state('')
   let logAmount = $state<number>(NaN)
   let logReceivedOn = $state('')
   let logNote = $state('')
+  let logTaxWithheld = $state(false)
   let loggingEntry = $state(false)
 
   let editingEntryId = $state<number | null>(null)
+  let editEntryUserId = $state('')
   let editEntryAmount = $state<number>(NaN)
   let editEntryReceivedOn = $state('')
   let editEntryNote = $state('')
+  let editEntryTaxWithheld = $state(false)
   let savingEntryEdit = $state(false)
 
   type ExpenseEditMode = 'utility' | 'category-add' | 'category-edit' | 'category-multiple'
@@ -171,21 +176,29 @@
       error = 'Amount is required'
       return
     }
+    if (logSourceId === '' && logUserId === '') {
+      error = 'A person is required for unattributed income'
+      return
+    }
     loggingEntry = true
     error = null
     try {
       await createIncomeEntry({
         incomeSourceId: logSourceId === '' ? null : Number(logSourceId),
+        userId: logSourceId === '' ? Number(logUserId) : null,
         year,
         month,
         amount: logAmount,
         receivedOn: logReceivedOn === '' ? null : logReceivedOn,
         note: logNote.trim() === '' ? null : logNote.trim(),
+        taxWithheld: logSourceId === '' ? logTaxWithheld : null,
       })
       logSourceId = ''
+      logUserId = ''
       logAmount = NaN
       logReceivedOn = ''
       logNote = ''
+      logTaxWithheld = false
       await refreshIncome()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to log income'
@@ -206,9 +219,11 @@
 
   function startEditEntry(entry: IncomeEntry) {
     editingEntryId = entry.id
+    editEntryUserId = entry.userId !== null ? String(entry.userId) : ''
     editEntryAmount = entry.amount
     editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
     editEntryNote = entry.note ?? ''
+    editEntryTaxWithheld = entry.taxWithheld ?? false
   }
 
   function cancelEditEntry() {
@@ -220,13 +235,19 @@
       error = 'Amount is required'
       return
     }
+    if (entry.incomeSourceId === null && editEntryUserId === '') {
+      error = 'A person is required for unattributed income'
+      return
+    }
     savingEntryEdit = true
     error = null
     try {
       await updateIncomeEntry(entry.id, {
+        userId: entry.incomeSourceId === null ? Number(editEntryUserId) : undefined,
         amount: editEntryAmount,
         receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
         note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
+        taxWithheld: entry.incomeSourceId === null ? editEntryTaxWithheld : undefined,
       })
       editingEntryId = null
       await refreshIncome()
@@ -237,9 +258,16 @@
     }
   }
 
-  function entriesForSourceId(sourceId: number | null): IncomeEntry[] {
+  // An unattributed ("Other income") line is now per-person - entries.match
+  // needs the line's userId too, or two people's unattributed lines would
+  // each render every unattributed entry regardless of whose it is.
+  function entriesForLine(line: StandardMonthIncomeLine): IncomeEntry[] {
     return entries
-      .filter((entry) => entry.incomeSourceId === sourceId)
+      .filter((entry) =>
+        line.sourceId !== null
+          ? entry.incomeSourceId === line.sourceId
+          : entry.incomeSourceId === null && entry.userId === line.userId
+      )
       .sort((a, b) => (a.receivedOn ?? '').localeCompare(b.receivedOn ?? ''))
   }
 
@@ -894,12 +922,35 @@
             </td>
             <td class="px-3 py-2" colspan="3"></td>
           </tr>
-          {#each entriesForSourceId(line.sourceId) as entry (entry.id)}
+          {#each entriesForLine(line) as entry (entry.id)}
             {#if editingEntryId === entry.id}
               <tr
                 class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
               >
-                <td class="px-3 py-2" colspan="3"></td>
+                {#if entry.incomeSourceId === null}
+                  <td class="px-3 py-2">
+                    <select
+                      bind:value={editEntryUserId}
+                      class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    >
+                      <option value="">Select person</option>
+                      {#each users as u (u.id)}
+                        <option value={u.id}>{u.fullName ?? u.email}</option>
+                      {/each}
+                    </select>
+                  </td>
+                  <td class="px-3 py-2">
+                    <label
+                      class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
+                    >
+                      <input type="checkbox" bind:checked={editEntryTaxWithheld} />
+                      Withheld
+                    </label>
+                  </td>
+                  <td class="px-3 py-2"></td>
+                {:else}
+                  <td class="px-3 py-2" colspan="3"></td>
+                {/if}
                 <td class="px-3 py-2 text-right">
                   <input
                     type="number"
@@ -943,7 +994,17 @@
               </tr>
             {:else}
               <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-                <td class="px-3 py-2" colspan="3"></td>
+                {#if entry.incomeSourceId === null}
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
+                  </td>
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    {entry.taxWithheld ? 'Withheld' : 'Not withheld'}
+                  </td>
+                  <td class="px-3 py-2"></td>
+                {:else}
+                  <td class="px-3 py-2" colspan="3"></td>
+                {/if}
                 <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300"
                   >{formatCurrency(entry.amount)}</td
                 >
@@ -1003,6 +1064,24 @@
         {/each}
       </select>
     </label>
+    {#if logSourceId === ''}
+      <label class="flex flex-col gap-1">
+        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
+        <select
+          bind:value={logUserId}
+          class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          <option value="">Select person</option>
+          {#each users as u (u.id)}
+            <option value={u.id}>{u.fullName ?? u.email}</option>
+          {/each}
+        </select>
+      </label>
+      <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
+        <input type="checkbox" bind:checked={logTaxWithheld} />
+        Tax withheld
+      </label>
+    {/if}
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
       <input

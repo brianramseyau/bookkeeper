@@ -128,6 +128,7 @@ export class IncomeEntrySchema extends BaseModel {
     'month',
     'note',
     'receivedOn',
+    'taxWithheld',
     'updatedAt',
     'userId',
     'year',
@@ -147,6 +148,8 @@ export class IncomeEntrySchema extends BaseModel {
   declare note: string | null
   @column.date()
   declare receivedOn: DateTime | null
+  @column()
+  declare taxWithheld: boolean | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -198,6 +201,30 @@ export class IncomeSourceSchema extends BaseModel {
   declare userId: number
   @column()
   declare weekendRollback: boolean
+}
+
+export class IncomeTaxSettingSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'financialYear',
+    'id',
+    'marginalRate',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = IncomeTaxSettingSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare financialYear: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare marginalRate: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
 }
 
 export class MonthCarryoverSchema extends BaseModel {

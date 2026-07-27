@@ -56,7 +56,7 @@ export async function computeIncomeLines(year: number, month: number): Promise<I
   ])
 
   const actualBySource = new Map<number, number>()
-  let unattributedActual = 0
+  const unattributedByUser = new Map<number | null, number>()
   for (const entry of entries) {
     if (entry.incomeSourceId) {
       actualBySource.set(
@@ -64,7 +64,10 @@ export async function computeIncomeLines(year: number, month: number): Promise<I
         (actualBySource.get(entry.incomeSourceId) ?? 0) + entry.amount
       )
     } else {
-      unattributedActual += entry.amount
+      unattributedByUser.set(
+        entry.userId,
+        (unattributedByUser.get(entry.userId) ?? 0) + entry.amount
+      )
     }
   }
 
@@ -85,14 +88,15 @@ export async function computeIncomeLines(year: number, month: number): Promise<I
     }
   })
 
-  if (unattributedActual > 0) {
+  for (const [userId, total] of unattributedByUser) {
+    if (total <= 0) continue
     lines.push({
-      key: 'income-unattributed',
+      key: `income-unattributed-${userId ?? 'none'}`,
       label: 'Other income',
       sourceId: null,
-      userId: null,
+      userId,
       projected: 0,
-      actual: round(unattributedActual),
+      actual: round(total),
       estimated: false,
       payDates: [],
     })

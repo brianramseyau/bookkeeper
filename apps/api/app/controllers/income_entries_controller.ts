@@ -2,17 +2,27 @@ import type { HttpContext } from '@adonisjs/core/http'
 import IncomeEntry from '#models/income_entry'
 import IncomeEntryTransformer from '#transformers/income_entry_transformer'
 import { createIncomeEntryValidator, updateIncomeEntryValidator } from '#validators/income_entry'
+import { financialYearMonths } from '#services/financial_year'
 
 export default class IncomeEntriesController {
   async index({ request, serialize }: HttpContext) {
     const year = request.input('year')
     const month = request.input('month')
     const userId = request.input('userId')
+    const financialYear = request.input('financialYear')
 
     const query = IncomeEntry.query().orderBy('year', 'asc').orderBy('month', 'asc')
     if (year) query.where('year', Number(year))
     if (month) query.where('month', Number(month))
     if (userId) query.where('userId', Number(userId))
+    if (financialYear) {
+      const months = financialYearMonths(Number(financialYear))
+      query.where((builder) => {
+        for (const { year: y, month: m } of months) {
+          builder.orWhere((pair) => pair.where('year', y).where('month', m))
+        }
+      })
+    }
 
     const entries = await query
     return serialize(IncomeEntryTransformer.transform(entries))
@@ -28,6 +38,7 @@ export default class IncomeEntriesController {
       receivedOn: payload.receivedOn ?? null,
       amount: payload.amount,
       note: payload.note ?? null,
+      taxWithheld: payload.taxWithheld ?? null,
     })
     return response.created(await serialize(IncomeEntryTransformer.transform(entry)))
   }

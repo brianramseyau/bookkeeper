@@ -2,26 +2,35 @@ import { test } from '@japa/runner'
 import { createIncomeEntryValidator, updateIncomeEntryValidator } from '#validators/income_entry'
 
 test.group('createIncomeEntryValidator', () => {
-  test('accepts a minimal valid payload', async ({ assert }) => {
+  test('accepts a minimal valid payload tied to an income source', async ({ assert }) => {
     const payload = await createIncomeEntryValidator.validate({
       year: 2026,
       month: 2,
       amount: 5000,
+      incomeSourceId: 1,
     })
     assert.equal(payload.year, 2026)
     assert.equal(payload.month, 2)
   })
 
-  test('accepts an unattributed entry with no incomeSourceId or userId', async ({ assert }) => {
+  test('accepts an unattributed entry with a userId', async ({ assert }) => {
     const payload = await createIncomeEntryValidator.validate({
       year: 2026,
       month: 2,
       amount: 100,
       incomeSourceId: null,
-      userId: null,
+      userId: 1,
+      taxWithheld: false,
     })
     assert.isNull(payload.incomeSourceId)
-    assert.isNull(payload.userId)
+    assert.equal(payload.userId, 1)
+    assert.equal(payload.taxWithheld, false)
+  })
+
+  test('rejects an unattributed entry with no incomeSourceId or userId', async ({ assert }) => {
+    await assert.rejects(() =>
+      createIncomeEntryValidator.validate({ year: 2026, month: 2, amount: 100 })
+    )
   })
 
   test('rejects a month outside 1-12', async ({ assert }) => {

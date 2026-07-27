@@ -16,6 +16,7 @@ import CategoryPayment from '#models/category_payment'
 import CategoryBudgetItem from '#models/category_budget_item'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
+import IncomeTaxSetting from '#models/income_tax_setting'
 import MonthCarryover from '#models/month_carryover'
 import { parseMatrixSheet } from '#services/import/parse_matrix_sheet'
 import { parseRecurringBillsSheet } from '#services/import/parse_recurring_bills_sheet'
@@ -26,6 +27,10 @@ import {
 } from '#services/import/parse_simple_actuals_sheet'
 import { parseFoodSheet } from '#services/import/parse_food_sheet'
 import { parseRollingSheet } from '#services/import/parse_rolling_sheet'
+import {
+  parseNonPaygIncomeSheet,
+  type NonPaygIncomeRow,
+} from '#services/import/parse_non_payg_income_sheet'
 
 /** Sheet name -> utility name. */
 const UTILITY_SHEETS = ['Electricity', 'Gas', 'Water']
@@ -159,6 +164,12 @@ function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
   const mid = Math.floor(sorted.length / 2)
   return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!
+}
+
+/** The ending year of the Jul-Jun Australian financial year an ISO date falls in. */
+function financialYearForDate(isoDate: string): number {
+  const [year, month] = isoDate.split('-').map(Number) as [number, number]
+  return month >= 7 ? year + 1 : year
 }
 
 function lastDayOfMonth(year: number, month: number): string {
@@ -309,6 +320,72 @@ export default class ImportXlsx extends BaseCommand {
           { categoryId: category.id, occurredOn, amount: row.amount, notes: row.notes },
           { client: trx }
         )
+      }
+    })
+  }
+
+  /**
+   * Imports the `Non-PAYG Income Tax` sheet's rows as unattributed
+   * (`incomeSourceId: null`) income_entries for the given user, plus one
+   * income_tax_settings row per financial year the parsed dates fall in
+   * (there's normally just one - the sheet only ever covers a single
+   * year's rate). (userId, receivedOn, note, amount) stands in as the
+   * natural key, same tradeoff as `importCategoryActuals`.
+   */
+  private async importNonPaygIncome(
+    userId: number,
+    rows: NonPaygIncomeRow[],
+    marginalRate: number | null
+  ) {
+    if (rows.length === 0) return
+
+    await db.transaction(async (trx) => {
+      if (this.truncate) {
+        await IncomeEntry.query({ client: trx })
+          .where('userId', userId)
+          .whereNull('incomeSourceId')
+          .delete()
+      }
+
+      for (const row of rows) {
+        // See importCategoryActuals - a DateTime instance in the search
+        // payload breaks better-sqlite3's bind params, so the lookup needs
+        // the already-formatted SQL date string instead.
+        const existing = await IncomeEntry.query({ client: trx })
+          .where('userId', userId)
+          .whereNull('incomeSourceId')
+          .where('receivedOn', row.occurredOn)
+          .where('note', row.item)
+          .where('amount', row.saleAmount)
+          .first()
+
+        if (existing) continue
+
+        const [year, month] = row.occurredOn.split('-').map(Number) as [number, number]
+        await IncomeEntry.create(
+          {
+            userId,
+            incomeSourceId: null,
+            year,
+            month,
+            receivedOn: DateTime.fromISO(row.occurredOn, { zone: 'utc' }),
+            amount: row.saleAmount,
+            note: row.item,
+            taxWithheld: false,
+          },
+          { client: trx }
+        )
+      }
+
+      if (marginalRate !== null) {
+        const financialYears = new Set(rows.map((row) => financialYearForDate(row.occurredOn)))
+        for (const financialYear of financialYears) {
+          await IncomeTaxSetting.updateOrCreate(
+            { userId, financialYear },
+            { marginalRate },
+            { client: trx }
+          )
+        }
       }
     })
   }
@@ -960,12 +1037,31 @@ export default class ImportXlsx extends BaseCommand {
       }
     }
 
+    // Brian-only, per the household - the sheet has never tracked Ariel's
+    // non-PAYG income.
+    const nonPaygSheet = workbook.getWorksheet('Non-PAYG Income Tax')
+    let totalNonPaygItems = 0
+    if (!nonPaygSheet) {
+      this.logger.warning('Sheet "Non-PAYG Income Tax" not found - skipping')
+    } else {
+      const { rows: nonPaygRows, marginalRate } = parseNonPaygIncomeSheet(nonPaygSheet)
+      this.logger.info(
+        `Non-PAYG Income Tax: parsed ${nonPaygRows.length} item(s), marginal rate ${marginalRate ?? 'not set'}`
+      )
+
+      const brian = await User.findByOrFail('fullName', 'Brian')
+      if (!this.dryRun) {
+        await this.importNonPaygIncome(brian.id, nonPaygRows, marginalRate)
+      }
+      totalNonPaygItems = nonPaygRows.length
+    }
+
     if (this.dryRun) {
       this.logger.success('Dry run complete - no changes written')
     } else {
       await this.markConfirmedPaidThrough()
       this.logger.success(
-        `Imported ${totalImported + totalRollingUtilityBills} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, and ${totalCarryoversImported} carryover balance(s)`
+        `Imported ${totalImported + totalRollingUtilityBills} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, ${totalNonPaygItems} non-PAYG income item(s), and ${totalCarryoversImported} carryover balance(s)`
       )
     }
   }

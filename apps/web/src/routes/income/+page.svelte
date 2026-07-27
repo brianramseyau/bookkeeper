@@ -8,6 +8,7 @@
     getIncomeSourcesSummary,
     getIncomeYtd,
     listIncomeEntries,
+    listIncomeEntriesForFinancialYear,
     createIncomeEntry,
     updateIncomeEntry,
     deleteIncomeEntry,
@@ -17,8 +18,15 @@
     type IncomeYtd,
     type IncomeEntry,
   } from '$lib/api/income'
+  import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
   import { listUsers, type UserSummary } from '$lib/api/users'
-  import { formatCurrency, formatDate, monthName } from '$lib/format'
+  import {
+    currentFinancialYear,
+    financialYearLabel,
+    formatCurrency,
+    formatDate,
+    monthYearLabel,
+  } from '$lib/format'
   import { ApiError } from '$lib/api'
 
   const FREQUENCIES: { value: IncomeSourceFrequency; label: string }[] = [
@@ -26,13 +34,11 @@
     { value: 'fortnightly', label: 'Fortnightly' },
   ]
 
-  const currentYear = new Date().getFullYear()
-
   let users = $state<UserSummary[]>([])
   let sources = $state<IncomeSource[]>([])
   let summaries = $state<IncomeSourceSummary[]>([])
   let selectedUserId = $state<number | null>(null)
-  let selectedYear = $state(currentYear)
+  let selectedFinancialYear = $state(currentFinancialYear())
   let ytd = $state<IncomeYtd | null>(null)
   let ytdLoading = $state(false)
   let loading = $state(true)
@@ -58,6 +64,7 @@
   let savingEdit = $state(false)
 
   let expandedMonth = $state<number | null>(null)
+  let expandedYear = $state<number | null>(null)
   let monthEntries = $state<IncomeEntry[]>([])
   let entriesLoading = $state(false)
 
@@ -73,7 +80,55 @@
   let editEntryNote = $state('')
   let savingEntryEdit = $state(false)
 
+  let nonPaygItems = $state<IncomeEntry[]>([])
+  let nonPaygLoading = $state(false)
+  let savedMarginalRate = $state<number | null>(null)
+  let marginalRatePercent = $state<number>(NaN)
+  let savingMarginalRate = $state(false)
+
+  let itemDate = $state('')
+  let itemName = $state('')
+  let itemAmount = $state<number>(NaN)
+  let itemTaxWithheld = $state(false)
+  let addingItem = $state(false)
+
+  let editingItemId = $state<number | null>(null)
+  let editItemDate = $state('')
+  let editItemName = $state('')
+  let editItemAmount = $state<number>(NaN)
+  let editItemTaxWithheld = $state(false)
+  let savingItemEdit = $state(false)
+
   const visibleSources = $derived(sources.filter((s) => s.userId === selectedUserId))
+
+  const nonPaygTotals = $derived.by(() => {
+    let sale = 0
+    let tax = 0
+    let gain = 0
+    for (const item of nonPaygItems) {
+      sale += item.amount
+      if (!item.taxWithheld && savedMarginalRate !== null) {
+        const itemTax = round(item.amount * savedMarginalRate)
+        tax += itemTax
+        gain += round(item.amount - itemTax)
+      }
+    }
+    return { sale: round(sale), tax: round(tax), gain: round(gain) }
+  })
+
+  function round(value: number): number {
+    return Math.round(value * 100) / 100
+  }
+
+  function computeItemTax(item: IncomeEntry): number | null {
+    if (item.taxWithheld || savedMarginalRate === null) return null
+    return round(item.amount * savedMarginalRate)
+  }
+
+  function computeItemGain(item: IncomeEntry): number | null {
+    const tax = computeItemTax(item)
+    return tax === null ? null : round(item.amount - tax)
+  }
 
   onMount(load)
 
@@ -85,7 +140,7 @@
     } finally {
       loading = false
     }
-    await loadYtd()
+    await Promise.all([loadYtd(), loadNonPaygSection()])
   }
 
   // Re-fetches without touching `loading` - toggling `loading` swaps the
@@ -113,7 +168,7 @@
     if (selectedUserId === null) return
     ytdLoading = true
     try {
-      ytd = await getIncomeYtd(selectedUserId, selectedYear)
+      ytd = await getIncomeYtd(selectedUserId, selectedFinancialYear)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load year-to-date income'
     } finally {
@@ -121,16 +176,40 @@
     }
   }
 
+  async function loadNonPaygSection() {
+    if (selectedUserId === null) return
+    nonPaygLoading = true
+    try {
+      const [entries, setting] = await Promise.all([
+        listIncomeEntriesForFinancialYear(selectedUserId, selectedFinancialYear),
+        getIncomeTaxSetting(selectedUserId, selectedFinancialYear),
+      ])
+      nonPaygItems = entries
+        .filter((entry) => entry.incomeSourceId === null)
+        .sort((a, b) => (a.receivedOn ?? '').localeCompare(b.receivedOn ?? ''))
+      savedMarginalRate = setting.marginalRate
+      marginalRatePercent = setting.marginalRate === null ? NaN : round(setting.marginalRate * 100)
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to load non-PAYG income'
+    } finally {
+      nonPaygLoading = false
+    }
+  }
+
   function selectUser(userId: number) {
     selectedUserId = userId
     expandedMonth = null
+    editingItemId = null
     void loadYtd()
+    void loadNonPaygSection()
   }
 
   function changeYear(delta: number) {
-    selectedYear += delta
+    selectedFinancialYear += delta
     expandedMonth = null
+    editingItemId = null
     void loadYtd()
+    void loadNonPaygSection()
   }
 
   function cadenceLabel(source: IncomeSource): string {
@@ -248,10 +327,10 @@
   // Entries for a source-total cell aren't fetched until that month is
   // expanded - the YTD table already shows the aggregate, so there's no
   // need to pull every entry for the year up front.
-  async function loadMonthEntries(month: number) {
+  async function loadMonthEntries(year: number, month: number) {
     entriesLoading = true
     try {
-      const monthEntryList = await listIncomeEntries(selectedYear, month)
+      const monthEntryList = await listIncomeEntries(year, month)
       const visibleIds = new Set(visibleSources.map((s) => s.id))
       monthEntries = monthEntryList.filter(
         (entry) => entry.incomeSourceId !== null && visibleIds.has(entry.incomeSourceId)
@@ -263,29 +342,32 @@
     }
   }
 
-  function toggleMonth(month: number) {
+  function toggleMonth(year: number, month: number) {
     editingEntryId = null
     if (expandedMonth === month) {
       expandedMonth = null
+      expandedYear = null
       return
     }
     expandedMonth = month
+    expandedYear = year
     entrySourceId = visibleSources[0]?.id !== undefined ? String(visibleSources[0].id) : ''
     entryAmount = NaN
     entryReceivedOn = ''
     entryNote = ''
-    void loadMonthEntries(month)
+    void loadMonthEntries(year, month)
   }
 
   async function refreshEntries() {
-    if (expandedMonth === null) return
-    await Promise.all([loadMonthEntries(expandedMonth), loadYtd()])
+    if (expandedMonth === null || expandedYear === null) return
+    await Promise.all([loadMonthEntries(expandedYear, expandedMonth), loadYtd()])
   }
 
   async function handleAddEntry(event: SubmitEvent) {
     event.preventDefault()
     if (
       expandedMonth === null ||
+      expandedYear === null ||
       entrySourceId === '' ||
       Number.isNaN(entryAmount) ||
       entryAmount === null
@@ -298,7 +380,7 @@
     try {
       await createIncomeEntry({
         incomeSourceId: Number(entrySourceId),
-        year: selectedYear,
+        year: expandedYear,
         month: expandedMonth,
         amount: entryAmount,
         receivedOn: entryReceivedOn === '' ? null : entryReceivedOn,
@@ -360,6 +442,110 @@
 
   function sourceName(sourceId: number | null): string {
     return sources.find((s) => s.id === sourceId)?.name ?? 'Unknown'
+  }
+
+  async function saveMarginalRate() {
+    if (selectedUserId === null || Number.isNaN(marginalRatePercent)) {
+      error = 'Marginal tax rate is required'
+      return
+    }
+    savingMarginalRate = true
+    error = null
+    try {
+      const setting = await setIncomeTaxSetting(
+        selectedUserId,
+        selectedFinancialYear,
+        round(marginalRatePercent / 100)
+      )
+      savedMarginalRate = setting.marginalRate
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save marginal tax rate'
+    } finally {
+      savingMarginalRate = false
+    }
+  }
+
+  function resetItemForm() {
+    itemDate = ''
+    itemName = ''
+    itemAmount = NaN
+    itemTaxWithheld = false
+  }
+
+  async function handleAddItem(event: SubmitEvent) {
+    event.preventDefault()
+    if (selectedUserId === null || !itemDate || !itemName.trim() || Number.isNaN(itemAmount)) {
+      error = 'Date, item and amount are required'
+      return
+    }
+    addingItem = true
+    error = null
+    try {
+      const [year, month] = itemDate.split('-').map(Number) as [number, number]
+      await createIncomeEntry({
+        userId: selectedUserId,
+        year,
+        month,
+        amount: itemAmount,
+        receivedOn: itemDate,
+        note: itemName.trim(),
+        taxWithheld: itemTaxWithheld,
+      })
+      resetItemForm()
+      await loadNonPaygSection()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to add item'
+    } finally {
+      addingItem = false
+    }
+  }
+
+  function startEditItem(item: IncomeEntry) {
+    editingItemId = item.id
+    editItemDate = item.receivedOn ? item.receivedOn.slice(0, 10) : ''
+    editItemName = item.note ?? ''
+    editItemAmount = item.amount
+    editItemTaxWithheld = item.taxWithheld ?? false
+  }
+
+  function cancelEditItem() {
+    editingItemId = null
+  }
+
+  async function saveItemEdit(item: IncomeEntry) {
+    if (!editItemDate || !editItemName.trim() || Number.isNaN(editItemAmount)) {
+      error = 'Date, item and amount are required'
+      return
+    }
+    savingItemEdit = true
+    error = null
+    try {
+      const [year, month] = editItemDate.split('-').map(Number) as [number, number]
+      await updateIncomeEntry(item.id, {
+        year,
+        month,
+        amount: editItemAmount,
+        receivedOn: editItemDate,
+        note: editItemName.trim(),
+        taxWithheld: editItemTaxWithheld,
+      })
+      editingItemId = null
+      await loadNonPaygSection()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save changes'
+    } finally {
+      savingItemEdit = false
+    }
+  }
+
+  async function handleDeleteItem(item: IncomeEntry) {
+    error = null
+    try {
+      await deleteIncomeEntry(item.id)
+      await loadNonPaygSection()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to delete item'
+    }
   }
 </script>
 
@@ -639,13 +825,13 @@
         >
           ← Prev
         </button>
-        <span class="w-16 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
-          {selectedYear}
+        <span class="w-28 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
+          {financialYearLabel(selectedFinancialYear)}
         </span>
         <button
           type="button"
           onclick={() => changeYear(1)}
-          disabled={selectedYear >= currentYear}
+          disabled={selectedFinancialYear >= currentFinancialYear()}
           class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Next →
@@ -694,13 +880,13 @@
                 <td class="px-3 py-2 text-slate-900 dark:text-slate-100">
                   <button
                     type="button"
-                    onclick={() => toggleMonth(monthRow.month)}
+                    onclick={() => toggleMonth(monthRow.year, monthRow.month)}
                     class="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400"
                   >
                     <span class="text-slate-400 dark:text-slate-500" aria-hidden="true"
                       >{expanded ? '▾' : '▸'}</span
                     >
-                    {monthName(monthRow.month)}
+                    {monthYearLabel(monthRow.year, monthRow.month)}
                   </button>
                 </td>
                 {#each ytd.sources as source (source.id)}
@@ -845,7 +1031,10 @@
                                 colspan="5"
                                 class="py-3 text-center text-xs text-slate-400 dark:text-slate-500"
                               >
-                                No entries logged for {monthName(monthRow.month)}.
+                                No entries logged for {monthYearLabel(
+                                  monthRow.year,
+                                  monthRow.month
+                                )}.
                               </td>
                             </tr>
                           {/each}
@@ -927,8 +1116,242 @@
       </div>
     {:else}
       <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">
-        No data yet for {selectedYear}.
+        No data yet for {financialYearLabel(selectedFinancialYear)}.
       </p>
+    {/if}
+
+    <div class="mt-8 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Non-PAYG Income Tax</h2>
+      <span class="text-sm text-slate-500 dark:text-slate-400">
+        {financialYearLabel(selectedFinancialYear)}
+      </span>
+    </div>
+
+    <div
+      class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+    >
+      <label class="flex flex-col gap-1">
+        <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+          >Marginal tax rate (%)</span
+        >
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          bind:value={marginalRatePercent}
+          class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        />
+      </label>
+      <button
+        type="button"
+        onclick={saveMarginalRate}
+        disabled={savingMarginalRate}
+        class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+      >
+        {savingMarginalRate ? 'Saving…' : 'Save rate'}
+      </button>
+      {#if savedMarginalRate === null}
+        <span class="pb-1.5 text-xs text-slate-400 dark:text-slate-500">
+          No rate set for {financialYearLabel(selectedFinancialYear)} yet - Tax/Gain will show as "—"
+          until one is saved.
+        </span>
+      {/if}
+    </div>
+
+    {#if nonPaygLoading}
+      <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+    {:else}
+      <div
+        class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
+      >
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr class="border-b border-slate-200 dark:border-slate-700">
+              <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
+                >Date</th
+              >
+              <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
+                >Item</th
+              >
+              <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+                >Sale</th
+              >
+              <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
+                >Tax withheld</th
+              >
+              <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+                >Tax</th
+              >
+              <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+                >Gain</th
+              >
+              <th class="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each nonPaygItems as item (item.id)}
+              {#if editingItemId === item.id}
+                <tr
+                  class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                >
+                  <td class="px-3 py-2">
+                    <input
+                      type="date"
+                      bind:value={editItemDate}
+                      class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input
+                      type="text"
+                      bind:value={editItemName}
+                      class="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </td>
+                  <td class="px-3 py-2 text-right">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      bind:value={editItemAmount}
+                      class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input type="checkbox" bind:checked={editItemTaxWithheld} />
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
+                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => saveItemEdit(item)}
+                      disabled={savingItemEdit}
+                      class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onclick={cancelEditItem}
+                      class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+                    >
+                      Cancel
+                    </button>
+                  </td>
+                </tr>
+              {:else}
+                <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                  <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                    {formatDate(item.receivedOn)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-900 dark:text-slate-100">
+                    {item.note ?? '—'}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                    {formatCurrency(item.amount)}
+                  </td>
+                  <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                    {item.taxWithheld ? 'Yes' : 'No'}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                    {formatCurrency(computeItemTax(item))}
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                    {formatCurrency(computeItemGain(item))}
+                  </td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      onclick={() => startEditItem(item)}
+                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onclick={() => handleDeleteItem(item)}
+                      class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              {/if}
+            {:else}
+              <tr>
+                <td
+                  colspan="7"
+                  class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
+                >
+                  No non-PAYG income logged for {financialYearLabel(selectedFinancialYear)}.
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+          <tfoot>
+            <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
+              <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
+              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                {formatCurrency(nonPaygTotals.sale)}
+              </td>
+              <td class="px-3 py-2"></td>
+              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                {formatCurrency(nonPaygTotals.tax)}
+              </td>
+              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                {formatCurrency(nonPaygTotals.gain)}
+              </td>
+              <td class="px-3 py-2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <form
+        onsubmit={handleAddItem}
+        class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+      >
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Date</span>
+          <input
+            type="date"
+            bind:value={itemDate}
+            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Item</span>
+          <input
+            type="text"
+            placeholder="e.g. Share sale, dividend, bonus"
+            bind:value={itemName}
+            class="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Sale amount</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            bind:value={itemAmount}
+            class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </label>
+        <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <input type="checkbox" bind:checked={itemTaxWithheld} />
+          Tax withheld
+        </label>
+        <button
+          type="submit"
+          disabled={addingItem}
+          class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        >
+          {addingItem ? 'Adding…' : 'Add item'}
+        </button>
+      </form>
     {/if}
   {/if}
 {/if}

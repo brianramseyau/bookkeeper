@@ -150,6 +150,7 @@ behavior.
    described in [Re-seeding from the workbook](#re-seeding-from-the-workbook-full-historical-import)
    above - add `--truncate` if re-running this against a container that
    already has import data in it.
+
 4. Point the container's `/mnt/user/appdata/bookkeeper/data` mount at
    wherever you want the data to live on the host - see `docker-compose.yml`.
 
@@ -222,8 +223,14 @@ Won't be implemented - deliberate, not deferred:
 
 Discovered along the way or scoped out of v1, but plausible to add later:
 
-- **`Non-PAYG Income Tax` sheet not yet imported** - the one remaining
-  excluded sheet that's still expected to be modeled eventually.
+- **ATO tax-bracket auto-lookup for marginal rate** - the Income page's
+  non-PAYG income tax section (dividends/share sales/bonuses) takes each
+  person's marginal tax rate as a manually-entered percentage per
+  financial year. Deriving it automatically instead - extrapolating a
+  person's YTD PAYG income against the real ATO tax brackets via an npm
+  module - was considered and deliberately deferred: it adds a real
+  dependency-currency risk (bracket changes, Medicare levy, etc.) for a
+  figure the household is already comfortable entering by hand.
 - **No notifications/reminders** for upcoming or overdue bills - you have
   to check the Dashboard or Bills page yourself.
 - **Clearing an amount field doesn't trigger client-side validation** -
@@ -231,7 +238,7 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   entries, and expense actuals) guard against a missing amount with
   `Number.isNaN(amount)`, but Svelte's `bind:value` on a number input
   coerces an emptied field to `null`, not `NaN`. The guard only actually
-  catches a field that was *never* touched (its initial state is
+  catches a field that was _never_ touched (its initial state is
   genuinely `NaN`); clearing an existing value and saving silently sends
   `amount: null` to the API instead of showing "Amount is required".
   Fix is small (`Number.isNaN(x) || x === null` at each call site) but

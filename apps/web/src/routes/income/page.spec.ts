@@ -9,6 +9,7 @@ import {
   listIncomeSources,
   updateIncomeSource,
   listIncomeEntries,
+  listIncomeEntriesForFinancialYear,
   createIncomeEntry,
   updateIncomeEntry,
   deleteIncomeEntry,
@@ -17,8 +18,10 @@ import {
   type IncomeYtd,
   type IncomeEntry,
 } from '$lib/api/income'
+import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
+import { currentFinancialYear, financialYearLabel } from '$lib/format'
 import IncomePage from './+page.svelte'
 
 vi.mock('$lib/api/income', () => ({
@@ -29,9 +32,14 @@ vi.mock('$lib/api/income', () => ({
   getIncomeSourcesSummary: vi.fn(),
   getIncomeYtd: vi.fn(),
   listIncomeEntries: vi.fn(),
+  listIncomeEntriesForFinancialYear: vi.fn(),
   createIncomeEntry: vi.fn(),
   updateIncomeEntry: vi.fn(),
   deleteIncomeEntry: vi.fn(),
+}))
+vi.mock('$lib/api/income_tax_settings', () => ({
+  getIncomeTaxSetting: vi.fn(),
+  setIncomeTaxSetting: vi.fn(),
 }))
 vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
 
@@ -82,12 +90,12 @@ const summaries: IncomeSourceSummary[] = [
   { userId: 2, fullName: 'Ariel', total: 5650.6, count: 1 },
 ]
 
-const emptyYtd: IncomeYtd = { year: 2026, sources: [], months: [], ytdTotal: 0 }
+const emptyYtd: IncomeYtd = { financialYear: 2026, sources: [], months: [], ytdTotal: 0 }
 
 const januaryYtd: IncomeYtd = {
-  year: 2026,
+  financialYear: 2026,
   sources: [{ id: 1, name: 'Brian Income' }],
-  months: [{ month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false }],
+  months: [{ year: 2026, month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false }],
   ytdTotal: 5000,
 }
 
@@ -100,13 +108,18 @@ const janEntry: IncomeEntry = {
   receivedOn: '2026-01-14T00:00:00.000+00:00',
   amount: 5000,
   note: 'Payslip',
+  taxWithheld: null,
 }
+
+const noTaxSetting = { userId: 1, financialYear: 2026, marginalRate: null }
 
 function setDefaultMocks() {
   vi.mocked(listUsers).mockResolvedValue([brian, ariel])
   vi.mocked(listIncomeSources).mockResolvedValue([brianSalary, arielWages])
   vi.mocked(getIncomeSourcesSummary).mockResolvedValue(summaries)
   vi.mocked(getIncomeYtd).mockResolvedValue(emptyYtd)
+  vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([])
+  vi.mocked(getIncomeTaxSetting).mockResolvedValue(noTaxSetting)
 }
 
 describe('income page', () => {
@@ -119,9 +132,12 @@ describe('income page', () => {
     vi.mocked(updateIncomeSource).mockReset()
     vi.mocked(deleteIncomeSource).mockReset()
     vi.mocked(listIncomeEntries).mockReset()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockReset()
     vi.mocked(createIncomeEntry).mockReset()
     vi.mocked(updateIncomeEntry).mockReset()
     vi.mocked(deleteIncomeEntry).mockReset()
+    vi.mocked(getIncomeTaxSetting).mockReset()
+    vi.mocked(setIncomeTaxSetting).mockReset()
   })
 
   it('shows a loading state, then an API error on failure', async () => {
@@ -172,6 +188,8 @@ describe('income page', () => {
     vi.mocked(listIncomeSources).mockResolvedValue([])
     vi.mocked(getIncomeSourcesSummary).mockResolvedValue([])
     vi.mocked(getIncomeYtd).mockResolvedValue(emptyYtd)
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([])
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue(noTaxSetting)
     render(IncomePage)
 
     expect(await screen.findByText('No income sources yet.')).toBeInTheDocument()
@@ -344,11 +362,11 @@ describe('income page', () => {
   it('shows the year-to-date table with source columns, an estimated tag, and a running total', async () => {
     setDefaultMocks()
     vi.mocked(getIncomeYtd).mockResolvedValue({
-      year: 2026,
+      financialYear: 2026,
       sources: [{ id: 1, name: 'Brian Income' }],
       months: [
-        { month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false },
-        { month: 2, bySource: { 1: 5000 }, total: 5000, estimated: true },
+        { year: 2026, month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false },
+        { year: 2026, month: 2, bySource: { 1: 5000 }, total: 5000, estimated: true },
       ],
       ytdTotal: 10000,
     })
@@ -365,23 +383,23 @@ describe('income page', () => {
     setDefaultMocks()
     render(IncomePage)
     expect(
-      await screen.findByText(`No data yet for ${new Date().getFullYear()}.`)
+      await screen.findByText(`No data yet for ${financialYearLabel(currentFinancialYear())}.`)
     ).toBeInTheDocument()
   })
 
-  it('navigates to the previous year and reloads YTD, disabling Next at the current year', async () => {
+  it('navigates to the previous year and reloads YTD, disabling Next at the current financial year', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
     await screen.findByText('Brian Income')
 
-    const currentYear = new Date().getFullYear()
+    const thisFinancialYear = currentFinancialYear()
     expect(screen.getByRole('button', { name: 'Next →' })).toBeDisabled()
 
     await user.click(screen.getByRole('button', { name: '← Prev' }))
 
-    expect(screen.getByText(String(currentYear - 1))).toBeInTheDocument()
-    await waitFor(() => expect(getIncomeYtd).toHaveBeenLastCalledWith(1, currentYear - 1))
+    expect(screen.getAllByText(financialYearLabel(thisFinancialYear - 1)).length).toBeGreaterThan(0)
+    await waitFor(() => expect(getIncomeYtd).toHaveBeenLastCalledWith(1, thisFinancialYear - 1))
     expect(screen.getByRole('button', { name: 'Next →' })).not.toBeDisabled()
   })
 
@@ -399,7 +417,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
 
     expect(listIncomeEntries).toHaveBeenCalledWith(2026, 1)
     expect(await screen.findByText('Payslip')).toBeInTheDocument()
@@ -416,7 +434,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
 
     expect(await screen.findByText('Payslip')).toBeInTheDocument()
     expect(screen.queryByText('Ariel entry')).toBeNull()
@@ -429,7 +447,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    const toggle = await screen.findByRole('button', { name: 'January' })
+    const toggle = await screen.findByRole('button', { name: 'Jan 2026' })
     await user.click(toggle)
     await screen.findByText('Payslip')
     await user.click(toggle)
@@ -444,9 +462,9 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
 
-    expect(await screen.findByText('No entries logged for January.')).toBeInTheDocument()
+    expect(await screen.findByText('No entries logged for Jan 2026.')).toBeInTheDocument()
   })
 
   it('shows an API error when loading a month’s entries fails', async () => {
@@ -456,7 +474,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
 
     expect(await screen.findByText('Could not load entries')).toBeInTheDocument()
   })
@@ -468,8 +486,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
-    await screen.findByText('No entries logged for January.')
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
+    await screen.findByText('No entries logged for Jan 2026.')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('Source and amount are required')).toBeInTheDocument()
@@ -484,8 +502,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
-    await screen.findByText('No entries logged for January.')
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
+    await screen.findByText('No entries logged for Jan 2026.')
     await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '5000')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
@@ -510,8 +528,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
-    await screen.findByText('No entries logged for January.')
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
+    await screen.findByText('No entries logged for Jan 2026.')
     await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '5000')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
@@ -525,7 +543,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
@@ -543,7 +561,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
     const amountInput = screen.getByDisplayValue('5000')
@@ -569,7 +587,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
     await user.click(screen.getByRole('button', { name: 'Save' }))
@@ -584,7 +602,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
     await user.clear(screen.getByDisplayValue('5000'))
@@ -602,7 +620,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!)
 
@@ -618,10 +636,256 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'January' }))
+    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!)
 
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
+  })
+})
+
+describe('income page / non-PAYG income tax section', () => {
+  const shareItem: IncomeEntry = {
+    id: 20,
+    incomeSourceId: null,
+    userId: 1,
+    year: 2026,
+    month: 8,
+    receivedOn: '2025-08-13T00:00:00.000+00:00',
+    amount: 1000,
+    note: 'Share sale',
+    taxWithheld: false,
+  }
+
+  beforeEach(() => {
+    vi.mocked(listUsers).mockReset()
+    vi.mocked(listIncomeSources).mockReset()
+    vi.mocked(getIncomeSourcesSummary).mockReset()
+    vi.mocked(getIncomeYtd).mockReset()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockReset()
+    vi.mocked(createIncomeEntry).mockReset()
+    vi.mocked(updateIncomeEntry).mockReset()
+    vi.mocked(deleteIncomeEntry).mockReset()
+    vi.mocked(getIncomeTaxSetting).mockReset()
+    vi.mocked(setIncomeTaxSetting).mockReset()
+  })
+
+  it('shows a hint when no marginal rate is set yet for the financial year', async () => {
+    setDefaultMocks()
+    render(IncomePage)
+
+    expect(await screen.findByText('Non-PAYG Income Tax')).toBeInTheDocument()
+    expect(await screen.findByText(/No rate set for/)).toBeInTheDocument()
+  })
+
+  it('saves a marginal tax rate', async () => {
+    setDefaultMocks()
+    vi.mocked(setIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Non-PAYG Income Tax')
+    await user.type(screen.getByLabelText('Marginal tax rate (%)'), '37')
+    await user.click(screen.getByRole('button', { name: 'Save rate' }))
+
+    await waitFor(() =>
+      expect(setIncomeTaxSetting).toHaveBeenCalledWith(1, currentFinancialYear(), 0.37)
+    )
+  })
+
+  it('renders a non-PAYG item with computed tax and gain once a rate is set', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    expect(await screen.findByText('Share sale')).toBeInTheDocument()
+    expect(screen.getAllByText('$370.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$630.00').length).toBeGreaterThan(0)
+  })
+
+  it('shows a dash for tax and gain on an item with tax withheld', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([
+      { ...shareItem, note: 'Bonus', taxWithheld: true },
+    ])
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    const row = (await screen.findByText('Bonus')).closest('tr')!
+    expect(within(row).getAllByText('—')).toHaveLength(2)
+  })
+
+  it('edits a non-PAYG item inline and cancels without saving', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByDisplayValue('1000')).toBeNull()
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('saves an edited non-PAYG item and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    vi.mocked(updateIncomeEntry).mockResolvedValue(shareItem)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    const amountInput = screen.getByDisplayValue('1000')
+    await user.clear(amountInput)
+    await user.type(amountInput, '1200')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(updateIncomeEntry).toHaveBeenCalledWith(20, {
+        year: 2025,
+        month: 8,
+        amount: 1200,
+        receivedOn: '2025-08-13',
+        note: 'Share sale',
+        taxWithheld: false,
+      })
+    )
+    expect(listIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows an API error when saving a non-PAYG item edit fails', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    vi.mocked(updateIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not save item'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Could not save item')).toBeInTheDocument()
+  })
+
+  it('requires date, item and amount when saving a non-PAYG item edit', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getAllByRole('button', { name: 'Edit' }).at(-1)!)
+    await user.clear(screen.getByDisplayValue('Share sale'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('requires date, item and amount to add a non-PAYG item', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Non-PAYG Income Tax')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
+
+    expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
+    expect(createIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('shows an API error when adding a non-PAYG item fails', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not add item'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Non-PAYG Income Tax')
+    await user.type(screen.getByLabelText('Item'), 'Share sale')
+    await user.type(screen.getByLabelText('Sale amount'), '1000')
+    await user.type(screen.getByLabelText('Date'), '2025-08-13')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
+
+    expect(await screen.findByText('Could not add item')).toBeInTheDocument()
+  })
+
+  it('shows an API error when saving a marginal rate fails', async () => {
+    setDefaultMocks()
+    vi.mocked(setIncomeTaxSetting).mockRejectedValue(new ApiError(500, 'Could not save rate'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Non-PAYG Income Tax')
+    await user.type(screen.getByLabelText('Marginal tax rate (%)'), '37')
+    await user.click(screen.getByRole('button', { name: 'Save rate' }))
+
+    expect(await screen.findByText('Could not save rate')).toBeInTheDocument()
+  })
+
+  it('shows an API error when loading the non-PAYG section fails', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockRejectedValue(
+      new ApiError(500, 'Could not load items')
+    )
+    render(IncomePage)
+
+    expect(await screen.findByText('Could not load items')).toBeInTheDocument()
+  })
+
+  it('adds a non-PAYG item and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockResolvedValue(shareItem)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Non-PAYG Income Tax')
+    await user.type(screen.getByLabelText('Item'), 'Share sale')
+    await user.type(screen.getByLabelText('Sale amount'), '1000')
+    await user.type(screen.getByLabelText('Date'), '2025-08-13')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
+
+    await waitFor(() =>
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        userId: 1,
+        year: 2025,
+        month: 8,
+        amount: 1000,
+        receivedOn: '2025-08-13',
+        note: 'Share sale',
+        taxWithheld: false,
+      })
+    )
+    expect(listIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+  })
+
+  it('deletes a non-PAYG item and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    vi.mocked(deleteIncomeEntry).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getAllByRole('button', { name: 'Remove' }).at(-1)!)
+
+    await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(20))
+    expect(listIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
   })
 })

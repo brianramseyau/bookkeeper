@@ -37,6 +37,7 @@ export interface IncomeEntry {
   receivedOn: string | null
   amount: number
   note: string | null
+  taxWithheld: boolean | null
 }
 
 export interface IncomeEntryInput {
@@ -47,6 +48,7 @@ export interface IncomeEntryInput {
   receivedOn?: string | null
   amount: number
   note?: string | null
+  taxWithheld?: boolean | null
 }
 
 export function listIncomeSources() {
@@ -73,6 +75,11 @@ export function listIncomeEntries(year?: number, month?: number) {
   return api.get<IncomeEntry[]>(`/income-entries${query}`)
 }
 
+/** Every income entry a user has within a given Jul-Jun financial year. */
+export function listIncomeEntriesForFinancialYear(userId: number, financialYear: number) {
+  return api.get<IncomeEntry[]>(`/income-entries?userId=${userId}&financialYear=${financialYear}`)
+}
+
 export function createIncomeEntry(input: IncomeEntryInput) {
   return api.post<IncomeEntry>('/income-entries', input)
 }
@@ -97,6 +104,7 @@ export function getIncomeSourcesSummary() {
 }
 
 export interface IncomeYtdMonth {
+  year: number
   month: number
   bySource: Record<number, number>
   total: number
@@ -104,12 +112,12 @@ export interface IncomeYtdMonth {
 }
 
 export interface IncomeYtd {
-  year: number
+  financialYear: number
   sources: { id: number; name: string }[]
   months: IncomeYtdMonth[]
   ytdTotal: number
 }
 
-export function getIncomeYtd(userId: number, year: number) {
-  return api.get<IncomeYtd>(`/income-sources/ytd?userId=${userId}&year=${year}`)
+export function getIncomeYtd(userId: number, financialYear: number) {
+  return api.get<IncomeYtd>(`/income-sources/ytd?userId=${userId}&financialYear=${financialYear}`)
 }

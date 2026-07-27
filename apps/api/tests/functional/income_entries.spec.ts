@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
+import { currentFinancialYear, financialYearMonths } from '#services/financial_year'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -38,10 +39,62 @@ test.group('IncomeEntries / index', () => {
     assert.lengthOf(response.body().data, 1)
     assert.equal(response.body().data[0].amount, 100)
   })
+
+  test('filters by financialYear across the calendar-year boundary', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const financialYear = currentFinancialYear()
+    const months = financialYearMonths(financialYear)
+    const [firstMonth, lastMonth] = [months[0]!, months[11]!]
+    await IncomeEntry.create({
+      userId: brian.id,
+      year: firstMonth.year,
+      month: firstMonth.month,
+      amount: 111,
+    })
+    await IncomeEntry.create({
+      userId: brian.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      amount: 222,
+    })
+    // A year outside this financial year - should never come back.
+    await IncomeEntry.create({
+      userId: brian.id,
+      year: firstMonth.year - 5,
+      month: firstMonth.month,
+      amount: 999,
+    })
+
+    const response = await client
+      .get('/api/income-entries')
+      .qs({ userId: brian.id, financialYear })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    assert.sameMembers(
+      response.body().data.map((e: { amount: number }) => e.amount),
+      [111, 222]
+    )
+  })
 })
 
 test.group('IncomeEntries / store', () => {
-  test('creates an unattributed entry with no source or user', async ({ client, assert }) => {
+  test('creates an unattributed entry attributed to a person', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .post('/api/income-entries')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ year: 2026, month: 2, amount: 500, userId: brian.id, taxWithheld: false })
+
+    response.assertStatus(201)
+    assert.isNull(response.body().data.incomeSourceId)
+    assert.equal(response.body().data.userId, brian.id)
+    assert.equal(response.body().data.taxWithheld, false)
+  })
+
+  test('rejects an unattributed entry with no incomeSourceId or userId', async ({ client }) => {
     const brian = await loginAsBrian()
 
     const response = await client
@@ -50,8 +103,7 @@ test.group('IncomeEntries / store', () => {
       .loginAs(brian)
       .json({ year: 2026, month: 2, amount: 500 })
 
-    response.assertStatus(201)
-    assert.isNull(response.body().data.incomeSourceId)
+    response.assertStatus(422)
   })
 
   test('creates an entry linked to an income source', async ({ client, assert }) => {

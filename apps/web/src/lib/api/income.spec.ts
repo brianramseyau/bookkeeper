@@ -8,6 +8,7 @@ import {
   getIncomeSourcesSummary,
   getIncomeYtd,
   listIncomeEntries,
+  listIncomeEntriesForFinancialYear,
   listIncomeSources,
   updateIncomeEntry,
   updateIncomeSource,
@@ -55,9 +56,9 @@ describe('income sources api', () => {
     expect(api.get).toHaveBeenCalledWith('/income-sources/summary')
   })
 
-  it('gets the year-to-date income for a user/year', () => {
+  it('gets the year-to-date income for a user/financial year', () => {
     getIncomeYtd(1, 2026)
-    expect(api.get).toHaveBeenCalledWith('/income-sources/ytd?userId=1&year=2026')
+    expect(api.get).toHaveBeenCalledWith('/income-sources/ytd?userId=1&financialYear=2026')
   })
 })
 
@@ -90,5 +91,10 @@ describe('income entries api', () => {
   it('deletes an income entry', () => {
     deleteIncomeEntry(4)
     expect(api.delete).toHaveBeenCalledWith('/income-entries/4')
+  })
+
+  it('lists entries for a user within a financial year', () => {
+    listIncomeEntriesForFinancialYear(1, 2026)
+    expect(api.get).toHaveBeenCalledWith('/income-entries?userId=1&financialYear=2026')
   })
 })

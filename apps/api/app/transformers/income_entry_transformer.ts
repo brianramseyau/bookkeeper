@@ -12,6 +12,7 @@ export default class IncomeEntryTransformer extends BaseTransformer<IncomeEntry>
       'receivedOn',
       'amount',
       'note',
+      'taxWithheld',
       'createdAt',
       'updatedAt',
     ])

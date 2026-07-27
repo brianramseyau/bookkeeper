@@ -90,6 +90,19 @@ const salaryEntry: IncomeEntry = {
   receivedOn: '2026-03-14T00:00:00.000+00:00',
   amount: 5000,
   note: 'March pay',
+  taxWithheld: null,
+}
+
+const bonusEntry: IncomeEntry = {
+  id: 11,
+  incomeSourceId: null,
+  userId: 1,
+  year: 2026,
+  month: 3,
+  receivedOn: null,
+  amount: 250,
+  note: 'Bonus',
+  taxWithheld: true,
 }
 
 function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthResult {
@@ -315,7 +328,7 @@ describe('month page', () => {
   it('shows the pay-periods hint and resolves the owner name for an income line', async () => {
     setDefaultMocks()
     render(MonthPage)
-    expect(await screen.findByText('Brian')).toBeInTheDocument()
+    expect(await screen.findByText('Brian', { selector: 'td' })).toBeInTheDocument()
     expect(screen.getAllByText('14 Mar 2026').length).toBe(2)
   })
 
@@ -448,9 +461,13 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[1]!)
+    // Edit buttons in DOM order: carryover(0), Groceries(1), Electricity(2),
+    // then the income entry(3) - Expenses now renders above Income.
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' }))[3]!)
+    expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
 
+    expect(screen.queryByDisplayValue('5000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 
@@ -491,11 +508,58 @@ describe('month page', () => {
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
         incomeSourceId: 1,
+        userId: null,
         year: 2026,
         month: 3,
         amount: 100,
         receivedOn: null,
         note: 'extra',
+        taxWithheld: null,
+      })
+    )
+  })
+
+  it('requires a person when logging unattributed income', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.type(await screen.findByLabelText('Amount'), '100')
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    expect(
+      await screen.findByText('A person is required for unattributed income')
+    ).toBeInTheDocument()
+    expect(createIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('logs an unattributed income entry for a person, with tax withheld', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockResolvedValue({
+      ...salaryEntry,
+      incomeSourceId: null,
+      userId: 1,
+      taxWithheld: true,
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+    await screen.findByText('March 2026')
+
+    await user.type(screen.getByLabelText('Amount'), '250')
+    await user.selectOptions(screen.getByLabelText('Person'), '1')
+    await user.click(screen.getByLabelText('Tax withheld'))
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    await waitFor(() =>
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        incomeSourceId: null,
+        userId: 1,
+        year: 2026,
+        month: 3,
+        amount: 250,
+        receivedOn: null,
+        note: null,
+        taxWithheld: true,
       })
     )
   })
@@ -507,9 +571,81 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.type(await screen.findByLabelText('Amount'), '100')
+    await user.selectOptions(screen.getByLabelText('Person'), '1')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('Could not log income')).toBeInTheDocument()
+  })
+
+  it('shows the person and tax-withheld status for an unattributed income entry', async () => {
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: {
+          lines: [
+            {
+              key: 'income-unattributed-1',
+              label: 'Other income',
+              sourceId: null,
+              userId: 1,
+              projected: 0,
+              actual: 250,
+              estimated: false,
+              payDates: [],
+            },
+          ],
+          projectedTotal: 0,
+          actualTotal: 250,
+        },
+      })
+    )
+    vi.mocked(listIncomeEntries).mockResolvedValue([bonusEntry])
+    render(MonthPage)
+
+    expect(await screen.findByText('Withheld')).toBeInTheDocument()
+    expect(screen.getAllByText('Brian', { selector: 'td' }).length).toBeGreaterThan(0)
+  })
+
+  it('edits an unattributed income entry, changing its person and tax-withheld flag', async () => {
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: {
+          lines: [
+            {
+              key: 'income-unattributed-1',
+              label: 'Other income',
+              sourceId: null,
+              userId: 1,
+              projected: 0,
+              actual: 250,
+              estimated: false,
+              payDates: [],
+            },
+          ],
+          projectedTotal: 0,
+          actualTotal: 250,
+        },
+      })
+    )
+    vi.mocked(listIncomeEntries).mockResolvedValue([bonusEntry])
+    vi.mocked(updateIncomeEntry).mockResolvedValue(bonusEntry)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Edit' })).at(-1)!)
+    await user.click(screen.getByLabelText('Withheld'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(updateIncomeEntry).toHaveBeenCalledWith(11, {
+        userId: 1,
+        amount: 250,
+        receivedOn: null,
+        note: 'Bonus',
+        taxWithheld: false,
+      })
+    )
   })
 
   it('shows due dates relative to today, sorted soonest-first, colored by paid rather than actual', async () => {
