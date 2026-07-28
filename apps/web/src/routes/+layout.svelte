@@ -69,7 +69,7 @@
   <div class="min-h-screen bg-slate-50 dark:bg-slate-900">
     <nav class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div class="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 sm:px-6">
-        <span class="font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</span>
+        <a href="/" class="font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</a>
 
         <div class="hidden items-center gap-6 lg:flex">
           {#each navLinks as link (link.href)}
