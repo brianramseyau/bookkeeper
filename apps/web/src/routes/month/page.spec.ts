@@ -418,13 +418,12 @@ describe('month page', () => {
     await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
   })
 
-  it('clears the amount field to null (not blocked client-side) when saving an entry edit', async () => {
+  it('blocks saving an entry edit when the amount field is cleared', async () => {
     // Svelte's number-input binding coerces an emptied field to `null`, not
-    // `NaN` - so the `Number.isNaN` guard here never actually catches a
-    // cleared field in practice, only a never-touched one (see the "requires
-    // an amount to log income" test below for that path).
+    // `NaN` - so the guard must check for both to catch a cleared field, not
+    // just a never-touched one (see the "requires an amount to log income"
+    // test below for that path).
     setDefaultMocks()
-    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
     const user = userEvent.setup()
     render(MonthPage)
 
@@ -434,13 +433,8 @@ describe('month page', () => {
     await user.clear(amountInput)
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    await waitFor(() =>
-      expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
-        amount: null,
-        receivedOn: '2026-03-14',
-        note: 'March pay',
-      })
-    )
+    expect(await screen.findByText('Amount is required')).toBeInTheDocument()
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 
   it('shows an API error when saving an entry edit fails', async () => {

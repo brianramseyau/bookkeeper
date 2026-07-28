@@ -235,11 +235,16 @@
 
   async function handleAdd(event: SubmitEvent) {
     event.preventDefault()
-    if (selectedUserId === null || !name.trim() || Number.isNaN(expectedAmount)) {
+    if (
+      selectedUserId === null ||
+      !name.trim() ||
+      Number.isNaN(expectedAmount) ||
+      expectedAmount === null
+    ) {
       error = 'Name and expected amount are required'
       return
     }
-    if (frequency === 'monthly' && Number.isNaN(payDayOfMonth)) {
+    if (frequency === 'monthly' && (Number.isNaN(payDayOfMonth) || payDayOfMonth === null)) {
       error = 'Pay day of month is required for a monthly source'
       return
     }
@@ -291,11 +296,14 @@
   }
 
   async function saveEdit(source: IncomeSource) {
-    if (!editName.trim() || Number.isNaN(editExpectedAmount)) {
+    if (!editName.trim() || Number.isNaN(editExpectedAmount) || editExpectedAmount === null) {
       error = 'Name and expected amount are required'
       return
     }
-    if (editFrequency === 'monthly' && Number.isNaN(editPayDayOfMonth)) {
+    if (
+      editFrequency === 'monthly' &&
+      (Number.isNaN(editPayDayOfMonth) || editPayDayOfMonth === null)
+    ) {
       error = 'Pay day of month is required for a monthly source'
       return
     }
@@ -445,7 +453,11 @@
   }
 
   async function saveMarginalRate() {
-    if (selectedUserId === null || Number.isNaN(marginalRatePercent)) {
+    if (
+      selectedUserId === null ||
+      Number.isNaN(marginalRatePercent) ||
+      marginalRatePercent === null
+    ) {
       error = 'Marginal tax rate is required'
       return
     }
@@ -474,7 +486,13 @@
 
   async function handleAddItem(event: SubmitEvent) {
     event.preventDefault()
-    if (selectedUserId === null || !itemDate || !itemName.trim() || Number.isNaN(itemAmount)) {
+    if (
+      selectedUserId === null ||
+      !itemDate ||
+      !itemName.trim() ||
+      Number.isNaN(itemAmount) ||
+      itemAmount === null
+    ) {
       error = 'Date, item and amount are required'
       return
     }
@@ -513,7 +531,12 @@
   }
 
   async function saveItemEdit(item: IncomeEntry) {
-    if (!editItemDate || !editItemName.trim() || Number.isNaN(editItemAmount)) {
+    if (
+      !editItemDate ||
+      !editItemName.trim() ||
+      Number.isNaN(editItemAmount) ||
+      editItemAmount === null
+    ) {
       error = 'Date, item and amount are required'
       return
     }

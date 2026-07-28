@@ -183,7 +183,7 @@
 
   async function handleAdd(event: SubmitEvent) {
     event.preventDefault()
-    if (!name.trim() || !nextDueOn || Number.isNaN(amount)) {
+    if (!name.trim() || !nextDueOn || Number.isNaN(amount) || amount === null) {
       error = 'Name, amount, and next due date are required'
       return
     }
@@ -231,7 +231,7 @@
   }
 
   async function saveEdit(bill: UpcomingRecurringBill) {
-    if (!editName.trim() || !editNextDueOn || Number.isNaN(editAmount)) {
+    if (!editName.trim() || !editNextDueOn || Number.isNaN(editAmount) || editAmount === null) {
       error = 'Name, amount, and next due date are required'
       return
     }

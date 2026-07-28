@@ -156,7 +156,7 @@
   }
 
   async function saveCarryover() {
-    if (Number.isNaN(editCarryoverAmount)) return
+    if (Number.isNaN(editCarryoverAmount) || editCarryoverAmount === null) return
     savingCarryover = true
     error = null
     try {
@@ -172,7 +172,7 @@
 
   async function handleLogEntry(event: SubmitEvent) {
     event.preventDefault()
-    if (Number.isNaN(logAmount)) {
+    if (Number.isNaN(logAmount) || logAmount === null) {
       error = 'Amount is required'
       return
     }
@@ -231,7 +231,7 @@
   }
 
   async function saveEntryEdit(entry: IncomeEntry) {
-    if (Number.isNaN(editEntryAmount)) {
+    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
       error = 'Amount is required'
       return
     }
@@ -454,7 +454,7 @@
 
   async function saveExpenseEdit() {
     if (editExpenseMode === 'category-multiple' || editExpenseTargetId === null) return
-    if (Number.isNaN(editExpenseAmount)) return
+    if (Number.isNaN(editExpenseAmount) || editExpenseAmount === null) return
 
     savingExpense = true
     error = null

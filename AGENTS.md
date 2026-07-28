@@ -174,12 +174,11 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
 
 ## Known sharp edges (see README for full list)
 
-- **Number-input null-vs-NaN gap**: several web forms guard a required
-  amount field with `Number.isNaN(amount)`, but clearing an already-filled
-  Svelte number input yields `null`, not `NaN`, so the guard silently lets
-  a blank field through as `amount: null`. If you touch one of these forms,
-  the fix is `Number.isNaN(x) || x === null` at the call site — apply it
-  there rather than treating it as pre-existing and out of scope.
+- **Number-input null-vs-NaN gap**: clearing an already-filled Svelte number
+  input yields `null`, not `NaN`, so a required-field guard written as just
+  `Number.isNaN(x)` silently lets a blank field through. All web forms use
+  `Number.isNaN(x) || x === null` at the call site for this reason — match
+  that pattern for any new required numeric field guard.
 - **Single currency, hardcoded AUD formatting, no multi-tenant support, no
   general SSO/OIDC integration** — these are deliberate non-goals, not gaps
   to fill in. The one exception is Authentik proxy-header auto-login (see

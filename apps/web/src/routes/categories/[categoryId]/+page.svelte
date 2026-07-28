@@ -90,7 +90,7 @@
 
   async function handleAddItem(event: SubmitEvent) {
     event.preventDefault()
-    if (!itemName.trim() || Number.isNaN(itemAmount)) {
+    if (!itemName.trim() || Number.isNaN(itemAmount) || itemAmount === null) {
       error = 'Name and amount are required'
       return
     }
@@ -119,7 +119,7 @@
   }
 
   async function saveItemEdit(item: CategoryBudgetItem) {
-    if (!editItemName.trim() || Number.isNaN(editItemAmount)) {
+    if (!editItemName.trim() || Number.isNaN(editItemAmount) || editItemAmount === null) {
       error = 'Name and amount are required'
       return
     }
@@ -151,7 +151,7 @@
 
   async function handleAdd(event: SubmitEvent) {
     event.preventDefault()
-    if (!occurredOn || Number.isNaN(amount)) {
+    if (!occurredOn || Number.isNaN(amount) || amount === null) {
       error = 'Date and amount are required'
       return
     }
@@ -186,7 +186,7 @@
   }
 
   async function saveEdit(actual: CategoryMonthlyActual) {
-    if (!editOccurredOn || Number.isNaN(editAmount)) {
+    if (!editOccurredOn || Number.isNaN(editAmount) || editAmount === null) {
       error = 'Date and amount are required'
       return
     }
@@ -277,7 +277,7 @@
   </div>
 
   <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">Budget breakdown</h2>
-  <p class="mb-3 -mt-2 text-sm text-slate-500 dark:text-slate-400">
+  <p class="-mt-2 mb-3 text-sm text-slate-500 dark:text-slate-400">
     What makes up the budget target above, itemized - e.g. insurance, food, grooming for a "Dog"
     category.
   </p>
@@ -286,8 +286,8 @@
     <p
       class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-300"
     >
-      This category has a manually-set budget of {formatCurrency(category.budgetAmount)}. Adding
-      an item below will replace it with the sum of your itemized items going forward.
+      This category has a manually-set budget of {formatCurrency(category.budgetAmount)}. Adding an
+      item below will replace it with the sum of your itemized items going forward.
     </p>
   {/if}
 
@@ -307,7 +307,9 @@
       <tbody>
         {#each budgetItems as item (item.id)}
           {#if editingItemId === item.id}
-            <tr class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20">
+            <tr
+              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+            >
               <td class="px-3 py-2">
                 <input
                   type="text"
@@ -368,7 +370,10 @@
           {/if}
         {:else}
           <tr>
-            <td colspan="3" class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
+            <td
+              colspan="3"
+              class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
+            >
               No items yet.
             </td>
           </tr>

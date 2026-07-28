@@ -155,7 +155,7 @@
 
   async function handleAdd(event: SubmitEvent) {
     event.preventDefault()
-    if (selectedUserId === null || !name.trim() || Number.isNaN(amount)) {
+    if (selectedUserId === null || !name.trim() || Number.isNaN(amount) || amount === null) {
       error = 'Name and amount are required'
       return
     }
@@ -193,7 +193,7 @@
   }
 
   async function saveEdit(sub: UserSubscription) {
-    if (!editName.trim() || Number.isNaN(editAmount)) {
+    if (!editName.trim() || Number.isNaN(editAmount) || editAmount === null) {
       error = 'Name and amount are required'
       return
     }
