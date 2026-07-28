@@ -93,6 +93,15 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   cadence math, utility billing-period logic, and the one-time xlsx import
   parsers (`app/services/import/`). Put new date/frequency/aggregation
   logic here, not in controllers.
+- **Migrations only, going forward — the importer is frozen**: the app is
+  live in production and the one-time historical import from
+  `Joint Account Workbook.xlsx` (`apps/api/commands/import_xlsx.ts`) has
+  already been run against the real database; it isn't expected to run
+  again. Production now holds real, non-reproducible data entered since
+  that import, so schema changes and data fixes/backfills alike go through
+  a migration (`apps/api/database/migrations/`), not an edit to the
+  importer, a seeder, or a manual SQL update — see
+  [README.md](README.md#making-data-or-schema-changes).
 - **Auth**: session/cookie-based, exactly two user accounts (household
   members), seeded via `db:seed` from the workbook's "Users" sheet (not
   `.env` — see `database/seeders/user_seeder.ts` and

@@ -52,38 +52,52 @@ just delete the parent row and let the DB clean up or null out dependents.
 Useful scripts (run from the repo root): `pnpm lint`, `pnpm lint:fix`,
 `pnpm typecheck`, `pnpm test`, `pnpm format`, `pnpm build`.
 
-### Re-seeding from the workbook (full historical import)
+### The historical workbook import (one-time, complete)
 
-Until this app is on a stable release, the workbook is the source of truth:
-the database can be thrown away and rebuilt from it at any time. Category
-mappings and other importer decisions live in
-`apps/api/commands/import_xlsx.ts` (see e.g. the `ROLLING_RECURRING_BILL_NOTES`
-table) - fix them there, not with a one-off SQL update, so a future re-seed
-doesn't silently revert the fix.
+The app is live in production and the one-time historical import from
+`Joint Account Workbook.xlsx` has already been run against the real
+database. `apps/api/commands/import_xlsx.ts` now stands as a historical
+record of that import rather than a tool for shaping live data, and isn't
+expected to be run again against production.
 
-Order matters - each step depends on the one before it:
+**From this point forward, all schema changes and data fixes/backfills go
+through a migration** (`apps/api/database/migrations/`) - see [Making data
+or schema changes](#making-data-or-schema-changes) below - not an edit to
+the importer or a re-run of `import:xlsx`. Production data (bills, actuals,
+subscriptions, income entered by hand since the import) is no longer fully
+reproducible from the workbook alone, so a re-import would clobber
+real usage history.
+
+The command still exists for the historical record and for standing up a
+**fresh local dev database** from the workbook, which is harmless since
+dev/test data is fully disposable:
 
 ```bash
-# 1. Stop anything holding the db file open (dev server, container, etc).
-#    SQLite here is single-writer; running the import while something
-#    else has the file open can deadlock rather than error cleanly.
-
-# 2. From apps/api: drop + recreate the schema, then run the seeders
+# 1. From apps/api: drop + recreate the schema, then run the seeders
 #    (default categories, users from the workbook's "Users" sheet).
 pnpm --filter api exec node ace migration:fresh --seed
 
-# 3. Re-run the historical import from the workbook. --dry-run first to
-#    sanity-check parsed counts without writing anything; --truncate makes
-#    it safe to re-run against a db that already has import data in it.
+# 2. Run the historical import to populate dev data to test against.
+#    --dry-run first to sanity-check parsed counts without writing anything.
 pnpm --filter api exec node ace import:xlsx --file="../../Joint Account Workbook.xlsx" --dry-run
 pnpm --filter api exec node ace import:xlsx --file="../../Joint Account Workbook.xlsx" --truncate
-
-# 4. Restart whatever you stopped in step 1.
 ```
 
 `import:xlsx` also takes `--rolling-start-year`/`--rolling-start-month` if
 the "Rolling" sheet's first month block ever shifts (see the command's
 `--help` for current defaults).
+
+### Making data or schema changes
+
+With production carrying real, non-reproducible data, any change to the
+schema or to data at rest is made with a migration
+(`apps/api/database/migrations/`), applied via `node ace migration:run` -
+the same way any other AdonisJS app evolves its schema over time. This
+applies to structural changes (new columns/tables) and to one-off data
+corrections/backfills alike (see e.g.
+`1785066063998_backfill_utility_bills_paid.ts` for a precedent) - don't
+special-case a data fix into the importer, a seeder, or a manual SQL
+update against the production database.
 
 ### Demo mode
 
@@ -166,8 +180,9 @@ behavior.
    appdata data directory (see step 4) so it's reachable at that path
    in-container, e.g. `/app/data/Joint Account Workbook.xlsx`.
 2. `docker compose up -d --build`
-3. One-time only, to seed and import the historical workbook data (the
-   container already ran pending migrations on boot in step 2):
+3. One-time only, on a brand-new instance, to seed logins and import the
+   historical workbook data (the container already ran pending migrations
+   on boot in step 2):
 
    ```bash
    docker compose exec bookkeeper node ace db:seed
@@ -176,9 +191,12 @@ behavior.
 
    `db:seed` creates logins from the workbook's "Users" sheet (`Name`,
    `Email`, `Password` columns); `import:xlsx` does the historical import
-   described in [Re-seeding from the workbook](#re-seeding-from-the-workbook-full-historical-import)
+   described in [The historical workbook import](#the-historical-workbook-import-one-time-complete)
    above - add `--truncate` if re-running this against a container that
-   already has import data in it.
+   already has import data in it. **This step has already been done for
+   the running production instance and won't be repeated** - any further
+   schema or data change goes through a migration instead, see [Making data
+   or schema changes](#making-data-or-schema-changes).
 
 4. Point the container's `/mnt/user/appdata/bookkeeper/data` mount at
    wherever you want the data to live on the host - see `docker-compose.yml`.
