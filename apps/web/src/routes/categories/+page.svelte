@@ -10,6 +10,14 @@
   import { getCategoryTrend, type CategoryTrend } from '$lib/api/category-actuals'
   import { formatCurrency } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import StatusBadge from '$lib/components/StatusBadge.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import TrendIndicator from '$lib/components/TrendIndicator.svelte'
 
   interface Row {
     category: Category
@@ -252,42 +260,16 @@
       />
     </td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
-      <button
-        type="button"
-        onclick={() => saveEdit(category)}
-        disabled={savingEdit}
-        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-      >
+      <TextActionButton variant="primary" disabled={savingEdit} onclick={() => saveEdit(category)}>
         Save
-      </button>
-      <button
-        type="button"
-        onclick={cancelEdit}
-        class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-      >
-        Cancel
-      </button>
+      </TextActionButton>
+      <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>Cancel</TextActionButton>
     </td>
     <td class="px-3 py-2"></td>
   </tr>
 {/snippet}
 
-{#snippet statusBadge(label: string, tone: 'amber' | 'slate')}
-  <span
-    class={[
-      'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase',
-      tone === 'amber'
-        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-        : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-    ]}
-  >
-    {label}
-  </span>
-{/snippet}
-
-<svelte:head>
-  <title>Categories · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Categories" />
 
 <div class="flex items-center justify-between">
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Categories</h1>
@@ -301,15 +283,13 @@
 </div>
 
 {#if error}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+  <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else}
-  <div
-    class="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mt-6 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -368,15 +348,7 @@
                 {formatCurrency(row.trend?.average ?? null)}
               </td>
               <td class="px-3 py-2">
-                {#if row.trend?.trend === 'up'}
-                  <span class="text-xs font-medium text-red-600 dark:text-red-400">▲ up</span>
-                {:else if row.trend?.trend === 'down'}
-                  <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400"
-                    >▼ down</span
-                  >
-                {:else if row.trend?.trend === 'flat'}
-                  <span class="text-xs font-medium text-slate-400 dark:text-slate-500">— flat</span>
-                {/if}
+                <TrendIndicator trend={row.trend?.trend} class="text-xs font-medium" />
               </td>
               <td class="px-3 py-2 text-center">
                 {#if row.category.includeInStandardMonth}
@@ -390,27 +362,23 @@
                 {/if}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => startEdit(row.category)}
-                  class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
+                <TextActionButton variant="neutral" onclick={() => startEdit(row.category)}>
                   Edit
-                </button>
-                <button
-                  type="button"
+                </TextActionButton>
+                <TextActionButton
+                  variant="amber"
+                  class="ml-2"
                   onclick={() => handlePause(row.category)}
-                  class="ml-2 text-xs text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
                 >
                   Pause
-                </button>
-                <button
-                  type="button"
+                </TextActionButton>
+                <TextActionButton
+                  variant="muted"
+                  class="ml-2"
                   onclick={() => handleArchive(row.category)}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                 >
                   Archive
-                </button>
+                </TextActionButton>
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
                 <button
@@ -462,7 +430,7 @@
                         style="background-color: {row.category.color ?? '#94a3b8'}"
                       ></span>
                       <span class="ml-2">{row.category.name}</span>
-                      {@render statusBadge('Paused', 'amber')}
+                      <StatusBadge label="Paused" tone="amber" />
                     </span>
                   </td>
                   <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
@@ -482,27 +450,23 @@
                     —
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onclick={() => startEdit(row.category)}
-                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                    >
+                    <TextActionButton variant="neutral" onclick={() => startEdit(row.category)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="success"
+                      class="ml-2"
                       onclick={() => handleUnpause(row.category)}
-                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
                     >
                       Unpause
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="muted"
+                      class="ml-2"
                       onclick={() => handleArchive(row.category)}
-                      class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                     >
                       Archive
-                    </button>
+                    </TextActionButton>
                   </td>
                   <td class="px-3 py-2"></td>
                 </tr>
@@ -535,7 +499,7 @@
                         style="background-color: {row.category.color ?? '#94a3b8'}"
                       ></span>
                       <span class="ml-2">{row.category.name}</span>
-                      {@render statusBadge('Archived', 'slate')}
+                      <StatusBadge label="Archived" tone="slate" />
                     </span>
                   </td>
                   <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
@@ -555,27 +519,23 @@
                     —
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onclick={() => startEdit(row.category)}
-                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                    >
+                    <TextActionButton variant="neutral" onclick={() => startEdit(row.category)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="success"
+                      class="ml-2"
                       onclick={() => handleUnarchive(row.category)}
-                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
                     >
                       Unarchive
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="danger"
+                      class="-my-1 ml-1 p-1"
                       onclick={() => handleRemove(row.category)}
-                      class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                     >
                       Remove
-                    </button>
+                    </TextActionButton>
                   </td>
                   <td class="px-3 py-2"></td>
                 </tr>
@@ -605,7 +565,7 @@
                       style="background-color: {row.category.color ?? '#94a3b8'}"
                     ></span>
                     <span class="ml-2">{row.category.name}</span>
-                    {@render statusBadge('Removed', 'slate')}
+                    <StatusBadge label="Removed" tone="slate" />
                   </span>
                 </td>
                 <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
@@ -620,13 +580,9 @@
                 <td class="px-3 py-2"></td>
                 <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => handleRestore(row.category)}
-                    class="text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
-                  >
+                  <TextActionButton variant="success" onclick={() => handleRestore(row.category)}>
                     Restore
-                  </button>
+                  </TextActionButton>
                 </td>
                 <td class="px-3 py-2"></td>
               </tr>
@@ -635,7 +591,7 @@
         {/if}
       </tbody>
     </table>
-  </div>
+  </Card>
 
   <form onsubmit={handleAdd} class="mt-6 flex gap-2">
     <input
@@ -644,12 +600,8 @@
       bind:value={newName}
       class="max-w-xs flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
     />
-    <button
-      type="submit"
-      disabled={creating}
-      class="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" size="lg" disabled={creating}>
       {creating ? 'Adding…' : 'Add category'}
-    </button>
+    </PrimaryButton>
   </form>
 {/if}

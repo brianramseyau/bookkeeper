@@ -1,0 +1,135 @@
+<script lang="ts">
+  import type { IncomeSource } from '$lib/api/income'
+  import type { UserSummary } from '$lib/api/users'
+  import PrimaryButton from './PrimaryButton.svelte'
+
+  export interface IncomeEntryFormValues {
+    incomeSourceId: number | null
+    userId: number | null
+    amount: number
+    receivedOn: string | null
+    note: string | null
+    taxWithheld: boolean | null
+  }
+
+  interface Props {
+    sources: IncomeSource[]
+    users?: UserSummary[]
+    allowUnattributed?: boolean
+    submitting: boolean
+    class?: string
+    onSubmit: (values: IncomeEntryFormValues) => Promise<boolean>
+  }
+
+  let {
+    sources,
+    users = [],
+    allowUnattributed = false,
+    submitting,
+    class: className = 'flex flex-wrap items-end gap-3',
+    onSubmit,
+  }: Props = $props()
+
+  function defaultSourceId(): string {
+    if (allowUnattributed) return ''
+    return sources[0]?.id !== undefined ? String(sources[0].id) : ''
+  }
+
+  let sourceId = $state(defaultSourceId())
+  let userId = $state('')
+  let amount = $state<number>(NaN)
+  let receivedOn = $state('')
+  let note = $state('')
+  let taxWithheld = $state(false)
+
+  function reset() {
+    sourceId = defaultSourceId()
+    userId = ''
+    amount = NaN
+    receivedOn = ''
+    note = ''
+    taxWithheld = false
+  }
+
+  async function handleSubmit(event: SubmitEvent) {
+    event.preventDefault()
+    const unattributed = allowUnattributed && sourceId === ''
+    const ok = await onSubmit({
+      incomeSourceId: unattributed ? null : Number(sourceId),
+      userId: unattributed ? (userId === '' ? null : Number(userId)) : null,
+      amount,
+      receivedOn: receivedOn === '' ? null : receivedOn,
+      note: note.trim() === '' ? null : note.trim(),
+      taxWithheld: unattributed ? taxWithheld : null,
+    })
+    if (ok) reset()
+  }
+</script>
+
+<form onsubmit={handleSubmit} class={className}>
+  <label class="flex flex-col gap-1">
+    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
+    <select
+      bind:value={sourceId}
+      class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+    >
+      {#if allowUnattributed}
+        <option value="">Unattributed</option>
+      {/if}
+      {#each sources as source (source.id)}
+        <option value={source.id}>{source.name}</option>
+      {/each}
+    </select>
+  </label>
+  {#if allowUnattributed && sourceId === ''}
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
+      <select
+        bind:value={userId}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      >
+        <option value="">Select person</option>
+        {#each users as u (u.id)}
+          <option value={u.id}>{u.fullName ?? u.email}</option>
+        {/each}
+      </select>
+    </label>
+    <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
+      <input type="checkbox" bind:checked={taxWithheld} />
+      Tax withheld
+    </label>
+  {/if}
+  <label class="flex flex-col gap-1">
+    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
+    <input
+      type="number"
+      step="0.01"
+      min="0"
+      bind:value={amount}
+      class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+    />
+  </label>
+  <label class="flex flex-col gap-1">
+    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Received on</span>
+    <input
+      type="date"
+      bind:value={receivedOn}
+      class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+    />
+  </label>
+  <label class="flex flex-col gap-1">
+    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Note</span>
+    <input
+      type="text"
+      placeholder="optional"
+      bind:value={note}
+      class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+    />
+  </label>
+  <PrimaryButton
+    type="submit"
+    disabled={submitting || (!allowUnattributed && sources.length === 0)}
+  >
+    {submitting ? 'Logging…' : 'Log income'}
+  </PrimaryButton>
+</form>

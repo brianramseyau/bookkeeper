@@ -32,6 +32,18 @@
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { formatCurrency, formatDate, formatRelativeDate, daysUntil, monthName } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IncomeEntryForm, {
+    type IncomeEntryFormValues,
+  } from '$lib/components/IncomeEntryForm.svelte'
+  import IncomeEntryEditRow, {
+    type IncomeEntryEditUpdates,
+  } from '$lib/components/IncomeEntryEditRow.svelte'
+  import IncomeEntryDisplayRow from '$lib/components/IncomeEntryDisplayRow.svelte'
 
   // Mirrors the API's DUE_SOON_WINDOW_DAYS (recurring_bills_controller.ts) so
   // the Due chip here matches the Bills page: colored (and always
@@ -59,19 +71,10 @@
   let editCarryoverAmount = $state<number>(NaN)
   let savingCarryover = $state(false)
 
-  let logSourceId = $state('')
-  let logUserId = $state('')
-  let logAmount = $state<number>(NaN)
-  let logReceivedOn = $state('')
-  let logNote = $state('')
-  let logTaxWithheld = $state(false)
   let loggingEntry = $state(false)
 
   let editingEntryId = $state<number | null>(null)
   let editEntryUserId = $state('')
-  let editEntryAmount = $state<number>(NaN)
-  let editEntryReceivedOn = $state('')
-  let editEntryNote = $state('')
   let editEntryTaxWithheld = $state(false)
   let savingEntryEdit = $state(false)
 
@@ -170,38 +173,33 @@
     }
   }
 
-  async function handleLogEntry(event: SubmitEvent) {
-    event.preventDefault()
-    if (Number.isNaN(logAmount) || logAmount === null) {
+  async function handleLogEntry(values: IncomeEntryFormValues): Promise<boolean> {
+    if (Number.isNaN(values.amount) || values.amount === null) {
       error = 'Amount is required'
-      return
+      return false
     }
-    if (logSourceId === '' && logUserId === '') {
+    if (values.incomeSourceId === null && values.userId === null) {
       error = 'A person is required for unattributed income'
-      return
+      return false
     }
     loggingEntry = true
     error = null
     try {
       await createIncomeEntry({
-        incomeSourceId: logSourceId === '' ? null : Number(logSourceId),
-        userId: logSourceId === '' ? Number(logUserId) : null,
+        incomeSourceId: values.incomeSourceId,
+        userId: values.userId,
         year,
         month,
-        amount: logAmount,
-        receivedOn: logReceivedOn === '' ? null : logReceivedOn,
-        note: logNote.trim() === '' ? null : logNote.trim(),
-        taxWithheld: logSourceId === '' ? logTaxWithheld : null,
+        amount: values.amount,
+        receivedOn: values.receivedOn,
+        note: values.note,
+        taxWithheld: values.incomeSourceId === null ? values.taxWithheld : null,
       })
-      logSourceId = ''
-      logUserId = ''
-      logAmount = NaN
-      logReceivedOn = ''
-      logNote = ''
-      logTaxWithheld = false
       await refreshIncome()
+      return true
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to log income'
+      return false
     } finally {
       loggingEntry = false
     }
@@ -220,9 +218,6 @@
   function startEditEntry(entry: IncomeEntry) {
     editingEntryId = entry.id
     editEntryUserId = entry.userId !== null ? String(entry.userId) : ''
-    editEntryAmount = entry.amount
-    editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
-    editEntryNote = entry.note ?? ''
     editEntryTaxWithheld = entry.taxWithheld ?? false
   }
 
@@ -230,8 +225,8 @@
     editingEntryId = null
   }
 
-  async function saveEntryEdit(entry: IncomeEntry) {
-    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
+  async function saveEntryEdit(entry: IncomeEntry, updates: IncomeEntryEditUpdates) {
+    if (Number.isNaN(updates.amount) || updates.amount === null) {
       error = 'Amount is required'
       return
     }
@@ -244,9 +239,9 @@
     try {
       await updateIncomeEntry(entry.id, {
         userId: entry.incomeSourceId === null ? Number(editEntryUserId) : undefined,
-        amount: editEntryAmount,
-        receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
-        note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
+        amount: updates.amount,
+        receivedOn: updates.receivedOn,
+        note: updates.note,
         taxWithheld: entry.incomeSourceId === null ? editEntryTaxWithheld : undefined,
       })
       editingEntryId = null
@@ -495,9 +490,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>Monthly · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Monthly" />
 
 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Monthly</h1>
@@ -537,16 +530,14 @@
 </div>
 
 {#if error}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+  <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else if data}
   <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    <Card class="p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
         Carried over from last month
       </p>
@@ -558,38 +549,21 @@
             bind:value={editCarryoverAmount}
             class="w-28 rounded-md border border-slate-300 px-2 py-1 text-lg dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
           />
-          <button
-            type="button"
-            onclick={saveCarryover}
-            disabled={savingCarryover}
-            class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-          >
+          <TextActionButton variant="primary" disabled={savingCarryover} onclick={saveCarryover}>
             Save
-          </button>
-          <button
-            type="button"
-            onclick={cancelEditCarryover}
-            class="text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-          >
-            Cancel
-          </button>
+          </TextActionButton>
+          <TextActionButton variant="cancel" onclick={cancelEditCarryover}>Cancel</TextActionButton>
         </div>
       {:else}
         <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
           {formatCurrency(data.carryover)}
         </p>
-        <button
-          type="button"
-          onclick={startEditCarryover}
-          class="mt-1 text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-        >
+        <TextActionButton variant="neutral" class="mt-1" onclick={startEditCarryover}>
           Edit
-        </button>
+        </TextActionButton>
       {/if}
-    </div>
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    </Card>
+    <Card class="p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Projected net</p>
       <p
         class={[
@@ -601,10 +575,8 @@
       >
         {formatCurrency(data.projectedNet)}
       </p>
-    </div>
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    </Card>
+    <Card class="p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Actual net (so far)</p>
       <p
         class={[
@@ -616,10 +588,8 @@
       >
         {formatCurrency(data.actualNet)}
       </p>
-    </div>
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    </Card>
+    <Card class="p-4">
       <p
         class="text-xs font-medium text-slate-500 dark:text-slate-400"
         title="Actual net minus projected net"
@@ -636,13 +606,11 @@
       >
         {formatCurrency(data.actualNet - data.projectedNet)}
       </p>
-    </div>
+    </Card>
   </div>
 
   <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
-  <div
-    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mt-3 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -713,31 +681,26 @@
                     View all →
                   </a>
                 {:else}
-                  <button
-                    type="button"
-                    onclick={saveExpenseEdit}
+                  <TextActionButton
+                    variant="primary"
                     disabled={savingExpense}
-                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    onclick={saveExpenseEdit}
                   >
                     Save
-                  </button>
+                  </TextActionButton>
                   {#if editExpenseMode === 'category-edit'}
-                    <button
-                      type="button"
+                    <TextActionButton
+                      variant="danger"
+                      class="-my-1 ml-1 p-1"
                       onclick={removeExpenseActual}
-                      class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                     >
                       Remove
-                    </button>
+                    </TextActionButton>
                   {/if}
                 {/if}
-                <button
-                  type="button"
-                  onclick={cancelEditExpense}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
+                <TextActionButton variant="cancel" class="ml-2" onclick={cancelEditExpense}>
                   Cancel
-                </button>
+                </TextActionButton>
               </td>
             </tr>
           {:else}
@@ -771,13 +734,9 @@
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 {#if editable}
-                  <button
-                    type="button"
-                    onclick={() => startEditExpense(line)}
-                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
+                  <TextActionButton variant="neutral" onclick={() => startEditExpense(line)}>
                     Edit
-                  </button>
+                  </TextActionButton>
                 {/if}
               </td>
             </tr>
@@ -853,7 +812,7 @@
         </tr>
       </tfoot>
     </table>
-  </div>
+  </Card>
 
   <div class="mt-8 flex items-center justify-between">
     <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income</h2>
@@ -864,9 +823,7 @@
       Manage income sources →
     </a>
   </div>
-  <div
-    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mt-3 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -923,112 +880,62 @@
             <td class="px-3 py-2" colspan="3"></td>
           </tr>
           {#each entriesForLine(line) as entry (entry.id)}
-            {#if editingEntryId === entry.id}
-              <tr
-                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
-              >
-                {#if entry.incomeSourceId === null}
-                  <td class="px-3 py-2">
-                    <select
-                      bind:value={editEntryUserId}
-                      class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                    >
-                      <option value="">Select person</option>
-                      {#each users as u (u.id)}
-                        <option value={u.id}>{u.fullName ?? u.email}</option>
-                      {/each}
-                    </select>
-                  </td>
-                  <td class="px-3 py-2">
-                    <label
-                      class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
-                    >
-                      <input type="checkbox" bind:checked={editEntryTaxWithheld} />
-                      Withheld
-                    </label>
-                  </td>
-                  <td class="px-3 py-2"></td>
-                {:else}
-                  <td class="px-3 py-2" colspan="3"></td>
-                {/if}
-                <td class="px-3 py-2 text-right">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    bind:value={editEntryAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </td>
+            {#snippet editLeading()}
+              {#if entry.incomeSourceId === null}
                 <td class="px-3 py-2">
-                  <input
-                    type="date"
-                    bind:value={editEntryReceivedOn}
+                  <select
+                    bind:value={editEntryUserId}
                     class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
+                  >
+                    <option value="">Select person</option>
+                    {#each users as u (u.id)}
+                      <option value={u.id}>{u.fullName ?? u.email}</option>
+                    {/each}
+                  </select>
                 </td>
                 <td class="px-3 py-2">
-                  <input
-                    type="text"
-                    bind:value={editEntryNote}
-                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  />
+                  <label class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+                    <input type="checkbox" bind:checked={editEntryTaxWithheld} />
+                    Withheld
+                  </label>
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => saveEntryEdit(entry)}
-                    disabled={savingEntryEdit}
-                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    onclick={cancelEditEntry}
-                    class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  >
-                    Cancel
-                  </button>
+                <td class="px-3 py-2"></td>
+              {:else}
+                <td class="px-3 py-2" colspan="3"></td>
+              {/if}
+            {/snippet}
+            {#snippet displayLeading()}
+              {#if entry.incomeSourceId === null}
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
                 </td>
-              </tr>
+                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  {entry.taxWithheld ? 'Withheld' : 'Not withheld'}
+                </td>
+                <td class="px-3 py-2"></td>
+              {:else}
+                <td class="px-3 py-2" colspan="3"></td>
+              {/if}
+            {/snippet}
+            {#if editingEntryId === entry.id}
+              <IncomeEntryEditRow
+                initialAmount={entry.amount}
+                initialReceivedOn={entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''}
+                initialNote={entry.note ?? ''}
+                saving={savingEntryEdit}
+                leading={editLeading}
+                onSave={(updates) => saveEntryEdit(entry, updates)}
+                onCancel={cancelEditEntry}
+              />
             {:else}
-              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-                {#if entry.incomeSourceId === null}
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
-                    {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
-                  </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
-                    {entry.taxWithheld ? 'Withheld' : 'Not withheld'}
-                  </td>
-                  <td class="px-3 py-2"></td>
-                {:else}
-                  <td class="px-3 py-2" colspan="3"></td>
-                {/if}
-                <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300"
-                  >{formatCurrency(entry.amount)}</td
-                >
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400"
-                  >{formatDate(entry.receivedOn)}</td
-                >
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{entry.note ?? '—'}</td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => startEditEntry(entry)}
-                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onclick={() => handleDeleteEntry(entry)}
-                    class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
+              <IncomeEntryDisplayRow
+                amount={entry.amount}
+                receivedOn={entry.receivedOn}
+                note={entry.note}
+                leading={displayLeading}
+                onEdit={() => startEditEntry(entry)}
+                onRemove={() => handleDeleteEntry(entry)}
+              />
             {/if}
           {/each}
         {/each}
@@ -1046,75 +953,16 @@
         </tr>
       </tfoot>
     </table>
-  </div>
+  </Card>
 
-  <form
-    onsubmit={handleLogEntry}
-    class="mt-4 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
-      <select
-        bind:value={logSourceId}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      >
-        <option value="">Unattributed</option>
-        {#each sources as source (source.id)}
-          <option value={source.id}>{source.name}</option>
-        {/each}
-      </select>
-    </label>
-    {#if logSourceId === ''}
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
-        <select
-          bind:value={logUserId}
-          class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          <option value="">Select person</option>
-          {#each users as u (u.id)}
-            <option value={u.id}>{u.fullName ?? u.email}</option>
-          {/each}
-        </select>
-      </label>
-      <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-        <input type="checkbox" bind:checked={logTaxWithheld} />
-        Tax withheld
-      </label>
-    {/if}
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
-      <input
-        type="number"
-        step="0.01"
-        min="0"
-        bind:value={logAmount}
-        class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Received on</span>
-      <input
-        type="date"
-        bind:value={logReceivedOn}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Note</span>
-      <input
-        type="text"
-        placeholder="optional"
-        bind:value={logNote}
-        class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </label>
-    <button
-      type="submit"
-      disabled={loggingEntry}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
-      {loggingEntry ? 'Logging…' : 'Log income'}
-    </button>
-  </form>
+  <Card class="mt-4 p-4">
+    <IncomeEntryForm
+      {sources}
+      {users}
+      allowUnattributed
+      submitting={loggingEntry}
+      class="flex flex-wrap items-end gap-3"
+      onSubmit={handleLogEntry}
+    />
+  </Card>
 {/if}

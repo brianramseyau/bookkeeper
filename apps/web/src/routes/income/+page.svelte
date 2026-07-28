@@ -28,6 +28,19 @@
     monthYearLabel,
   } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IncomeEntryForm, {
+    type IncomeEntryFormValues,
+  } from '$lib/components/IncomeEntryForm.svelte'
+  import IncomeEntryEditRow, {
+    type IncomeEntryEditUpdates,
+  } from '$lib/components/IncomeEntryEditRow.svelte'
+  import IncomeEntryDisplayRow from '$lib/components/IncomeEntryDisplayRow.svelte'
 
   const FREQUENCIES: { value: IncomeSourceFrequency; label: string }[] = [
     { value: 'monthly', label: 'Monthly' },
@@ -67,17 +80,9 @@
   let expandedYear = $state<number | null>(null)
   let monthEntries = $state<IncomeEntry[]>([])
   let entriesLoading = $state(false)
-
-  let entrySourceId = $state('')
-  let entryAmount = $state<number>(NaN)
-  let entryReceivedOn = $state('')
-  let entryNote = $state('')
   let loggingEntry = $state(false)
 
   let editingEntryId = $state<number | null>(null)
-  let editEntryAmount = $state<number>(NaN)
-  let editEntryReceivedOn = $state('')
-  let editEntryNote = $state('')
   let savingEntryEdit = $state(false)
 
   let nonPaygItems = $state<IncomeEntry[]>([])
@@ -359,10 +364,6 @@
     }
     expandedMonth = month
     expandedYear = year
-    entrySourceId = visibleSources[0]?.id !== undefined ? String(visibleSources[0].id) : ''
-    entryAmount = NaN
-    entryReceivedOn = ''
-    entryNote = ''
     void loadMonthEntries(year, month)
   }
 
@@ -371,35 +372,28 @@
     await Promise.all([loadMonthEntries(expandedYear, expandedMonth), loadYtd()])
   }
 
-  async function handleAddEntry(event: SubmitEvent) {
-    event.preventDefault()
-    if (
-      expandedMonth === null ||
-      expandedYear === null ||
-      entrySourceId === '' ||
-      Number.isNaN(entryAmount) ||
-      entryAmount === null
-    ) {
+  async function handleAddEntry(values: IncomeEntryFormValues): Promise<boolean> {
+    if (expandedMonth === null || expandedYear === null) return false
+    if (values.incomeSourceId === null || Number.isNaN(values.amount) || values.amount === null) {
       error = 'Source and amount are required'
-      return
+      return false
     }
     loggingEntry = true
     error = null
     try {
       await createIncomeEntry({
-        incomeSourceId: Number(entrySourceId),
+        incomeSourceId: values.incomeSourceId,
         year: expandedYear,
         month: expandedMonth,
-        amount: entryAmount,
-        receivedOn: entryReceivedOn === '' ? null : entryReceivedOn,
-        note: entryNote.trim() === '' ? null : entryNote.trim(),
+        amount: values.amount,
+        receivedOn: values.receivedOn,
+        note: values.note,
       })
-      entryAmount = NaN
-      entryReceivedOn = ''
-      entryNote = ''
       await refreshEntries()
+      return true
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to log income'
+      return false
     } finally {
       loggingEntry = false
     }
@@ -407,28 +401,21 @@
 
   function startEditEntry(entry: IncomeEntry) {
     editingEntryId = entry.id
-    editEntryAmount = entry.amount
-    editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
-    editEntryNote = entry.note ?? ''
   }
 
   function cancelEditEntry() {
     editingEntryId = null
   }
 
-  async function saveEntryEdit(entry: IncomeEntry) {
-    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
+  async function saveEntryEdit(entry: IncomeEntry, updates: IncomeEntryEditUpdates) {
+    if (Number.isNaN(updates.amount) || updates.amount === null) {
       error = 'Amount is required'
       return
     }
     savingEntryEdit = true
     error = null
     try {
-      await updateIncomeEntry(entry.id, {
-        amount: editEntryAmount,
-        receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
-        note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
-      })
+      await updateIncomeEntry(entry.id, updates)
       editingEntryId = null
       await refreshEntries()
     } catch (err) {
@@ -572,9 +559,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>Income · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Income" />
 
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Income</h1>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -585,11 +570,11 @@
 </p>
 
 {#if error}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+  <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else}
   <div class="mt-6 flex gap-2">
     {#each users as user (user.id)}
@@ -618,9 +603,7 @@
   </div>
 
   {#if selectedUserId !== null}
-    <div
-      class="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    <Card class="mt-6 overflow-x-auto">
       <table class="w-full border-collapse text-sm">
         <thead>
           <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -701,21 +684,16 @@
                   <input type="checkbox" bind:checked={editTaxWithheld} />
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => saveEdit(source)}
+                  <TextActionButton
+                    variant="primary"
                     disabled={savingEdit}
-                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    onclick={() => saveEdit(source)}
                   >
                     Save
-                  </button>
-                  <button
-                    type="button"
-                    onclick={cancelEdit}
-                    class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                  >
+                  </TextActionButton>
+                  <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>
                     Cancel
-                  </button>
+                  </TextActionButton>
                 </td>
               </tr>
             {:else}
@@ -733,20 +711,16 @@
                   {source.taxWithheld ? 'Yes' : 'No'}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => startEdit(source)}
-                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
+                  <TextActionButton variant="neutral" onclick={() => startEdit(source)}>
                     Edit
-                  </button>
-                  <button
-                    type="button"
+                  </TextActionButton>
+                  <TextActionButton
+                    variant="danger"
+                    class="-my-1 ml-1 p-1"
                     onclick={() => handleDelete(source)}
-                    class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                   >
                     Remove
-                  </button>
+                  </TextActionButton>
                 </td>
               </tr>
             {/if}
@@ -762,7 +736,7 @@
           {/each}
         </tbody>
       </table>
-    </div>
+    </Card>
 
     <form
       onsubmit={handleAdd}
@@ -829,13 +803,9 @@
         <input type="checkbox" bind:checked={taxWithheld} />
         Tax withheld (PAYG)
       </label>
-      <button
-        type="submit"
-        disabled={creating}
-        class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-      >
+      <PrimaryButton type="submit" disabled={creating}>
         {creating ? 'Adding…' : 'Add income source'}
-      </button>
+      </PrimaryButton>
     </form>
 
     <div class="mt-8 flex items-center justify-between">
@@ -863,15 +833,13 @@
     </div>
 
     {#if ytdLoading}
-      <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+      <LoadingIndicator class="mt-3" />
     {:else if ytd && ytd.months.length > 0}
       {@const runningTotals = ytd.months.reduce<number[]>((acc, m) => {
         acc.push((acc.at(-1) ?? 0) + m.total)
         return acc
       }, [])}
-      <div
-        class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-      >
+      <Card class="mt-3 overflow-x-auto">
         <table class="w-full border-collapse text-sm">
           <thead>
             <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -964,89 +932,37 @@
                         </thead>
                         <tbody>
                           {#each monthEntries as entry (entry.id)}
+                            {#snippet sourceCell()}
+                              <td class="py-1.5 pr-3 text-slate-700 dark:text-slate-300">
+                                {sourceName(entry.incomeSourceId)}
+                              </td>
+                            {/snippet}
                             {#if editingEntryId === entry.id}
-                              <tr
-                                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
-                              >
-                                <td class="py-1.5 pr-3 text-slate-700 dark:text-slate-300">
-                                  {sourceName(entry.incomeSourceId)}
-                                </td>
-                                <td class="py-1.5 pr-3 text-right">
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    min="0"
-                                    bind:value={editEntryAmount}
-                                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                                  />
-                                </td>
-                                <td class="py-1.5 pr-3">
-                                  <input
-                                    type="date"
-                                    bind:value={editEntryReceivedOn}
-                                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                                  />
-                                </td>
-                                <td class="py-1.5 pr-3">
-                                  <input
-                                    type="text"
-                                    bind:value={editEntryNote}
-                                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                                  />
-                                </td>
-                                <td class="py-1.5 text-right whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onclick={() => saveEntryEdit(entry)}
-                                    disabled={savingEntryEdit}
-                                    class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onclick={cancelEditEntry}
-                                    class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                                  >
-                                    Cancel
-                                  </button>
-                                </td>
-                              </tr>
+                              <IncomeEntryEditRow
+                                initialAmount={entry.amount}
+                                initialReceivedOn={entry.receivedOn
+                                  ? entry.receivedOn.slice(0, 10)
+                                  : ''}
+                                initialNote={entry.note ?? ''}
+                                saving={savingEntryEdit}
+                                cellClass="py-1.5 pr-3"
+                                lastCellClass="py-1.5 text-right whitespace-nowrap"
+                                leading={sourceCell}
+                                onSave={(updates) => saveEntryEdit(entry, updates)}
+                                onCancel={cancelEditEntry}
+                              />
                             {:else}
-                              <tr
-                                class="border-b border-slate-100 last:border-0 dark:border-slate-700/60"
-                              >
-                                <td class="py-1.5 pr-3 text-slate-700 dark:text-slate-300">
-                                  {sourceName(entry.incomeSourceId)}
-                                </td>
-                                <td
-                                  class="py-1.5 pr-3 text-right text-slate-900 dark:text-slate-100"
-                                >
-                                  {formatCurrency(entry.amount)}
-                                </td>
-                                <td class="py-1.5 pr-3 text-slate-500 dark:text-slate-400">
-                                  {formatDate(entry.receivedOn)}
-                                </td>
-                                <td class="py-1.5 pr-3 text-slate-500 dark:text-slate-400"
-                                  >{entry.note ?? '—'}</td
-                                >
-                                <td class="py-1.5 text-right whitespace-nowrap">
-                                  <button
-                                    type="button"
-                                    onclick={() => startEditEntry(entry)}
-                                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onclick={() => handleDeleteEntry(entry)}
-                                    class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
-                                  >
-                                    Remove
-                                  </button>
-                                </td>
-                              </tr>
+                              <IncomeEntryDisplayRow
+                                amount={entry.amount}
+                                receivedOn={entry.receivedOn}
+                                note={entry.note}
+                                cellClass="py-1.5 pr-3"
+                                lastCellClass="py-1.5 text-right whitespace-nowrap"
+                                amountValueClass="text-slate-900 dark:text-slate-100"
+                                leading={sourceCell}
+                                onEdit={() => startEditEntry(entry)}
+                                onRemove={() => handleDeleteEntry(entry)}
+                              />
                             {/if}
                           {:else}
                             <tr>
@@ -1063,61 +979,12 @@
                           {/each}
                         </tbody>
                       </table>
-                      <form onsubmit={handleAddEntry} class="mt-3 flex flex-wrap items-end gap-3">
-                        <label class="flex flex-col gap-1">
-                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-                            >Source</span
-                          >
-                          <select
-                            bind:value={entrySourceId}
-                            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          >
-                            {#each visibleSources as source (source.id)}
-                              <option value={source.id}>{source.name}</option>
-                            {/each}
-                          </select>
-                        </label>
-                        <label class="flex flex-col gap-1">
-                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-                            >Amount</span
-                          >
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            bind:value={entryAmount}
-                            class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          />
-                        </label>
-                        <label class="flex flex-col gap-1">
-                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-                            >Received on</span
-                          >
-                          <input
-                            type="date"
-                            bind:value={entryReceivedOn}
-                            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          />
-                        </label>
-                        <label class="flex flex-col gap-1">
-                          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-                            >Note</span
-                          >
-                          <input
-                            type="text"
-                            placeholder="optional"
-                            bind:value={entryNote}
-                            class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          />
-                        </label>
-                        <button
-                          type="submit"
-                          disabled={loggingEntry || visibleSources.length === 0}
-                          class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-                        >
-                          {loggingEntry ? 'Logging…' : 'Log income'}
-                        </button>
-                      </form>
+                      <IncomeEntryForm
+                        sources={visibleSources}
+                        submitting={loggingEntry}
+                        class="mt-3 flex flex-wrap items-end gap-3"
+                        onSubmit={handleAddEntry}
+                      />
                     {/if}
                   </td>
                 </tr>
@@ -1136,7 +1003,7 @@
             </tr>
           </tfoot>
         </table>
-      </div>
+      </Card>
     {:else}
       <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">
         No data yet for {financialYearLabel(selectedFinancialYear)}.
@@ -1166,14 +1033,9 @@
           class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       </label>
-      <button
-        type="button"
-        onclick={saveMarginalRate}
-        disabled={savingMarginalRate}
-        class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-      >
+      <PrimaryButton onclick={saveMarginalRate} disabled={savingMarginalRate}>
         {savingMarginalRate ? 'Saving…' : 'Save rate'}
-      </button>
+      </PrimaryButton>
       {#if savedMarginalRate === null}
         <span class="pb-1.5 text-xs text-slate-400 dark:text-slate-500">
           No rate set for {financialYearLabel(selectedFinancialYear)} yet - Tax/Gain will show as "—"
@@ -1183,11 +1045,9 @@
     </div>
 
     {#if nonPaygLoading}
-      <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+      <LoadingIndicator class="mt-3" />
     {:else}
-      <div
-        class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-      >
+      <Card class="mt-3 overflow-x-auto">
         <table class="w-full border-collapse text-sm">
           <thead>
             <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -1247,21 +1107,16 @@
                   <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
                   <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onclick={() => saveItemEdit(item)}
+                    <TextActionButton
+                      variant="primary"
                       disabled={savingItemEdit}
-                      class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                      onclick={() => saveItemEdit(item)}
                     >
                       Save
-                    </button>
-                    <button
-                      type="button"
-                      onclick={cancelEditItem}
-                      class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                    >
+                    </TextActionButton>
+                    <TextActionButton variant="cancel" class="ml-2" onclick={cancelEditItem}>
                       Cancel
-                    </button>
+                    </TextActionButton>
                   </td>
                 </tr>
               {:else}
@@ -1285,20 +1140,16 @@
                     {formatCurrency(computeItemGain(item))}
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onclick={() => startEditItem(item)}
-                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                    >
+                    <TextActionButton variant="neutral" onclick={() => startEditItem(item)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="danger"
+                      class="-my-1 ml-1 p-1"
                       onclick={() => handleDeleteItem(item)}
-                      class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                     >
                       Remove
-                    </button>
+                    </TextActionButton>
                   </td>
                 </tr>
               {/if}
@@ -1330,7 +1181,7 @@
             </tr>
           </tfoot>
         </table>
-      </div>
+      </Card>
 
       <form
         onsubmit={handleAddItem}
@@ -1367,13 +1218,9 @@
           <input type="checkbox" bind:checked={itemTaxWithheld} />
           Tax withheld
         </label>
-        <button
-          type="submit"
-          disabled={addingItem}
-          class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-        >
+        <PrimaryButton type="submit" disabled={addingItem}>
           {addingItem ? 'Adding…' : 'Add item'}
-        </button>
+        </PrimaryButton>
       </form>
     {/if}
   {/if}

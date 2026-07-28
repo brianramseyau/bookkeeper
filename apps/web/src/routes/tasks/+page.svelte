@@ -19,6 +19,13 @@
   } from '$lib/api/notification-schedule'
   import { formatDateTime, formatFileSize } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import SuccessMessage from '$lib/components/SuccessMessage.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
 
   const INTERVAL_OPTIONS = [
     { value: 6, label: 'Every 6 hours' },
@@ -175,9 +182,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>Tasks · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Tasks" />
 
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Tasks</h1>
 
@@ -188,14 +193,14 @@
 </p>
 
 {#if settingsError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{settingsError}</p>
+  <ErrorMessage message={settingsError} />
 {/if}
 {#if settingsSaved}
-  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Saved.</p>
+  <SuccessMessage message="Saved." />
 {/if}
 
 {#if settingsLoading}
-  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator class="mt-3" />
 {:else}
   <form
     onsubmit={handleSaveSettings}
@@ -230,13 +235,9 @@
         class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <button
-      type="submit"
-      disabled={savingSettings}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" disabled={savingSettings}>
       {savingSettings ? 'Saving…' : 'Save'}
-    </button>
+    </PrimaryButton>
     {#if settings?.lastRunAt}
       <span class="text-xs text-slate-400 dark:text-slate-500">
         Last backup: {formatDateTime(settings.lastRunAt)}
@@ -248,28 +249,21 @@
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Backups</h2>
 
 {#if backupsError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{backupsError}</p>
+  <ErrorMessage message={backupsError} />
 {/if}
 
 <div class="mt-3">
-  <button
-    type="button"
-    onclick={handleBackupNow}
-    disabled={creatingBackup}
-    class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-  >
+  <PrimaryButton onclick={handleBackupNow} disabled={creatingBackup}>
     {creatingBackup ? 'Backing up…' : 'Backup now'}
-  </button>
+  </PrimaryButton>
 </div>
 
 {#if backupsLoading}
-  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator class="mt-3" />
 {:else if backups.length === 0}
   <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">No backups yet</p>
 {:else}
-  <div
-    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mt-3 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <tbody>
         {#each backups as backup (backup.filename)}
@@ -287,20 +281,20 @@
               >
                 Download
               </a>
-              <button
-                type="button"
-                onclick={() => handleDeleteBackup(backup)}
+              <TextActionButton
+                variant="danger"
+                class="-my-1 ml-2 p-1"
                 disabled={deletingFilename === backup.filename}
-                class="-my-1 ml-2 p-1 text-xs text-slate-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-600 dark:hover:text-red-400"
+                onclick={() => handleDeleteBackup(backup)}
               >
                 Delete
-              </button>
+              </TextActionButton>
             </td>
           </tr>
         {/each}
       </tbody>
     </table>
-  </div>
+  </Card>
 {/if}
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Export</h2>
@@ -309,27 +303,20 @@
   use Backups above for the recommended way to back up the whole app.
 </p>
 
-<div
-  class="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
->
+<Card class="mt-3 p-4">
   <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Everything, as JSON</h3>
   <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
     A single file with every table, useful for a full backup or import into another tool.
   </p>
-  <a
-    href="/api/export/json"
-    class="mt-3 inline-flex items-center gap-1 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-  >
+  <PrimaryButton href="/api/export/json" size="lg" class="mt-3 inline-flex items-center gap-1">
     Download JSON
-  </a>
-</div>
+  </PrimaryButton>
+</Card>
 
 <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-slate-100">
   Individual tables, as CSV
 </h3>
-<div
-  class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
->
+<Card class="mt-3 overflow-x-auto">
   <table class="w-full border-collapse text-sm">
     <tbody>
       {#each EXPORT_TABLES as table (table.key)}
@@ -347,7 +334,7 @@
       {/each}
     </tbody>
   </table>
-</div>
+</Card>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Notification schedule</h2>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
@@ -357,14 +344,14 @@
 </p>
 
 {#if notificationScheduleError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{notificationScheduleError}</p>
+  <ErrorMessage message={notificationScheduleError} />
 {/if}
 {#if notificationScheduleSaved}
-  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Saved.</p>
+  <SuccessMessage message="Saved." />
 {/if}
 
 {#if notificationScheduleLoading}
-  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator class="mt-3" />
 {:else}
   <form
     onsubmit={handleSaveNotificationSchedule}
@@ -381,13 +368,9 @@
         {/each}
       </select>
     </label>
-    <button
-      type="submit"
-      disabled={savingNotificationSchedule}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" disabled={savingNotificationSchedule}>
       {savingNotificationSchedule ? 'Saving…' : 'Save'}
-    </button>
+    </PrimaryButton>
     {#if notificationSchedule?.lastRunAt}
       <span class="text-xs text-slate-400 dark:text-slate-500">
         Last check: {formatDateTime(notificationSchedule.lastRunAt)}

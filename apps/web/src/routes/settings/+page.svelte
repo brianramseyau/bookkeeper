@@ -16,6 +16,13 @@
   } from '$lib/api/push-subscriptions'
   import { formatDateTime } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import SuccessMessage from '$lib/components/SuccessMessage.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
 
   let displayColor = $state(authState.user?.displayColor ?? '#4f46e5')
   let colorError = $state<string | null>(null)
@@ -226,9 +233,7 @@
   }
 </script>
 
-<svelte:head>
-  <title>Settings · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Settings" />
 
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Settings</h1>
 
@@ -238,10 +243,10 @@
 </p>
 
 {#if colorError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{colorError}</p>
+  <ErrorMessage message={colorError} />
 {/if}
 {#if colorSuccess}
-  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Saved.</p>
+  <SuccessMessage message="Saved." />
 {/if}
 
 <form
@@ -256,23 +261,19 @@
       class="h-9 w-16 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
     />
   </label>
-  <button
-    type="submit"
-    disabled={savingColor}
-    class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-  >
+  <PrimaryButton type="submit" disabled={savingColor}>
     {savingColor ? 'Saving…' : 'Save'}
-  </button>
+  </PrimaryButton>
 </form>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Email address</h2>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Used to log in.</p>
 
 {#if emailError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{emailError}</p>
+  <ErrorMessage message={emailError} />
 {/if}
 {#if emailSuccess}
-  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Email updated.</p>
+  <SuccessMessage message="Email updated." />
 {/if}
 
 <form
@@ -297,22 +298,18 @@
       class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     />
   </label>
-  <button
-    type="submit"
-    disabled={savingEmail}
-    class="self-start rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-  >
+  <PrimaryButton type="submit" disabled={savingEmail} class="self-start">
     {savingEmail ? 'Saving…' : 'Save'}
-  </button>
+  </PrimaryButton>
 </form>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Change password</h2>
 
 {#if passwordError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{passwordError}</p>
+  <ErrorMessage message={passwordError} />
 {/if}
 {#if passwordSuccess}
-  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Password changed.</p>
+  <SuccessMessage message="Password changed." />
 {/if}
 
 <form
@@ -346,13 +343,9 @@
       class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     />
   </label>
-  <button
-    type="submit"
-    disabled={savingPassword}
-    class="self-start rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-  >
+  <PrimaryButton type="submit" disabled={savingPassword} class="self-start">
     {savingPassword ? 'Saving…' : 'Change password'}
-  </button>
+  </PrimaryButton>
 </form>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Notifications</h2>
@@ -363,14 +356,14 @@
 </p>
 
 {#if preferencesError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{preferencesError}</p>
+  <ErrorMessage message={preferencesError} />
 {/if}
 {#if preferencesSaved}
-  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Saved.</p>
+  <SuccessMessage message="Saved." />
 {/if}
 
 {#if preferencesLoading}
-  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator class="mt-3" />
 {:else}
   <form
     onsubmit={handleSavePreferences}
@@ -423,13 +416,9 @@
         <span class="text-sm text-slate-900 dark:text-slate-100">Subscriptions</span>
       </label>
     </div>
-    <button
-      type="submit"
-      disabled={savingPreferences}
-      class="self-start rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" disabled={savingPreferences} class="self-start">
       {savingPreferences ? 'Saving…' : 'Save'}
-    </button>
+    </PrimaryButton>
   </form>
 {/if}
 
@@ -444,12 +433,7 @@
   </p>
 {:else}
   <div class="mt-3 flex flex-wrap items-center gap-3">
-    <button
-      type="button"
-      onclick={handleToggleDevice}
-      disabled={togglingDevice}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton onclick={handleToggleDevice} disabled={togglingDevice}>
       {#if togglingDevice}
         Working…
       {:else if pushState.subscribed}
@@ -457,7 +441,7 @@
       {:else}
         Enable on this device
       {/if}
-    </button>
+    </PrimaryButton>
     <button
       type="button"
       onclick={handleSendTest}
@@ -473,17 +457,15 @@
   <p class="mt-3 text-sm text-slate-500 dark:text-slate-400">{testMessage}</p>
 {/if}
 {#if devicesError}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{devicesError}</p>
+  <ErrorMessage message={devicesError} />
 {/if}
 
 {#if devicesLoading}
-  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator class="mt-3" />
 {:else if devices.length === 0}
   <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">No devices registered yet</p>
 {:else}
-  <div
-    class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mt-3 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <tbody>
         {#each devices as device (device.id)}
@@ -495,18 +477,18 @@
               {formatDateTime(device.createdAt)}
             </td>
             <td class="px-3 py-2 text-right">
-              <button
-                type="button"
-                onclick={() => handleDeleteDevice(device)}
+              <TextActionButton
+                variant="danger"
+                class="-m-1 p-1"
                 disabled={deletingDeviceId === device.id}
-                class="-m-1 p-1 text-xs text-slate-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-600 dark:hover:text-red-400"
+                onclick={() => handleDeleteDevice(device)}
               >
                 Remove
-              </button>
+              </TextActionButton>
             </td>
           </tr>
         {/each}
       </tbody>
     </table>
-  </div>
+  </Card>
 {/if}

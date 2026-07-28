@@ -20,6 +20,12 @@
   } from '$lib/api/category-budget-items'
   import { formatCurrency, formatDate } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import TrendIndicator from '$lib/components/TrendIndicator.svelte'
 
   const categoryId = Number(page.params.categoryId)
 
@@ -231,14 +237,14 @@
 </a>
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else if !category}
-  <p class="mt-6 text-sm text-red-600 dark:text-red-400">Category not found.</p>
+  <ErrorMessage message="Category not found." class="mt-6" />
 {:else}
   <h1 class="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">{category.name}</h1>
 
   {#if error}
-    <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+    <ErrorMessage message={error} />
   {/if}
 
   <div class="mt-4 mb-6 flex flex-wrap gap-8">
@@ -265,13 +271,7 @@
     <div>
       <span class="block text-xs text-slate-400 dark:text-slate-500">Trend</span>
       <span class="block text-xl font-semibold">
-        {#if trend?.trend === 'up'}
-          <span class="text-red-600 dark:text-red-400">▲ up</span>
-        {:else if trend?.trend === 'down'}
-          <span class="text-emerald-600 dark:text-emerald-400">▼ down</span>
-        {:else}
-          <span class="text-slate-400 dark:text-slate-500">— flat</span>
-        {/if}
+        <TrendIndicator trend={trend?.trend ?? 'flat'} class="" />
       </span>
     </div>
   </div>
@@ -291,9 +291,7 @@
     </p>
   {/if}
 
-  <div
-    class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -327,21 +325,16 @@
                 />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => saveItemEdit(item)}
+                <TextActionButton
+                  variant="primary"
                   disabled={savingItemEdit}
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  onclick={() => saveItemEdit(item)}
                 >
                   Save
-                </button>
-                <button
-                  type="button"
-                  onclick={cancelEditItem}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
+                </TextActionButton>
+                <TextActionButton variant="cancel" class="ml-2" onclick={cancelEditItem}>
                   Cancel
-                </button>
+                </TextActionButton>
               </td>
             </tr>
           {:else}
@@ -351,20 +344,16 @@
                 {formatCurrency(item.amount)}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => startEditItem(item)}
-                  class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
+                <TextActionButton variant="neutral" onclick={() => startEditItem(item)}>
                   Edit
-                </button>
-                <button
-                  type="button"
+                </TextActionButton>
+                <TextActionButton
+                  variant="danger"
+                  class="-my-1 ml-1 p-1"
                   onclick={() => handleDeleteItem(item)}
-                  class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                 >
                   Remove
-                </button>
+                </TextActionButton>
               </td>
             </tr>
           {/if}
@@ -391,7 +380,7 @@
         </tfoot>
       {/if}
     </table>
-  </div>
+  </Card>
 
   <form
     onsubmit={handleAddItem}
@@ -416,21 +405,15 @@
         class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <button
-      type="submit"
-      disabled={creatingItem}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" disabled={creatingItem}>
       {creatingItem ? 'Adding…' : 'Add item'}
-    </button>
+    </PrimaryButton>
   </form>
 
   <h2 class="mt-8 mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
     Monthly actuals
   </h2>
-  <div
-    class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -473,21 +456,16 @@
                 />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => saveEdit(actual)}
+                <TextActionButton
+                  variant="primary"
                   disabled={savingEdit}
-                  class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  onclick={() => saveEdit(actual)}
                 >
                   Save
-                </button>
-                <button
-                  type="button"
-                  onclick={cancelEdit}
-                  class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-                >
+                </TextActionButton>
+                <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>
                   Cancel
-                </button>
+                </TextActionButton>
               </td>
             </tr>
           {:else}
@@ -500,20 +478,16 @@
               </td>
               <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{actual.notes ?? ''}</td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => startEdit(actual)}
-                  class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
+                <TextActionButton variant="neutral" onclick={() => startEdit(actual)}>
                   Edit
-                </button>
-                <button
-                  type="button"
+                </TextActionButton>
+                <TextActionButton
+                  variant="danger"
+                  class="-my-1 ml-1 p-1"
                   onclick={() => handleDelete(actual)}
-                  class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                 >
                   Remove
-                </button>
+                </TextActionButton>
               </td>
             </tr>
           {/if}
@@ -529,7 +503,7 @@
         {/each}
       </tbody>
     </table>
-  </div>
+  </Card>
 
   <form
     onsubmit={handleAdd}
@@ -562,12 +536,8 @@
         class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <button
-      type="submit"
-      disabled={creating}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" disabled={creating}>
       {creating ? 'Adding…' : 'Add entry'}
-    </button>
+    </PrimaryButton>
   </form>
 {/if}

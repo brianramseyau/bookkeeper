@@ -2,6 +2,10 @@
   import { goto } from '$app/navigation'
   import { login } from '$lib/stores/auth.svelte'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
 
   let email = $state('')
   let password = $state('')
@@ -23,14 +27,10 @@
   }
 </script>
 
-<svelte:head>
-  <title>Log in · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Log in" />
 
 <div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-900">
-  <div
-    class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="w-full max-w-sm p-8">
     <h1 class="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</h1>
     <form onsubmit={handleSubmit} class="flex flex-col gap-4">
       <label class="flex flex-col gap-1">
@@ -54,15 +54,11 @@
         />
       </label>
       {#if error}
-        <p class="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <ErrorMessage message={error} class="" />
       {/if}
-      <button
-        type="submit"
-        disabled={submitting}
-        class="mt-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-      >
+      <PrimaryButton type="submit" size="lg" disabled={submitting} class="mt-2">
         {submitting ? 'Signing in…' : 'Sign in'}
-      </button>
+      </PrimaryButton>
     </form>
-  </div>
+  </Card>
 </div>

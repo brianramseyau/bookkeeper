@@ -7,6 +7,10 @@
   import { ApiError } from '$lib/api'
   import Sparkline from '$lib/components/Sparkline.svelte'
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
 
   let data = $state<DashboardSummary | null>(null)
   let loading = $state(true)
@@ -23,25 +27,21 @@
   })
 </script>
 
-<svelte:head>
-  <title>Dashboard · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Dashboard" />
 
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">
   Welcome, {authState.user?.fullName ?? authState.user?.email}
 </h1>
 
 {#if error}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+  <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else if data}
   <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    <Card class="p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
         {monthName(data.currentMonth.month)} projected net
       </p>
@@ -55,10 +55,8 @@
       >
         {formatCurrency(data.currentMonth.projectedNet)}
       </p>
-    </div>
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    </Card>
+    <Card class="p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Actual net so far</p>
       <p
         class={[
@@ -76,10 +74,8 @@
       >
         View monthly →
       </a>
-    </div>
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    </Card>
+    <Card class="p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Next bill due</p>
       {#if data.upcomingBills.length > 0}
         {@const next = data.upcomingBills[0]!}
@@ -92,13 +88,11 @@
       {:else}
         <p class="mt-1 text-sm text-slate-400 dark:text-slate-500">Nothing scheduled</p>
       {/if}
-    </div>
+    </Card>
   </div>
 
   <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2 dark:border-slate-800 dark:bg-slate-800"
-    >
+    <Card class="p-4 lg:col-span-2">
       <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
         Monthly expenses (last 12 months)
       </h2>
@@ -108,11 +102,9 @@
           onSelectMonth={(year, month) => goto(`/month?year=${year}&month=${month}`)}
         />
       </div>
-    </div>
+    </Card>
 
-    <div
-      class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
+    <Card class="p-4">
       <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Upcoming bills</h2>
       {#if data.upcomingBills.length === 0}
         <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Nothing scheduled.</p>
@@ -148,16 +140,16 @@
       >
         View all recurring bills →
       </a>
-    </div>
+    </Card>
   </div>
 
   {#if data.utilities.length > 0}
     <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Utilities</h2>
     <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {#each data.utilities as utility (utility.id)}
-        <a
+        <Card
           href="/utilities/{utility.id}"
-          class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-indigo-700"
+          class="p-4 transition-colors hover:border-indigo-300 dark:hover:border-indigo-700"
         >
           <div class="flex items-center justify-between">
             <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">{utility.name}</p>
@@ -169,7 +161,7 @@
           <p class="text-xs text-slate-500 dark:text-slate-400">
             12-mo avg: {formatCurrency(utility.average)}
           </p>
-        </a>
+        </Card>
       {/each}
     </div>
   {/if}

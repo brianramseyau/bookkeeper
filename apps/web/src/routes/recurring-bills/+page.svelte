@@ -12,6 +12,14 @@
   import { listCategories, type Category } from '$lib/api/categories'
   import { formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import CategorySelect from '$lib/components/CategorySelect.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PageHead from '$lib/components/PageHead.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import StatusBadge from '$lib/components/StatusBadge.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
 
   const FREQUENCIES: { value: RecurringBillFrequency; label: string }[] = [
     { value: 'monthly', label: 'Monthly' },
@@ -271,16 +279,12 @@
       />
     </td>
     <td class="px-3 py-2">
-      <select
-        value={bill.categoryId ?? ''}
-        onchange={(e) => handleCategoryChange(bill, e.currentTarget.value)}
-        class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-      >
-        <option value="">Uncategorized</option>
-        {#each categories as category (category.id)}
-          <option value={category.id}>{category.name}</option>
-        {/each}
-      </select>
+      <CategorySelect
+        {categories}
+        value={bill.categoryId}
+        onchange={(value) => handleCategoryChange(bill, value)}
+        variant="table"
+      />
     </td>
     <td class="px-3 py-2 text-right">
       <input
@@ -330,41 +334,15 @@
     </td>
     <td class="px-3 py-2"></td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
-      <button
-        type="button"
-        onclick={() => saveEdit(bill)}
-        disabled={savingEdit}
-        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-      >
+      <TextActionButton variant="primary" disabled={savingEdit} onclick={() => saveEdit(bill)}>
         Save
-      </button>
-      <button
-        type="button"
-        onclick={cancelEdit}
-        class="ml-2 text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-      >
-        Cancel
-      </button>
+      </TextActionButton>
+      <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>Cancel</TextActionButton>
     </td>
   </tr>
 {/snippet}
 
-{#snippet statusBadge(label: string, tone: 'amber' | 'slate')}
-  <span
-    class={[
-      'ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase',
-      tone === 'amber'
-        ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-        : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-    ]}
-  >
-    {label}
-  </span>
-{/snippet}
-
-<svelte:head>
-  <title>Bills · Bookkeeper</title>
-</svelte:head>
+<PageHead title="Bills" />
 
 <div class="flex items-center justify-between">
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Bills</h1>
@@ -378,15 +356,13 @@
 </div>
 
 {#if error}
-  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+  <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else}
-  <div
-    class="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mt-6 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -428,16 +404,12 @@
                 <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{bill.name}</td
                 >
                 <td class="px-3 py-2">
-                  <select
-                    value={bill.categoryId ?? ''}
-                    onchange={(e) => handleCategoryChange(bill, e.currentTarget.value)}
-                    class="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                  >
-                    <option value="">Uncategorized</option>
-                    {#each categories as category (category.id)}
-                      <option value={category.id}>{category.name}</option>
-                    {/each}
-                  </select>
+                  <CategorySelect
+                    {categories}
+                    value={bill.categoryId}
+                    onchange={(value) => handleCategoryChange(bill, value)}
+                    variant="table"
+                  />
                 </td>
                 <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
                   {formatCurrency(bill.amount)}
@@ -465,27 +437,19 @@
                   {/if}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => startEdit(bill)}
-                    class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
+                  <TextActionButton variant="neutral" onclick={() => startEdit(bill)}>
                     Edit
-                  </button>
-                  <button
-                    type="button"
-                    onclick={() => handlePause(bill)}
-                    class="ml-2 text-xs text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
-                  >
+                  </TextActionButton>
+                  <TextActionButton variant="amber" class="ml-2" onclick={() => handlePause(bill)}>
                     Pause
-                  </button>
-                  <button
-                    type="button"
+                  </TextActionButton>
+                  <TextActionButton
+                    variant="muted"
+                    class="ml-2"
                     onclick={() => handleArchive(bill)}
-                    class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                   >
                     Archive
-                  </button>
+                  </TextActionButton>
                 </td>
               </tr>
             {/if}
@@ -513,7 +477,7 @@
                 >
                   <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
                     {bill.name}
-                    {@render statusBadge('Paused', 'amber')}
+                    <StatusBadge label="Paused" tone="amber" />
                   </td>
                   <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
                     {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
@@ -529,27 +493,23 @@
                   </td>
                   <td class="px-3 py-2"></td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onclick={() => startEdit(bill)}
-                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                    >
+                    <TextActionButton variant="neutral" onclick={() => startEdit(bill)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="success"
+                      class="ml-2"
                       onclick={() => handleUnpause(bill)}
-                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
                     >
                       Unpause
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="muted"
+                      class="ml-2"
                       onclick={() => handleArchive(bill)}
-                      class="ml-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
                     >
                       Archive
-                    </button>
+                    </TextActionButton>
                   </td>
                 </tr>
               {/if}
@@ -576,7 +536,7 @@
                 >
                   <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
                     {bill.name}
-                    {@render statusBadge('Archived', 'slate')}
+                    <StatusBadge label="Archived" tone="slate" />
                   </td>
                   <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
                     {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
@@ -592,27 +552,23 @@
                   </td>
                   <td class="px-3 py-2"></td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      onclick={() => startEdit(bill)}
-                      class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-                    >
+                    <TextActionButton variant="neutral" onclick={() => startEdit(bill)}>
                       Edit
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="success"
+                      class="ml-2"
                       onclick={() => handleUnarchive(bill)}
-                      class="ml-2 text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
                     >
                       Unarchive
-                    </button>
-                    <button
-                      type="button"
+                    </TextActionButton>
+                    <TextActionButton
+                      variant="danger"
+                      class="-my-1 ml-1 p-1"
                       onclick={() => handleDelete(bill)}
-                      class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                     >
                       Remove
-                    </button>
+                    </TextActionButton>
                   </td>
                 </tr>
               {/if}
@@ -636,7 +592,7 @@
               >
                 <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
                   {bill.name}
-                  {@render statusBadge('Removed', 'slate')}
+                  <StatusBadge label="Removed" tone="slate" />
                 </td>
                 <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
                   {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
@@ -652,13 +608,9 @@
                 </td>
                 <td class="px-3 py-2"></td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => handleRestore(bill)}
-                    class="text-xs text-slate-400 hover:text-emerald-600 dark:text-slate-500 dark:hover:text-emerald-400"
-                  >
+                  <TextActionButton variant="success" onclick={() => handleRestore(bill)}>
                     Restore
-                  </button>
+                  </TextActionButton>
                 </td>
               </tr>
             {/each}
@@ -666,7 +618,7 @@
         {/if}
       </tbody>
     </table>
-  </div>
+  </Card>
 
   <form
     onsubmit={handleAdd}
@@ -683,15 +635,7 @@
     </label>
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Category</span>
-      <select
-        bind:value={categoryId}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      >
-        <option value="">Uncategorized</option>
-        {#each categories as category (category.id)}
-          <option value={category.id}>{category.name}</option>
-        {/each}
-      </select>
+      <CategorySelect {categories} value={categoryId} onchange={(v) => (categoryId = v)} />
     </label>
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
@@ -744,12 +688,8 @@
         class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <button
-      type="submit"
-      disabled={creating}
-      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-    >
+    <PrimaryButton type="submit" disabled={creating}>
       {creating ? 'Adding…' : 'Add bill'}
-    </button>
+    </PrimaryButton>
   </form>
 {/if}

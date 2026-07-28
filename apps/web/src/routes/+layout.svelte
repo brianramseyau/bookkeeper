@@ -5,8 +5,10 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte'
-  import { themeState, toggleTheme } from '$lib/stores/theme.svelte'
   import { registerServiceWorker } from '$lib/stores/push.svelte'
+  import ThemeToggleButton from '$lib/components/ThemeToggleButton.svelte'
+  import SettingsLink from '$lib/components/SettingsLink.svelte'
+  import LogoutButton from '$lib/components/LogoutButton.svelte'
 
   let { children } = $props()
 
@@ -87,81 +89,9 @@
         <div class="flex-1"></div>
 
         <div class="hidden items-center gap-3 lg:flex">
-          <button
-            onclick={toggleTheme}
-            aria-label="Toggle dark mode"
-            class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-          >
-            {#if themeState.current === 'dark'}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                class="size-5"
-              >
-                <path
-                  d="M10 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 2ZM10 15a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 15ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM15.657 5.404a.75.75 0 1 0-1.06-1.06l-1.061 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM6.464 14.596a.75.75 0 1 0-1.06-1.06l-1.06 1.06a.75.75 0 1 0 1.06 1.06l1.06-1.06ZM18 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 18 10ZM5 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 5 10ZM14.596 15.657a.75.75 0 0 0 1.06-1.06l-1.06-1.061a.75.75 0 1 0-1.06 1.06l1.06 1.06ZM5.404 6.464a.75.75 0 0 0 1.06-1.06l-1.06-1.06a.75.75 0 1 0-1.061 1.06l1.06 1.06Z"
-                />
-              </svg>
-            {:else}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                class="size-5"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M17.293 13.293A8 8 0 0 1 6.707 2.707a8.001 8.001 0 1 0 10.586 10.586Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            {/if}
-          </button>
-          <a
-            href="/settings"
-            aria-label="Settings for {authState.user.fullName ?? authState.user.email}"
-            title={authState.user.fullName ?? authState.user.email}
-            class="rounded-md p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-            style="color: {authState.user.displayColor ?? '#94a3b8'}"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="size-5"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.75-9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 15.85A8.001 8.001 0 0 1 10 12a8.001 8.001 0 0 1 5.499 3.85A7.966 7.966 0 0 1 10 18a7.966 7.966 0 0 1-5.499-2.15Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </a>
-          <button
-            onclick={handleLogout}
-            aria-label="Log out"
-            title="Log out"
-            class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="size-5"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z"
-                clip-rule="evenodd"
-              />
-              <path
-                fill-rule="evenodd"
-                d="M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          </button>
+          <ThemeToggleButton />
+          <SettingsLink user={authState.user} />
+          <LogoutButton onLogout={handleLogout} />
         </div>
 
         <button
@@ -216,82 +146,10 @@
             class="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 dark:border-slate-800"
           >
             <div class="flex items-center gap-3">
-              <button
-                onclick={toggleTheme}
-                aria-label="Toggle dark mode"
-                class="rounded-md p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-              >
-                {#if themeState.current === 'dark'}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="size-5"
-                  >
-                    <path
-                      d="M10 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 2ZM10 15a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 15ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM15.657 5.404a.75.75 0 1 0-1.06-1.06l-1.061 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM6.464 14.596a.75.75 0 1 0-1.06-1.06l-1.06 1.06a.75.75 0 1 0 1.06 1.06l1.06-1.06ZM18 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 18 10ZM5 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 5 10ZM14.596 15.657a.75.75 0 0 0 1.06-1.06l-1.06-1.061a.75.75 0 1 0-1.06 1.06l1.06 1.06ZM5.404 6.464a.75.75 0 0 0 1.06-1.06l-1.06-1.06a.75.75 0 1 0-1.061 1.06l1.06 1.06Z"
-                    />
-                  </svg>
-                {:else}
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                    class="size-5"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M17.293 13.293A8 8 0 0 1 6.707 2.707a8.001 8.001 0 1 0 10.586 10.586Z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                {/if}
-              </button>
-              <a
-                href="/settings"
-                aria-label="Settings for {authState.user.fullName ?? authState.user.email}"
-                title={authState.user.fullName ?? authState.user.email}
-                class="rounded-md p-2.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
-                style="color: {authState.user.displayColor ?? '#94a3b8'}"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  class="size-5"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm3.75-9.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 15.85A8.001 8.001 0 0 1 10 12a8.001 8.001 0 0 1 5.499 3.85A7.966 7.966 0 0 1 10 18a7.966 7.966 0 0 1-5.499-2.15Z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
-              </a>
+              <ThemeToggleButton padding="p-2.5" />
+              <SettingsLink user={authState.user} padding="p-2.5" />
             </div>
-            <button
-              onclick={handleLogout}
-              aria-label="Log out"
-              title="Log out"
-              class="rounded-md p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-                class="size-5"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z"
-                  clip-rule="evenodd"
-                />
-                <path
-                  fill-rule="evenodd"
-                  d="M6 10a.75.75 0 0 1 .75-.75h9.546l-1.048-.943a.75.75 0 1 1 1.004-1.114l2.5 2.25a.75.75 0 0 1 0 1.114l-2.5 2.25a.75.75 0 1 1-1.004-1.114l1.048-.943H6.75A.75.75 0 0 1 6 10Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
+            <LogoutButton onLogout={handleLogout} padding="p-2.5" />
           </div>
         </div>
       {/if}

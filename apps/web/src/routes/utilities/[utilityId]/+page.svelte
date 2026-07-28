@@ -16,6 +16,12 @@
   } from '$lib/api/utilities'
   import { formatCurrency, monthShortName } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import Card from '$lib/components/Card.svelte'
+  import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import TrendIndicator from '$lib/components/TrendIndicator.svelte'
 
   function focusOnMount(node: HTMLElement) {
     node.focus()
@@ -195,14 +201,14 @@
 </a>
 
 {#if loading}
-  <p class="mt-6 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+  <LoadingIndicator />
 {:else if !utility}
-  <p class="mt-6 text-sm text-red-600 dark:text-red-400">Utility not found.</p>
+  <ErrorMessage message="Utility not found." class="mt-6" />
 {:else}
   <h1 class="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">{utility.name}</h1>
 
   {#if error}
-    <p class="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>
+    <ErrorMessage message={error} />
   {/if}
 
   {#if trend && trend.latestAmount !== null}
@@ -222,21 +228,13 @@
       <div>
         <span class="block text-xs text-slate-400 dark:text-slate-500">Trend</span>
         <span class="block text-xl font-semibold">
-          {#if trend.trend === 'up'}
-            <span class="text-red-600 dark:text-red-400">▲ up</span>
-          {:else if trend.trend === 'down'}
-            <span class="text-emerald-600 dark:text-emerald-400">▼ down</span>
-          {:else}
-            <span class="text-slate-400 dark:text-slate-500">— flat</span>
-          {/if}
+          <TrendIndicator trend={trend.trend ?? 'flat'} class="" />
         </span>
       </div>
     </div>
   {/if}
 
-  <div
-    class="mb-6 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="mb-6 p-4">
     {#if editingSettings}
       <div class="flex flex-wrap items-end gap-3">
         <label class="flex flex-col gap-1">
@@ -263,14 +261,9 @@
             class="w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </label>
-        <button
-          type="button"
-          onclick={saveSettings}
-          disabled={savingSettings}
-          class="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        <PrimaryButton size="sm" disabled={savingSettings} onclick={saveSettings}
+          >Save</PrimaryButton
         >
-          Save
-        </button>
         <button
           type="button"
           onclick={cancelEditSettings}
@@ -291,13 +284,7 @@
             · no due-date offset set
           {/if}
         </p>
-        <button
-          type="button"
-          onclick={startEditSettings}
-          class="text-xs text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
-        >
-          Edit
-        </button>
+        <TextActionButton variant="neutral" onclick={startEditSettings}>Edit</TextActionButton>
       </div>
       {#if utility.frequency !== 'monthly'}
         <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
@@ -307,11 +294,9 @@
         </p>
       {/if}
     {/if}
-  </div>
+  </Card>
 
-  <div
-    class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800"
-  >
+  <Card class="overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -397,7 +382,7 @@
         {/each}
       </tbody>
     </table>
-  </div>
+  </Card>
 
   <button
     type="button"
