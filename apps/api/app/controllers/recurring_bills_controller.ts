@@ -79,9 +79,7 @@ export default class RecurringBillsController {
       return response.conflict({ message: 'Only archived bills can be permanently removed' })
     }
 
-    // Hard delete - SQLite FK enforcement is off in this app, so the
-    // CASCADE declared in the migration doesn't fire on its own.
-    await RecurringBillPayment.query().where('recurringBillId', bill.id).delete()
+    // Hard delete - the DB's CASCADE FK deletes recurring_bill_payments.
     await bill.delete()
 
     return response.noContent()

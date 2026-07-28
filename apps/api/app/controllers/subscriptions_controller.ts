@@ -57,9 +57,7 @@ export default class SubscriptionsController {
       })
     }
 
-    // Hard delete - SQLite FK enforcement is off in this app, so the
-    // CASCADE declared in the migration doesn't fire on its own.
-    await SubscriptionPayment.query().where('userSubscriptionId', subscription.id).delete()
+    // Hard delete - the DB's CASCADE FK deletes subscription_payments.
     await subscription.delete()
 
     return response.noContent()

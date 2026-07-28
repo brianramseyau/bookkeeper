@@ -42,6 +42,13 @@ gitignored, so each clone starts empty until you run the
 to inspect a copy of the production database locally), set `DB_FILENAME`
 in `apps/api/.env` to an absolute or `tmp`-relative path.
 
+`config/database.ts` turns on `PRAGMA foreign_keys = ON` for every
+connection (via a `pool.afterCreate` hook, since better-sqlite3 defaults it
+off), so the `.onDelete('CASCADE')`/`.onDelete('SET NULL')` declared in the
+migrations is enforced by SQLite itself - hard-delete routes
+(`*_controller.ts#destroy` for archived categories/bills/subscriptions)
+just delete the parent row and let the DB clean up or null out dependents.
+
 Useful scripts (run from the repo root): `pnpm lint`, `pnpm lint:fix`,
 `pnpm typecheck`, `pnpm test`, `pnpm format`, `pnpm build`.
 
@@ -300,18 +307,3 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   figure the household is already comfortable entering by hand.
 - **No notifications/reminders** for upcoming or overdue bills - you have
   to check the Dashboard or Bills page yourself.
-- **SQLite foreign key enforcement is off, so cascade/set-null behavior
-  declared in migrations never actually fires** - `config/database.ts`
-  never runs `PRAGMA foreign_keys = ON` for the `better-sqlite3`
-  connection, so every `.onDelete('CASCADE')`/`.onDelete('SET NULL')` in
-  the migrations is inert schema metadata rather than enforced behavior.
-  The hard-delete paths added for archived categories/bills/subscriptions
-  (`*_controller.ts#destroy`) work around this by manually deleting or
-  nulling out dependent rows in application code before deleting the
-  parent, but that's a per-controller patch, not a fix - any other code
-  path that deletes a row with dependents (or a future migration that adds
-  a new FK) won't get cascade/set-null behavior unless it does the same
-  manual cleanup. Turning on `PRAGMA foreign_keys = ON` (e.g. via a
-  `pool.afterCreate` hook) would make the DB honor what the migrations
-  already declare, but needs testing since previously-silent orphaned-FK
-  states elsewhere could start surfacing as constraint errors.

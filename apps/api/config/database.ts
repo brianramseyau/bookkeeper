@@ -24,6 +24,21 @@ const dbConfig = defineConfig({
        */
       useNullAsDefault: true,
 
+      /**
+       * better-sqlite3 defaults foreign key enforcement to off; without this
+       * the CASCADE/SET NULL behavior declared in the migrations is inert
+       * schema metadata rather than enforced behavior. Set once per pooled
+       * connection (sqlite's pool is min:1/max:1, so this runs once) -
+       * doing it here rather than per-query also means it's never in effect
+       * during a transaction, where SQLite silently ignores pragma changes.
+       */
+      pool: {
+        afterCreate: (conn: { pragma: (sql: string) => void }, done: (err: unknown) => void) => {
+          conn.pragma('foreign_keys = ON')
+          done(null)
+        },
+      },
+
       migrations: {
         /**
          * Sort migration files naturally by filename.

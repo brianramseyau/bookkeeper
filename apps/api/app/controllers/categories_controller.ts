@@ -1,11 +1,7 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import Category from '#models/category'
 import CategoryBudgetItem from '#models/category_budget_item'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
 import CategoryPayment from '#models/category_payment'
-import RecurringBill from '#models/recurring_bill'
-import UserSubscription from '#models/user_subscription'
-import Utility from '#models/utility'
 import CategoryTransformer from '#transformers/category_transformer'
 import CategoryPaymentTransformer from '#transformers/category_payment_transformer'
 import { createCategoryValidator, updateCategoryValidator } from '#validators/category'
@@ -58,15 +54,10 @@ export default class CategoriesController {
       return response.conflict({ message: 'Only archived categories can be permanently removed' })
     }
 
-    // Hard delete - SQLite FK enforcement is off in this app, so the
-    // CASCADE/SET NULL behavior declared in migrations doesn't fire on its
-    // own; clean up dependents explicitly instead of leaving orphans.
-    await CategoryBudgetItem.query().where('categoryId', category.id).delete()
-    await CategoryMonthlyActual.query().where('categoryId', category.id).delete()
-    await RecurringBill.query().where('categoryId', category.id).update({ categoryId: null })
-    await UserSubscription.query().where('categoryId', category.id).update({ categoryId: null })
-    await Utility.query().where('categoryId', category.id).update({ categoryId: null })
-    await CategoryPayment.query().where('categoryId', category.id).delete()
+    // Hard delete - the DB's CASCADE/SET NULL FKs handle dependents
+    // (category_budget_items, category_payments, category_monthly_actuals
+    // are deleted; utilities/recurring_bills/user_subscriptions.categoryId
+    // are set null).
     await category.delete()
 
     return response.noContent()
