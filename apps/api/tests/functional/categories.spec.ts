@@ -73,6 +73,33 @@ test.group('Categories / store', () => {
     assert.equal(response.body().data.name, 'Entertainment')
   })
 
+  test('auto-assigns a color when none is given', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .post('/api/categories')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ name: 'Entertainment' })
+
+    assert.isString(response.body().data.color)
+  })
+
+  test('keeps an explicitly given color instead of auto-assigning one', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .post('/api/categories')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ name: 'Entertainment', color: '#123456' })
+
+    assert.equal(response.body().data.color, '#123456')
+  })
+
   test('auto-assigns the next sortOrder when none is given', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     const last = await Category.query().orderBy('sortOrder', 'desc').firstOrFail()
