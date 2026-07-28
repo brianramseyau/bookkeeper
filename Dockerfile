@@ -26,15 +26,22 @@ RUN npm install --omit=dev --no-audit --no-fund
 # ---- stage 3: runtime ----
 FROM node:24-alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache shadow su-exec
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3333
 ENV LOG_LEVEL=info
 ENV SESSION_DRIVER=cookie
 ENV DB_FILENAME=/app/data/bookkeeper.sqlite3
-COPY --from=api-build --chown=node:node /app/apps/api/build ./
-RUN mkdir -p /app/data && chown node:node /app/data
-USER node
+# Unraid-style: set these to match the host user that should own files under
+# the /app/data volume mount. The container starts as root just long enough
+# to apply them, then drops to that uid/gid to run migrations and the server.
+ENV PUID=1000
+ENV PGID=1000
+COPY --from=api-build /app/apps/api/build ./
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 VOLUME /app/data
 EXPOSE 3333
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["sh", "-c", "node ace migration:run --force && node bin/server.js"]

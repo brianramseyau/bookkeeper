@@ -9,9 +9,6 @@ services:
     volumes:
       # Everything that matters lives in this one SQLite file - back up this
       # directory (e.g. stop the container, copy it) to back up the whole app.
-      # The container runs as uid:gid 1000:1000 (not root) - make sure this
-      # host directory is owned by (or writable by) that uid/gid, e.g.
-      # `chown -R 1000:1000 /mnt/user/appdata/bookkeeper/data`.
       - /mnt/user/appdata/bookkeeper/data:/app/data
     environment:
       NODE_ENV: production
@@ -25,6 +22,13 @@ services:
       APP_URL: http://localhost:3333
       SESSION_DRIVER: cookie
       DB_FILENAME: /app/data/bookkeeper.sqlite3
+      # Match the host user/group that should own the bind-mounted data
+      # directory above. The container starts as root just long enough to
+      # apply these, then drops to this uid/gid to run migrations and the
+      # server. Defaults below (99:100) match unRAID's nobody:users account;
+      # elsewhere, use `id your-user` on the host.
+      PUID: 99
+      PGID: 100
       # Only read once, by the one-time `docker compose exec bookkeeper node
       # ace db:seed` bootstrap step that creates logins from the workbook's
       # "Users" sheet (Name, Email, Password columns) - not used on every

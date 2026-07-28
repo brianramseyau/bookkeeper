@@ -186,6 +186,13 @@ behavior.
 The container runs a single process: AdonisJS serves both the API and the
 pre-built SvelteKit static files, and runs pending migrations on boot.
 
+**Runs as non-root.** The container starts as root just long enough to
+remap its built-in "node" user to the `PUID`/`PGID` env vars in
+`docker-compose.yml` (default `99:100`, matching unRAID's `nobody:users`)
+and `chown` the data directory, then drops to that uid/gid to run
+migrations and the server - set `PUID`/`PGID` to `id your-user` on the host
+if you're not on unRAID.
+
 ### Reverse-proxy auto-login (Authentik)
 
 If you already front the container with an

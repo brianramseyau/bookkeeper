@@ -16,7 +16,9 @@ procedures, and the list of permanent non-goals / deferred work.
 ## Courtesy
 
 The end user checks all changes after being made and before committing,
-always ask before committing and pushing.
+always ask before committing and pushing. This applies to every commit and
+every push, not just the first one in a session — do not chain follow-up
+commits/pushes onto an earlier approval without asking again.
 The local dev server should always be left running after work is completed
 and if it is required to be turned off for a change, it should be returned
 to running again at the end of the session.
