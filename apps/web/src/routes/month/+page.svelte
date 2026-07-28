@@ -827,10 +827,10 @@
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th
+          >
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
             >Source</th
-          >
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th
           >
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Projected</th
@@ -848,6 +848,11 @@
           <tr
             class="border-b border-slate-100 bg-slate-50 last:border-0 dark:border-slate-700/60 dark:bg-slate-800/60"
           >
+            <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+              {line.userId !== null
+                ? (users.find((u) => u.id === line.userId)?.fullName ?? '—')
+                : '—'}
+            </td>
             <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
               {line.label}
               {#if line.payDates.length > 0}
@@ -857,11 +862,6 @@
                     : ''}{line.payDates.map((d) => formatDate(d)).join(', ')}
                 </span>
               {/if}
-            </td>
-            <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
-              {line.userId !== null
-                ? (users.find((u) => u.id === line.userId)?.fullName ?? '—')
-                : '—'}
             </td>
             <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
               >{formatCurrency(line.projected)}</td
@@ -909,9 +909,7 @@
                 <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
                   {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
                 </td>
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
-                  {entry.taxWithheld ? 'Withheld' : 'Not withheld'}
-                </td>
+                <td class="px-3 py-2"></td>
                 <td class="px-3 py-2"></td>
               {:else}
                 <td class="px-3 py-2" colspan="3"></td>

@@ -35,20 +35,36 @@
     return sources[0]?.id !== undefined ? String(sources[0].id) : ''
   }
 
-  let sourceId = $state(defaultSourceId())
   let userId = $state('')
+  let sourceId = $state(defaultSourceId())
   let amount = $state<number>(NaN)
   let receivedOn = $state('')
   let note = $state('')
   let taxWithheld = $state(false)
 
+  // Once a person is picked, the Source dropdown narrows to that person's own
+  // sources - showing every household member's sources in one list let you
+  // attribute an entry to the wrong person's source with nothing to catch it.
+  // Until a person is chosen there's nothing to scope the list to, so it's
+  // just "Unattributed".
+  const availableSources = $derived(
+    allowUnattributed ? sources.filter((s) => s.userId === Number(userId)) : sources
+  )
+
   function reset() {
-    sourceId = defaultSourceId()
     userId = ''
+    sourceId = defaultSourceId()
     amount = NaN
     receivedOn = ''
     note = ''
     taxWithheld = false
+  }
+
+  // Changing person invalidates whatever source was picked for the previous
+  // person - reset to Unattributed rather than silently keeping a now-hidden
+  // selection.
+  function handlePersonChange() {
+    sourceId = ''
   }
 
   async function handleSubmit(event: SubmitEvent) {
@@ -67,6 +83,21 @@
 </script>
 
 <form onsubmit={handleSubmit} class={className}>
+  {#if allowUnattributed}
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
+      <select
+        bind:value={userId}
+        onchange={handlePersonChange}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      >
+        <option value="">Select person</option>
+        {#each users as u (u.id)}
+          <option value={u.id}>{u.fullName ?? u.email}</option>
+        {/each}
+      </select>
+    </label>
+  {/if}
   <label class="flex flex-col gap-1">
     <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
     <select
@@ -76,24 +107,12 @@
       {#if allowUnattributed}
         <option value="">Unattributed</option>
       {/if}
-      {#each sources as source (source.id)}
+      {#each availableSources as source (source.id)}
         <option value={source.id}>{source.name}</option>
       {/each}
     </select>
   </label>
   {#if allowUnattributed && sourceId === ''}
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
-      <select
-        bind:value={userId}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      >
-        <option value="">Select person</option>
-        {#each users as u (u.id)}
-          <option value={u.id}>{u.fullName ?? u.email}</option>
-        {/each}
-      </select>
-    </label>
     <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
       <input type="checkbox" bind:checked={taxWithheld} />
       Tax withheld

@@ -494,6 +494,7 @@ describe('month page', () => {
     render(MonthPage)
     await screen.findByText('March 2026')
 
+    await user.selectOptions(screen.getByLabelText('Person'), '1')
     await user.selectOptions(screen.getByLabelText('Source'), '1')
     await user.type(screen.getByLabelText('Amount'), '100')
     await user.type(screen.getByLabelText('Note'), 'extra')
@@ -571,7 +572,7 @@ describe('month page', () => {
     expect(await screen.findByText('Could not log income')).toBeInTheDocument()
   })
 
-  it('shows the person and tax-withheld status for an unattributed income entry', async () => {
+  it('shows the person for an unattributed income entry', async () => {
     setDefaultMocks()
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
@@ -596,8 +597,7 @@ describe('month page', () => {
     vi.mocked(listIncomeEntries).mockResolvedValue([bonusEntry])
     render(MonthPage)
 
-    expect(await screen.findByText('Withheld')).toBeInTheDocument()
-    expect(screen.getAllByText('Brian', { selector: 'td' }).length).toBeGreaterThan(0)
+    expect((await screen.findAllByText('Brian', { selector: 'td' })).length).toBeGreaterThan(1)
   })
 
   it('edits an unattributed income entry, changing its person and tax-withheld flag', async () => {
