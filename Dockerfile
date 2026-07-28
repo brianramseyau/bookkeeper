@@ -29,6 +29,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3333
+ENV LOG_LEVEL=info
+ENV SESSION_DRIVER=cookie
+ENV DB_FILENAME=/app/data/bookkeeper.sqlite3
 COPY --from=api-build /app/apps/api/build ./
 VOLUME /app/data
 EXPOSE 3333
