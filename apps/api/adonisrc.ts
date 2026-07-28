@@ -53,6 +53,7 @@ export default defineConfig({
     () => import('@adonisjs/auth/auth_provider'),
     () => import('#providers/api_provider'),
     () => import('@adonisjs/static/static_provider'),
+    () => import('#providers/backup_scheduler_provider'),
   ],
 
   /*

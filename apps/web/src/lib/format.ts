@@ -61,6 +61,33 @@ export function formatDate(isoDate: string | null): string {
   return dateFormatter.format(new Date(isoDate))
 }
 
+const dateTimeFormatter = new Intl.DateTimeFormat('en-AU', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+})
+
+/** Like `formatDate`, but including the time - for timestamps (e.g. backup runs) where the day alone isn't enough to tell entries apart. */
+export function formatDateTime(isoDate: string | null): string {
+  if (!isoDate) return '—'
+  return dateTimeFormatter.format(new Date(isoDate))
+}
+
+const FILE_SIZE_UNITS = ['B', 'KB', 'MB', 'GB'] as const
+
+export function formatFileSize(bytes: number): string {
+  let value = bytes
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < FILE_SIZE_UNITS.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  const precision = unitIndex === 0 ? 0 : 1
+  return `${value.toFixed(precision)} ${FILE_SIZE_UNITS[unitIndex]}`
+}
+
 export function formatDaysUntilDue(days: number | null): string {
   if (days === null) return '—'
   if (days < 0) return `Overdue by ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'}`

@@ -100,6 +100,14 @@ router
 
         router.get('export/json', [controllers.Export, 'json'])
         router.get('export/csv/:table', [controllers.Export, 'csv'])
+
+        router.get('backups', [controllers.Backups, 'index'])
+        router.post('backups', [controllers.Backups, 'store'])
+        router.get('backups/:filename/download', [controllers.Backups, 'download'])
+        router.delete('backups/:filename', [controllers.Backups, 'destroy'])
+
+        router.get('backup-settings', [controllers.BackupSettings, 'show'])
+        router.put('backup-settings', [controllers.BackupSettings, 'update'])
       })
       .use(middleware.auth())
   })

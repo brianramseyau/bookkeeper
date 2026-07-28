@@ -7,6 +7,33 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class BackupSettingSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'enabled',
+    'id',
+    'intervalHours',
+    'lastRunAt',
+    'retentionDays',
+    'updatedAt',
+  ] as const
+  $columns = BackupSettingSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare enabled: boolean
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare intervalHours: number
+  @column.dateTime()
+  declare lastRunAt: DateTime | null
+  @column()
+  declare retentionDays: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class CategorySchema extends BaseModel {
   static $columns = [
     'budgetAmount',

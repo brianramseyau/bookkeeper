@@ -210,46 +210,62 @@ host by default, see `docker-compose.yml`). Back up that directory and
 you've backed up the entire app: every bill, category, subscription, and
 income entry.
 
-### Recommended: stop, copy, restart
+### Built-in backups (recommended)
 
-The simplest reliable method - guarantees a consistent copy since nothing
-is writing to the database while it's stopped:
+**On by default** - a daily backup with a 7-day retention window starts
+automatically the first time the app runs, no setup required. The
+**Tasks** page (`/tasks`) has a **Backup schedule** section where you can
+adjust the interval (every 6/12/24/48 hours, or weekly), the retention
+window in days, or turn it off entirely - backups past the retention
+window are purged automatically. A **Backup now** button next to the
+backup list triggers one on demand at any time, and each row has
+**Download** and **Delete** actions. Backups are written to
+`/app/data/backups` (a `backups` subfolder next to the database), using
+SQLite's own online backup API for a consistent snapshot even while the
+app is running and writing - so this needs no cron job, sidecar
+container, or stopping the app. The schedule runs in the same Node
+process that serves the app, checked periodically, so it only fires while
+the container is actually running.
+
+### Without the app running
+
+If the container itself is down, or you'd rather not rely on the app's
+own scheduler, the same stop/copy or SQLite `.backup` approaches
+documented for other SQLite-based self-hosted apps still work here:
 
 ```bash
+# Stop, copy, restart - simplest, guarantees a consistent copy
 docker compose stop bookkeeper
 cp -r /mnt/user/appdata/bookkeeper/data /mnt/user/backups/bookkeeper-$(date +%Y-%m-%d)
 docker compose start bookkeeper
 ```
 
-On unRAID, this pairs well with the **CA Backup / Restore Appdata**
-plugin, which schedules exactly this stop/copy/start cycle for any
-appdata folder.
-
-### Without stopping the container
-
-SQLite's own backup command produces a consistent snapshot even while the
-app is running and writing:
-
 ```bash
+# Without stopping the container
 docker compose exec bookkeeper sh -c \
   "sqlite3 /app/data/bookkeeper.sqlite3 '.backup /app/data/backup.sqlite3'"
 docker cp bookkeeper:/app/data/backup.sqlite3 ./bookkeeper-backup-$(date +%Y-%m-%d).sqlite3
 docker compose exec bookkeeper rm /app/data/backup.sqlite3
 ```
 
+On unRAID, the stop/copy approach pairs well with the **CA Backup /
+Restore Appdata** plugin, which schedules exactly that stop/copy/start
+cycle for any appdata folder.
+
 ### Restoring
 
 Stop the container, replace `bookkeeper.sqlite3` (and its `-wal`/`-shm`
-files, if present) in the data directory with the backup, then start the
-container again.
+files, if present) in the data directory with the backup - either one
+downloaded from the Tasks page or copied out via the methods above - then
+start the container again.
 
 ### Exporting data (not a substitute for a backup)
 
-The **Export** page in the app (`/export`) downloads a JSON snapshot of
-every table, or individual tables as CSV - handy for opening in a
-spreadsheet or feeding into another tool, but it's a point-in-time
+The **Tasks** page also has an **Export** section that downloads a JSON
+snapshot of every table, or individual tables as CSV - handy for opening
+in a spreadsheet or feeding into another tool, but it's a point-in-time
 snapshot of the data only (no auth, no history), not a way to restore the
-app. Use the SQLite file for actual backups.
+app. Use a backup (above) for actual restores.
 
 ## Known gaps / not in v1
 

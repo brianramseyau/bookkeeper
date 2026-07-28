@@ -4,7 +4,9 @@ import {
   financialYearLabel,
   formatCurrency,
   formatDate,
+  formatDateTime,
   formatDaysUntilDue,
+  formatFileSize,
   formatRelativeDate,
   monthName,
   monthShortName,
@@ -84,6 +86,38 @@ describe('formatDate', () => {
 
   it('renders an em dash for null', () => {
     expect(formatDate(null)).toBe('—')
+  })
+})
+
+describe('formatDateTime', () => {
+  it('formats an ISO datetime string including the time', () => {
+    expect(formatDateTime('2026-01-19T03:05:00.000+00:00')).toBe('19 Jan 2026, 3:05 am')
+  })
+
+  it('renders an em dash for null', () => {
+    expect(formatDateTime(null)).toBe('—')
+  })
+})
+
+describe('formatFileSize', () => {
+  it('formats bytes with no decimal place', () => {
+    expect(formatFileSize(512)).toBe('512 B')
+  })
+
+  it('formats kilobytes with one decimal place', () => {
+    expect(formatFileSize(2048)).toBe('2.0 KB')
+  })
+
+  it('formats megabytes', () => {
+    expect(formatFileSize(5 * 1024 * 1024)).toBe('5.0 MB')
+  })
+
+  it('formats gigabytes', () => {
+    expect(formatFileSize(2.5 * 1024 * 1024 * 1024)).toBe('2.5 GB')
+  })
+
+  it('caps at gigabytes rather than continuing to terabytes', () => {
+    expect(formatFileSize(1024 * 1024 * 1024 * 1024)).toBe('1024.0 GB')
   })
 })
 

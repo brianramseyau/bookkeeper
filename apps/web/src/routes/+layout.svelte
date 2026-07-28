@@ -19,7 +19,7 @@
     { href: '/recurring-bills', label: 'Bills' },
     { href: '/subscriptions', label: 'Subscriptions' },
     { href: '/categories', label: 'Categories' },
-    { href: '/export', label: 'Export' },
+    { href: '/tasks', label: 'Tasks' },
   ]
 
   function isActive(link: (typeof navLinks)[number]): boolean {
