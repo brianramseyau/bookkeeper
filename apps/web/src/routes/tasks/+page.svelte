@@ -291,7 +291,7 @@
                 type="button"
                 onclick={() => handleDeleteBackup(backup)}
                 disabled={deletingFilename === backup.filename}
-                class="ml-3 text-xs text-slate-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-600 dark:hover:text-red-400"
+                class="-my-1 ml-2 p-1 text-xs text-slate-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-600 dark:hover:text-red-400"
               >
                 Delete
               </button>

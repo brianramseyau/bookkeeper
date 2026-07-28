@@ -499,7 +499,7 @@
                 type="button"
                 onclick={() => handleDeleteDevice(device)}
                 disabled={deletingDeviceId === device.id}
-                class="text-xs text-slate-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-600 dark:hover:text-red-400"
+                class="-m-1 p-1 text-xs text-slate-300 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-600 dark:hover:text-red-400"
               >
                 Remove
               </button>

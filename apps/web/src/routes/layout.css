@@ -18,3 +18,14 @@
 .dark input[type='date'] {
   color-scheme: dark;
 }
+
+/* iOS Safari auto-zooms the viewport when focusing a text field with a
+   computed font-size under 16px. Most form fields use Tailwind's text-sm
+   (14px), which triggers that "phantom zoom" on every tap into a form. */
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

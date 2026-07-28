@@ -56,9 +56,7 @@
     }))
   })
 
-  const linePath = $derived(
-    points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
-  )
+  const linePath = $derived(points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' '))
   const areaPath = $derived(
     points.length > 0
       ? `${linePath} L${points[points.length - 1]!.x},${padTop + plotHeight} L${points[0]!.x},${padTop + plotHeight} Z`
@@ -137,28 +135,42 @@
           stroke={GRID_COLOR}
           stroke-width="1"
         />
-        <text x={padLeft - 8} y={line.y + 4} text-anchor="end" font-size="11" fill={AXIS_TEXT_COLOR}>
+        <text
+          x={padLeft - 8}
+          y={line.y + 4}
+          text-anchor="end"
+          font-size="11"
+          fill={AXIS_TEXT_COLOR}
+        >
           {formatCurrency(line.value).replace('.00', '')}
         </text>
       {/each}
 
       {#each points as p (p.entry.year + '-' + p.entry.month)}
-        <text
-          x={p.x}
-          y={height - 8}
-          text-anchor="middle"
-          font-size="11"
-          fill={AXIS_TEXT_COLOR}
-        >
+        <text x={p.x} y={height - 8} text-anchor="middle" font-size="11" fill={AXIS_TEXT_COLOR}>
           {monthShortName(p.entry.month)}
         </text>
       {/each}
 
       <path d={areaPath} fill={LINE_COLOR} opacity="0.1" />
-      <path d={linePath} fill="none" stroke={LINE_COLOR} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+      <path
+        d={linePath}
+        fill="none"
+        stroke={LINE_COLOR}
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
 
       {#if last}
-        <circle cx={last.x} cy={last.y} r="4" fill={LINE_COLOR} stroke={RING_COLOR} stroke-width="2" />
+        <circle
+          cx={last.x}
+          cy={last.y}
+          r="4"
+          fill={LINE_COLOR}
+          stroke={RING_COLOR}
+          stroke-width="2"
+        />
         <text
           x={last.x}
           y={last.y - 10}
@@ -181,7 +193,14 @@
           stroke-width="1"
           stroke-dasharray="3,3"
         />
-        <circle cx={hovered.x} cy={hovered.y} r="4" fill={LINE_COLOR} stroke={RING_COLOR} stroke-width="2" />
+        <circle
+          cx={hovered.x}
+          cy={hovered.y}
+          r="4"
+          fill={LINE_COLOR}
+          stroke={RING_COLOR}
+          stroke-width="2"
+        />
       {/if}
     </svg>
 
@@ -195,7 +214,8 @@
           {formatCurrency(hovered.entry.total)}
         </p>
         <p class="text-slate-500 dark:text-slate-400">
-          {monthShortName(hovered.entry.month)} {hovered.entry.year}
+          {monthShortName(hovered.entry.month)}
+          {hovered.entry.year}
         </p>
       </div>
     {/if}
@@ -213,30 +233,36 @@
 </button>
 
 {#if showTable}
-  <table class="mt-2 w-full border-collapse text-sm">
-    <thead>
-      <tr class="border-b border-slate-200 dark:border-slate-700">
-        <th class="px-2 py-1 text-left font-semibold text-slate-500 dark:text-slate-400">Month</th>
-        <th class="px-2 py-1 text-right font-semibold text-slate-500 dark:text-slate-400">Total</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each data as entry (entry.year + '-' + entry.month)}
-        <tr
-          class={[
-            'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
-            onSelectMonth && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40',
-          ]}
-          onclick={() => onSelectMonth?.(entry.year, entry.month)}
-        >
-          <td class="px-2 py-1 text-slate-700 dark:text-slate-300">
-            {monthShortName(entry.month)} {entry.year}
-          </td>
-          <td class="px-2 py-1 text-right text-slate-900 dark:text-slate-100">
-            {formatCurrency(entry.total)}
-          </td>
+  <div class="overflow-x-auto">
+    <table class="mt-2 w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 dark:border-slate-700">
+          <th class="px-2 py-1 text-left font-semibold text-slate-500 dark:text-slate-400">Month</th
+          >
+          <th class="px-2 py-1 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Total</th
+          >
         </tr>
-      {/each}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {#each data as entry (entry.year + '-' + entry.month)}
+          <tr
+            class={[
+              'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
+              onSelectMonth && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40',
+            ]}
+            onclick={() => onSelectMonth?.(entry.year, entry.month)}
+          >
+            <td class="px-2 py-1 text-slate-700 dark:text-slate-300">
+              {monthShortName(entry.month)}
+              {entry.year}
+            </td>
+            <td class="px-2 py-1 text-right text-slate-900 dark:text-slate-100">
+              {formatCurrency(entry.total)}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
 {/if}

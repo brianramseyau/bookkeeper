@@ -282,7 +282,7 @@
     {:else}
       <div class="flex items-center justify-between">
         <p class="text-sm text-slate-600 dark:text-slate-400">
-          <span class="font-medium text-slate-900 dark:text-slate-100 capitalize"
+          <span class="font-medium text-slate-900 capitalize dark:text-slate-100"
             >{utility.frequency}</span
           >
           {#if utility.dueOffsetDays !== null}
@@ -302,8 +302,8 @@
       {#if utility.frequency !== 'monthly'}
         <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
           Click the month it's actually billed in and enter the full bill - every month in that
-          period then shows the same even monthly share, with the real total noted underneath.
-          The other, non-billing months (in <span class="italic">italics</span>) are read-only.
+          period then shows the same even monthly share, with the real total noted underneath. The
+          other, non-billing months (in <span class="italic">italics</span>) are read-only.
         </p>
       {/if}
     {/if}
@@ -385,7 +385,7 @@
                       type="button"
                       aria-label="Remove"
                       onclick={() => removeCell(year, month)}
-                      class="absolute top-0.5 right-0.5 rounded px-1 text-xs text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                      class="absolute top-0.5 right-0.5 rounded px-1 text-xs text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100 dark:text-slate-600 dark:hover:text-red-400 pointer-coarse:opacity-100"
                     >
                       ×
                     </button>

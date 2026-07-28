@@ -168,7 +168,7 @@
           onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
           aria-label="Toggle menu"
           aria-expanded={mobileMenuOpen}
-          class="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800"
+          class="rounded-md p-2.5 text-slate-500 hover:bg-slate-100 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800"
         >
           {#if mobileMenuOpen}
             <svg
@@ -219,7 +219,7 @@
               <button
                 onclick={toggleTheme}
                 aria-label="Toggle dark mode"
-                class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                class="rounded-md p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               >
                 {#if themeState.current === 'dark'}
                   <svg
@@ -251,7 +251,7 @@
                 href="/settings"
                 aria-label="Settings for {authState.user.fullName ?? authState.user.email}"
                 title={authState.user.fullName ?? authState.user.email}
-                class="rounded-md p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                class="rounded-md p-2.5 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
                 style="color: {authState.user.displayColor ?? '#94a3b8'}"
               >
                 <svg
@@ -272,7 +272,7 @@
               onclick={handleLogout}
               aria-label="Log out"
               title="Log out"
-              class="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              class="rounded-md p-2.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

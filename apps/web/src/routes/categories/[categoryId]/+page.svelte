@@ -361,7 +361,7 @@
                 <button
                   type="button"
                   onclick={() => handleDeleteItem(item)}
-                  class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                  class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                 >
                   Remove
                 </button>
@@ -510,7 +510,7 @@
                 <button
                   type="button"
                   onclick={() => handleDelete(actual)}
-                  class="ml-2 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
+                  class="-my-1 ml-1 p-1 text-xs text-slate-300 hover:text-red-600 dark:text-slate-600 dark:hover:text-red-400"
                 >
                   Remove
                 </button>
