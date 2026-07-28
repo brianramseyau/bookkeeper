@@ -78,6 +78,28 @@ pnpm --filter api exec node ace import:xlsx --file="../../Joint Account Workbook
 the "Rolling" sheet's first month block ever shifts (see the command's
 `--help` for current defaults).
 
+### Demo mode
+
+To show the app to someone without exposing real household data, seed an
+ephemeral instance with fictional data instead of importing the workbook:
+
+```bash
+DB_FILENAME=/tmp/bookkeeper-demo.sqlite3 pnpm --filter api exec node ace migration:run --force
+DB_FILENAME=/tmp/bookkeeper-demo.sqlite3 pnpm --filter api exec node ace demo:seed
+```
+
+`demo:seed` creates two fictional users (`jordan@demo.local` /
+`taylor@demo.local`, password printed on success) plus a full spread of
+categories, utilities with several months of billing history, recurring
+bills, personal subscriptions, and income sources - enough for the
+Dashboard, Bills, Income, and Monthly pages to look lived-in.
+
+It's a dev-only safety valve, not a general reset button: it refuses to
+run with `NODE_ENV=production`, and refuses to run against a database
+that already has any users/categories/utilities/bills/subscriptions/income
+sources in it, so it can never overwrite real data - point `DB_FILENAME`
+at a fresh file first, as above.
+
 ### Running tests
 
 The API has a full Japa test suite (unit tests for the xlsx import parsers,
