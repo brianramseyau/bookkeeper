@@ -148,6 +148,7 @@ test.group('sendPushNotification', (group) => {
 
     assert.equal(result.sent, 2)
     assert.equal(result.pruned, 0)
+    assert.equal(result.failed, 0)
   })
 
   test('sendTestNotification counts a pruned subscription rather than a sent one', async ({
@@ -161,5 +162,23 @@ test.group('sendPushNotification', (group) => {
 
     assert.equal(result.sent, 0)
     assert.equal(result.pruned, 1)
+    assert.equal(result.failed, 0)
+  })
+
+  test('sendTestNotification counts a failure rather than throwing, and keeps trying other devices', async ({
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    await createSubscription(8)
+    await createSubscription(9)
+    server.setResponseStatus(500)
+    server.resetRequestCount()
+
+    const result = await sendTestNotification(brian.id)
+
+    assert.equal(result.sent, 0)
+    assert.equal(result.pruned, 0)
+    assert.equal(result.failed, 2)
+    assert.equal(server.getRequestCount(), 2)
   })
 })

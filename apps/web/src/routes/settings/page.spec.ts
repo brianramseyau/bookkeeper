@@ -336,7 +336,7 @@ describe('settings page', () => {
   })
 
   it('sends a test notification', async () => {
-    vi.mocked(sendTestPushNotification).mockResolvedValue({ sent: 1, pruned: 0 })
+    vi.mocked(sendTestPushNotification).mockResolvedValue({ sent: 1, pruned: 0, failed: 0 })
     const user = userEvent.setup()
     render(SettingsPage)
 
@@ -348,7 +348,7 @@ describe('settings page', () => {
   })
 
   it('reports when there are no active devices to send a test to', async () => {
-    vi.mocked(sendTestPushNotification).mockResolvedValue({ sent: 0, pruned: 0 })
+    vi.mocked(sendTestPushNotification).mockResolvedValue({ sent: 0, pruned: 0, failed: 0 })
     const user = userEvent.setup()
     render(SettingsPage)
 
@@ -357,6 +357,20 @@ describe('settings page', () => {
     expect(
       await screen.findByText(
         'No active devices to send to - enable notifications on this device first.'
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('reports when the push service rejects delivery to a device', async () => {
+    vi.mocked(sendTestPushNotification).mockResolvedValue({ sent: 0, pruned: 0, failed: 1 })
+    const user = userEvent.setup()
+    render(SettingsPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Send test notification' }))
+
+    expect(
+      await screen.findByText(
+        'The push service rejected the notification for this device - check the server logs for details.'
       )
     ).toBeInTheDocument()
   })

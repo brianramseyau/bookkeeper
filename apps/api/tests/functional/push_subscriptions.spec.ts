@@ -241,4 +241,25 @@ test.group('PushSubscriptions / test', (group) => {
     assert.equal(response.body().sent, 1)
     assert.equal(server.getRequestCount(), 1)
   })
+
+  test('reports a rejected device as failed rather than a 500', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const keys = generateTestSubscriptionKeys()
+    await PushSubscription.create({
+      userId: brian.id,
+      endpoint: `${server.url}?test=2`,
+      p256Dh: keys.p256dh,
+      auth: keys.auth,
+    })
+    server.setResponseStatus(500)
+
+    const response = await client
+      .post('/api/push-subscriptions/test')
+      .withCsrfToken()
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    assert.equal(response.body().sent, 0)
+    assert.equal(response.body().failed, 1)
+  })
 })

@@ -152,10 +152,13 @@
     devicesError = null
     try {
       const result = await sendTestPushNotification()
-      testMessage =
-        result.sent > 0
-          ? 'Test notification sent - check this device.'
-          : 'No active devices to send to - enable notifications on this device first.'
+      if (result.sent > 0) {
+        testMessage = 'Test notification sent - check this device.'
+      } else if (result.failed > 0) {
+        testMessage = `The push service rejected the notification for ${result.failed === 1 ? 'this device' : `${result.failed} devices`} - check the server logs for details.`
+      } else {
+        testMessage = 'No active devices to send to - enable notifications on this device first.'
+      }
     } catch (err) {
       devicesError = err instanceof ApiError ? err.message : 'Failed to send test notification'
     } finally {

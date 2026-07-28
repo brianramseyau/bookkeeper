@@ -29,5 +29,5 @@ export function deletePushSubscription(id: number) {
 }
 
 export function sendTestPushNotification() {
-  return api.post<{ sent: number; pruned: number }>('/push-subscriptions/test')
+  return api.post<{ sent: number; pruned: number; failed: number }>('/push-subscriptions/test')
 }
