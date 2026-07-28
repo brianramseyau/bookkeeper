@@ -62,7 +62,7 @@ const SUBSCRIPTION_SHEETS = ['Brian', 'Ariel']
  * confirmed real payday (any date on the correct 14-day cycle works, so
  * re-asserting this on every import is harmless). Keyed by the user's
  * `fullName`, not the income source's name - both sources are just named
- * "Paycheque" (see MAIN_PAYCHEQUE_NAME below), owner already being implicit
+ * "Salary" (see MAIN_SALARY_NAME below), owner already being implicit
  * via `userId`.
  */
 interface IncomeCadence {
@@ -78,11 +78,11 @@ const INCOME_CADENCE: Record<string, IncomeCadence> = {
 
 /**
  * Name the importer seeds each user's main income source under - just
- * "Paycheque" rather than "${fullName} Income", since the owner is already
+ * "Salary" rather than "${fullName} Income", since the owner is already
  * shown separately (by `userId`) and "Income" reads ambiguous now that a
  * user can have several income sources.
  */
-const MAIN_PAYCHEQUE_NAME = 'Paycheque'
+const MAIN_SALARY_NAME = 'Salary'
 
 /** Simple Date/Amount/Notes sheets -> the category their actuals belong to. */
 const CATEGORY_ACTUAL_SHEETS: { sheet: string; category: string }[] = [
@@ -1035,19 +1035,20 @@ export default class ImportXlsx extends BaseCommand {
 
         if (!this.dryRun) {
           await db.transaction(async (trx) => {
-            // One-time in-place rename from the old "${fullName} Income"
-            // name to MAIN_PAYCHEQUE_NAME, so a re-import reuses the
-            // existing source (and its entries/history) instead of
-            // creating an orphaned duplicate under the new name.
+            // One-time in-place rename from either of the old names
+            // ("${fullName} Income", then "Paycheque") to MAIN_SALARY_NAME,
+            // so a re-import reuses the existing source (and its
+            // entries/history) instead of creating an orphaned duplicate
+            // under the new name.
             for (const user of [primaryUser, secondaryUser]) {
               await IncomeSource.query({ client: trx })
                 .where('userId', user.id)
-                .where('name', `${user.fullName} Income`)
-                .update({ name: MAIN_PAYCHEQUE_NAME })
+                .whereIn('name', [`${user.fullName} Income`, 'Paycheque'])
+                .update({ name: MAIN_SALARY_NAME })
             }
 
             const primarySource = await IncomeSource.updateOrCreate(
-              { userId: primaryUser.id, name: MAIN_PAYCHEQUE_NAME },
+              { userId: primaryUser.id, name: MAIN_SALARY_NAME },
               {
                 expectedAmount: medianPerPayPeriod(rollingIncome, 0, primaryCadence),
                 ...(primaryCadence && {
@@ -1062,7 +1063,7 @@ export default class ImportXlsx extends BaseCommand {
               { client: trx }
             )
             const secondarySource = await IncomeSource.updateOrCreate(
-              { userId: secondaryUser.id, name: MAIN_PAYCHEQUE_NAME },
+              { userId: secondaryUser.id, name: MAIN_SALARY_NAME },
               {
                 expectedAmount: medianPerPayPeriod(rollingIncome, 1, secondaryCadence),
                 ...(secondaryCadence && {
