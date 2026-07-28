@@ -54,6 +54,7 @@ export default defineConfig({
     () => import('#providers/api_provider'),
     () => import('@adonisjs/static/static_provider'),
     () => import('#providers/backup_scheduler_provider'),
+    () => import('#providers/notification_scheduler_provider'),
   ],
 
   /*

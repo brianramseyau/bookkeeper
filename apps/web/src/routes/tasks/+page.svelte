@@ -12,6 +12,11 @@
     listBackups,
     type Backup,
   } from '$lib/api/backups'
+  import {
+    getNotificationSchedule,
+    updateNotificationSchedule,
+    type NotificationSchedule,
+  } from '$lib/api/notification-schedule'
   import { formatDateTime, formatFileSize } from '$lib/format'
   import { ApiError } from '$lib/api'
 
@@ -49,9 +54,22 @@
   let creatingBackup = $state(false)
   let deletingFilename = $state<string | null>(null)
 
+  const SEND_HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
+    value: hour,
+    label: new Date(2000, 0, 1, hour).toLocaleTimeString([], { hour: 'numeric' }),
+  }))
+
+  let notificationSchedule = $state<NotificationSchedule | null>(null)
+  let sendHour = $state(8)
+  let notificationScheduleLoading = $state(true)
+  let notificationScheduleError = $state<string | null>(null)
+  let savingNotificationSchedule = $state(false)
+  let notificationScheduleSaved = $state(false)
+
   onMount(() => {
     void loadSettings()
     void loadBackups()
+    void loadNotificationSchedule()
   })
 
   async function loadSettings() {
@@ -123,6 +141,36 @@
       backupsError = err instanceof ApiError ? err.message : 'Failed to delete backup'
     } finally {
       deletingFilename = null
+    }
+  }
+
+  async function loadNotificationSchedule() {
+    notificationScheduleLoading = true
+    notificationScheduleError = null
+    try {
+      notificationSchedule = await getNotificationSchedule()
+      sendHour = notificationSchedule.sendHour
+    } catch (err) {
+      notificationScheduleError =
+        err instanceof ApiError ? err.message : 'Failed to load notification schedule'
+    } finally {
+      notificationScheduleLoading = false
+    }
+  }
+
+  async function handleSaveNotificationSchedule(event: SubmitEvent) {
+    event.preventDefault()
+    savingNotificationSchedule = true
+    notificationScheduleError = null
+    notificationScheduleSaved = false
+    try {
+      notificationSchedule = await updateNotificationSchedule({ sendHour })
+      notificationScheduleSaved = true
+    } catch (err) {
+      notificationScheduleError =
+        err instanceof ApiError ? err.message : 'Failed to save notification schedule'
+    } finally {
+      savingNotificationSchedule = false
     }
   }
 </script>
@@ -257,8 +305,8 @@
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Export</h2>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-  Download your data for backup or analysis in another tool. This is a snapshot, not a live
-  backup - use Backups above for the recommended way to back up the whole app.
+  Download your data for backup or analysis in another tool. This is a snapshot, not a live backup -
+  use Backups above for the recommended way to back up the whole app.
 </p>
 
 <div
@@ -300,3 +348,50 @@
     </tbody>
   </table>
 </div>
+
+<h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Notification schedule</h2>
+<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+  What time of day the shared bill-reminder check runs. Each person opts in and picks which bill
+  types to be notified about from their own <a href="/settings" class="underline">Settings</a>
+  page.
+</p>
+
+{#if notificationScheduleError}
+  <p class="mt-3 text-sm text-red-600 dark:text-red-400">{notificationScheduleError}</p>
+{/if}
+{#if notificationScheduleSaved}
+  <p class="mt-3 text-sm text-emerald-600 dark:text-emerald-400">Saved.</p>
+{/if}
+
+{#if notificationScheduleLoading}
+  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">Loading…</p>
+{:else}
+  <form
+    onsubmit={handleSaveNotificationSchedule}
+    class="mt-3 flex flex-wrap items-end gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+  >
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Check at</span>
+      <select
+        bind:value={sendHour}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      >
+        {#each SEND_HOUR_OPTIONS as option (option.value)}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </label>
+    <button
+      type="submit"
+      disabled={savingNotificationSchedule}
+      class="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+    >
+      {savingNotificationSchedule ? 'Saving…' : 'Save'}
+    </button>
+    {#if notificationSchedule?.lastRunAt}
+      <span class="text-xs text-slate-400 dark:text-slate-500">
+        Last check: {formatDateTime(notificationSchedule.lastRunAt)}
+      </span>
+    {/if}
+  </form>
+{/if}

@@ -6,6 +6,7 @@
   import { page } from '$app/state'
   import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte'
   import { themeState, toggleTheme } from '$lib/stores/theme.svelte'
+  import { registerServiceWorker } from '$lib/stores/push.svelte'
 
   let { children } = $props()
 
@@ -28,6 +29,7 @@
 
   onMount(() => {
     void loadCurrentUser()
+    void registerServiceWorker()
   })
 
   $effect(() => {

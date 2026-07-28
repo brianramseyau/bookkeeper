@@ -7,6 +7,11 @@ import {
   type BackupSettings,
 } from '$lib/api/backup-settings'
 import { createBackup, deleteBackup, listBackups, type Backup } from '$lib/api/backups'
+import {
+  getNotificationSchedule,
+  updateNotificationSchedule,
+  type NotificationSchedule,
+} from '$lib/api/notification-schedule'
 import { ApiError } from '$lib/api'
 import TasksPage from './+page.svelte'
 
@@ -19,6 +24,10 @@ vi.mock('$lib/api/backups', () => ({
   createBackup: vi.fn(),
   deleteBackup: vi.fn(),
   backupDownloadUrl: (filename: string) => `/api/backups/${filename}/download`,
+}))
+vi.mock('$lib/api/notification-schedule', () => ({
+  getNotificationSchedule: vi.fn(),
+  updateNotificationSchedule: vi.fn(),
 }))
 
 const defaultSettings: BackupSettings = {
@@ -37,6 +46,14 @@ const backupA: Backup = {
   createdAt: '2026-01-27T03:00:00.000+00:00',
 }
 
+const defaultNotificationSchedule: NotificationSchedule = {
+  id: 1,
+  sendHour: 8,
+  lastRunAt: null,
+  createdAt: '2026-01-01T00:00:00.000+00:00',
+  updatedAt: null,
+}
+
 describe('tasks page', () => {
   beforeEach(() => {
     vi.mocked(getBackupSettings).mockReset()
@@ -44,6 +61,8 @@ describe('tasks page', () => {
     vi.mocked(listBackups).mockReset()
     vi.mocked(createBackup).mockReset()
     vi.mocked(deleteBackup).mockReset()
+    vi.mocked(getNotificationSchedule).mockReset().mockResolvedValue(defaultNotificationSchedule)
+    vi.mocked(updateNotificationSchedule).mockReset()
   })
 
   it('loads and shows the backup schedule and existing backups', async () => {
@@ -111,7 +130,7 @@ describe('tasks page', () => {
     await user.selectOptions(screen.getByLabelText('Frequency'), '48')
     await user.clear(screen.getByLabelText('Keep for (days)'))
     await user.type(screen.getByLabelText('Keep for (days)'), '30')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save' })[0]!)
 
     expect(updateBackupSettings).toHaveBeenCalledWith({
       enabled: true,
@@ -128,7 +147,7 @@ describe('tasks page', () => {
     const user = userEvent.setup()
     render(TasksPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Save' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Save' }))[0]!)
 
     expect(await screen.findByText('Invalid schedule')).toBeInTheDocument()
   })
@@ -222,5 +241,64 @@ describe('tasks page', () => {
     )
     expect(screen.getByText('Categories')).toBeInTheDocument()
     expect(screen.getByText('Income entries')).toBeInTheDocument()
+  })
+
+  it('loads and shows the notification schedule', async () => {
+    vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
+    vi.mocked(listBackups).mockResolvedValue([])
+    vi.mocked(getNotificationSchedule).mockResolvedValue({
+      ...defaultNotificationSchedule,
+      sendHour: 20,
+      lastRunAt: '2026-01-27T03:00:00.000+00:00',
+    })
+
+    render(TasksPage)
+
+    expect(await screen.findByText(/Last check:/)).toBeInTheDocument()
+    const select = (await screen.findByLabelText('Check at')) as HTMLSelectElement
+    expect(select.value).toBe('20')
+  })
+
+  it('shows an error when the notification schedule fails to load', async () => {
+    vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
+    vi.mocked(listBackups).mockResolvedValue([])
+    vi.mocked(getNotificationSchedule).mockRejectedValue(
+      new ApiError(500, 'Could not load notification schedule')
+    )
+
+    render(TasksPage)
+
+    expect(await screen.findByText('Could not load notification schedule')).toBeInTheDocument()
+  })
+
+  it('saves the notification schedule', async () => {
+    vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
+    vi.mocked(listBackups).mockResolvedValue([])
+    vi.mocked(getNotificationSchedule).mockResolvedValue(defaultNotificationSchedule)
+    vi.mocked(updateNotificationSchedule).mockResolvedValue({
+      ...defaultNotificationSchedule,
+      sendHour: 18,
+    })
+    const user = userEvent.setup()
+    render(TasksPage)
+
+    await user.selectOptions(await screen.findByLabelText('Check at'), '18')
+    await user.click(screen.getAllByRole('button', { name: 'Save' })[1]!)
+
+    expect(updateNotificationSchedule).toHaveBeenCalledWith({ sendHour: 18 })
+    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+  })
+
+  it('shows an error when saving the notification schedule fails', async () => {
+    vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
+    vi.mocked(listBackups).mockResolvedValue([])
+    vi.mocked(getNotificationSchedule).mockResolvedValue(defaultNotificationSchedule)
+    vi.mocked(updateNotificationSchedule).mockRejectedValue(new ApiError(422, 'Invalid hour'))
+    const user = userEvent.setup()
+    render(TasksPage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Save' }))[1]!)
+
+    expect(await screen.findByText('Invalid hour')).toBeInTheDocument()
   })
 })

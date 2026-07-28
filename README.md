@@ -274,6 +274,50 @@ in a spreadsheet or feeding into another tool, but it's a point-in-time
 snapshot of the data only (no auth, no history), not a way to restore the
 app. Use a backup (above) for actual restores.
 
+## Notifications (bill reminders)
+
+Bookkeeper can be installed as a PWA (installable, works from a phone's home
+screen) and send real push notifications for bills due soon or overdue -
+even when the app isn't open. It's opt-in and per person: each household
+member enables it on their own device(s) and chooses which bill types they
+care about, independently of each other (e.g. one person might want utility
+and recurring bill reminders but not subscriptions, since those are
+auto-debited anyway).
+
+- **Per-device opt-in and preferences** - on the **Settings** page (via the
+  user icon, top right), each person can enable notifications on any device
+  they're logged in on, pick a lead time (remind me N days before due), and
+  toggle which bill types (utility bills, recurring bills, subscriptions)
+  they want reminders for. A **Send test notification** button confirms the
+  device is receiving pushes, and each registered device can be removed
+  individually.
+- **Instance-wide schedule** - the **Tasks** page has a **Notification
+  schedule** section controlling what time of day the shared daily check
+  runs (in the container's local timezone, set via the `TZ` env var) - this
+  is the only setting that isn't per-person, since it's the one background
+  job that checks everyone's due bills at once.
+- **Nothing to configure for push itself** - the VAPID key pair Web Push
+  needs is generated automatically on first use and stored in the database,
+  the same way everything else in this app persists. There's no secret to
+  generate or paste into `.env`.
+- Utility bills and recurring bills are household-shared, so both opted-in
+  people see the same ones; personal subscriptions are always scoped to
+  their own owner regardless of who else has notifications enabled.
+
+### Requires HTTPS
+
+Service workers - and the Push API built on them - only work in a "secure
+context": HTTPS, or the app being accessed as `localhost`. This is a browser
+restriction with no app-level opt-out. A bare `docker compose up` on
+unRAID, reached by LAN IP with no reverse proxy, is **not** a secure
+context, so this feature won't be available until you put a
+TLS-terminating reverse proxy in front of the container (the same kind of
+setup already described for [Authentik proxy
+auto-login](#reverse-proxy-auto-login-authentik) above - Caddy, Traefik,
+an nginx-proxy-manager instance, etc. all work). The Settings page detects
+this and explains it in place of the enable button rather than just saying
+notifications aren't supported.
+
 ## Known gaps / not in v1
 
 ### Permanent non-goals
@@ -305,5 +349,3 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   module - was considered and deliberately deferred: it adds a real
   dependency-currency risk (bracket changes, Medicare levy, etc.) for a
   figure the household is already comfortable entering by hand.
-- **No notifications/reminders** for upcoming or overdue bills - you have
-  to check the Dashboard or Bills page yourself.

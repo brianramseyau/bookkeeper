@@ -273,6 +273,68 @@ export class MonthCarryoverSchema extends BaseModel {
   declare year: number
 }
 
+export class NotificationScheduleSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'lastRunAt', 'sendHour', 'updatedAt'] as const
+  $columns = NotificationScheduleSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime()
+  declare lastRunAt: DateTime | null
+  @column()
+  declare sendHour: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class PushConfigSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'privateKey', 'publicKey', 'subject', 'updatedAt'] as const
+  $columns = PushConfigSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare privateKey: string
+  @column()
+  declare publicKey: string
+  @column()
+  declare subject: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class PushSubscriptionSchema extends BaseModel {
+  static $columns = [
+    'auth',
+    'createdAt',
+    'endpoint',
+    'id',
+    'p256Dh',
+    'updatedAt',
+    'userAgent',
+    'userId',
+  ] as const
+  $columns = PushSubscriptionSchema.$columns
+  @column()
+  declare auth: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare endpoint: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare p256Dh: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userAgent: string | null
+  @column()
+  declare userId: number
+}
+
 export class RecurringBillPaymentSchema extends BaseModel {
   static $columns = [
     'createdAt',
@@ -382,6 +444,39 @@ export class SubscriptionPaymentSchema extends BaseModel {
   declare userSubscriptionId: number
   @column()
   declare year: number
+}
+
+export class UserNotificationPreferenceSchema extends BaseModel {
+  static $columns = [
+    'createdAt',
+    'enabled',
+    'id',
+    'leadDays',
+    'notifyRecurringBills',
+    'notifySubscriptions',
+    'notifyUtilityBills',
+    'updatedAt',
+    'userId',
+  ] as const
+  $columns = UserNotificationPreferenceSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare enabled: boolean
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare leadDays: number
+  @column()
+  declare notifyRecurringBills: boolean
+  @column()
+  declare notifySubscriptions: boolean
+  @column()
+  declare notifyUtilityBills: boolean
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare userId: number
 }
 
 export class UserSubscriptionSchema extends BaseModel {

@@ -52,6 +52,7 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/luxon": "^3.7.1",
     "@types/node": "~25.9.1",
+    "@types/web-push": "^3.6.4",
     "c8": "^12.0.0",
     "eslint": "^10.4.0",
     "hot-hook": "^1.0.0",
@@ -73,7 +74,8 @@
     "better-sqlite3": "^12.10.0",
     "exceljs": "^4.4.0",
     "luxon": "^3.7.2",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "web-push": "^3.6.7"
   },
   "hotHook": {
     "boundaries": [

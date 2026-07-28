@@ -108,6 +108,18 @@ router
 
         router.get('backup-settings', [controllers.BackupSettings, 'show'])
         router.put('backup-settings', [controllers.BackupSettings, 'update'])
+
+        router.get('notification-schedule', [controllers.NotificationSchedules, 'show'])
+        router.put('notification-schedule', [controllers.NotificationSchedules, 'update'])
+
+        router.get('notification-preferences', [controllers.NotificationPreferences, 'show'])
+        router.put('notification-preferences', [controllers.NotificationPreferences, 'update'])
+
+        router.get('push-public-key', [controllers.PushSubscriptions, 'publicKey'])
+        router.get('push-subscriptions', [controllers.PushSubscriptions, 'index'])
+        router.post('push-subscriptions', [controllers.PushSubscriptions, 'store'])
+        router.delete('push-subscriptions/:id', [controllers.PushSubscriptions, 'destroy'])
+        router.post('push-subscriptions/test', [controllers.PushSubscriptions, 'test'])
       })
       .use(middleware.auth())
   })
