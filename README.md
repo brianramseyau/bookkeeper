@@ -179,6 +179,29 @@ behavior.
 The container runs a single process: AdonisJS serves both the API and the
 pre-built SvelteKit static files, and runs pending migrations on boot.
 
+### Reverse-proxy auto-login (Authentik)
+
+If you already front the container with an
+[Authentik](https://goauthentik.io/) proxy provider, the app can trust its
+identity headers and skip the password form instead of showing a second
+login. This is opt-in and off by default - normal password login always
+keeps working, proxied or not.
+
+1. In Authentik, on the proxy provider fronting this app, add a custom
+   header property mapping that sends a fixed secret as
+   `X-Authentik-Shared-Secret` (see
+   [headers sent to upstream applications](https://docs.goauthentik.io/add-secure-apps/providers/proxy/#headers-sent-to-upstream-applications)).
+2. Set `AUTHENTIK_PROXY_AUTH_ENABLED=true` and `AUTHENTIK_SHARED_SECRET=`
+   (matching the value from step 1) in the container's `.env`.
+3. A request carrying the correct secret is auto-logged-in as the local
+   user whose email matches the `X-authentik-email` header Authentik sends
+   - it must already exist as a login here (see `db:seed` above); Authentik
+     doesn't create accounts.
+
+Only enable this if the Authentik proxy is the sole path to the container -
+anyone who can reach it directly and knows the shared secret could set
+these headers themselves and pick which local account to become.
+
 ## Backing up your data
 
 **Everything lives in one SQLite file** - the volume mounted at
@@ -236,8 +259,14 @@ Won't be implemented - deliberate, not deferred:
 
 - **Multi-currency support** - this is a single-currency household
   budget tool (AUD formatting is hardcoded) and will stay that way.
-- **Reverse-proxy/SSO integration** - front the container yourself for
-  TLS/auth if you want it.
+- **Multi-tenant support, general SSO/OIDC integration** - still exactly
+  two household accounts, no self-registration, no roles. The one
+  exception is
+  [Authentik proxy-header auto-login](#reverse-proxy-auto-login-authentik):
+  it trusts identity headers from a reverse proxy you already run in front
+  of the container to skip the password form for an existing account -
+  it's not a general reverse-proxy/SSO framework. Otherwise front the
+  container yourself for TLS/auth if you want it.
 - **`House Stuff` and `FY25 Bonus` sheets** - one-off/ephemeral sheets
   from the source workbook, permanently disregarded.
 

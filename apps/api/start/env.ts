@@ -32,4 +32,13 @@ export default await Env.create(new URL('../', import.meta.url), {
   // to the .xlsx workbook whose "Users" sheet (Name, Email, Password
   // columns) supplies the logins to create.
   SEED_WORKBOOK_PATH: Env.schema.string(),
+
+  // Authentik reverse-proxy auto-login (opt-in, off by default). When
+  // enabled, a request carrying a valid AUTHENTIK_SHARED_SECRET is
+  // auto-logged-in as the local user matching the X-authentik-email
+  // header, without a password. Only enable this behind a reverse proxy
+  // that is the sole path to the app and strips/overwrites these headers
+  // on the way in.
+  AUTHENTIK_PROXY_AUTH_ENABLED: Env.schema.boolean.optional(),
+  AUTHENTIK_SHARED_SECRET: Env.schema.string.optional(),
 })

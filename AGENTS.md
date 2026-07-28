@@ -14,6 +14,7 @@ data. See [README.md](README.md) for product-level detail, backup
 procedures, and the list of permanent non-goals / deferred work.
 
 ## Courtesy
+
 The end user checks all changes after being made and before committing,
 always ask before committing and pushing.
 The local dev server should always be left running after work is completed
@@ -100,6 +101,15 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   in the same `Joint Account Workbook.xlsx` referenced by
   `SEED_WORKBOOK_PATH`, under its "Users" sheet — never hardcode or commit
   the actual email/password anywhere in this repo.
+- **Authentik proxy auto-login** (opt-in, off by default —
+  `AUTHENTIK_PROXY_AUTH_ENABLED` / `AUTHENTIK_SHARED_SECRET`): a global
+  router middleware (`app/middleware/authentik_proxy_auth_middleware.ts`,
+  registered in `start/kernel.ts` after `silent_auth_middleware`) matches
+  the `X-authentik-email` header to an existing local user and logs them in
+  when the request also carries the correct `X-Authentik-Shared-Secret`.
+  It never creates accounts and never overrides an already-authenticated
+  session. See [README.md](README.md#reverse-proxy-auto-login-authentik)
+  for the Authentik-side setup.
 - **HotHook** boundaries are configured for controllers and middleware
   (`hotHook` in `package.json`) — the dev server HMRs those without a full
   restart.
@@ -170,5 +180,8 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   a blank field through as `amount: null`. If you touch one of these forms,
   the fix is `Number.isNaN(x) || x === null` at the call site — apply it
   there rather than treating it as pre-existing and out of scope.
-- **Single currency, hardcoded AUD formatting, no multi-tenant/reverse-proxy
-  support** — these are deliberate non-goals, not gaps to fill in.
+- **Single currency, hardcoded AUD formatting, no multi-tenant support, no
+  general SSO/OIDC integration** — these are deliberate non-goals, not gaps
+  to fill in. The one exception is Authentik proxy-header auto-login (see
+  the Auth bullet above) — it trusts an existing reverse proxy's identity
+  headers for an existing local account, not a general SSO framework.
