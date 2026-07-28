@@ -39,9 +39,23 @@
 
 {#if points.length >= 2}
   <svg viewBox="0 0 {width} {height}" {width} {height} class="overflow-visible">
-    <path d={path} fill="none" stroke={strokeColor} stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    <path
+      d={path}
+      fill="none"
+      stroke={strokeColor}
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
     {#if last}
-      <circle cx={last.x} cy={last.y} r="4" fill={strokeColor} stroke={ringColor} stroke-width="2" />
+      <circle
+        cx={last.x}
+        cy={last.y}
+        r="4"
+        fill={strokeColor}
+        stroke={ringColor}
+        stroke-width="2"
+      />
     {/if}
   </svg>
 {/if}

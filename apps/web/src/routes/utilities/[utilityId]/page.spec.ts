@@ -13,6 +13,7 @@ import {
   type UtilityTrend,
 } from '$lib/api/utilities'
 import { ApiError } from '$lib/api'
+import { currentFinancialYear, financialYearLabel, monthYearLabel } from '$lib/format'
 import UtilityDetailPage from './+page.svelte'
 
 vi.mock('$app/state', () => ({ page: { params: { utilityId: '1' } } }))
@@ -36,12 +37,18 @@ const electricity: Utility = {
   updatedAt: '',
 }
 
-// A quarterly bill of $300 entered in April 2020 that also covers Feb and
-// Mar 2020 as computed, read-only monthly shares of $100 each.
+// All fixture months fall Jan-Apr, which share the same calendar year as
+// the financial year's *ending* year - so a single year value covers them,
+// and the page's default-selected FY (the current one) shows this data with
+// no Prev/Next navigation needed.
+const fixtureFyEndYear = currentFinancialYear()
+
+// A quarterly bill of $300 entered in April that also covers Feb and Mar as
+// computed, read-only monthly shares of $100 each.
 const aprilBill = {
   id: 10,
   utilityId: 1,
-  year: 2020,
+  year: fixtureFyEndYear,
   month: 4,
   amount: 300,
   notes: null,
@@ -52,9 +59,9 @@ const aprilBill = {
 const billsResponse: UtilityBillsResponse = {
   bills: [aprilBill],
   monthlyShares: [
-    { year: 2020, month: 2, amount: 100, billYear: 2020, billMonth: 4 },
-    { year: 2020, month: 3, amount: 100, billYear: 2020, billMonth: 4 },
-    { year: 2020, month: 4, amount: 100, billYear: 2020, billMonth: 4 },
+    { year: fixtureFyEndYear, month: 2, amount: 100, billYear: fixtureFyEndYear, billMonth: 4 },
+    { year: fixtureFyEndYear, month: 3, amount: 100, billYear: fixtureFyEndYear, billMonth: 4 },
+    { year: fixtureFyEndYear, month: 4, amount: 100, billYear: fixtureFyEndYear, billMonth: 4 },
   ],
 }
 const emptyBillsResponse: UtilityBillsResponse = { bills: [], monthlyShares: [] }
@@ -62,10 +69,10 @@ const emptyBillsResponse: UtilityBillsResponse = { bills: [], monthlyShares: [] 
 const upTrend: UtilityTrend = {
   average: 120,
   latestAmount: 130,
-  latestYear: 2020,
+  latestYear: fixtureFyEndYear,
   latestMonth: 4,
   trend: 'up',
-  months: [{ year: 2020, month: 4, amount: 130 }],
+  months: [{ year: fixtureFyEndYear, month: 4, amount: 130 }],
 }
 const emptyTrend: UtilityTrend = {
   average: null,
@@ -82,18 +89,12 @@ function setDefaultMocks() {
   vi.mocked(getUtilityTrend).mockResolvedValue(upTrend)
 }
 
-/** Index (matching <td> position) of a year's column, derived from the header row. */
-function yearColumnIndex(container: HTMLElement, year: number): number {
-  const headerCells = Array.from(container.querySelectorAll('thead th'))
-  const index = headerCells.findIndex((th) => th.textContent === String(year))
-  if (index === -1) throw new Error(`No column header found for year ${year}`)
-  return index
-}
-
-function getCell(container: HTMLElement, monthAbbrev: string, year: number): HTMLElement {
-  const row = within(container).getByText(monthAbbrev, { selector: 'td' }).closest('tr')!
-  const colIndex = yearColumnIndex(container, year)
-  return row.cells[colIndex] as HTMLElement
+/** The lone Amount cell (2nd column) of the row for a given year/month. */
+function getCell(container: HTMLElement, year: number, month: number): HTMLElement {
+  const row = within(container)
+    .getByText(monthYearLabel(year, month), { selector: 'td' })
+    .closest('tr')!
+  return row.cells[1] as HTMLElement
 }
 
 describe('utility detail page', () => {
@@ -203,11 +204,13 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const febCell = getCell(container, 'Feb', 2020)
+    const febCell = getCell(container, fixtureFyEndYear, 2)
     expect(within(febCell).getByText('$100.00')).toBeInTheDocument()
     expect(within(febCell).queryByRole('button')).toBeNull()
     const span = within(febCell).getByText('$100.00')
-    expect(span.getAttribute('title')).toBe('Part of the Apr 2020 bill')
+    expect(span.getAttribute('title')).toBe(
+      `Part of the ${monthYearLabel(fixtureFyEndYear, 4)} bill`
+    )
     expect(span.className).toContain('italic')
   })
 
@@ -216,7 +219,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const aprCell = getCell(container, 'Apr', 2020)
+    const aprCell = getCell(container, fixtureFyEndYear, 4)
     expect(within(aprCell).getByText('$100.00')).toBeInTheDocument()
     expect(within(aprCell).getByText('bills $300.00')).toBeInTheDocument()
     expect(within(aprCell).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
@@ -227,7 +230,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const janCell = getCell(container, 'Jan', 2020)
+    const janCell = getCell(container, fixtureFyEndYear, 1)
     expect(within(janCell).getByRole('button', { name: '+' })).toBeInTheDocument()
   })
 
@@ -236,7 +239,7 @@ describe('utility detail page', () => {
     vi.mocked(upsertUtilityBill).mockResolvedValue({
       id: 20,
       utilityId: 1,
-      year: 2020,
+      year: fixtureFyEndYear,
       month: 1,
       amount: 75.5,
       notes: null,
@@ -250,7 +253,7 @@ describe('utility detail page', () => {
         {
           id: 20,
           utilityId: 1,
-          year: 2020,
+          year: fixtureFyEndYear,
           month: 1,
           amount: 75.5,
           notes: null,
@@ -268,13 +271,13 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const janCell = getCell(container, 'Jan', 2020)
+    const janCell = getCell(container, fixtureFyEndYear, 1)
     await user.click(within(janCell).getByRole('button', { name: '+' }))
     const input = within(janCell).getByRole('spinbutton')
     await user.type(input, '75.5')
     await user.keyboard('{Enter}')
 
-    expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2020, 1, 75.5)
+    expect(upsertUtilityBill).toHaveBeenCalledWith(1, fixtureFyEndYear, 1, 75.5)
     await waitFor(() => expect(getUtilityBills).toHaveBeenCalledTimes(2))
     expect(await within(janCell).findByText('$75.50')).toBeInTheDocument()
   })
@@ -285,7 +288,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const janCell = getCell(container, 'Jan', 2020)
+    const janCell = getCell(container, fixtureFyEndYear, 1)
     await user.click(within(janCell).getByRole('button', { name: '+' }))
     await user.type(within(janCell).getByRole('spinbutton'), '50')
     await user.keyboard('{Escape}')
@@ -300,7 +303,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const janCell = getCell(container, 'Jan', 2020)
+    const janCell = getCell(container, fixtureFyEndYear, 1)
     await user.click(within(janCell).getByRole('button', { name: '+' }))
     await user.type(within(janCell).getByRole('spinbutton'), '-5')
     await user.keyboard('{Enter}')
@@ -317,7 +320,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const janCell = getCell(container, 'Jan', 2020)
+    const janCell = getCell(container, fixtureFyEndYear, 1)
     await user.click(within(janCell).getByRole('button', { name: '+' }))
     await user.type(within(janCell).getByRole('spinbutton'), '50')
     await user.keyboard('{Enter}')
@@ -333,7 +336,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const aprCell = getCell(container, 'Apr', 2020)
+    const aprCell = getCell(container, fixtureFyEndYear, 4)
     await user.click(within(aprCell).getByText('$100.00'))
     const input = within(aprCell).getByRole('spinbutton')
     expect(input).toHaveValue(300)
@@ -342,7 +345,7 @@ describe('utility detail page', () => {
     await user.type(input, '350')
     await user.keyboard('{Enter}')
 
-    expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2020, 4, 350)
+    expect(upsertUtilityBill).toHaveBeenCalledWith(1, fixtureFyEndYear, 4, 350)
   })
 
   it('deletes a billed cell and refreshes bills and trend', async () => {
@@ -356,7 +359,7 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const aprCell = getCell(container, 'Apr', 2020)
+    const aprCell = getCell(container, fixtureFyEndYear, 4)
     await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
 
     expect(deleteUtilityBill).toHaveBeenCalledWith(10)
@@ -370,24 +373,35 @@ describe('utility detail page', () => {
     const { container } = render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const aprCell = getCell(container, 'Apr', 2020)
+    const aprCell = getCell(container, fixtureFyEndYear, 4)
     await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
 
-  it('adds a new year column and updates the "Add" button label', async () => {
+  it('shows a single financial year at a time, navigable with Prev/Next, with Next disabled at the current FY', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
-    const { container } = render(UtilityDetailPage)
+    render(UtilityDetailPage)
     await screen.findByRole('heading', { name: 'Electricity' })
 
-    const currentYear = new Date().getFullYear()
-    const addButton = screen.getByRole('button', { name: `+ Add ${currentYear + 1}` })
-    await user.click(addButton)
+    expect(screen.getByText(financialYearLabel(fixtureFyEndYear))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next →' })).toBeDisabled()
+    // Only 12 rows are shown - one financial year, not an ever-growing set of year columns.
+    expect(screen.getAllByRole('row')).toHaveLength(13)
 
-    expect(yearColumnIndex(container, currentYear + 1)).toBeGreaterThan(0)
-    expect(screen.getByRole('button', { name: `+ Add ${currentYear + 2}` })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '← Prev' }))
+
+    expect(screen.getByText(financialYearLabel(fixtureFyEndYear - 1))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next →' })).not.toBeDisabled()
+    // No API refetch is needed to change the visible FY - all bills were
+    // already loaded once and are simply resliced client-side.
+    expect(getUtilityBills).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: 'Next →' }))
+
+    expect(screen.getByText(financialYearLabel(fixtureFyEndYear))).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Next →' })).toBeDisabled()
   })
 
   it('edits billing settings and saves the new frequency and due-date offset', async () => {

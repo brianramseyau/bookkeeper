@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   currentFinancialYear,
   financialYearLabel,
+  financialYearMonths,
   formatCurrency,
   formatDate,
   formatDateTime,
@@ -76,6 +77,25 @@ describe('financialYearLabel', () => {
 describe('monthYearLabel', () => {
   it('combines the short month name and year', () => {
     expect(monthYearLabel(2025, 7)).toBe('Jul 2025')
+  })
+})
+
+describe('financialYearMonths', () => {
+  it('returns 12 (year, month) pairs from July of fyEndYear-1 through June of fyEndYear', () => {
+    expect(financialYearMonths(2026)).toEqual([
+      { year: 2025, month: 7 },
+      { year: 2025, month: 8 },
+      { year: 2025, month: 9 },
+      { year: 2025, month: 10 },
+      { year: 2025, month: 11 },
+      { year: 2025, month: 12 },
+      { year: 2026, month: 1 },
+      { year: 2026, month: 2 },
+      { year: 2026, month: 3 },
+      { year: 2026, month: 4 },
+      { year: 2026, month: 5 },
+      { year: 2026, month: 6 },
+    ])
   })
 })
 

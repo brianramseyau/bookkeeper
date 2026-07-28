@@ -14,7 +14,13 @@
     type UtilityTrend,
     type UtilityFrequency,
   } from '$lib/api/utilities'
-  import { formatCurrency, monthShortName } from '$lib/format'
+  import {
+    currentFinancialYear,
+    financialYearLabel,
+    financialYearMonths,
+    formatCurrency,
+    monthYearLabel,
+  } from '$lib/format'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -77,19 +83,12 @@
     return monthlyShares.find((s) => s.year === year && s.month === month)
   }
 
-  let years = $state<number[]>([])
+  let selectedFinancialYear = $state(currentFinancialYear())
 
-  $effect(() => {
-    const currentYear = new Date().getFullYear()
-    const fromBills = bills.map((b) => b.year)
-    const fromShares = monthlyShares.map((s) => s.year)
-    const all = new Set([...fromBills, ...fromShares, currentYear])
-    years = [...all].sort((a, b) => a - b)
-  })
+  const fyMonths = $derived(financialYearMonths(selectedFinancialYear))
 
-  function addNextYear() {
-    const next = (years[years.length - 1] ?? new Date().getFullYear()) + 1
-    years = [...years, next]
+  function changeFinancialYear(delta: number) {
+    selectedFinancialYear += delta
   }
 
   function cellKey(year: number, month: number) {
@@ -205,7 +204,29 @@
 {:else if !utility}
   <ErrorMessage message="Utility not found." class="mt-6" />
 {:else}
-  <h1 class="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">{utility.name}</h1>
+  <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">{utility.name}</h1>
+    <div class="flex items-center gap-3">
+      <button
+        type="button"
+        onclick={() => changeFinancialYear(-1)}
+        class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        ← Prev
+      </button>
+      <span class="w-28 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
+        {financialYearLabel(selectedFinancialYear)}
+      </span>
+      <button
+        type="button"
+        onclick={() => changeFinancialYear(1)}
+        disabled={selectedFinancialYear >= currentFinancialYear()}
+        class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        Next →
+      </button>
+    </div>
+  </div>
 
   {#if error}
     <ErrorMessage message={error} />
@@ -302,93 +323,80 @@
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Month</th
           >
-          {#each years as year (year)}
-            <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-              >{year}</th
-            >
-          {/each}
+          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            >Amount</th
+          >
         </tr>
       </thead>
       <tbody>
-        {#each Array(12) as _, i (i)}
-          {@const month = i + 1}
+        {#each fyMonths as { year, month } (`${year}-${month}`)}
+          {@const bill = billFor(year, month)}
+          {@const share = shareFor(year, month)}
+          {@const key = cellKey(year, month)}
+          {@const displayAmount = share ? share.amount : bill?.amount}
+          {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
           <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
             <td
               class="px-3 py-1.5 font-medium whitespace-nowrap text-slate-700 dark:text-slate-300"
             >
-              {monthShortName(month)}
+              {monthYearLabel(year, month)}
             </td>
-            {#each years as year (year)}
-              {@const bill = billFor(year, month)}
-              {@const share = shareFor(year, month)}
-              {@const key = cellKey(year, month)}
-              {@const displayAmount = share ? share.amount : bill?.amount}
-              {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
-              <td class="group relative px-1 py-1 text-right">
-                {#if editingKey === key}
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    bind:value={editingValue}
-                    disabled={saving}
-                    onblur={() => saveEdit(year, month)}
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') saveEdit(year, month)
-                      if (e.key === 'Escape') cancelEdit()
-                    }}
-                    use:focusOnMount
-                    class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                {:else if !bill && share}
-                  <span
-                    class="block w-full cursor-default rounded-md px-2 py-1.5 text-right text-slate-400 italic dark:text-slate-500"
-                    title={`Part of the ${monthShortName(share.billMonth)} ${share.billYear} bill`}
-                  >
-                    {formatCurrency(share.amount)}
-                  </span>
-                {:else}
+            <td class="group relative px-1 py-1 text-right">
+              {#if editingKey === key}
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  bind:value={editingValue}
+                  disabled={saving}
+                  onblur={() => saveEdit(year, month)}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') saveEdit(year, month)
+                    if (e.key === 'Escape') cancelEdit()
+                  }}
+                  use:focusOnMount
+                  class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
+                />
+              {:else if !bill && share}
+                <span
+                  class="block w-full cursor-default rounded-md px-2 py-1.5 text-right text-slate-400 italic dark:text-slate-500"
+                  title={`Part of the ${monthYearLabel(share.billYear, share.billMonth)} bill`}
+                >
+                  {formatCurrency(share.amount)}
+                </span>
+              {:else}
+                <button
+                  type="button"
+                  onclick={() => startEdit(year, month)}
+                  class={[
+                    'w-full rounded-md px-2 py-1.5 text-right transition-colors hover:bg-slate-100 dark:hover:bg-slate-700',
+                    bill
+                      ? 'text-slate-900 dark:text-slate-100'
+                      : 'text-slate-300 dark:text-slate-600',
+                  ]}
+                >
+                  {bill ? formatCurrency(displayAmount!) : '+'}
+                  {#if showsBilledTotal}
+                    <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
+                      bills {formatCurrency(bill!.amount)}
+                    </span>
+                  {/if}
+                </button>
+                {#if bill}
                   <button
                     type="button"
-                    onclick={() => startEdit(year, month)}
-                    class={[
-                      'w-full rounded-md px-2 py-1.5 text-right transition-colors hover:bg-slate-100 dark:hover:bg-slate-700',
-                      bill
-                        ? 'text-slate-900 dark:text-slate-100'
-                        : 'text-slate-300 dark:text-slate-600',
-                    ]}
+                    aria-label="Remove"
+                    onclick={() => removeCell(year, month)}
+                    class="absolute top-0.5 right-0.5 rounded px-1 text-xs text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100 dark:text-slate-600 dark:hover:text-red-400 pointer-coarse:opacity-100"
                   >
-                    {bill ? formatCurrency(displayAmount!) : '+'}
-                    {#if showsBilledTotal}
-                      <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
-                        bills {formatCurrency(bill!.amount)}
-                      </span>
-                    {/if}
+                    ×
                   </button>
-                  {#if bill}
-                    <button
-                      type="button"
-                      aria-label="Remove"
-                      onclick={() => removeCell(year, month)}
-                      class="absolute top-0.5 right-0.5 rounded px-1 text-xs text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100 dark:text-slate-600 dark:hover:text-red-400 pointer-coarse:opacity-100"
-                    >
-                      ×
-                    </button>
-                  {/if}
                 {/if}
-              </td>
-            {/each}
+              {/if}
+            </td>
           </tr>
         {/each}
       </tbody>
     </table>
   </Card>
-
-  <button
-    type="button"
-    onclick={addNextYear}
-    class="mt-4 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-  >
-    + Add {years[years.length - 1] + 1}
-  </button>
 {/if}

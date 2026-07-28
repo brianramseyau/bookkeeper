@@ -1,6 +1,6 @@
 # Bookkeeper — Household Finance Tracker
 
-*Replacing `Joint Account Workbook.xlsx` with a self-hosted AdonisJS + SvelteKit app in one Docker container on unRAID.*
+_Replacing `Joint Account Workbook.xlsx` with a self-hosted AdonisJS + SvelteKit app in one Docker container on unRAID._
 
 ## Context
 
@@ -9,6 +9,7 @@ The user (and their wife) have tracked household finances for years in `Joint Ac
 This is a **greenfield project** — the directory currently contains only the reference `.xlsx` file. Data model and import logic below were derived by directly inspecting the real workbook (not assumed), including cross-referencing values across sheets to resolve ambiguities (e.g. confirming the `Rolling` sheet's unlabeled month blocks correspond to Feb–Sep 2026 by matching its Electricity Bill actuals against the `Electricity` sheet's own Feb/Mar 2026 values).
 
 Confirmed decisions (from prior discussion with the user):
+
 - **Backend**: AdonisJS (MVC, TypeScript) + Lucid ORM + SQLite.
 - **Frontend**: SvelteKit.
 - **Auth**: individual accounts for the two users (not a shared login).
@@ -69,18 +70,19 @@ SQLite, mounted volume. Amounts as `decimal(10,2)` (the source workbook itself a
 
 **`utility_bills`**: id, utility_id (FK → utilities.id), year, month (1–12), amount (NOT NULL — a missing row means "not yet billed"), notes (nullable), timestamps. Unique index `(utility_id, year, month)`.
 
-**`recurring_bills`** *(renamed from the earlier draft's "annual_bills" — frequency now covers more than annual)*: id, name (bill name — "Costco Membership", "VPN", "Kayo"), category_id (FK → categories.id, nullable — e.g. "Subscriptions", "Fees", "Household"), amount, frequency (`'monthly'|'quarterly'|'biannual'|'annual'|'custom'`), custom_interval_value (integer, nullable — used when frequency='custom'), custom_interval_unit (`'days'|'weeks'|'months'`, nullable — e.g. value=2/unit='weeks' for fortnightly), due_day (integer, nullable), due_month (integer 1–12, nullable), due_year (integer, nullable), next_due_on (date, nullable — the one authoritative concrete date), is_active, notes, timestamps.
+**`recurring_bills`** _(renamed from the earlier draft's "annual_bills" — frequency now covers more than annual)_: id, name (bill name — "Costco Membership", "VPN", "Kayo"), category_id (FK → categories.id, nullable — e.g. "Subscriptions", "Fees", "Household"), amount, frequency (`'monthly'|'quarterly'|'biannual'|'annual'|'custom'`), custom_interval_value (integer, nullable — used when frequency='custom'), custom_interval_unit (`'days'|'weeks'|'months'`, nullable — e.g. value=2/unit='weeks' for fortnightly), due_day (integer, nullable), due_month (integer 1–12, nullable), due_year (integer, nullable), next_due_on (date, nullable — the one authoritative concrete date), is_active, notes, timestamps.
 
 **`user_subscriptions`**: id, user_id (FK), name, category_id (FK → categories.id, nullable — e.g. "Subscriptions"), amount, day_of_month (nullable), include_in_standard_month (bool, default true), is_active, notes, timestamps.
 
 **`category_monthly_actuals`**: id, category_id (FK — the category itself is the tracked thing here, e.g. "Groceries", "Transport"), occurred_on (date), amount (NOT NULL), notes (nullable), timestamps. Index `(category_id, occurred_on)`. No unique constraint — allows correction entries later.
 
 **Corrected data model — bill name vs. category, and Annual sheet date fields** (per user correction on the initial draft):
+
 - **`categories`** is a small, broad, cross-cutting classification tag the user defines directly — e.g. "Groceries", "Household", "Utilities", "Subscriptions", "Fees" — used for reporting/spend-by-category (their primary tracking method today, done by hand from the Westpac app). It has **no `kind` discriminator** in the corrected model; it's just `id, name (unique), color (nullable), sort_order, is_active, timestamps`.
-- A **bill name** ("Electricity", "Costco Membership", "Kayo", "Adobe") is a distinct concept from its category and lives on the specific record (`utilities.name`, `recurring_bills.name`, `user_subscriptions.name`) — each of those optionally tags a `category_id` for reporting. `category_monthly_actuals` is the one exception: there the category itself *is* the tracked thing (it mirrors a Westpac spend category directly, e.g. logging a monthly Groceries total), so no separate bill name is needed there.
+- A **bill name** ("Electricity", "Costco Membership", "Kayo", "Adobe") is a distinct concept from its category and lives on the specific record (`utilities.name`, `recurring_bills.name`, `user_subscriptions.name`) — each of those optionally tags a `category_id` for reporting. `category_monthly_actuals` is the one exception: there the category itself _is_ the tracked thing (it mirrors a Westpac spend category directly, e.g. logging a monthly Groceries total), so no separate bill name is needed there.
 - The **`Annual` sheet's date columns are not what the initial draft assumed.** Confirmed by inspecting all 14 rows: "Day/Month" and "Year" are exactly what they're named — a recurring day-of-month/month-of-year pattern (the year embedded in that cell's underlying date value is stale/arbitrary, e.g. Costco's Day/Month cell is dated 2025 even though its Next is 2026) plus an optional year override (only populated for VPN in the source data). These combine to produce **"Next"**, the sheet's only column holding a real, currently-correct date. The schema reflects this: `due_day`/`due_month`/`due_year` capture the recurring pattern, `next_due_on` is the one authoritative date, populated directly from "Next" on import.
 
-**`income_sources`**: id, user_id (FK), name, expected_amount (drives the *projected* standard-month view), is_active, notes, timestamps.
+**`income_sources`**: id, user_id (FK), name, expected_amount (drives the _projected_ standard-month view), is_active, notes, timestamps.
 
 **`income_entries`**: id, income_source_id (FK, nullable), user_id (FK, nullable — fallback when not linked to a defined source), year, month, received_on (date, nullable), amount, note (nullable), timestamps.
 
@@ -179,11 +181,11 @@ Single shared config at the monorepo root (only two packages — not worth dupli
 Each phase is independently shippable/testable against the real unRAID deployment.
 
 - **Phase 0 — Scaffolding + Auth**: monorepo init, both apps wired per §1, `users`/`categories` migrations + seeder (2 real users, default categories: Groceries, Household, Utilities, Subscriptions, Fees, Transport, Clothing, Childcare), full session auth (login → `/api/me` → layout guard), Dockerfile + compose proven on unRAID with an authenticated empty shell.
-- **Phase 1 — Utility Bills**: `utilities` + `utility_bills` migrations, `UtilitiesController` + `UtilityBillsController` + `RollingAverageService`, `/utilities` pages (grid entry + trend/indicator), import Electricity/Gas/Water only (seeding their `utilities` rows tagged to the "Utilities" category), validated against production data. *The feature the user cares about most, done first.*
+- **Phase 1 — Utility Bills**: `utilities` + `utility_bills` migrations, `UtilitiesController` + `UtilityBillsController` + `RollingAverageService`, `/utilities` pages (grid entry + trend/indicator), import Electricity/Gas/Water only (seeding their `utilities` rows tagged to the "Utilities" category), validated against production data. _The feature the user cares about most, done first._
 - **Phase 2 — Recurring Bills Tracker**: `recurring_bills` migration (name, category_id, amount, frequency incl. custom interval, due_day/due_month/due_year, next_due_on), controller/pages with next-due sorting and "due soon" badges, import `Annual`.
 - **Phase 3 — Personal Subscriptions**: `user_subscriptions` migration, per-user tabs + totals, import `Brian`/`Ariel`.
 - **Phase 4 — Category Monthly Actuals**: `category_monthly_actuals` migration, `CategoriesController` CRUD + `CategoryActualsController`, `/categories` pages, import `Food` (two-block), `Transport`, `Clothing`, plus `Rolling`-derived data triaged per §5.6 into `recurring_bills` (Kayo, Internet Bill, Health Insurance, YouTube, Ariel/Brian Allowance) and `category_monthly_actuals` (Dog, Childcare, Credit Card, one-off costs) — with the recurring-bill skip-list applied — and `Amber` as the "Dog" category's `budget_amount` seed.
-- **Phase 5 — Standard Month**: `income_sources`/`income_entries` migrations, `categories` alter (`budget_amount`, `include_in_standard_month`), `StandardMonthService` + controller, income controllers, `/month` page. *Full functional parity with the old `Rolling` + `Monthly` sheets.*
+- **Phase 5 — Standard Month**: `income_sources`/`income_entries` migrations, `categories` alter (`budget_amount`, `include_in_standard_month`), `StandardMonthService` + controller, income controllers, `/month` page. _Full functional parity with the old `Rolling` + `Monthly` sheets._
 - **Phase 6 — Polish**: dashboard home with summary tiles + trend charts (apply the `dataviz` skill when building these), CSV/JSON export, category color/reorder, mobile pass, documented SQLite backup procedure.
 
 ---

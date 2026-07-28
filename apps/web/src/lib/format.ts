@@ -43,6 +43,21 @@ export function financialYearLabel(fyEndYear: number): string {
   return `FY ${fyEndYear - 1}-${shortEndYear}`
 }
 
+/**
+ * The 12 `{ year, month }` pairs making up a Jul-Jun financial year, in
+ * calendar order (Jul of `fyEndYear - 1` through Jun of `fyEndYear`) -
+ * mirrors the API's `financial_year.ts#financialYearMonths`.
+ */
+export function financialYearMonths(fyEndYear: number): { year: number; month: number }[] {
+  const months: { year: number; month: number }[] = []
+  for (let i = 0; i < 12; i++) {
+    const month = ((6 + i) % 12) + 1
+    const year = month >= 7 ? fyEndYear - 1 : fyEndYear
+    months.push({ year, month })
+  }
+  return months
+}
+
 /** e.g. `monthYearLabel(2025, 7)` -> `"Jul 2025"`. */
 export function monthYearLabel(year: number, month: number): string {
   return `${monthShortName(month)} ${year}`
