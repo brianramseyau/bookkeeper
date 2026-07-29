@@ -9,6 +9,7 @@
   import ThemeToggleButton from '$lib/components/ThemeToggleButton.svelte'
   import SettingsLink from '$lib/components/SettingsLink.svelte'
   import LogoutButton from '$lib/components/LogoutButton.svelte'
+  import PullToRefresh from '$lib/components/PullToRefresh.svelte'
 
   let { children } = $props()
 
@@ -60,6 +61,8 @@
 <svelte:head>
   <link rel="icon" href={favicon} />
 </svelte:head>
+
+<PullToRefresh />
 
 {#if authState.loading}
   <div
