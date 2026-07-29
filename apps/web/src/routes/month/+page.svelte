@@ -895,7 +895,11 @@
                 </td>
                 <td class="px-3 py-2">
                   <label class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                    <input type="checkbox" bind:checked={editEntryTaxWithheld} />
+                    <input
+                      type="checkbox"
+                      bind:checked={editEntryTaxWithheld}
+                      class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                    />
                     Withheld
                   </label>
                 </td>

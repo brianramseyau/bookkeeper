@@ -114,7 +114,11 @@
   </label>
   {#if allowUnattributed && sourceId === ''}
     <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-      <input type="checkbox" bind:checked={taxWithheld} />
+      <input
+        type="checkbox"
+        bind:checked={taxWithheld}
+        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+      />
       Tax withheld
     </label>
   {/if}

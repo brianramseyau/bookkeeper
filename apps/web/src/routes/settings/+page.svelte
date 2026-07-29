@@ -376,7 +376,7 @@
       <input
         type="checkbox"
         bind:checked={notifyEnabled}
-        class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
       />
       <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Enabled</span>
     </label>
@@ -398,7 +398,7 @@
         <input
           type="checkbox"
           bind:checked={notifyUtilityBills}
-          class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+          class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
         />
         <span class="text-sm text-slate-900 dark:text-slate-100">Utility bills</span>
       </label>
@@ -406,7 +406,7 @@
         <input
           type="checkbox"
           bind:checked={notifyRecurringBills}
-          class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+          class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
         />
         <span class="text-sm text-slate-900 dark:text-slate-100">Recurring bills</span>
       </label>
@@ -414,7 +414,7 @@
         <input
           type="checkbox"
           bind:checked={notifySubscriptions}
-          class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+          class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
         />
         <span class="text-sm text-slate-900 dark:text-slate-100">Subscriptions</span>
       </label>

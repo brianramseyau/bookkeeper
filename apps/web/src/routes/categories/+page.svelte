@@ -256,7 +256,7 @@
       <input
         type="checkbox"
         bind:checked={editIncludeInStandardMonth}
-        class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900"
+        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
       />
     </td>
     <td class="px-3 py-2 text-right whitespace-nowrap">

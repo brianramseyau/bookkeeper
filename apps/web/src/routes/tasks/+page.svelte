@@ -210,7 +210,7 @@
       <input
         type="checkbox"
         bind:checked={enabled}
-        class="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-600"
+        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
       />
       <span class="text-sm font-medium text-slate-900 dark:text-slate-100">Enabled</span>
     </label>

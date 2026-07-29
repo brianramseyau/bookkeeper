@@ -289,7 +289,7 @@
           <input
             type="checkbox"
             bind:checked={editPaidInAdvance}
-            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-700"
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
           />
           <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
             >Paid in advance / Pre-paid</span

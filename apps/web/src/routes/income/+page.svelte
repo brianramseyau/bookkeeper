@@ -667,7 +667,11 @@
                         <label
                           class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
                         >
-                          <input type="checkbox" bind:checked={editWeekendRollback} />
+                          <input
+                            type="checkbox"
+                            bind:checked={editWeekendRollback}
+                            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                          />
                           Roll to Fri
                         </label>
                       </div>
@@ -681,7 +685,11 @@
                   </div>
                 </td>
                 <td class="px-3 py-2">
-                  <input type="checkbox" bind:checked={editTaxWithheld} />
+                  <input
+                    type="checkbox"
+                    bind:checked={editTaxWithheld}
+                    class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                  />
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
                   <TextActionButton
@@ -784,7 +792,11 @@
           />
         </label>
         <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <input type="checkbox" bind:checked={weekendRollback} />
+          <input
+            type="checkbox"
+            bind:checked={weekendRollback}
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
           Roll to preceding Friday on a weekend
         </label>
       {:else}
@@ -800,7 +812,11 @@
         </label>
       {/if}
       <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-        <input type="checkbox" bind:checked={taxWithheld} />
+        <input
+          type="checkbox"
+          bind:checked={taxWithheld}
+          class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+        />
         Tax withheld (PAYG)
       </label>
       <PrimaryButton type="submit" disabled={creating}>
@@ -1102,7 +1118,11 @@
                     />
                   </td>
                   <td class="px-3 py-2">
-                    <input type="checkbox" bind:checked={editItemTaxWithheld} />
+                    <input
+                      type="checkbox"
+                      bind:checked={editItemTaxWithheld}
+                      class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                    />
                   </td>
                   <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
                   <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
@@ -1215,7 +1235,11 @@
           />
         </label>
         <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <input type="checkbox" bind:checked={itemTaxWithheld} />
+          <input
+            type="checkbox"
+            bind:checked={itemTaxWithheld}
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
           Tax withheld
         </label>
         <PrimaryButton type="submit" disabled={addingItem}>

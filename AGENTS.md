@@ -144,6 +144,8 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   runs in the browser after mount.
 - Tailwind CSS v4 via `@tailwindcss/vite` (no separate `tailwind.config.js`
   — config lives in CSS via the Vite plugin).
+- UI/CSS conventions: see STYLEGUIDE.md for current button/form/checkbox/card
+  patterns — check it before introducing new UI patterns.
 
 ## Testing
 
