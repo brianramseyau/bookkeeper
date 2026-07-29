@@ -22,7 +22,19 @@ export class RollingAverageService {
   private static readonly WINDOW_SIZE = 12
 
   computeTrend(entries: MonthlyAmount[]): TrendResult {
-    const sorted = [...entries].sort((a, b) => a.year - b.year || a.month - b.month)
+    // A non-monthly utility whose billed periods overlap (e.g. two quarterly
+    // bills entered a month apart instead of a full quarter apart) can
+    // expand into more than one share for the same calendar month - merge
+    // those into a single entry first so the trailing window represents 12
+    // distinct months, not some months counted twice.
+    const byMonth = new Map<string, MonthlyAmount>()
+    for (const entry of entries) {
+      const key = `${entry.year}-${entry.month}`
+      const existing = byMonth.get(key)
+      byMonth.set(key, existing ? { ...existing, amount: existing.amount + entry.amount } : entry)
+    }
+
+    const sorted = [...byMonth.values()].sort((a, b) => a.year - b.year || a.month - b.month)
     const window = sorted.slice(-RollingAverageService.WINDOW_SIZE)
 
     if (window.length === 0) {

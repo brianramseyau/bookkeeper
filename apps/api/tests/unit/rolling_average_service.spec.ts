@@ -122,4 +122,22 @@ test.group('RollingAverageService', () => {
     assert.equal(result.average, 100)
     assert.lengthOf(result.months, 2)
   })
+
+  test('merges entries that land on the same calendar month instead of counting it twice', ({
+    assert,
+  }) => {
+    const service = new RollingAverageService()
+    // e.g. two overlapping quarterly bills whose expanded shares both cover
+    // April - a real month should only ever appear once in the window.
+    const result = service.computeTrend([
+      { year: 2025, month: 4, amount: 100 },
+      { year: 2025, month: 4, amount: 50 },
+      { year: 2025, month: 5, amount: 100 },
+    ])
+
+    assert.lengthOf(result.months, 2)
+    const april = result.months.find((m) => m.month === 4)
+    assert.equal(april?.amount, 150)
+    assert.equal(result.average, 125)
+  })
 })

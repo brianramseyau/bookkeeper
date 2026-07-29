@@ -265,4 +265,27 @@ test.group('UtilityBills / trend', () => {
     assert.equal(response.body().latestAmount, 123.16)
     assert.lengthOf(response.body().months, 3)
   })
+
+  test('nextDueOn is null when no due-day offset is configured', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+
+    response.assertStatus(200)
+    assert.isNull(response.body().nextDueOn)
+  })
+
+  test('includes the next due date on the configured day once billing settings are set', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 15 })
+
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+
+    response.assertStatus(200)
+    assert.match(response.body().nextDueOn, /^\d{4}-\d{2}-15T00:00:00/)
+  })
 })

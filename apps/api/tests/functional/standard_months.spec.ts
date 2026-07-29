@@ -52,7 +52,7 @@ test.group('StandardMonths / show', () => {
     })
     await IncomeEntry.create({ year: 2026, month: 2, amount: 200 })
 
-    const electricity = await Utility.create({ name: 'Electricity' })
+    const electricity = await Utility.create({ name: 'Electricity', dueOffsetDays: 20 })
     await UtilityBill.create({ utilityId: electricity.id, year: 2025, month: 12, amount: 380 })
     await UtilityBill.create({ utilityId: electricity.id, year: 2026, month: 1, amount: 400 })
     await UtilityBill.create({ utilityId: electricity.id, year: 2026, month: 2, amount: 420 })
@@ -104,6 +104,7 @@ test.group('StandardMonths / show', () => {
     assert.equal(electricityLine.projected, 400)
     assert.equal(electricityLine.actual, 420)
     assert.equal(electricityLine.paid, false)
+    assert.equal(electricityLine.dueDate, '2026-02-20T00:00:00.000Z')
 
     const kayoLine = body.expenses.lines.find((l: { label: string }) => l.label === 'Kayo')
     assert.equal(kayoLine.projected, 45.99)

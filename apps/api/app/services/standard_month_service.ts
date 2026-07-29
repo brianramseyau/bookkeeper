@@ -11,11 +11,7 @@ import Category from '#models/category'
 import CategoryMonthlyActual from '#models/category_monthly_actual'
 import CategoryPayment from '#models/category_payment'
 import { RollingAverageService } from '#services/rolling_average_service'
-import {
-  isUtilityBillingMonth,
-  mostRecentUtilityBill,
-  utilityPeriodMonths,
-} from '#services/utility_billing_period'
+import { isUtilityBillingMonth, utilityDueDateFor } from '#services/utility_billing_period'
 import { computeIncomeLines, type IncomeLine } from '#services/income_lines'
 
 const PERIODS_PER_YEAR: Record<string, number> = {
@@ -193,7 +189,7 @@ export class StandardMonthService {
         projected: billTrend.average ?? 0,
         actual: monthBill ? round(monthBill.amount) : null,
         dueDay: null,
-        dueDate: this.utilityDueDate(utility, bills, year, month),
+        dueDate: utilityDueDateFor(utility, bills, year, month)?.toISO() ?? null,
         paid: monthBill?.paid ?? false,
         editable: true,
       })
@@ -346,44 +342,6 @@ export class StandardMonthService {
     }
 
     return { lines, amortizedBills }
-  }
-
-  /**
-   * Utilities aren't billed on a fixed calendar day like recurring bills -
-   * a bill covers a period, and payment is due on a configured day of that
-   * same billing month (`dueOffsetDays` doubles as a day-of-month here,
-   * clamped to however many days that month actually has). Anchors the
-   * billing cycle on the utility's most recent actual bill so non-monthly
-   * utilities (e.g. a quarterly water bill) only show a due date in the
-   * months they're actually billed, not every month.
-   */
-  private utilityDueDate(
-    utility: Utility,
-    bills: UtilityBill[],
-    year: number,
-    month: number
-  ): string | null {
-    if (utility.dueOffsetDays === null) return null
-
-    const periodMonths = utilityPeriodMonths(utility.frequency)
-    if (periodMonths > 1) {
-      const mostRecentBill = mostRecentUtilityBill(bills)
-
-      if (mostRecentBill) {
-        const anchorIndex = mostRecentBill.year * 12 + mostRecentBill.month
-        const viewedIndex = year * 12 + month
-        const diff = (((viewedIndex - anchorIndex) % periodMonths) + periodMonths) % periodMonths
-        if (diff !== 0) return null
-      }
-    }
-
-    const daysInMonth = DateTime.utc(year, month, 1).daysInMonth ?? 31
-    const day = Math.min(Math.max(utility.dueOffsetDays, 1), daysInMonth)
-
-    // Full ISO datetime (not just a date) to match how every other date
-    // field in the API is returned - the frontend's formatDate() expects
-    // this and doesn't do timezone-safe parsing of bare date strings.
-    return DateTime.utc(year, month, day).toISO()
   }
 
   private customPeriodsPerYear(value: number | null, unit: string | null): number {

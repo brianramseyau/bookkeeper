@@ -67,6 +67,33 @@ const billsResponse: UtilityBillsResponse = {
 }
 const emptyBillsResponse: UtilityBillsResponse = { bills: [], monthlyShares: [] }
 
+// A second quarterly bill entered a month after the April one (May instead
+// of July) - their periods overlap on Mar and Apr, exactly the kind of
+// off-cadence duplicate/overlapping entry the warning icon is meant to
+// catch. Mirrors real data found in production (see the Water utility).
+const mayBill = {
+  id: 11,
+  utilityId: 1,
+  year: fixtureFyEndYear,
+  month: 5,
+  amount: 300,
+  notes: null,
+  paid: false,
+  createdAt: '',
+  updatedAt: '',
+}
+const overlappingBillsResponse: UtilityBillsResponse = {
+  bills: [aprilBill, mayBill],
+  monthlyShares: [
+    { year: fixtureFyEndYear, month: 2, amount: 100, billYear: fixtureFyEndYear, billMonth: 4 },
+    { year: fixtureFyEndYear, month: 3, amount: 100, billYear: fixtureFyEndYear, billMonth: 4 },
+    { year: fixtureFyEndYear, month: 4, amount: 100, billYear: fixtureFyEndYear, billMonth: 4 },
+    { year: fixtureFyEndYear, month: 3, amount: 100, billYear: fixtureFyEndYear, billMonth: 5 },
+    { year: fixtureFyEndYear, month: 4, amount: 100, billYear: fixtureFyEndYear, billMonth: 5 },
+    { year: fixtureFyEndYear, month: 5, amount: 100, billYear: fixtureFyEndYear, billMonth: 5 },
+  ],
+}
+
 const upTrend: UtilityTrend = {
   average: 120,
   latestAmount: 130,
@@ -74,6 +101,7 @@ const upTrend: UtilityTrend = {
   latestMonth: 4,
   trend: 'up',
   months: [{ year: fixtureFyEndYear, month: 4, amount: 130 }],
+  nextDueOn: null,
 }
 const emptyTrend: UtilityTrend = {
   average: null,
@@ -82,6 +110,7 @@ const emptyTrend: UtilityTrend = {
   latestMonth: null,
   trend: null,
   months: [],
+  nextDueOn: null,
 }
 
 function setDefaultMocks() {
@@ -240,6 +269,48 @@ describe('utility detail page', () => {
     expect(within(aprCell).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
   })
 
+  it("warns when a computed share overlaps a second bill's period, without a bill of its own", async () => {
+    vi.mocked(listUtilities).mockResolvedValue([electricity])
+    vi.mocked(getUtilityBills).mockResolvedValue(overlappingBillsResponse)
+    vi.mocked(getUtilityTrend).mockResolvedValue(upTrend)
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const marCell = getCell(container, fixtureFyEndYear, 3)
+    expect(within(marCell).getByText('$100.00')).toBeInTheDocument()
+    const warning = within(marCell).getByTitle(
+      `Also covered by the ${monthYearLabel(fixtureFyEndYear, 5)} bill - check for a duplicate or overlapping entry`
+    )
+    expect(warning).toBeInTheDocument()
+  })
+
+  it("warns on a billed month that also overlaps a second bill's period", async () => {
+    vi.mocked(listUtilities).mockResolvedValue([electricity])
+    vi.mocked(getUtilityBills).mockResolvedValue(overlappingBillsResponse)
+    vi.mocked(getUtilityTrend).mockResolvedValue(upTrend)
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const aprCell = getCell(container, fixtureFyEndYear, 4)
+    expect(within(aprCell).getByText('bills $300.00')).toBeInTheDocument()
+    const warning = within(aprCell).getByTitle(
+      `Also covered by the ${monthYearLabel(fixtureFyEndYear, 5)} bill - check for a duplicate or overlapping entry`
+    )
+    expect(warning).toBeInTheDocument()
+  })
+
+  it('does not warn on a month covered by only one bill', async () => {
+    vi.mocked(listUtilities).mockResolvedValue([electricity])
+    vi.mocked(getUtilityBills).mockResolvedValue(overlappingBillsResponse)
+    vi.mocked(getUtilityTrend).mockResolvedValue(upTrend)
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const mayCell = getCell(container, fixtureFyEndYear, 5)
+    expect(within(mayCell).getByText('bills $300.00')).toBeInTheDocument()
+    expect(within(mayCell).queryByText('⚠')).toBeNull()
+  })
+
   it('shows a "+" for an empty month with no bill or share', async () => {
     setDefaultMocks()
     const { container } = render(UtilityDetailPage)
@@ -392,6 +463,41 @@ describe('utility detail page', () => {
     await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
+  })
+
+  it('removes a billed cell from within edit mode, without triggering a save first', async () => {
+    setDefaultMocks()
+    vi.mocked(deleteUtilityBill).mockResolvedValue(undefined)
+    vi.mocked(getUtilityBills)
+      .mockResolvedValueOnce(billsResponse)
+      .mockResolvedValueOnce(emptyBillsResponse)
+    vi.mocked(getUtilityTrend).mockResolvedValueOnce(upTrend).mockResolvedValueOnce(emptyTrend)
+    const user = userEvent.setup()
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const aprCell = getCell(container, fixtureFyEndYear, 4)
+    await user.click(within(aprCell).getByText('$100.00'))
+    expect(within(aprCell).getByRole('spinbutton')).toBeInTheDocument()
+
+    await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
+
+    expect(deleteUtilityBill).toHaveBeenCalledWith(10)
+    expect(upsertUtilityBill).not.toHaveBeenCalled()
+    await waitFor(() => expect(getUtilityBills).toHaveBeenCalledTimes(2))
+    expect(within(aprCell).queryByRole('spinbutton')).toBeNull()
+  })
+
+  it('does not show a Remove button while editing an empty cell with no bill yet', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const janCell = getCell(container, fixtureFyEndYear, 1)
+    await user.click(within(janCell).getByRole('button', { name: '+' }))
+
+    expect(within(janCell).queryByRole('button', { name: 'Remove' })).toBeNull()
   })
 
   it('shows a single financial year at a time, navigable with Prev/Next, with Next disabled at the current FY', async () => {

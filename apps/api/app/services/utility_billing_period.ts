@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import type Utility from '#models/utility'
 import type UtilityBill from '#models/utility_bill'
 import type { MonthlyAmount } from '#services/rolling_average_service'
@@ -97,4 +98,65 @@ export function expandUtilityBillsToMonthlyShares(
   }
 
   return shares
+}
+
+/**
+ * The due date for one specific (year, month), or null if either the
+ * utility has no configured due-day offset, or that month isn't actually a
+ * billing month for it (a non-monthly utility, e.g. a quarterly Water bill,
+ * is only ever due in the months it's actually billed - see
+ * `isUtilityBillingMonth`). `dueOffsetDays` doubles as a plain day-of-month,
+ * clamped to however many days that month actually has.
+ */
+export function utilityDueDateFor(
+  utility: Utility,
+  bills: UtilityBill[],
+  year: number,
+  month: number
+): DateTime | null {
+  if (utility.dueOffsetDays === null) return null
+  if (!isUtilityBillingMonth(utility, bills, year, month)) return null
+
+  // `daysInMonth` is only ever undefined for an invalid DateTime - (year,
+  // month) here always comes from a real calendar month, so the `?? 31`
+  // fallback can't actually fire.
+  const daysInMonth = /* c8 ignore next */ DateTime.utc(year, month, 1).daysInMonth ?? 31
+  const day = Math.min(Math.max(utility.dueOffsetDays, 1), daysInMonth)
+  return DateTime.utc(year, month, day)
+}
+
+/**
+ * The next upcoming due date from `today` onward - scans at most one full
+ * billing cycle ahead so a non-monthly utility only turns up the next month
+ * it's actually predicted to be billed in, not every month. The trailing
+ * `return null` can't actually be reached: any `periodMonths`-long run of
+ * consecutive months contains exactly one billing month (pigeonhole on the
+ * cadence's fixed residue), and a billing month in a later calendar month
+ * always has a due date >= today - it's kept only to satisfy TypeScript's
+ * control-flow analysis, which can't know that.
+ */
+export function nextUtilityDueDate(
+  utility: Utility,
+  bills: UtilityBill[],
+  today: DateTime
+): DateTime | null {
+  if (utility.dueOffsetDays === null) return null
+
+  const periodMonths = utilityPeriodMonths(utility.frequency)
+  let year = today.year
+  let month = today.month
+
+  for (let i = 0; i <= periodMonths; i++) {
+    const due = utilityDueDateFor(utility, bills, year, month)
+    if (due && due >= today) return due
+
+    month += 1
+    if (month > 12) {
+      month = 1
+      year += 1
+    }
+    /* c8 ignore next */
+  }
+  /* c8 ignore next 2 */
+  return null
 }

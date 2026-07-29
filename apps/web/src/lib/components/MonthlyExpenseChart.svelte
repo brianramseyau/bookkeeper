@@ -11,9 +11,14 @@
   interface Props {
     data: MonthlyExpense[]
     onSelectMonth?: (year: number, month: number) => void
+    ariaLabel?: string
   }
 
-  let { data, onSelectMonth }: Props = $props()
+  let {
+    data,
+    onSelectMonth,
+    ariaLabel = 'Monthly expenses over the last 12 months',
+  }: Props = $props()
 
   let showTable = $state(false)
   let hoverIndex = $state<number | null>(null)
@@ -118,7 +123,7 @@
       class={['w-full touch-none', onSelectMonth && 'cursor-pointer']}
       role="button"
       tabindex={onSelectMonth ? 0 : -1}
-      aria-label="Monthly expenses over the last 12 months{onSelectMonth
+      aria-label="{ariaLabel}{onSelectMonth
         ? ' - use arrow keys to pick a month, Enter to open it in Monthly'
         : ''}"
       onpointermove={(e) => handlePointerMove(e, e.currentTarget)}

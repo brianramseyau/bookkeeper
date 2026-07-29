@@ -84,6 +84,42 @@
     return monthlyShares.find((s) => s.year === year && s.month === month)
   }
 
+  /**
+   * A non-monthly bill entered off its expected cadence (e.g. two quarterly
+   * Water bills a month apart instead of three) produces overlapping
+   * periods - every month the periods share ends up with more than one
+   * contributing bill. The cell only ever displays one of them (the bill
+   * itself if present, else the first share), so this surfaces the others
+   * as a warning instead of silently hiding the conflict.
+   */
+  function conflictingBills(
+    year: number,
+    month: number
+  ): { billYear: number; billMonth: number }[] {
+    const bill = billFor(year, month)
+    const shares = monthlyShares.filter((s) => s.year === year && s.month === month)
+    const primaryKey = bill
+      ? `${bill.year}-${bill.month}`
+      : shares[0]
+        ? `${shares[0].billYear}-${shares[0].billMonth}`
+        : null
+
+    const seen = new Set<string>()
+    const conflicts: { billYear: number; billMonth: number }[] = []
+    for (const share of shares) {
+      const key = `${share.billYear}-${share.billMonth}`
+      if (key === primaryKey || seen.has(key)) continue
+      seen.add(key)
+      conflicts.push({ billYear: share.billYear, billMonth: share.billMonth })
+    }
+    return conflicts
+  }
+
+  function conflictTooltip(conflicts: { billYear: number; billMonth: number }[]): string {
+    const list = conflicts.map((c) => monthYearLabel(c.billYear, c.billMonth)).join(', ')
+    return `Also covered by the ${list} bill${conflicts.length > 1 ? 's' : ''} - check for a duplicate or overlapping entry`
+  }
+
   let selectedFinancialYear = $state(currentFinancialYear())
 
   const fyMonths = $derived(financialYearMonths(selectedFinancialYear))
@@ -154,6 +190,10 @@
       bills = billsResponse.bills
       monthlyShares = billsResponse.monthlyShares
       trend = trendResult
+      // A no-op if this cell wasn't the one being edited - but if it was
+      // (the in-edit Remove button), the bill it was editing is now gone,
+      // so the input needs to close rather than keep showing a stale value.
+      cancelEdit()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
     } finally {
@@ -356,6 +396,7 @@
           {@const key = cellKey(year, month)}
           {@const displayAmount = share ? share.amount : bill?.amount}
           {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
+          {@const conflicts = conflictingBills(year, month)}
           <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
             <td
               class="px-3 py-1.5 font-medium whitespace-nowrap text-slate-700 dark:text-slate-300"
@@ -364,26 +405,49 @@
             </td>
             <td class="group relative px-1 py-1 text-right">
               {#if editingKey === key}
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  bind:value={editingValue}
-                  disabled={saving}
-                  onblur={() => saveEdit(year, month)}
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter') saveEdit(year, month)
-                    if (e.key === 'Escape') cancelEdit()
-                  }}
-                  use:focusOnMount
-                  class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
-                />
+                <div class="flex items-center justify-end gap-1">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    bind:value={editingValue}
+                    disabled={saving}
+                    onblur={() => saveEdit(year, month)}
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter') saveEdit(year, month)
+                      if (e.key === 'Escape') cancelEdit()
+                    }}
+                    use:focusOnMount
+                    class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                  {#if bill}
+                    <button
+                      type="button"
+                      aria-label="Remove"
+                      title="Remove this bill"
+                      disabled={saving}
+                      onmousedown={(e) => e.preventDefault()}
+                      onclick={() => removeCell(year, month)}
+                      class="rounded px-1 text-xs text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-500 dark:hover:text-red-400"
+                    >
+                      ×
+                    </button>
+                  {/if}
+                </div>
               {:else if !bill && share}
                 <span
                   class="block w-full cursor-default rounded-md px-2 py-1.5 text-right text-slate-400 italic dark:text-slate-500"
                   title={`Part of the ${monthYearLabel(share.billYear, share.billMonth)} bill`}
                 >
                   {formatCurrency(share.amount)}
+                  {#if conflicts.length > 0}
+                    <span
+                      class="text-amber-500 dark:text-amber-400"
+                      title={conflictTooltip(conflicts)}
+                    >
+                      ⚠
+                    </span>
+                  {/if}
                 </span>
               {:else}
                 <button
@@ -397,6 +461,14 @@
                   ]}
                 >
                   {bill ? formatCurrency(displayAmount!) : '+'}
+                  {#if bill && conflicts.length > 0}
+                    <span
+                      class="text-amber-500 dark:text-amber-400"
+                      title={conflictTooltip(conflicts)}
+                    >
+                      ⚠
+                    </span>
+                  {/if}
                   {#if showsBilledTotal}
                     <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
                       bills {formatCurrency(bill!.amount)}

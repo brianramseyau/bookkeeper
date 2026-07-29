@@ -35,6 +35,7 @@ export interface UtilityTrend {
   latestMonth: number | null
   trend: 'up' | 'down' | 'flat' | null
   months: { year: number; month: number; amount: number }[]
+  nextDueOn: string | null
 }
 
 /**

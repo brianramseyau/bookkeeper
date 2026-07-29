@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import { DateTime } from 'luxon'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import UtilityBillTransformer from '#transformers/utility_bill_transformer'
@@ -6,6 +7,7 @@ import { upsertUtilityBillValidator } from '#validators/utility_bill'
 import { RollingAverageService } from '#services/rolling_average_service'
 import {
   expandUtilityBillsToMonthlyShares,
+  nextUtilityDueDate,
   utilityPeriodMonths,
 } from '#services/utility_billing_period'
 
@@ -96,7 +98,8 @@ export default class UtilityBillsController {
     const result = service.computeTrend(
       expandUtilityBillsToMonthlyShares(bills, utility.frequency, utility.paidInAdvance)
     )
+    const nextDueOn = nextUtilityDueDate(utility, bills, DateTime.utc().startOf('day'))
 
-    return response.json(result)
+    return response.json({ ...result, nextDueOn: nextDueOn?.toISO() ?? null })
   }
 }
