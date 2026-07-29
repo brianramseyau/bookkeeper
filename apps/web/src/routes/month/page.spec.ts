@@ -1450,4 +1450,111 @@ describe('month page', () => {
     await user.click(screen.getByRole('button', { name: /Annual Bills \(amortized\)/ }))
     expect(screen.queryByText('Costco Membership')).toBeNull()
   })
+
+  it('links each expense line label to its corresponding view page', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'utility-1',
+              label: 'Electricity',
+              projected: 100,
+              actual: 110,
+              dueDay: null,
+              dueDate: '2026-03-20T00:00:00.000+00:00',
+              paid: false,
+              editable: true,
+            },
+            {
+              key: 'category-1',
+              label: 'Groceries',
+              projected: 600,
+              actual: 620,
+              dueDay: 5,
+              dueDate: null,
+              paid: true,
+              editable: true,
+            },
+            {
+              key: 'recurring-bill-3',
+              label: 'Internet',
+              projected: 90,
+              actual: 90,
+              dueDay: 12,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+            {
+              key: 'subscription-4',
+              label: 'Netflix (Brian)',
+              projected: 20,
+              actual: 20,
+              dueDay: 8,
+              dueDate: null,
+              paid: false,
+              editable: true,
+            },
+          ],
+          projectedTotal: 810,
+          actualTotal: 840,
+          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    expect((await screen.findByRole('link', { name: 'Electricity' })).getAttribute('href')).toBe(
+      '/utilities/1'
+    )
+    expect(screen.getByRole('link', { name: 'Groceries' }).getAttribute('href')).toBe(
+      '/categories/1'
+    )
+    expect(screen.getByRole('link', { name: 'Internet' }).getAttribute('href')).toBe(
+      '/recurring-bills#bill-3'
+    )
+    expect(screen.getByRole('link', { name: 'Netflix (Brian)' }).getAttribute('href')).toBe(
+      '/subscriptions'
+    )
+  })
+
+  it('links an amortized bill item label to its recurring-bills anchor', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [],
+          projectedTotal: 5.42,
+          actualTotal: 0,
+          amortizedBills: {
+            label: 'Annual Bills (amortized)',
+            total: 5.42,
+            items: [
+              {
+                key: 'recurring-bill-1',
+                label: 'Costco Membership',
+                amount: 65,
+                frequency: 'annual',
+                monthlyShare: 5.42,
+              },
+            ],
+          },
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: /Annual Bills \(amortized\)/ }))
+
+    expect(
+      (await screen.findByRole('link', { name: 'Costco Membership' })).getAttribute('href')
+    ).toBe('/recurring-bills#bill-1')
+  })
 })

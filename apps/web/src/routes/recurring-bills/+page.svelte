@@ -400,7 +400,10 @@
             {#if editingId === bill.id}
               {@render editRow(bill)}
             {:else}
-              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+              <tr
+                id="bill-{bill.id}"
+                class="border-b border-slate-100 last:border-0 dark:border-slate-700/60"
+              >
                 <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{bill.name}</td
                 >
                 <td class="px-3 py-2">

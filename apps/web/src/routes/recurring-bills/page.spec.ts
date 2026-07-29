@@ -164,6 +164,14 @@ describe('recurring bills page', () => {
     expect(gymDue.className).not.toContain('bg-red-100')
   })
 
+  it('gives each active bill row a bill-{id} anchor so the Monthly page can link to it', async () => {
+    setDefaultMocks()
+    render(RecurringBillsPage)
+
+    const carRow = await screen.findByText('Car Insurance').then((el) => el.closest('tr')!)
+    expect(carRow.id).toBe(`bill-${carInsurance.id}`)
+  })
+
   it('changes a bill category and reloads', async () => {
     setDefaultMocks()
     vi.mocked(updateRecurringBill).mockResolvedValue({ ...carInsurance, categoryId: null })
