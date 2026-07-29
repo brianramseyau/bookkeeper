@@ -146,7 +146,7 @@ describe('dashboard page', () => {
     })
     await fireEvent.pointerMove(chart, { clientX: 700, clientY: 100 })
     await fireEvent.click(chart)
-    expect(goto).toHaveBeenCalledWith('/month?year=2026&month=2')
+    expect(goto).toHaveBeenCalledWith('/monthly?year=2026&month=2')
   })
 
   it('does not render a utilities section when there are none', async () => {

@@ -564,7 +564,7 @@
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Income</h1>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
   Manage income sources and how often they're actually paid. Logging what came in each month still
-  happens on the <a href="/month" class="text-indigo-600 hover:underline dark:text-indigo-400"
+  happens on the <a href="/monthly" class="text-indigo-600 hover:underline dark:text-indigo-400"
     >Monthly</a
   > page.
 </p>

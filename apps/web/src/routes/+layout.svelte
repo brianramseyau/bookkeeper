@@ -17,10 +17,10 @@
 
   const navLinks = [
     { href: '/', label: 'Dashboard', exact: true },
-    { href: '/month', label: 'Monthly' },
+    { href: '/monthly', label: 'Monthly' },
     { href: '/income', label: 'Income' },
     { href: '/utilities', label: 'Utilities' },
-    { href: '/recurring-bills', label: 'Bills' },
+    { href: '/bills', label: 'Bills' },
     { href: '/subscriptions', label: 'Subscriptions' },
     { href: '/categories', label: 'Categories' },
     { href: '/tasks', label: 'Tasks' },

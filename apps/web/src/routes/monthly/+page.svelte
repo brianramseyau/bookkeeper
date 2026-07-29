@@ -115,7 +115,7 @@
 
   function clearUrlParams() {
     if (page.url.search) {
-      replaceState('/month', {})
+      replaceState('/monthly', {})
     }
   }
 
@@ -123,7 +123,7 @@
   // routes/+page.svelte) so the URL can be copy/pasted or reloaded to return
   // to the same month.
   function setUrlParams(y: number, m: number) {
-    replaceState(`/month?year=${y}&month=${m}`, {})
+    replaceState(`/monthly?year=${y}&month=${m}`, {})
   }
 
   function changeMonth(delta: number) {
@@ -491,7 +491,7 @@
 
   // Maps an expense line back to the page where it's actually managed, so
   // its label can link there - a recurring bill's row on that page carries
-  // a matching `bill-{id}` anchor (see recurring-bills/+page.svelte) the
+  // a matching `bill-{id}` anchor (see bills/+page.svelte) the
   // same way the amortized-bills group header already links to `#annual`.
   // Subscriptions have no per-item detail view and are filtered by a person
   // tab with no owner on this line to pre-select, so they link to the list
@@ -499,7 +499,7 @@
   function viewHref(line: StandardMonthLine): string | null {
     if (line.key.startsWith('utility-')) return `/utilities/${line.key.slice('utility-'.length)}`
     if (line.key.startsWith('recurring-bill-')) {
-      return `/recurring-bills#bill-${line.key.slice('recurring-bill-'.length)}`
+      return `/bills#bill-${line.key.slice('recurring-bill-'.length)}`
     }
     if (line.key.startsWith('subscription-')) return '/subscriptions'
     if (line.key.startsWith('category-')) return `/categories/${line.key.slice('category-'.length)}`
@@ -800,7 +800,7 @@
                 {data.expenses.amortizedBills.label}
               </button>
               <a
-                href="/recurring-bills#annual"
+                href="/bills#annual"
                 class="ml-2 text-xs font-normal text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
               >
                 View bills →
@@ -821,7 +821,7 @@
               >
                 <td class="py-2 pr-3 pl-8 text-slate-700 dark:text-slate-300">
                   <a
-                    href="/recurring-bills#bill-{item.key.slice('recurring-bill-'.length)}"
+                    href="/bills#bill-{item.key.slice('recurring-bill-'.length)}"
                     class="hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
                   >
                     {item.label}

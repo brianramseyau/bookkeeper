@@ -30,7 +30,7 @@ import { ApiError } from '$lib/api'
 import MonthPage from './+page.svelte'
 
 vi.mock('$app/navigation', () => ({ replaceState: vi.fn() }))
-vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/month') } }))
+vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/monthly') } }))
 vi.mock('$lib/api/standard-month', () => ({ getStandardMonth: vi.fn() }))
 vi.mock('$lib/api/month-carryover', () => ({ setMonthCarryover: vi.fn() }))
 vi.mock('$lib/api/income', () => ({
@@ -172,7 +172,7 @@ describe('month page', () => {
     // are deterministic regardless of when the suite actually runs - the
     // fixture due dates below are all in March 2026.
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
-    setPageUrl('http://localhost/month?year=2026&month=3')
+    setPageUrl('http://localhost/monthly?year=2026&month=3')
     vi.mocked(getStandardMonth).mockReset()
     vi.mocked(listIncomeSources).mockReset()
     vi.mocked(listIncomeEntries).mockReset()
@@ -202,7 +202,7 @@ describe('month page', () => {
   })
 
   it('defaults to the current month when the URL has no valid params', async () => {
-    setPageUrl('http://localhost/month')
+    setPageUrl('http://localhost/monthly')
     setDefaultMocks()
     const now = new Date()
     render(MonthPage)
@@ -295,7 +295,7 @@ describe('month page', () => {
 
     await user.click(screen.getByRole('button', { name: '← Prev' }))
     expect(await screen.findByText('February 2026')).toBeInTheDocument()
-    expect(replaceState).toHaveBeenCalledWith('/month?year=2026&month=2', {})
+    expect(replaceState).toHaveBeenCalledWith('/monthly?year=2026&month=2', {})
     expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2)
 
     for (let i = 0; i < 2; i++) {
@@ -311,7 +311,7 @@ describe('month page', () => {
   })
 
   it('jumps back to the current month', async () => {
-    setPageUrl('http://localhost/month?year=2020&month=1')
+    setPageUrl('http://localhost/monthly?year=2020&month=1')
     setDefaultMocks()
     const user = userEvent.setup()
     render(MonthPage)
@@ -1395,7 +1395,7 @@ describe('month page', () => {
     expect(within(rows[1]! as HTMLElement).getByText('$135.42')).toBeInTheDocument()
 
     const link = within(expensesTable).getByRole('link', { name: 'View bills →' })
-    expect(link.getAttribute('href')).toBe('/recurring-bills#annual')
+    expect(link.getAttribute('href')).toBe('/bills#annual')
 
     // Collapsed by default - itemized bills aren't shown yet.
     expect(screen.queryByText('Costco Membership')).toBeNull()
@@ -1515,14 +1515,14 @@ describe('month page', () => {
       '/categories/1'
     )
     expect(screen.getByRole('link', { name: 'Internet' }).getAttribute('href')).toBe(
-      '/recurring-bills#bill-3'
+      '/bills#bill-3'
     )
     expect(screen.getByRole('link', { name: 'Netflix (Brian)' }).getAttribute('href')).toBe(
       '/subscriptions'
     )
   })
 
-  it('links an amortized bill item label to its recurring-bills anchor', async () => {
+  it('links an amortized bill item label to its bills anchor', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
@@ -1555,6 +1555,6 @@ describe('month page', () => {
 
     expect(
       (await screen.findByRole('link', { name: 'Costco Membership' })).getAttribute('href')
-    ).toBe('/recurring-bills#bill-1')
+    ).toBe('/bills#bill-1')
   })
 })

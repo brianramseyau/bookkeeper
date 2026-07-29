@@ -56,7 +56,7 @@ describe('+layout.svelte', () => {
 
   it('redirects to /login when unauthenticated and not already there', async () => {
     vi.mocked(api.get).mockRejectedValue(new Error('401'))
-    setPageUrl('http://localhost/month')
+    setPageUrl('http://localhost/monthly')
 
     render(Layout, { children: childrenSnippet })
 
@@ -84,7 +84,7 @@ describe('+layout.svelte', () => {
 
   it('renders the nav, user display, and page content when authenticated', async () => {
     vi.mocked(api.get).mockResolvedValue(brian)
-    setPageUrl('http://localhost/month')
+    setPageUrl('http://localhost/monthly')
 
     render(Layout, { children: childrenSnippet })
 

@@ -167,7 +167,7 @@ function buildPayload(dueBills: DueBill[]): PushPayload {
     .map((bill) => bill.name)
     .join(', ')
 
-  return { title, body, url: '/recurring-bills' }
+  return { title, body, url: '/bills' }
 }
 
 /**

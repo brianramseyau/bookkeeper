@@ -69,7 +69,7 @@
         {formatCurrency(data.currentMonth.actualNet)}
       </p>
       <a
-        href="/month"
+        href="/monthly"
         class="mt-1 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
       >
         View monthly →
@@ -99,7 +99,7 @@
       <div class="mt-3">
         <MonthlyExpenseChart
           data={data.monthlyExpenses}
-          onSelectMonth={(year, month) => goto(`/month?year=${year}&month=${month}`)}
+          onSelectMonth={(year, month) => goto(`/monthly?year=${year}&month=${month}`)}
         />
       </div>
     </Card>
@@ -135,7 +135,7 @@
         </ul>
       {/if}
       <a
-        href="/recurring-bills"
+        href="/bills"
         class="mt-3 inline-block text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
       >
         View all recurring bills →
