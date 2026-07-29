@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { api } from '$lib/api'
+import { api, setUnauthorizedListener } from '$lib/api'
 import { authState, loadCurrentUser, login, logout } from './auth.svelte'
 
 vi.mock('$lib/api', () => ({
@@ -7,6 +7,7 @@ vi.mock('$lib/api', () => ({
     get: vi.fn(),
     post: vi.fn(),
   },
+  setUnauthorizedListener: vi.fn(),
 }))
 
 const currentUser = {
@@ -17,10 +18,14 @@ const currentUser = {
   initials: 'B',
 }
 
+// Captured at module load, before any test's `afterEach` can clear the mock's call history.
+const handleUnauthorized = vi.mocked(setUnauthorizedListener).mock.calls[0]![0]!
+
 describe('auth store', () => {
   beforeEach(() => {
     authState.user = null
     authState.loading = true
+    authState.sessionExpired = false
     vi.mocked(api.get).mockReset()
     vi.mocked(api.post).mockReset()
   })
@@ -64,5 +69,23 @@ describe('auth store', () => {
 
     expect(api.post).toHaveBeenCalledWith('/logout')
     expect(authState.user).toBeNull()
+  })
+
+  it('clears the user and flags the session as expired on an unauthorized response', () => {
+    authState.user = currentUser
+
+    handleUnauthorized()
+
+    expect(authState.user).toBeNull()
+    expect(authState.sessionExpired).toBe(true)
+  })
+
+  it('does not flag the session as expired when there was no logged-in user', () => {
+    authState.user = null
+
+    handleUnauthorized()
+
+    expect(authState.user).toBeNull()
+    expect(authState.sessionExpired).toBe(false)
   })
 })

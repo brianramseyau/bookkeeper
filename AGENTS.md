@@ -146,6 +146,8 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   — config lives in CSS via the Vite plugin).
 - UI/CSS conventions: see STYLEGUIDE.md for current button/form/checkbox/card
   patterns — check it before introducing new UI patterns.
+- Favour building reusable, unit testable components over large in-line
+  pages with sprawling sections, this will make re-use trivial.
 
 ## Testing
 

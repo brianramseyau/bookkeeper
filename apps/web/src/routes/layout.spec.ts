@@ -10,7 +10,10 @@ import Layout from './+layout.svelte'
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/') } }))
-vi.mock('$lib/api', () => ({ api: { get: vi.fn(), post: vi.fn() } }))
+vi.mock('$lib/api', () => ({
+  api: { get: vi.fn(), post: vi.fn() },
+  setUnauthorizedListener: vi.fn(),
+}))
 
 // SvelteKit's real `Page.url` type brands `pathname` with a union of the
 // app's known routes - the mock above is a plain URL, so route it through a

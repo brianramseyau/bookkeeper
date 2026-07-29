@@ -2,12 +2,15 @@ import { render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { goto } from '$app/navigation'
-import { login } from '$lib/stores/auth.svelte'
+import { authState, login } from '$lib/stores/auth.svelte'
 import { ApiError } from '$lib/api'
 import LoginPage from './+page.svelte'
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
-vi.mock('$lib/stores/auth.svelte', () => ({ login: vi.fn() }))
+vi.mock('$lib/stores/auth.svelte', () => ({
+  login: vi.fn(),
+  authState: { sessionExpired: false },
+}))
 
 async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Email'), 'brian@example.com')
@@ -19,6 +22,7 @@ describe('login page', () => {
   beforeEach(() => {
     vi.mocked(login).mockReset()
     vi.mocked(goto).mockReset()
+    authState.sessionExpired = false
   })
 
   it('logs in and redirects to the dashboard on success', async () => {
@@ -51,5 +55,14 @@ describe('login page', () => {
     await fillAndSubmit(user)
 
     expect(await screen.findByText('Something went wrong, try again.')).toBeInTheDocument()
+  })
+
+  it('shows a session-expired message when redirected after an unauthorized response', () => {
+    authState.sessionExpired = true
+
+    render(LoginPage)
+
+    expect(screen.getByText('Your session has expired. Please log in again.')).toBeInTheDocument()
+    expect(authState.sessionExpired).toBe(false)
   })
 })

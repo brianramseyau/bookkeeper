@@ -1,4 +1,4 @@
-import { api } from '$lib/api'
+import { api, setUnauthorizedListener } from '$lib/api'
 
 export interface CurrentUser {
   id: number
@@ -11,9 +11,15 @@ export interface CurrentUser {
 class AuthState {
   user = $state<CurrentUser | null>(null)
   loading = $state(true)
+  sessionExpired = $state(false)
 }
 
 export const authState = new AuthState()
+
+setUnauthorizedListener(() => {
+  if (authState.user) authState.sessionExpired = true
+  authState.user = null
+})
 
 export async function loadCurrentUser(): Promise<void> {
   authState.loading = true

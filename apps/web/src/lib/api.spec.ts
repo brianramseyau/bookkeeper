@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, ApiError } from './api'
+import { api, ApiError, setUnauthorizedListener } from './api'
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -11,6 +11,7 @@ function jsonResponse(status: number, body: unknown): Response {
 describe('api', () => {
   afterEach(() => {
     document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'
+    setUnauthorizedListener(null)
   })
 
   it('sends a GET request without a body or content-type header', async () => {
@@ -141,5 +142,27 @@ describe('api', () => {
     const error = await captureError(api.get('/broken'))
 
     expect(error.message).toBe('Server Error')
+  })
+
+  it('notifies the unauthorized listener on a 401 response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(401, { message: 'Unauthorized' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const listener = vi.fn()
+    setUnauthorizedListener(listener)
+
+    await captureError(api.get('/me'))
+
+    expect(listener).toHaveBeenCalledOnce()
+  })
+
+  it('does not notify the unauthorized listener on other error statuses', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(404, { message: 'Not found' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const listener = vi.fn()
+    setUnauthorizedListener(listener)
+
+    await captureError(api.get('/missing'))
+
+    expect(listener).not.toHaveBeenCalled()
   })
 })

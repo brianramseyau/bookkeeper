@@ -14,6 +14,12 @@ function readCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null
 }
 
+let unauthorizedListener: (() => void) | null = null
+
+export function setUnauthorizedListener(listener: (() => void) | null): void {
+  unauthorizedListener = listener
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
 
@@ -33,6 +39,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   })
 
   if (!response.ok) {
+    if (response.status === 401) unauthorizedListener?.()
+
     const payload = await response.json().catch(() => null)
     const message = payload?.errors?.[0]?.message ?? payload?.message ?? response.statusText
     throw new ApiError(response.status, message)

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
-  import { login } from '$lib/stores/auth.svelte'
+  import { authState, login } from '$lib/stores/auth.svelte'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -9,8 +9,12 @@
 
   let email = $state('')
   let password = $state('')
-  let error = $state<string | null>(null)
+  let error = $state<string | null>(
+    authState.sessionExpired ? 'Your session has expired. Please log in again.' : null
+  )
   let submitting = $state(false)
+
+  authState.sessionExpired = false
 
   async function handleSubmit(event: SubmitEvent) {
     event.preventDefault()
