@@ -29,3 +29,27 @@
     font-size: 16px !important;
   }
 }
+
+/* Momentary flash on an element scrolled to via a same-page or cross-page
+   hash link (e.g. Monthly's expense-line links landing on a Bills row), so
+   the target is easy to spot in a long list - same idea as Jira's flash on
+   a linked comment. Alpha-based indigo tint so it reads correctly over both
+   light and dark row backgrounds without a separate dark: variant. */
+@keyframes highlight-flash {
+  from {
+    background-color: rgba(99, 102, 241, 0.35);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+.highlight-flash {
+  animation: highlight-flash 1.6s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlight-flash {
+    animation: none;
+  }
+}

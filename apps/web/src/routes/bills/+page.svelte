@@ -87,7 +87,11 @@
     // once the DOM actually reflects the fetched data.
     if (window.location.hash) {
       await tick()
-      document.getElementById(window.location.hash.slice(1))?.scrollIntoView()
+      const target = document.getElementById(window.location.hash.slice(1))
+      target?.scrollIntoView()
+      // Flash the landed-on row so it's easy to spot among the rest of the
+      // list, same idea as Jira's flash when you follow a link to a comment.
+      target?.classList.add('highlight-flash')
     }
   }
 

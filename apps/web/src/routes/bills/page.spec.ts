@@ -172,6 +172,21 @@ describe('recurring bills page', () => {
     expect(carRow.id).toBe(`bill-${carInsurance.id}`)
   })
 
+  it('flashes the row landed on via a #bill-{id} hash link', async () => {
+    window.location.hash = `#bill-${pestControl.id}`
+    try {
+      setDefaultMocks()
+      render(RecurringBillsPage)
+
+      const pestRow = await screen.findByText('Pest Control').then((el) => el.closest('tr')!)
+      await waitFor(() => expect(pestRow.classList).toContain('highlight-flash'))
+      const carRow = screen.getByText('Car Insurance').closest('tr')!
+      expect(carRow.classList).not.toContain('highlight-flash')
+    } finally {
+      window.location.hash = ''
+    }
+  })
+
   it('changes a bill category and reloads', async () => {
     setDefaultMocks()
     vi.mocked(updateRecurringBill).mockResolvedValue({ ...carInsurance, categoryId: null })
