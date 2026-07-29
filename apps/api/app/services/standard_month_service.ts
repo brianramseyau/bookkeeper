@@ -12,7 +12,6 @@ import CategoryMonthlyActual from '#models/category_monthly_actual'
 import CategoryPayment from '#models/category_payment'
 import { RollingAverageService } from '#services/rolling_average_service'
 import {
-  expandUtilityBillsToMonthlyShares,
   isUtilityBillingMonth,
   mostRecentUtilityBill,
   utilityPeriodMonths,
@@ -37,11 +36,7 @@ export interface StandardMonthLine {
   dueDate: string | null
   /** Whether the money has actually left the account, independent of whether the amount is known. */
   paid: boolean
-  /**
-   * False for a non-monthly utility line viewed in a month that isn't its
-   * actual billing month - that month's figure is a computed share of a
-   * bill entered elsewhere, not something to edit directly.
-   */
+  /** Whether the amount itself can be edited here (vs. only its paid state). */
   editable: boolean
 }
 
@@ -169,47 +164,38 @@ export class StandardMonthService {
     const utilities = await Utility.query().where('isActive', true).orderBy('name', 'asc')
     for (const utility of utilities) {
       const bills = await UtilityBill.query().where('utilityId', utility.id)
-      const shares = expandUtilityBillsToMonthlyShares(bills, utility.frequency)
-      const trend = this.rollingAverage.computeTrend(shares)
-      // A separate trend over the bills' own (unsplit) amounts - the
-      // billing month should show what the bill actually averages out to
-      // in full, not the smoothed per-month share used the rest of the year.
+
+      // A non-monthly utility (e.g. a quarterly Water bill) is only ever
+      // actually due once per period - showing it in every month it's
+      // amortized over would make it look like money leaves the account
+      // monthly when it doesn't. Only the month payment is actually (or
+      // predicted to be) due gets a line at all.
+      if (!isUtilityBillingMonth(utility, bills, year, month)) continue
+
+      const monthBill = bills.find((bill) => bill.year === year && bill.month === month)
+
+      // Nothing to show for this specific month - no recorded amount, and
+      // no live billing obligation either - so a monthly utility with a
+      // data gap doesn't clutter every unrelated month with an empty
+      // placeholder row. A past month with no data is dead history, not
+      // something worth surfacing; the current/future month is kept even
+      // without a recorded amount yet, since that's a live reminder rather
+      // than stale noise.
+      if (!monthBill && isPastMonth) continue
+
       const billTrend = this.rollingAverage.computeTrend(
         bills.map((bill) => ({ year: bill.year, month: bill.month, amount: bill.amount }))
       )
-      const monthShare = shares.find((share) => share.year === year && share.month === month)
-      const monthBill = monthShare ? bills.find((b) => b.id === monthShare.billId) : undefined
-      const isBillingMonth = isUtilityBillingMonth(utility, bills, year, month)
-
-      // Nothing to show for this specific month - no recorded amount, and
-      // no live billing obligation either - so a quarterly/annual utility
-      // off its cycle (or a monthly one with a data gap) doesn't clutter
-      // every unrelated month with an empty placeholder row. A past month
-      // with no data is dead history, not something worth surfacing; the
-      // current/future month is kept even without a recorded amount yet,
-      // since that's a live reminder rather than stale noise.
-      if (!monthShare && (isPastMonth || !isBillingMonth)) continue
-
-      // A non-monthly bill (e.g. a quarterly Water bill) is split into an
-      // even share per covered month so trends/projections can treat it as
-      // a plain monthly series - but the month it's actually billed in is
-      // when the full amount really leaves the account, so that month
-      // should show the real total rather than its own fractional share.
-      const monthActual = monthShare
-        ? monthShare.isBillingMonth
-          ? round(monthBill!.amount)
-          : round(monthShare.amount)
-        : null
 
       lines.push({
         key: `utility-${utility.id}`,
         label: utility.name,
-        projected: (isBillingMonth ? billTrend.average : trend.average) ?? 0,
-        actual: monthActual,
+        projected: billTrend.average ?? 0,
+        actual: monthBill ? round(monthBill.amount) : null,
         dueDay: null,
         dueDate: this.utilityDueDate(utility, bills, year, month),
         paid: monthBill?.paid ?? false,
-        editable: isBillingMonth,
+        editable: true,
       })
     }
 

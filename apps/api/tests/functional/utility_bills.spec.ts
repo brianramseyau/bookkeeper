@@ -61,6 +61,44 @@ test.group('UtilityBills / index', () => {
 
     response.assertStatus(404)
   })
+
+  test('splits a paid-in-advance annual bill forward from the billing month', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({
+      name: 'Phones',
+      frequency: 'annual',
+      paidInAdvance: true,
+    })
+    await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 1, amount: 1200 })
+
+    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(brian)
+
+    response.assertStatus(200)
+    const shares = response.body().monthlyShares
+    assert.deepEqual(
+      shares.map((s: { year: number; month: number }) => [s.year, s.month]),
+      [
+        [2026, 1],
+        [2026, 2],
+        [2026, 3],
+        [2026, 4],
+        [2026, 5],
+        [2026, 6],
+        [2026, 7],
+        [2026, 8],
+        [2026, 9],
+        [2026, 10],
+        [2026, 11],
+        [2026, 12],
+      ]
+    )
+    for (const share of shares) {
+      assert.equal(share.amount, 100)
+    }
+  })
 })
 
 test.group('UtilityBills / upsert', () => {

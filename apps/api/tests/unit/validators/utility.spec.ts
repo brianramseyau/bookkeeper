@@ -17,6 +17,15 @@ test.group('createUtilityValidator', () => {
     assert.equal(payload.dueOffsetDays, 28)
   })
 
+  test('accepts a paidInAdvance payload (Phones: annual, paid in advance)', async ({ assert }) => {
+    const payload = await createUtilityValidator.validate({
+      name: 'Phones',
+      frequency: 'annual',
+      paidInAdvance: true,
+    })
+    assert.isTrue(payload.paidInAdvance)
+  })
+
   test('rejects an invalid frequency', async ({ assert }) => {
     await assert.rejects(() =>
       createUtilityValidator.validate({ name: 'Water', frequency: 'weekly' })
@@ -52,5 +61,10 @@ test.group('updateUtilityValidator', () => {
   test('allows a null categoryId', async ({ assert }) => {
     const payload = await updateUtilityValidator.validate({ categoryId: null })
     assert.isNull(payload.categoryId)
+  })
+
+  test('accepts toggling paidInAdvance', async ({ assert }) => {
+    const payload = await updateUtilityValidator.validate({ paidInAdvance: true })
+    assert.isTrue(payload.paidInAdvance)
   })
 })

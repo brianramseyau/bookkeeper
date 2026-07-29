@@ -165,4 +165,49 @@ test.group('expandUtilityBillsToMonthlyShares', () => {
       ]
     )
   })
+
+  test('splits a bill paid in advance into equal shares starting at the bill month', ({
+    assert,
+  }) => {
+    const bills = [fakeBill(1, 2026, 1, 1200)]
+
+    const shares = expandUtilityBillsToMonthlyShares(bills, 'annual', true)
+
+    assert.lengthOf(shares, 12)
+    assert.deepEqual(
+      [shares[0], shares[shares.length - 1]].map((s) => [s!.year, s!.month]),
+      [
+        [2026, 1],
+        [2026, 12],
+      ]
+    )
+    for (const share of shares) {
+      assert.equal(share.amount, 100)
+    }
+    assert.deepEqual(
+      shares.map((s) => s.isBillingMonth),
+      [true, ...Array(11).fill(false)]
+    )
+  })
+
+  test('a paid-in-advance period spanning a year boundary runs forward from the bill month', ({
+    assert,
+  }) => {
+    const bills = [fakeBill(1, 2025, 11, 300)]
+
+    const shares = expandUtilityBillsToMonthlyShares(bills, 'quarterly', true)
+
+    assert.deepEqual(
+      shares.map((s) => [s.year, s.month]),
+      [
+        [2025, 11],
+        [2025, 12],
+        [2026, 1],
+      ]
+    )
+    assert.deepEqual(
+      shares.map((s) => s.isBillingMonth),
+      [true, false, false]
+    )
+  })
 })

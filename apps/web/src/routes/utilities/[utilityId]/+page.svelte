@@ -51,6 +51,7 @@
   let editingSettings = $state(false)
   let editFrequency = $state<UtilityFrequency>('monthly')
   let editDueOffsetDays = $state<number>(NaN)
+  let editPaidInAdvance = $state(false)
   let savingSettings = $state(false)
 
   onMount(load)
@@ -165,6 +166,7 @@
     editingSettings = true
     editFrequency = utility.frequency
     editDueOffsetDays = utility.dueOffsetDays ?? NaN
+    editPaidInAdvance = utility.paidInAdvance
   }
 
   function cancelEditSettings() {
@@ -178,6 +180,7 @@
       utility = await updateUtility(utilityId, {
         frequency: editFrequency,
         dueOffsetDays: Number.isNaN(editDueOffsetDays) ? null : editDueOffsetDays,
+        paidInAdvance: editPaidInAdvance,
       })
       editingSettings = false
     } catch (err) {
@@ -282,6 +285,16 @@
             class="w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
         </label>
+        <label class="flex items-center gap-2 pb-1.5">
+          <input
+            type="checkbox"
+            bind:checked={editPaidInAdvance}
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-700"
+          />
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+            >Paid in advance / Pre-paid</span
+          >
+        </label>
         <PrimaryButton size="sm" disabled={savingSettings} onclick={saveSettings}
           >Save</PrimaryButton
         >
@@ -299,6 +312,7 @@
           <span class="font-medium text-slate-900 capitalize dark:text-slate-100"
             >{utility.frequency}</span
           >
+          · {utility.paidInAdvance ? 'paid in advance' : 'paid in arrears'}
           {#if utility.dueOffsetDays !== null}
             · due on day {utility.dueOffsetDays} of the billing month
           {:else}
@@ -312,6 +326,13 @@
           Click the month it's actually billed in and enter the full bill - every month in that
           period then shows the same even monthly share, with the real total noted underneath. The
           other, non-billing months (in <span class="italic">italics</span>) are read-only.
+          {#if utility.paidInAdvance}
+            Paid in advance, so the billing month is the <span class="italic">first</span> month of the
+            period.
+          {:else}
+            Paid in arrears, so the billing month is the <span class="italic">last</span> month of the
+            period.
+          {/if}
         </p>
       {/if}
     {/if}

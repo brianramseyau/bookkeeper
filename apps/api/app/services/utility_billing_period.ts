@@ -62,18 +62,26 @@ export interface UtilityMonthlyShare extends MonthlyAmount {
  * dashboards and the standard-month view can treat utilities as a plain
  * monthly series, the same way they always could when every utility was
  * billed monthly.
+ *
+ * Most utilities are billed in arrears (e.g. quarterly Water) - the bill's
+ * (year, month) is the *last* month of the period it covers. A few are paid
+ * in advance (e.g. annual Phones) - the bill's (year, month) is instead the
+ * *first* month of the period. `paidInAdvance` picks which direction the
+ * period runs from the bill's own month.
  */
 export function expandUtilityBillsToMonthlyShares(
   bills: UtilityBill[],
-  frequency: string
+  frequency: string,
+  paidInAdvance = false
 ): UtilityMonthlyShare[] {
   const periodMonths = utilityPeriodMonths(frequency)
   const shares: UtilityMonthlyShare[] = []
 
   for (const bill of bills) {
     const share = bill.amount / periodMonths
-    for (let offset = periodMonths - 1; offset >= 0; offset--) {
-      const index = bill.year * 12 + (bill.month - 1) - offset
+    const billIndex = bill.year * 12 + (bill.month - 1)
+    for (let step = 0; step < periodMonths; step++) {
+      const index = paidInAdvance ? billIndex + step : billIndex - (periodMonths - 1 - step)
       const year = Math.floor(index / 12)
       const month = (((index % 12) + 12) % 12) + 1
       shares.push({
@@ -83,7 +91,7 @@ export function expandUtilityBillsToMonthlyShares(
         billId: bill.id,
         billYear: bill.year,
         billMonth: bill.month,
-        isBillingMonth: offset === 0,
+        isBillingMonth: paidInAdvance ? step === 0 : step === periodMonths - 1,
       })
     }
   }

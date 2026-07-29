@@ -339,7 +339,7 @@ test.group('StandardMonths / show', () => {
     assert.equal(noNameSubsLine.label, 'Spotify (noname@example.com)')
   })
 
-  test('splits a quarterly utility bill evenly across its covered months, and only lets the billing month be edited', async ({
+  test('shows a quarterly utility bill only in its billing month, hiding the covered non-billing months', async ({
     client,
     assert,
   }) => {
@@ -363,9 +363,8 @@ test.group('StandardMonths / show', () => {
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
     // The billing month shows the real full bill amount for both actual
-    // and projected, not the smoothed per-month share used the rest of
-    // the year - with only one bill on record, the "average" of the full
-    // bill amounts is just that one bill's total.
+    // and projected - with only one bill on record, the "average" of the
+    // full bill amounts is just that one bill's total.
     assert.equal(billingLine.actual, 369.49)
     assert.equal(billingLine.projected, 369.49)
     assert.isTrue(billingLine.editable)
@@ -378,15 +377,10 @@ test.group('StandardMonths / show', () => {
     const coveredLine = coveredMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
-    // Not the billing month - both actual and projected still show the
-    // fractional share, since nothing actually left the account this month.
-    assert.equal(coveredLine.actual, 123.16)
-    assert.equal(coveredLine.projected, 123.16)
-    assert.isFalse(coveredLine.editable)
-    // The paid flag lives on the single underlying bill row, so it applies
-    // across every month that bill's amount was split into, not just the
-    // billing month itself.
-    assert.equal(coveredLine.paid, true)
+    // Not the billing month - nothing actually left the account this
+    // month, so the utility gets no line here at all rather than a
+    // fractional "amortized" figure standing in for a real payment.
+    assert.isUndefined(coveredLine)
 
     const uncoveredMonth = await client
       .get('/api/standard-month')

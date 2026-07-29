@@ -9,6 +9,8 @@ export interface Utility {
   frequency: UtilityFrequency
   /** Days after the billing period's month-end that payment is due - null if unknown. */
   dueOffsetDays: number | null
+  /** False (default) means billed in arrears - the bill's month is the last month it covers. True means paid in advance - the bill's month is the first. */
+  paidInAdvance: boolean
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -64,7 +66,7 @@ export function createUtility(name: string) {
 
 export function updateUtility(
   id: number,
-  input: { frequency?: UtilityFrequency; dueOffsetDays?: number | null }
+  input: { frequency?: UtilityFrequency; dueOffsetDays?: number | null; paidInAdvance?: boolean }
 ) {
   return api.patch<Utility>(`/utilities/${id}`, input)
 }

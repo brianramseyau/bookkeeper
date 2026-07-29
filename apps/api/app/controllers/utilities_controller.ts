@@ -11,7 +11,15 @@ export default class UtilitiesController {
 
   async store({ request, response, serialize }: HttpContext) {
     const payload = await request.validateUsing(createUtilityValidator)
-    const utility = await Utility.create(payload)
+    // The DB column default isn't read back onto the in-memory instance
+    // returned by `create`, so a `paidInAdvance` the client never sent must
+    // still resolve to an explicit `false` here rather than staying
+    // `undefined` in the response - same reasoning as the `paid` default on
+    // UtilityBillsController#upsert.
+    const utility = await Utility.create({
+      ...payload,
+      paidInAdvance: payload.paidInAdvance ?? false,
+    })
     return response.created(await serialize(UtilityTransformer.transform(utility)))
   }
 

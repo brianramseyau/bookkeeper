@@ -7,6 +7,7 @@ export const createUtilityValidator = vine.create({
   categoryId: vine.number().positive().optional(),
   frequency: vine.enum(FREQUENCIES).optional(),
   dueOffsetDays: vine.number().min(0).nullable().optional(),
+  paidInAdvance: vine.boolean().optional(),
 })
 
 export const updateUtilityValidator = vine.create({
@@ -14,5 +15,6 @@ export const updateUtilityValidator = vine.create({
   categoryId: vine.number().positive().nullable().optional(),
   frequency: vine.enum(FREQUENCIES).optional(),
   dueOffsetDays: vine.number().min(0).nullable().optional(),
+  paidInAdvance: vine.boolean().optional(),
   isActive: vine.boolean().optional(),
 })

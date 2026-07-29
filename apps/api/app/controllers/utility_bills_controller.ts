@@ -30,13 +30,15 @@ export default class UtilityBillsController {
     const monthlyShares =
       utilityPeriodMonths(utility.frequency) <= 1
         ? []
-        : expandUtilityBillsToMonthlyShares(bills, utility.frequency).map((share) => ({
-            year: share.year,
-            month: share.month,
-            amount: round(share.amount),
-            billYear: share.billYear,
-            billMonth: share.billMonth,
-          }))
+        : expandUtilityBillsToMonthlyShares(bills, utility.frequency, utility.paidInAdvance).map(
+            (share) => ({
+              year: share.year,
+              month: share.month,
+              amount: round(share.amount),
+              billYear: share.billYear,
+              billMonth: share.billMonth,
+            })
+          )
 
     return response.json({
       bills: await serialize.withoutWrapping(UtilityBillTransformer.transform(bills)),
@@ -91,7 +93,9 @@ export default class UtilityBillsController {
     const bills = await UtilityBill.query().where('utilityId', utilityId)
 
     const service = new RollingAverageService()
-    const result = service.computeTrend(expandUtilityBillsToMonthlyShares(bills, utility.frequency))
+    const result = service.computeTrend(
+      expandUtilityBillsToMonthlyShares(bills, utility.frequency, utility.paidInAdvance)
+    )
 
     return response.json(result)
   }

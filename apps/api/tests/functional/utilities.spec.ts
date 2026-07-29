@@ -38,6 +38,7 @@ test.group('Utilities / store', () => {
 
     response.assertStatus(201)
     assert.equal(response.body().data.name, 'Gas')
+    assert.isFalse(response.body().data.paidInAdvance)
   })
 
   test('creates a Water-style quarterly utility with a due offset', async ({ client, assert }) => {
@@ -52,6 +53,19 @@ test.group('Utilities / store', () => {
     response.assertStatus(201)
     assert.equal(response.body().data.frequency, 'quarterly')
     assert.equal(response.body().data.dueOffsetDays, 28)
+  })
+
+  test('creates a Phones-style annual utility paid in advance', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+
+    const response = await client
+      .post('/api/utilities')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ name: 'Phones', frequency: 'annual', paidInAdvance: true })
+
+    response.assertStatus(201)
+    assert.isTrue(response.body().data.paidInAdvance)
   })
 
   test('rejects an invalid payload', async ({ client }) => {
@@ -80,6 +94,20 @@ test.group('Utilities / update', () => {
 
     response.assertStatus(200)
     assert.equal(response.body().data.dueOffsetDays, 0)
+  })
+
+  test('toggles paidInAdvance', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Phones', frequency: 'annual' })
+
+    const response = await client
+      .patch(`/api/utilities/${utility.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paidInAdvance: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paidInAdvance)
   })
 })
 

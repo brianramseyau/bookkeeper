@@ -560,6 +560,7 @@ export class UtilitySchema extends BaseModel {
     'id',
     'isActive',
     'name',
+    'paidInAdvance',
     'updatedAt',
   ] as const
   $columns = UtilitySchema.$columns
@@ -577,6 +578,8 @@ export class UtilitySchema extends BaseModel {
   declare isActive: boolean
   @column()
   declare name: string
+  @column()
+  declare paidInAdvance: boolean
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

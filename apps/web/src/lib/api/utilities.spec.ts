@@ -30,6 +30,14 @@ describe('utilities api', () => {
     expect(api.patch).toHaveBeenCalledWith('/utilities/1', { frequency: 'quarterly' })
   })
 
+  it('updates a utility including paidInAdvance', () => {
+    updateUtility(1, { frequency: 'annual', paidInAdvance: true })
+    expect(api.patch).toHaveBeenCalledWith('/utilities/1', {
+      frequency: 'annual',
+      paidInAdvance: true,
+    })
+  })
+
   it('gets a utility bills matrix', () => {
     getUtilityBills(1)
     expect(api.get).toHaveBeenCalledWith('/utilities/1/bills')

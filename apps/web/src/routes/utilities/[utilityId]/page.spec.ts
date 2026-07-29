@@ -32,6 +32,7 @@ const electricity: Utility = {
   categoryId: null,
   frequency: 'quarterly',
   dueOffsetDays: 14,
+  paidInAdvance: false,
   isActive: true,
   createdAt: '',
   updatedAt: '',
@@ -173,8 +174,22 @@ describe('utility detail page', () => {
 
     await screen.findByRole('heading', { name: 'Electricity' })
     expect(screen.getByText('quarterly')).toBeInTheDocument()
+    expect(screen.getByText(/paid in arrears/)).toBeInTheDocument()
     expect(screen.getByText(/due on day 14 of the billing month/)).toBeInTheDocument()
     expect(screen.getByText(/Click the month it's actually billed in/)).toBeInTheDocument()
+    expect(screen.getByText(/billing month is the/)).toBeInTheDocument()
+    expect(screen.getByText('last')).toBeInTheDocument()
+  })
+
+  it('shows "paid in advance" and the first-month hint for a paid-in-advance utility', async () => {
+    vi.mocked(listUtilities).mockResolvedValue([{ ...electricity, paidInAdvance: true }])
+    vi.mocked(getUtilityBills).mockResolvedValue(billsResponse)
+    vi.mocked(getUtilityTrend).mockResolvedValue(upTrend)
+    render(UtilityDetailPage)
+
+    await screen.findByRole('heading', { name: 'Electricity' })
+    expect(screen.getByText(/paid in advance/)).toBeInTheDocument()
+    expect(screen.getByText('first')).toBeInTheDocument()
   })
 
   it('shows no due-offset text and no billing hint for a monthly utility with no offset', async () => {
@@ -422,9 +437,33 @@ describe('utility detail page', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() =>
-      expect(updateUtility).toHaveBeenCalledWith(1, { frequency: 'annual', dueOffsetDays: 30 })
+      expect(updateUtility).toHaveBeenCalledWith(1, {
+        frequency: 'annual',
+        dueOffsetDays: 30,
+        paidInAdvance: false,
+      })
     )
     expect(await screen.findByText('annual')).toBeInTheDocument()
+  })
+
+  it('edits billing settings and saves paidInAdvance when the checkbox is checked', async () => {
+    setDefaultMocks()
+    vi.mocked(updateUtility).mockResolvedValue({ ...electricity, paidInAdvance: true })
+    const user = userEvent.setup()
+    render(UtilityDetailPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByLabelText('Paid in advance / Pre-paid'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(updateUtility).toHaveBeenCalledWith(1, {
+        frequency: 'quarterly',
+        dueOffsetDays: 14,
+        paidInAdvance: true,
+      })
+    )
+    expect(await screen.findByText(/paid in advance/)).toBeInTheDocument()
   })
 
   it('cancels editing billing settings without saving', async () => {
