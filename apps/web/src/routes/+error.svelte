@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import LostPiggyIllustration from '$lib/components/LostPiggyIllustration.svelte'
 
   const notFound = $derived(page.status === 404)
 </script>
@@ -9,7 +10,8 @@
   <title>{notFound ? 'Page not found' : 'Error'} · Bookkeeper</title>
 </svelte:head>
 
-<div class="mt-16 flex flex-col items-center gap-3 text-center">
+<div class="mt-12 flex flex-col items-center gap-3 text-center">
+  <LostPiggyIllustration class="h-40 w-40" />
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">
     {notFound ? 'Page not found' : `Something went wrong (${page.status})`}
   </h1>
