@@ -13,6 +13,7 @@ import {
   type NotificationSchedule,
 } from '$lib/api/notification-schedule'
 import { ApiError } from '$lib/api'
+import { formatDateTime } from '$lib/format'
 import TasksPage from './+page.svelte'
 
 vi.mock('$lib/api/backup-settings', () => ({
@@ -192,7 +193,11 @@ describe('tasks page', () => {
     const user = userEvent.setup()
     render(TasksPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Delete backup from ${formatDateTime(backupA.createdAt)}`,
+      })
+    )
 
     expect(window.confirm).toHaveBeenCalledWith(
       `Permanently delete "${backupA.filename}"? This cannot be undone.`
@@ -208,7 +213,11 @@ describe('tasks page', () => {
     const user = userEvent.setup()
     render(TasksPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Delete backup from ${formatDateTime(backupA.createdAt)}`,
+      })
+    )
 
     expect(deleteBackup).not.toHaveBeenCalled()
   })
@@ -221,7 +230,11 @@ describe('tasks page', () => {
     const user = userEvent.setup()
     render(TasksPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Delete' }))
+    await user.click(
+      await screen.findByRole('button', {
+        name: `Delete backup from ${formatDateTime(backupA.createdAt)}`,
+      })
+    )
 
     expect(await screen.findByText('Delete failed')).toBeInTheDocument()
   })

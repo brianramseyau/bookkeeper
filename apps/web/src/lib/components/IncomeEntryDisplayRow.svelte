@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { formatCurrency, formatDate } from '$lib/format'
-  import TextActionButton from './TextActionButton.svelte'
+  import IconActionButton from './IconActionButton.svelte'
+  import { mdiPencil, mdiDelete } from '@mdi/js'
 
   interface Props {
     amount: number
@@ -26,6 +27,8 @@
     onEdit,
     onRemove,
   }: Props = $props()
+
+  const entryLabel = $derived(receivedOn ? `entry from ${formatDate(receivedOn)}` : 'entry')
 </script>
 
 <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
@@ -34,9 +37,17 @@
   <td class={[cellClass, 'text-slate-500 dark:text-slate-400']}>{formatDate(receivedOn)}</td>
   <td class={[cellClass, 'text-slate-500 dark:text-slate-400']}>{note ?? '—'}</td>
   <td class={lastCellClass}>
-    <TextActionButton variant="neutral" onclick={onEdit}>Edit</TextActionButton>
-    <TextActionButton variant="danger" class="-my-1 ml-1 p-1" onclick={onRemove}
-      >Remove</TextActionButton
-    >
+    <IconActionButton
+      variant="neutral"
+      label="Edit {entryLabel}"
+      path={mdiPencil}
+      onclick={onEdit}
+    />
+    <IconActionButton
+      variant="danger"
+      label="Delete {entryLabel}"
+      path={mdiDelete}
+      onclick={onRemove}
+    />
   </td>
 </tr>

@@ -36,7 +36,8 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
@@ -566,18 +567,31 @@
             bind:value={editCarryoverAmount}
             class="w-28 rounded-md border border-slate-300 px-2 py-1 text-lg dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
           />
-          <TextActionButton variant="primary" disabled={savingCarryover} onclick={saveCarryover}>
-            Save
-          </TextActionButton>
-          <TextActionButton variant="cancel" onclick={cancelEditCarryover}>Cancel</TextActionButton>
+          <IconActionButton
+            variant="primary"
+            disabled={savingCarryover}
+            label="Save carried over balance"
+            path={mdiContentSave}
+            onclick={saveCarryover}
+          />
+          <IconActionButton
+            variant="cancel"
+            label="Cancel editing carried over balance"
+            path={mdiClose}
+            onclick={cancelEditCarryover}
+          />
         </div>
       {:else}
         <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
           {formatCurrency(data.carryover)}
         </p>
-        <TextActionButton variant="neutral" class="mt-1" onclick={startEditCarryover}>
-          Edit
-        </TextActionButton>
+        <IconActionButton
+          variant="neutral"
+          class="mt-1 -ml-2"
+          label="Edit carried over balance"
+          path={mdiPencil}
+          onclick={startEditCarryover}
+        />
       {/if}
     </Card>
     <Card class="p-4">
@@ -709,26 +723,28 @@
                     View all →
                   </a>
                 {:else}
-                  <TextActionButton
+                  <IconActionButton
                     variant="primary"
                     disabled={savingExpense}
+                    label="Save {line.label}"
+                    path={mdiContentSave}
                     onclick={saveExpenseEdit}
-                  >
-                    Save
-                  </TextActionButton>
+                  />
                   {#if editExpenseMode === 'category-edit'}
-                    <TextActionButton
+                    <IconActionButton
                       variant="danger"
-                      class="-my-1 ml-1 p-1"
+                      label="Delete {line.label} entry"
+                      path={mdiDelete}
                       onclick={removeExpenseActual}
-                    >
-                      Remove
-                    </TextActionButton>
+                    />
                   {/if}
                 {/if}
-                <TextActionButton variant="cancel" class="ml-2" onclick={cancelEditExpense}>
-                  Cancel
-                </TextActionButton>
+                <IconActionButton
+                  variant="cancel"
+                  label="Cancel editing {line.label}"
+                  path={mdiClose}
+                  onclick={cancelEditExpense}
+                />
               </td>
             </tr>
           {:else}
@@ -773,9 +789,12 @@
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
                 {#if editable}
-                  <TextActionButton variant="neutral" onclick={() => startEditExpense(line)}>
-                    Edit
-                  </TextActionButton>
+                  <IconActionButton
+                    variant="neutral"
+                    label="Edit {line.label}"
+                    path={mdiPencil}
+                    onclick={() => startEditExpense(line)}
+                  />
                 {/if}
               </td>
             </tr>

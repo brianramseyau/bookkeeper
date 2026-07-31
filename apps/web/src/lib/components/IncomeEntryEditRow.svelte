@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte'
-  import TextActionButton from './TextActionButton.svelte'
+  import IconActionButton from './IconActionButton.svelte'
+  import { mdiContentSave, mdiClose } from '@mdi/js'
 
   export interface IncomeEntryEditUpdates {
     amount: number
@@ -78,9 +79,18 @@
     />
   </td>
   <td class={lastCellClass}>
-    <TextActionButton variant="primary" disabled={saving} onclick={handleSave}
-      >Save</TextActionButton
-    >
-    <TextActionButton variant="cancel" class="ml-2" onclick={onCancel}>Cancel</TextActionButton>
+    <IconActionButton
+      variant="primary"
+      disabled={saving}
+      label="Save income entry"
+      path={mdiContentSave}
+      onclick={handleSave}
+    />
+    <IconActionButton
+      variant="cancel"
+      label="Cancel editing income entry"
+      path={mdiClose}
+      onclick={onCancel}
+    />
   </td>
 </tr>

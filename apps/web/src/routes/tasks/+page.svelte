@@ -25,7 +25,8 @@
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import SuccessMessage from '$lib/components/SuccessMessage.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import { mdiDelete } from '@mdi/js'
 
   const INTERVAL_OPTIONS = [
     { value: 6, label: 'Every 6 hours' },
@@ -281,14 +282,13 @@
               >
                 Download
               </a>
-              <TextActionButton
+              <IconActionButton
                 variant="danger"
-                class="-my-1 ml-2 p-1"
                 disabled={deletingFilename === backup.filename}
+                label="Delete backup from {formatDateTime(backup.createdAt)}"
+                path={mdiDelete}
                 onclick={() => handleDeleteBackup(backup)}
-              >
-                Delete
-              </TextActionButton>
+              />
             </td>
           </tr>
         {/each}

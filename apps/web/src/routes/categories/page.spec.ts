@@ -200,7 +200,7 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
 
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
@@ -216,7 +216,7 @@ describe('categories page', () => {
 
     vi.mocked(listCategories).mockResolvedValue([{ ...groceries, name: 'Food' }])
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
 
     expect(updateCategory).toHaveBeenCalledWith(1, {
       name: 'Food',
@@ -234,8 +234,8 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Rent' }))
+    await user.click(screen.getByRole('button', { name: 'Save Rent' }))
 
     expect(updateCategory).toHaveBeenCalledWith(2, {
       name: 'Rent',
@@ -250,11 +250,11 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
     await user.type(nameInput, 'Should not save')
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing Groceries' }))
 
     expect(updateCategory).not.toHaveBeenCalled()
     expect(await screen.findByText('Groceries')).toBeInTheDocument()
@@ -266,10 +266,10 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
 
     expect(await screen.findByText('Name is required')).toBeInTheDocument()
     expect(updateCategory).not.toHaveBeenCalled()
@@ -282,8 +282,8 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
 
     expect(await screen.findByText('Could not save changes')).toBeInTheDocument()
   })
@@ -298,7 +298,7 @@ describe('categories page', () => {
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
     await screen.findByText('Groceries')
-    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete Groceries' })).toBeNull()
   })
 
   it('permanently removes an archived category after confirming', async () => {
@@ -315,7 +315,7 @@ describe('categories page', () => {
     )
     await screen.findByText('Groceries')
     vi.mocked(listCategories).mockResolvedValue([rent])
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Groceries' }))
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Permanently delete "Groceries"? This cannot be undone.'
@@ -335,7 +335,7 @@ describe('categories page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Groceries' }))
 
     expect(deleteCategory).not.toHaveBeenCalled()
   })
@@ -352,7 +352,7 @@ describe('categories page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Groceries' }))
 
     expect(await screen.findByText('Failed to remove')).toBeInTheDocument()
   })
@@ -366,7 +366,7 @@ describe('categories page', () => {
 
     await screen.findByText('Groceries')
     vi.mocked(listCategories).mockResolvedValue([{ ...groceries, isPaused: true }])
-    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    await user.click(screen.getByRole('button', { name: 'Pause Groceries' }))
 
     expect(updateCategory).toHaveBeenCalledWith(1, { isPaused: true })
     await waitFor(() => expect(screen.queryByText('Groceries')).toBeNull())
@@ -394,7 +394,7 @@ describe('categories page', () => {
     vi.mocked(listCategories).mockResolvedValue([
       { ...groceries, isPaused: false, isArchived: true },
     ])
-    await user.click(screen.getByRole('button', { name: 'Archive' }))
+    await user.click(screen.getByRole('button', { name: 'Archive Groceries' }))
 
     expect(updateCategory).toHaveBeenCalledWith(1, { isArchived: true })
     await waitFor(() => expect(screen.getAllByText('Archived').length).toBeGreaterThan(0))
@@ -402,7 +402,7 @@ describe('categories page', () => {
 
     vi.mocked(updateCategory).mockResolvedValue({ ...groceries, isArchived: false })
     vi.mocked(listCategories).mockResolvedValue([groceries])
-    await user.click(screen.getByRole('button', { name: 'Unarchive' }))
+    await user.click(screen.getByRole('button', { name: 'Unarchive Groceries' }))
 
     expect(updateCategory).toHaveBeenCalledWith(1, { isArchived: false })
   })
@@ -420,7 +420,7 @@ describe('categories page', () => {
     )
     await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
     vi.mocked(listCategories).mockResolvedValue([groceries])
-    await user.click(screen.getByRole('button', { name: 'Restore' }))
+    await user.click(screen.getByRole('button', { name: 'Restore Groceries' }))
 
     expect(updateCategory).toHaveBeenCalledWith(1, { isActive: true })
   })

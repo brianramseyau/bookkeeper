@@ -16,8 +16,19 @@
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
+  import {
+    mdiPencil,
+    mdiClose,
+    mdiContentSave,
+    mdiPause,
+    mdiPlay,
+    mdiArchive,
+    mdiPackageUp,
+    mdiDelete,
+    mdiRestore,
+  } from '@mdi/js'
 
   interface Row {
     category: Category
@@ -260,10 +271,19 @@
       />
     </td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
-      <TextActionButton variant="primary" disabled={savingEdit} onclick={() => saveEdit(category)}>
-        Save
-      </TextActionButton>
-      <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>Cancel</TextActionButton>
+      <IconActionButton
+        variant="primary"
+        disabled={savingEdit}
+        label="Save {category.name}"
+        path={mdiContentSave}
+        onclick={() => saveEdit(category)}
+      />
+      <IconActionButton
+        variant="cancel"
+        label="Cancel editing {category.name}"
+        path={mdiClose}
+        onclick={cancelEdit}
+      />
     </td>
     <td class="px-3 py-2"></td>
   </tr>
@@ -362,23 +382,24 @@
                 {/if}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <TextActionButton variant="neutral" onclick={() => startEdit(row.category)}>
-                  Edit
-                </TextActionButton>
-                <TextActionButton
+                <IconActionButton
+                  variant="neutral"
+                  label="Edit {row.category.name}"
+                  path={mdiPencil}
+                  onclick={() => startEdit(row.category)}
+                />
+                <IconActionButton
                   variant="amber"
-                  class="ml-2"
+                  label="Pause {row.category.name}"
+                  path={mdiPause}
                   onclick={() => handlePause(row.category)}
-                >
-                  Pause
-                </TextActionButton>
-                <TextActionButton
+                />
+                <IconActionButton
                   variant="muted"
-                  class="ml-2"
+                  label="Archive {row.category.name}"
+                  path={mdiArchive}
                   onclick={() => handleArchive(row.category)}
-                >
-                  Archive
-                </TextActionButton>
+                />
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
                 <button
@@ -450,23 +471,24 @@
                     —
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <TextActionButton variant="neutral" onclick={() => startEdit(row.category)}>
-                      Edit
-                    </TextActionButton>
-                    <TextActionButton
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {row.category.name}"
+                      path={mdiPencil}
+                      onclick={() => startEdit(row.category)}
+                    />
+                    <IconActionButton
                       variant="success"
-                      class="ml-2"
+                      label="Unpause {row.category.name}"
+                      path={mdiPlay}
                       onclick={() => handleUnpause(row.category)}
-                    >
-                      Unpause
-                    </TextActionButton>
-                    <TextActionButton
+                    />
+                    <IconActionButton
                       variant="muted"
-                      class="ml-2"
+                      label="Archive {row.category.name}"
+                      path={mdiArchive}
                       onclick={() => handleArchive(row.category)}
-                    >
-                      Archive
-                    </TextActionButton>
+                    />
                   </td>
                   <td class="px-3 py-2"></td>
                 </tr>
@@ -519,23 +541,24 @@
                     —
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <TextActionButton variant="neutral" onclick={() => startEdit(row.category)}>
-                      Edit
-                    </TextActionButton>
-                    <TextActionButton
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {row.category.name}"
+                      path={mdiPencil}
+                      onclick={() => startEdit(row.category)}
+                    />
+                    <IconActionButton
                       variant="success"
-                      class="ml-2"
+                      label="Unarchive {row.category.name}"
+                      path={mdiPackageUp}
                       onclick={() => handleUnarchive(row.category)}
-                    >
-                      Unarchive
-                    </TextActionButton>
-                    <TextActionButton
+                    />
+                    <IconActionButton
                       variant="danger"
-                      class="-my-1 ml-1 p-1"
+                      label="Delete {row.category.name}"
+                      path={mdiDelete}
                       onclick={() => handleRemove(row.category)}
-                    >
-                      Remove
-                    </TextActionButton>
+                    />
                   </td>
                   <td class="px-3 py-2"></td>
                 </tr>
@@ -580,9 +603,12 @@
                 <td class="px-3 py-2"></td>
                 <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <TextActionButton variant="success" onclick={() => handleRestore(row.category)}>
-                    Restore
-                  </TextActionButton>
+                  <IconActionButton
+                    variant="success"
+                    label="Restore {row.category.name}"
+                    path={mdiRestore}
+                    onclick={() => handleRestore(row.category)}
+                  />
                 </td>
                 <td class="px-3 py-2"></td>
               </tr>

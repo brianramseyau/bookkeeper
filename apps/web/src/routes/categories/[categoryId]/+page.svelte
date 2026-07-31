@@ -24,8 +24,9 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
+  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
 
   const categoryId = Number(page.params.categoryId)
 
@@ -325,16 +326,19 @@
                 />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <TextActionButton
+                <IconActionButton
                   variant="primary"
                   disabled={savingItemEdit}
+                  label="Save {item.name}"
+                  path={mdiContentSave}
                   onclick={() => saveItemEdit(item)}
-                >
-                  Save
-                </TextActionButton>
-                <TextActionButton variant="cancel" class="ml-2" onclick={cancelEditItem}>
-                  Cancel
-                </TextActionButton>
+                />
+                <IconActionButton
+                  variant="cancel"
+                  label="Cancel editing {item.name}"
+                  path={mdiClose}
+                  onclick={cancelEditItem}
+                />
               </td>
             </tr>
           {:else}
@@ -344,16 +348,18 @@
                 {formatCurrency(item.amount)}
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <TextActionButton variant="neutral" onclick={() => startEditItem(item)}>
-                  Edit
-                </TextActionButton>
-                <TextActionButton
+                <IconActionButton
+                  variant="neutral"
+                  label="Edit {item.name}"
+                  path={mdiPencil}
+                  onclick={() => startEditItem(item)}
+                />
+                <IconActionButton
                   variant="danger"
-                  class="-my-1 ml-1 p-1"
+                  label="Delete {item.name}"
+                  path={mdiDelete}
                   onclick={() => handleDeleteItem(item)}
-                >
-                  Remove
-                </TextActionButton>
+                />
               </td>
             </tr>
           {/if}
@@ -456,16 +462,19 @@
                 />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <TextActionButton
+                <IconActionButton
                   variant="primary"
                   disabled={savingEdit}
+                  label="Save entry from {formatDate(actual.occurredOn)}"
+                  path={mdiContentSave}
                   onclick={() => saveEdit(actual)}
-                >
-                  Save
-                </TextActionButton>
-                <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>
-                  Cancel
-                </TextActionButton>
+                />
+                <IconActionButton
+                  variant="cancel"
+                  label="Cancel editing entry from {formatDate(actual.occurredOn)}"
+                  path={mdiClose}
+                  onclick={cancelEdit}
+                />
               </td>
             </tr>
           {:else}
@@ -478,16 +487,18 @@
               </td>
               <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{actual.notes ?? ''}</td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                <TextActionButton variant="neutral" onclick={() => startEdit(actual)}>
-                  Edit
-                </TextActionButton>
-                <TextActionButton
+                <IconActionButton
+                  variant="neutral"
+                  label="Edit entry from {formatDate(actual.occurredOn)}"
+                  path={mdiPencil}
+                  onclick={() => startEdit(actual)}
+                />
+                <IconActionButton
                   variant="danger"
-                  class="-my-1 ml-1 p-1"
+                  label="Delete entry from {formatDate(actual.occurredOn)}"
+                  path={mdiDelete}
                   onclick={() => handleDelete(actual)}
-                >
-                  Remove
-                </TextActionButton>
+                />
               </td>
             </tr>
           {/if}

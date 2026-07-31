@@ -318,7 +318,7 @@ describe('settings page', () => {
 
     expect(await screen.findByText('Test Browser')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Test Browser' }))
 
     expect(deletePushSubscription).toHaveBeenCalledWith(7)
     expect(await screen.findByText('No devices registered yet')).toBeInTheDocument()
@@ -330,7 +330,7 @@ describe('settings page', () => {
     const user = userEvent.setup()
     render(SettingsPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Test Browser' }))
 
     expect(await screen.findByText('Remove failed')).toBeInTheDocument()
   })

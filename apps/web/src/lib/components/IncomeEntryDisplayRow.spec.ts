@@ -35,7 +35,7 @@ describe('IncomeEntryDisplayRow', () => {
 
   it('calls onEdit when Edit is clicked', async () => {
     const onEdit = vi.fn()
-    const { getByText } = render(IncomeEntryDisplayRow, {
+    const { getByRole } = render(IncomeEntryDisplayRow, {
       amount: 100,
       receivedOn: null,
       note: null,
@@ -43,13 +43,13 @@ describe('IncomeEntryDisplayRow', () => {
       onEdit,
       onRemove: vi.fn(),
     })
-    await fireEvent.click(getByText('Edit'))
+    await fireEvent.click(getByRole('button', { name: 'Edit entry' }))
     expect(onEdit).toHaveBeenCalled()
   })
 
   it('calls onRemove when Remove is clicked', async () => {
     const onRemove = vi.fn()
-    const { getByText } = render(IncomeEntryDisplayRow, {
+    const { getByRole } = render(IncomeEntryDisplayRow, {
       amount: 100,
       receivedOn: null,
       note: null,
@@ -57,7 +57,7 @@ describe('IncomeEntryDisplayRow', () => {
       onEdit: vi.fn(),
       onRemove,
     })
-    await fireEvent.click(getByText('Remove'))
+    await fireEvent.click(getByRole('button', { name: 'Delete entry' }))
     expect(onRemove).toHaveBeenCalled()
   })
 

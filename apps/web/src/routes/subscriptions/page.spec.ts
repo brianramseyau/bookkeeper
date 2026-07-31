@@ -210,7 +210,7 @@ describe('subscriptions page', () => {
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
     await screen.findByText('Netflix')
-    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete Netflix' })).toBeNull()
   })
 
   it('permanently removes an archived subscription after confirming', async () => {
@@ -232,7 +232,7 @@ describe('subscriptions page', () => {
       { userId: 1, fullName: 'Brian', total: 9.99, count: 1 },
       { userId: 2, fullName: 'Ariel', total: 0, count: 0 },
     ])
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Netflix' }))
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Permanently delete "Netflix"? This cannot be undone.'
@@ -254,7 +254,7 @@ describe('subscriptions page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Netflix' }))
 
     expect(deleteSubscription).not.toHaveBeenCalled()
   })
@@ -272,7 +272,7 @@ describe('subscriptions page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Netflix' }))
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -332,12 +332,12 @@ describe('subscriptions page', () => {
     render(SubscriptionsPage)
 
     await screen.findByText('Netflix')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
 
     const nameInput = screen.getByDisplayValue('Netflix')
     await user.clear(nameInput)
     await user.type(nameInput, 'Netflix Premium')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Netflix' }))
 
     await waitFor(() =>
       expect(updateSubscription).toHaveBeenCalledWith(1, {
@@ -355,10 +355,10 @@ describe('subscriptions page', () => {
     render(SubscriptionsPage)
 
     await screen.findByText('Netflix')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
     expect(screen.getByDisplayValue('Netflix')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing Netflix' }))
 
     expect(screen.queryByDisplayValue('Netflix')).toBeNull()
     expect(updateSubscription).not.toHaveBeenCalled()
@@ -370,9 +370,9 @@ describe('subscriptions page', () => {
     render(SubscriptionsPage)
 
     await screen.findByText('Netflix')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
+    await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
     await user.clear(screen.getByDisplayValue('Netflix'))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Netflix' }))
 
     expect(await screen.findByText('Name and amount are required')).toBeInTheDocument()
     expect(updateSubscription).not.toHaveBeenCalled()
@@ -385,8 +385,8 @@ describe('subscriptions page', () => {
     render(SubscriptionsPage)
 
     await screen.findByText('Netflix')
-    await user.click(screen.getAllByRole('button', { name: 'Edit' })[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
+    await user.click(screen.getByRole('button', { name: 'Save Netflix' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })
@@ -399,7 +399,7 @@ describe('subscriptions page', () => {
 
     const row = (await screen.findByText('Netflix')).closest('tr')!
     vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isPaused: true }, spotify])
-    await user.click(within(row).getByRole('button', { name: 'Pause' }))
+    await user.click(within(row).getByRole('button', { name: 'Pause Netflix' }))
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isPaused: true })
     await waitFor(() => expect(screen.queryByText('Netflix')).toBeNull())
@@ -417,7 +417,7 @@ describe('subscriptions page', () => {
 
     const row = (await screen.findByText('Netflix')).closest('tr')!
     vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isArchived: true }, spotify])
-    await user.click(within(row).getByRole('button', { name: 'Archive' }))
+    await user.click(within(row).getByRole('button', { name: 'Archive Netflix' }))
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isArchived: true })
     await waitFor(() => expect(screen.queryByText('Netflix')).toBeNull())
@@ -427,7 +427,7 @@ describe('subscriptions page', () => {
 
     vi.mocked(updateSubscription).mockResolvedValue(netflix)
     vi.mocked(listSubscriptions).mockResolvedValue([netflix, spotify])
-    await user.click(screen.getByRole('button', { name: 'Unarchive' }))
+    await user.click(screen.getByRole('button', { name: 'Unarchive Netflix' }))
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isArchived: false })
   })
@@ -447,7 +447,7 @@ describe('subscriptions page', () => {
     await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
 
     vi.mocked(listSubscriptions).mockResolvedValue([netflix, spotify])
-    await user.click(screen.getByRole('button', { name: 'Restore' }))
+    await user.click(screen.getByRole('button', { name: 'Restore Netflix' }))
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isActive: true })
   })

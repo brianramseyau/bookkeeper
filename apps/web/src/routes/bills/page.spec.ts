@@ -228,7 +228,7 @@ describe('recurring bills page', () => {
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
     await screen.findByText('Car Insurance')
-    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete Car Insurance' })).toBeNull()
   })
 
   it('permanently removes an archived bill after confirming', async () => {
@@ -248,7 +248,7 @@ describe('recurring bills page', () => {
     )
     await screen.findByText('Car Insurance')
     vi.mocked(listUpcomingRecurringBills).mockResolvedValue([pestControl, gym])
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Car Insurance' }))
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Permanently delete "Car Insurance"? This cannot be undone.'
@@ -271,7 +271,7 @@ describe('recurring bills page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Car Insurance' }))
 
     expect(deleteRecurringBill).not.toHaveBeenCalled()
   })
@@ -291,7 +291,7 @@ describe('recurring bills page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Car Insurance' }))
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -385,12 +385,12 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
 
     const nameInput = screen.getByDisplayValue('Car Insurance')
     await user.clear(nameInput)
     await user.type(nameInput, 'Car Insurance 2')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
     await waitFor(() =>
       expect(updateRecurringBill).toHaveBeenCalledWith(1, {
@@ -412,7 +412,7 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
 
     const row = screen.getByDisplayValue('Car Insurance').closest('tr')!
     const frequencySelect = within(row).getAllByRole('combobox')[1]!
@@ -424,7 +424,7 @@ describe('recurring bills page', () => {
     const unitSelect = within(row).getAllByRole('combobox')[2]!
     await user.selectOptions(unitSelect, 'days')
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
     await waitFor(() =>
       expect(updateRecurringBill).toHaveBeenCalledWith(1, {
@@ -444,10 +444,10 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
     expect(screen.getByDisplayValue('Car Insurance')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing Car Insurance' }))
 
     expect(screen.queryByDisplayValue('Car Insurance')).toBeNull()
     expect(updateRecurringBill).not.toHaveBeenCalled()
@@ -459,9 +459,9 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
     await user.clear(screen.getByDisplayValue('Car Insurance'))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
     expect(
       await screen.findByText('Name, amount, and next due date are required')
@@ -476,8 +476,8 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
+    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })
@@ -494,7 +494,7 @@ describe('recurring bills page', () => {
       pestControl,
       gym,
     ])
-    await user.click(within(carRow).getByRole('button', { name: 'Pause' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Pause Car Insurance' }))
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isPaused: true })
     await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
@@ -516,7 +516,7 @@ describe('recurring bills page', () => {
       pestControl,
       gym,
     ])
-    await user.click(within(carRow).getByRole('button', { name: 'Archive' }))
+    await user.click(within(carRow).getByRole('button', { name: 'Archive Car Insurance' }))
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isArchived: true })
     await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
@@ -526,7 +526,7 @@ describe('recurring bills page', () => {
 
     vi.mocked(updateRecurringBill).mockResolvedValue(carInsurance)
     vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
-    await user.click(screen.getByRole('button', { name: 'Unarchive' }))
+    await user.click(screen.getByRole('button', { name: 'Unarchive Car Insurance' }))
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isArchived: false })
   })
@@ -548,7 +548,7 @@ describe('recurring bills page', () => {
     await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
 
     vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
-    await user.click(screen.getByRole('button', { name: 'Restore' }))
+    await user.click(screen.getByRole('button', { name: 'Restore Car Insurance' }))
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isActive: true })
   })

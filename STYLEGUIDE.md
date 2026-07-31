@@ -25,22 +25,92 @@ variant can't express (see "Ad hoc buttons" below).
   `lg` (`px-4 py-2`, used for the single-field "quick add" forms — see
   Categories/Utilities below). Renders as `<a>` if `href` is passed,
   otherwise `<button>`.
-- **Text action button** — `$lib/components/TextActionButton.svelte`. Small
-  text-only links used for row-level actions (Edit / Remove / Save /
-  Cancel / Pause / Archive / Unpause / Unarchive / Restore) inside tables
-  and inline edit rows. Always `text-xs`, color driven by `variant`:
-  `neutral` (default row action), `primary` (Save), `cancel`, `danger`
-  (Remove/Delete), `amber` (Pause), `muted` (Archive), `success`
-  (Unpause/Unarchive/Restore). See
-  `apps/web/src/routes/categories/+page.svelte` for every variant in one
-  place (the pause/archive/remove/restore row actions).
-- **Icon button** — no shared component; `ThemeToggleButton.svelte`,
+- **Icon action button** — `$lib/components/IconActionButton.svelte`. Used
+  for every row-level action (Edit / Delete / Save / Cancel / Pause /
+  Unpause / Archive / Unarchive / Restore) inside tables and inline edit
+  rows. See "Icon action buttons" below for the full icon/variant mapping.
+  This replaced a text-only `TextActionButton` (removed) specifically
+  because text links are a hover/mouse-first pattern — see that section for
+  why and what changed.
+- **Nav icon button** — no shared component; `ThemeToggleButton.svelte`,
   `LogoutButton.svelte`, and `SettingsLink.svelte`
   (`apps/web/src/lib/components/`) each hard-code the same shape: a 20px
   heroicon-style inline SVG (`class="size-5"`) inside a button/link with
   `class={[padding, 'rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200']}`,
   `padding` prop `p-1.5` (desktop nav, default) or `p-2.5` (mobile nav —
-  bigger tap target).
+  bigger tap target). Distinct from `IconActionButton` (top-level nav
+  chrome, not a table/row action) — don't merge the two, but note
+  `IconActionButton`'s hover/color treatment was deliberately modeled on
+  this pattern for visual consistency.
+
+### Icon action buttons
+
+Row-level table actions (Edit, Save, Cancel, Pause, Unpause, Archive,
+Unarchive, Delete, Restore) are icons, not text — `TextActionButton` (a
+`text-xs` link) was removed and replaced app-wide by
+`$lib/components/IconActionButton.svelte`. Text-only row actions are a
+hover/mouse-first pattern: on a phone there's no hover state to reveal
+intent, and a bare text link is a small, inconsistent tap target next to
+its neighbors. Icons plus a fixed touch-sized hit area fix both problems
+and read the same on desktop and mobile.
+
+- **Icon set: Material Design Icons**, via the `@mdi/js` package (path-data
+  constants, no font/icon-sprite dependency) — `import { mdiPencil } from
+'@mdi/js'`, passed to `IconActionButton`'s `path` prop. This was a
+  deliberate choice over Heroicons: Heroicons has no official Svelte
+  package, and `@mdi/js` gives exact, verified path data instead of
+  hand-copied/hand-typed SVG paths.
+- **Sizing**: `p-2` button padding around a `size-5` (20px) SVG — a 36px
+  square hit target, comfortably inside WCAG's 24px minimum and close to
+  the 44px "comfortable" touch target, without the visual bulk of full
+  44px buttons crowding a dense table row. Rendered with
+  `rounded-md hover:bg-{slate-100/800}` (mirrors the nav icon button's
+  hover treatment) plus a `variant`-driven icon color, exactly like
+  `TextActionButton`'s old variants.
+- **Tooltip**: a plain HTML `title` attribute set from the same `label`
+  prop that fills `aria-label` — no custom tooltip component. This matches
+  the rest of the app (see "Modals / dialogs" below — no custom
+  overlay/popover component exists anywhere) at the cost of the tooltip not
+  appearing on keyboard focus in most browsers; `aria-label` still covers
+  screen readers regardless of that gap.
+- **Labels are always row-specific**, not the bare verb — `label="Edit
+{row.category.name}"`, not `label="Edit"`. A screen reader user tabbing
+  through a table of icon-only buttons needs the entity name to tell one
+  row's Edit button from another's; the visible `title` tooltip gets the
+  same string for free.
+- **Icon mapping** (`mdi*` export name → `variant`):
+
+  | Action    | Icon             | `variant` |
+  | --------- | ---------------- | --------- |
+  | Edit      | `mdiPencil`      | `neutral` |
+  | Save      | `mdiContentSave` | `primary` |
+  | Cancel    | `mdiClose`       | `cancel`  |
+  | Pause     | `mdiPause`       | `amber`   |
+  | Unpause   | `mdiPlay`        | `success` |
+  | Archive   | `mdiArchive`     | `muted`   |
+  | Unarchive | `mdiPackageUp`   | `success` |
+  | Delete    | `mdiDelete`      | `danger`  |
+  | Restore   | `mdiRestore`     | `success` |
+
+  "Cancel" renders an X-mark shape (`mdiClose`) rather than MDI's own
+  `mdi-cancel` glyph (a prohibition/circle-slash icon) — X-mark is what's
+  actually meant, and matches the × this app already used elsewhere for
+  "close/cancel".
+
+- **"Remove" was ratified into Archive or Delete** (this app previously
+  used "Remove" for two different underlying actions, which this pass
+  cleaned up): every former "Remove" button in categories/bills/
+  subscriptions/income/settings/tasks called a hard-delete endpoint behind
+  a `confirm(...)` (or, for income entries and push-notification devices,
+  no confirmation at all) — none of them were actually the soft
+  pause/archive toggle, so they all became **Delete** (`mdiDelete`,
+  `danger`), never a second "Archive" button.
+- An `onmousedown` prop exists on `IconActionButton` alongside `onclick`
+  for the one case that needs it: the utility detail page's inline
+  amount-cell editor calls `onmousedown={(e) => e.preventDefault()}` on its
+  Delete button so clicking it doesn't first blur (and thus save) the
+  adjacent number input. Don't add this prop out of habit — only when an
+  adjacent focused input's blur handler would otherwise fire first.
 
 ### Danger action confirmation
 
@@ -213,7 +283,7 @@ Every data table follows the same recipe — see
 - **Inline row edit mode**: swap the row for one styled
   `border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20`
   (a light indigo tint), containing compact-sized inputs (see Form inputs
-  above) and `TextActionButton` primary (Save) + cancel (Cancel).
+  above) and `IconActionButton` primary (Save) + cancel (Cancel).
 - **Grouped section header row** inside a `<tbody>` (Paused/Archived/Removed
   in Categories/Bills/Subscriptions; frequency groups in Bills):
   `border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40`,
@@ -294,8 +364,8 @@ Every data table follows the same recipe — see
 
 `text-2xl` (h1) > `text-xl` (login-card h1, dashboard stat numbers,
 category/utility detail stat numbers) > `text-lg` (h2) > `text-sm` (h3,
-body/table text, buttons) > `text-xs` (labels, TextActionButton, muted
-captions, badges' `text-[10px]` being the one sub-`xs` outlier). Font
+body/table text, buttons) > `text-xs` (labels, muted captions, badges'
+`text-[10px]` being the one sub-`xs` outlier). Font
 weight: `font-semibold` for headings and emphasized numbers,
 `font-medium` for labels/buttons/links, default weight for body text.
 
@@ -329,27 +399,22 @@ either the divergence is structurally justified by a real UX difference,
 or fixing it would be a design decision rather than a typo-level
 correction.
 
-- **`utilities/[utilityId]/+page.svelte`'s inline monthly-bill grid**
-  (lines ~365–417) is a spreadsheet-style click-to-edit cell, not a
-  table-row edit like everywhere else — a `<button>` showing the amount
-  swaps for a bare `<input>` on click, styled with a highlighted
-  `border-indigo-400` (no `dark:` override) instead of the usual
-  compact-input class. This is a genuinely different interaction (a
-  12-month grid, not a list of rows with an Edit action) — restyling it
-  to match the table-row pattern would remove the reason it's shaped this
-  way.
-- **Same file's settings-edit Save/Cancel pair** (lines ~298–307) uses a
-  real `PrimaryButton` (filled, `size="sm"`) for Save and a raw
-  `<button>` for Cancel, whereas the structurally similar "carried over
-  balance" inline edit in `month/+page.svelte` (lines ~544–556) uses
-  `TextActionButton` (text-only) for both Save and Cancel. The raw Cancel
-  button's classes already match `TextActionButton`'s `cancel` variant
-  color-for-color (just `text-sm` instead of `text-xs`), so it's a
-  plausible near-miss — but replacing only Cancel would leave an
-  odd-looking size mismatch against the `PrimaryButton` Save next to it,
-  and it's not obvious whether Save should downgrade to `TextActionButton`
-  or Monthly's Save should upgrade to `PrimaryButton`. Left as-is pending
-  a deliberate call either way.
+- **`utilities/[utilityId]/+page.svelte`'s inline monthly-bill grid** is a
+  spreadsheet-style click-to-edit cell, not a table-row edit like
+  everywhere else — a `<button>` showing the amount swaps for a bare
+  `<input>` on click, styled with a highlighted `border-indigo-400` (no
+  `dark:` override) instead of the usual compact-input class. This is a
+  genuinely different interaction (a 12-month grid, not a list of rows
+  with an Edit action) — restyling it to match the table-row pattern would
+  remove the reason it's shaped this way. As part of the icon-action-button
+  pass, this cell's hover-only "delete this bill" corner button (only
+  visible on `:hover`, plus `pointer-coarse:opacity-100` as a mobile
+  workaround) was removed rather than converted — deleting a cell's bill
+  was already available, always-visible, one click deeper (open the cell
+  for editing, then use the `IconActionButton` Delete next to the input),
+  so the hover shortcut was redundant once hover-only affordances were
+  disallowed. Don't reintroduce a second, hover-revealed delete entry
+  point on this grid.
 - **Login page's large text inputs** (`px-3 py-2`,
   `focus:border-indigo-500 focus:ring-indigo-500`) use
   `dark:border-slate-600 dark:bg-slate-900`, while the only other users of

@@ -22,7 +22,8 @@
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import SuccessMessage from '$lib/components/SuccessMessage.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import { mdiDelete } from '@mdi/js'
 
   let displayColor = $state(authState.user?.displayColor ?? '#4f46e5')
   let colorError = $state<string | null>(null)
@@ -480,14 +481,13 @@
               {formatDateTime(device.createdAt)}
             </td>
             <td class="px-3 py-2 text-right">
-              <TextActionButton
+              <IconActionButton
                 variant="danger"
-                class="-m-1 p-1"
                 disabled={deletingDeviceId === device.id}
+                label="Delete {device.userAgent ?? 'Unknown device'}"
+                path={mdiDelete}
                 onclick={() => handleDeleteDevice(device)}
-              >
-                Remove
-              </TextActionButton>
+              />
             </td>
           </tr>
         {/each}

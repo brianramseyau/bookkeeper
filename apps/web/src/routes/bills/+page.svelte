@@ -19,7 +19,18 @@
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import {
+    mdiPencil,
+    mdiClose,
+    mdiContentSave,
+    mdiPause,
+    mdiPlay,
+    mdiArchive,
+    mdiPackageUp,
+    mdiDelete,
+    mdiRestore,
+  } from '@mdi/js'
 
   const FREQUENCIES: { value: RecurringBillFrequency; label: string }[] = [
     { value: 'monthly', label: 'Monthly' },
@@ -338,10 +349,19 @@
     </td>
     <td class="px-3 py-2"></td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
-      <TextActionButton variant="primary" disabled={savingEdit} onclick={() => saveEdit(bill)}>
-        Save
-      </TextActionButton>
-      <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>Cancel</TextActionButton>
+      <IconActionButton
+        variant="primary"
+        disabled={savingEdit}
+        label="Save {bill.name}"
+        path={mdiContentSave}
+        onclick={() => saveEdit(bill)}
+      />
+      <IconActionButton
+        variant="cancel"
+        label="Cancel editing {bill.name}"
+        path={mdiClose}
+        onclick={cancelEdit}
+      />
     </td>
   </tr>
 {/snippet}
@@ -444,19 +464,24 @@
                   {/if}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <TextActionButton variant="neutral" onclick={() => startEdit(bill)}>
-                    Edit
-                  </TextActionButton>
-                  <TextActionButton variant="amber" class="ml-2" onclick={() => handlePause(bill)}>
-                    Pause
-                  </TextActionButton>
-                  <TextActionButton
+                  <IconActionButton
+                    variant="neutral"
+                    label="Edit {bill.name}"
+                    path={mdiPencil}
+                    onclick={() => startEdit(bill)}
+                  />
+                  <IconActionButton
+                    variant="amber"
+                    label="Pause {bill.name}"
+                    path={mdiPause}
+                    onclick={() => handlePause(bill)}
+                  />
+                  <IconActionButton
                     variant="muted"
-                    class="ml-2"
+                    label="Archive {bill.name}"
+                    path={mdiArchive}
                     onclick={() => handleArchive(bill)}
-                  >
-                    Archive
-                  </TextActionButton>
+                  />
                 </td>
               </tr>
             {/if}
@@ -500,23 +525,24 @@
                   </td>
                   <td class="px-3 py-2"></td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <TextActionButton variant="neutral" onclick={() => startEdit(bill)}>
-                      Edit
-                    </TextActionButton>
-                    <TextActionButton
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {bill.name}"
+                      path={mdiPencil}
+                      onclick={() => startEdit(bill)}
+                    />
+                    <IconActionButton
                       variant="success"
-                      class="ml-2"
+                      label="Unpause {bill.name}"
+                      path={mdiPlay}
                       onclick={() => handleUnpause(bill)}
-                    >
-                      Unpause
-                    </TextActionButton>
-                    <TextActionButton
+                    />
+                    <IconActionButton
                       variant="muted"
-                      class="ml-2"
+                      label="Archive {bill.name}"
+                      path={mdiArchive}
                       onclick={() => handleArchive(bill)}
-                    >
-                      Archive
-                    </TextActionButton>
+                    />
                   </td>
                 </tr>
               {/if}
@@ -559,23 +585,24 @@
                   </td>
                   <td class="px-3 py-2"></td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <TextActionButton variant="neutral" onclick={() => startEdit(bill)}>
-                      Edit
-                    </TextActionButton>
-                    <TextActionButton
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {bill.name}"
+                      path={mdiPencil}
+                      onclick={() => startEdit(bill)}
+                    />
+                    <IconActionButton
                       variant="success"
-                      class="ml-2"
+                      label="Unarchive {bill.name}"
+                      path={mdiPackageUp}
                       onclick={() => handleUnarchive(bill)}
-                    >
-                      Unarchive
-                    </TextActionButton>
-                    <TextActionButton
+                    />
+                    <IconActionButton
                       variant="danger"
-                      class="-my-1 ml-1 p-1"
+                      label="Delete {bill.name}"
+                      path={mdiDelete}
                       onclick={() => handleDelete(bill)}
-                    >
-                      Remove
-                    </TextActionButton>
+                    />
                   </td>
                 </tr>
               {/if}
@@ -615,9 +642,12 @@
                 </td>
                 <td class="px-3 py-2"></td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <TextActionButton variant="success" onclick={() => handleRestore(bill)}>
-                    Restore
-                  </TextActionButton>
+                  <IconActionButton
+                    variant="success"
+                    label="Restore {bill.name}"
+                    path={mdiRestore}
+                    onclick={() => handleRestore(bill)}
+                  />
                 </td>
               </tr>
             {/each}

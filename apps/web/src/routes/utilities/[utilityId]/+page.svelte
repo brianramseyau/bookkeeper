@@ -25,9 +25,9 @@
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
+  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
 
   function focusOnMount(node: HTMLElement) {
     node.focus()
@@ -335,16 +335,19 @@
             >Paid in advance / Pre-paid</span
           >
         </label>
-        <PrimaryButton size="sm" disabled={savingSettings} onclick={saveSettings}
-          >Save</PrimaryButton
-        >
-        <button
-          type="button"
+        <IconActionButton
+          variant="primary"
+          disabled={savingSettings}
+          label="Save {utility.name} settings"
+          path={mdiContentSave}
+          onclick={saveSettings}
+        />
+        <IconActionButton
+          variant="cancel"
+          label="Cancel editing {utility.name} settings"
+          path={mdiClose}
           onclick={cancelEditSettings}
-          class="text-sm text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
-        >
-          Cancel
-        </button>
+        />
       </div>
     {:else}
       <div class="flex items-center justify-between">
@@ -359,7 +362,12 @@
             · no due-date offset set
           {/if}
         </p>
-        <TextActionButton variant="neutral" onclick={startEditSettings}>Edit</TextActionButton>
+        <IconActionButton
+          variant="neutral"
+          label="Edit {utility.name} settings"
+          path={mdiPencil}
+          onclick={startEditSettings}
+        />
       </div>
       {#if utility.frequency !== 'monthly'}
         <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
@@ -403,7 +411,7 @@
             >
               {monthYearLabel(year, month)}
             </td>
-            <td class="group relative px-1 py-1 text-right">
+            <td class="px-1 py-1 text-right">
               {#if editingKey === key}
                 <div class="flex items-center justify-end gap-1">
                   <input
@@ -421,17 +429,14 @@
                     class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
                   />
                   {#if bill}
-                    <button
-                      type="button"
-                      aria-label="Remove"
-                      title="Remove this bill"
+                    <IconActionButton
+                      variant="danger"
                       disabled={saving}
+                      label="Delete {monthYearLabel(year, month)} bill"
+                      path={mdiDelete}
                       onmousedown={(e) => e.preventDefault()}
                       onclick={() => removeCell(year, month)}
-                      class="rounded px-1 text-xs text-slate-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-500 dark:hover:text-red-400"
-                    >
-                      ×
-                    </button>
+                    />
                   {/if}
                 </div>
               {:else if !bill && share}
@@ -475,16 +480,6 @@
                     </span>
                   {/if}
                 </button>
-                {#if bill}
-                  <button
-                    type="button"
-                    aria-label="Remove"
-                    onclick={() => removeCell(year, month)}
-                    class="absolute top-0.5 right-0.5 rounded px-1 text-xs text-slate-300 opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600 focus:opacity-100 dark:text-slate-600 dark:hover:text-red-400 pointer-coarse:opacity-100"
-                  >
-                    ×
-                  </button>
-                {/if}
               {/if}
             </td>
           </tr>

@@ -37,8 +37,8 @@ describe('IncomeEntryEditRow', () => {
     })
     const inputs = container.querySelectorAll('input')
     await fireEvent.input(inputs[0]!, { target: { value: '200' } })
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Save'
+    const saveButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Save income entry"]'
     )!
     await fireEvent.click(saveButton)
     expect(onSave).toHaveBeenCalledWith({ amount: 200, receivedOn: null, note: null })
@@ -55,8 +55,8 @@ describe('IncomeEntryEditRow', () => {
       onSave,
       onCancel: vi.fn(),
     })
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Save'
+    const saveButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Save income entry"]'
     )!
     await fireEvent.click(saveButton)
     expect(onSave).toHaveBeenCalledWith({
@@ -77,8 +77,8 @@ describe('IncomeEntryEditRow', () => {
       onSave: vi.fn(),
       onCancel,
     })
-    const cancelButton = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Cancel'
+    const cancelButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Cancel editing income entry"]'
     )!
     await fireEvent.click(cancelButton)
     expect(onCancel).toHaveBeenCalled()
@@ -94,8 +94,8 @@ describe('IncomeEntryEditRow', () => {
       onSave: vi.fn(),
       onCancel: vi.fn(),
     })
-    const saveButton = Array.from(container.querySelectorAll('button')).find(
-      (b) => b.textContent === 'Save'
+    const saveButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Save income entry"]'
     )!
     expect(saveButton.disabled).toBe(true)
   })

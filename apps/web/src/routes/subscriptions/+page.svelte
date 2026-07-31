@@ -20,7 +20,18 @@
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
-  import TextActionButton from '$lib/components/TextActionButton.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import {
+    mdiPencil,
+    mdiClose,
+    mdiContentSave,
+    mdiPause,
+    mdiPlay,
+    mdiArchive,
+    mdiPackageUp,
+    mdiDelete,
+    mdiRestore,
+  } from '@mdi/js'
 
   let users = $state<UserSummary[]>([])
   let summaries = $state<SubscriptionSummary[]>([])
@@ -262,10 +273,19 @@
       />
     </td>
     <td class="px-3 py-2 text-right whitespace-nowrap">
-      <TextActionButton variant="primary" disabled={savingEdit} onclick={() => saveEdit(sub)}>
-        Save
-      </TextActionButton>
-      <TextActionButton variant="cancel" class="ml-2" onclick={cancelEdit}>Cancel</TextActionButton>
+      <IconActionButton
+        variant="primary"
+        disabled={savingEdit}
+        label="Save {sub.name}"
+        path={mdiContentSave}
+        onclick={() => saveEdit(sub)}
+      />
+      <IconActionButton
+        variant="cancel"
+        label="Cancel editing {sub.name}"
+        path={mdiClose}
+        onclick={cancelEdit}
+      />
     </td>
   </tr>
 {/snippet}
@@ -360,15 +380,24 @@
                   {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                 </td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
-                  <TextActionButton variant="neutral" onclick={() => startEdit(sub)}>
-                    Edit
-                  </TextActionButton>
-                  <TextActionButton variant="amber" class="ml-2" onclick={() => handlePause(sub)}>
-                    Pause
-                  </TextActionButton>
-                  <TextActionButton variant="muted" class="ml-2" onclick={() => handleArchive(sub)}>
-                    Archive
-                  </TextActionButton>
+                  <IconActionButton
+                    variant="neutral"
+                    label="Edit {sub.name}"
+                    path={mdiPencil}
+                    onclick={() => startEdit(sub)}
+                  />
+                  <IconActionButton
+                    variant="amber"
+                    label="Pause {sub.name}"
+                    path={mdiPause}
+                    onclick={() => handlePause(sub)}
+                  />
+                  <IconActionButton
+                    variant="muted"
+                    label="Archive {sub.name}"
+                    path={mdiArchive}
+                    onclick={() => handleArchive(sub)}
+                  />
                 </td>
               </tr>
             {/if}
@@ -416,23 +445,24 @@
                       {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                     </td>
                     <td class="px-3 py-2 text-right whitespace-nowrap">
-                      <TextActionButton variant="neutral" onclick={() => startEdit(sub)}>
-                        Edit
-                      </TextActionButton>
-                      <TextActionButton
+                      <IconActionButton
+                        variant="neutral"
+                        label="Edit {sub.name}"
+                        path={mdiPencil}
+                        onclick={() => startEdit(sub)}
+                      />
+                      <IconActionButton
                         variant="success"
-                        class="ml-2"
+                        label="Unpause {sub.name}"
+                        path={mdiPlay}
                         onclick={() => handleUnpause(sub)}
-                      >
-                        Unpause
-                      </TextActionButton>
-                      <TextActionButton
+                      />
+                      <IconActionButton
                         variant="muted"
-                        class="ml-2"
+                        label="Archive {sub.name}"
+                        path={mdiArchive}
                         onclick={() => handleArchive(sub)}
-                      >
-                        Archive
-                      </TextActionButton>
+                      />
                     </td>
                   </tr>
                 {/if}
@@ -471,23 +501,24 @@
                       {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                     </td>
                     <td class="px-3 py-2 text-right whitespace-nowrap">
-                      <TextActionButton variant="neutral" onclick={() => startEdit(sub)}>
-                        Edit
-                      </TextActionButton>
-                      <TextActionButton
+                      <IconActionButton
+                        variant="neutral"
+                        label="Edit {sub.name}"
+                        path={mdiPencil}
+                        onclick={() => startEdit(sub)}
+                      />
+                      <IconActionButton
                         variant="success"
-                        class="ml-2"
+                        label="Unarchive {sub.name}"
+                        path={mdiPackageUp}
                         onclick={() => handleUnarchive(sub)}
-                      >
-                        Unarchive
-                      </TextActionButton>
-                      <TextActionButton
+                      />
+                      <IconActionButton
                         variant="danger"
-                        class="-my-1 ml-1 p-1"
+                        label="Delete {sub.name}"
+                        path={mdiDelete}
                         onclick={() => handleDelete(sub)}
-                      >
-                        Remove
-                      </TextActionButton>
+                      />
                     </td>
                   </tr>
                 {/if}
@@ -523,9 +554,12 @@
                     {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
-                    <TextActionButton variant="success" onclick={() => handleRestore(sub)}>
-                      Restore
-                    </TextActionButton>
+                    <IconActionButton
+                      variant="success"
+                      label="Restore {sub.name}"
+                      path={mdiRestore}
+                      onclick={() => handleRestore(sub)}
+                    />
                   </td>
                 </tr>
               {/each}

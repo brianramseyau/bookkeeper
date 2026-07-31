@@ -277,7 +277,7 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Insurance' }))
 
     const nameInput = screen.getByDisplayValue('Insurance')
     await user.clear(nameInput)
@@ -291,7 +291,7 @@ describe('category detail page', () => {
       { ...insurance, name: 'Home insurance', amount: 75 },
     ])
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Insurance' }))
 
     expect(updateCategoryBudgetItem).toHaveBeenCalledWith(10, {
       name: 'Home insurance',
@@ -305,11 +305,11 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Insurance' }))
     const nameInput = screen.getByDisplayValue('Insurance')
     await user.clear(nameInput)
     await user.type(nameInput, 'Should not save')
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing Insurance' }))
 
     expect(updateCategoryBudgetItem).not.toHaveBeenCalled()
     expect(await screen.findByText('Insurance')).toBeInTheDocument()
@@ -320,10 +320,10 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Insurance' }))
     const nameInput = screen.getByDisplayValue('Insurance')
     await user.clear(nameInput)
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Insurance' }))
 
     expect(await screen.findByText('Name and amount are required')).toBeInTheDocument()
     expect(updateCategoryBudgetItem).not.toHaveBeenCalled()
@@ -335,8 +335,8 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Insurance' }))
+    await user.click(screen.getByRole('button', { name: 'Save Insurance' }))
 
     expect(await screen.findByText('Could not save item')).toBeInTheDocument()
   })
@@ -348,7 +348,7 @@ describe('category detail page', () => {
     render(CategoryDetailPage)
 
     await screen.findByText('Insurance')
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Delete Insurance' }))
 
     expect(deleteCategoryBudgetItem).toHaveBeenCalledWith(10)
     expect(await screen.findByText('No items yet.')).toBeInTheDocument()
@@ -362,7 +362,7 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete Insurance' }))
 
     expect(await screen.findByText('Could not delete item')).toBeInTheDocument()
     expect(screen.getByText('Insurance')).toBeInTheDocument()
@@ -464,7 +464,7 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
 
     const amountInput = screen.getByDisplayValue('120')
     await user.clear(amountInput)
@@ -472,7 +472,7 @@ describe('category detail page', () => {
 
     mockLoad({ actuals: [{ ...januaryShop, amount: 200 }] })
 
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
 
     expect(updateCategoryActual).toHaveBeenCalledWith(20, {
       occurredOn: '2026-01-15',
@@ -488,12 +488,12 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
     const notesInput = screen.getByDisplayValue('Weekly shop')
     await user.clear(notesInput)
 
     mockLoad({ actuals: [{ ...januaryShop, notes: null }] })
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
 
     expect(updateCategoryActual).toHaveBeenCalledWith(20, {
       occurredOn: '2026-01-15',
@@ -507,11 +507,11 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
     const amountInput = screen.getByDisplayValue('120')
     await user.clear(amountInput)
     await user.type(amountInput, '999')
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing entry from 15 Jan 2026' }))
 
     expect(updateCategoryActual).not.toHaveBeenCalled()
     expect(await screen.findByText('$120.00')).toBeInTheDocument()
@@ -522,10 +522,10 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
     const dateInput = screen.getByDisplayValue('2026-01-15')
     await user.clear(dateInput)
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
 
     expect(await screen.findByText('Date and amount are required')).toBeInTheDocument()
     expect(updateCategoryActual).not.toHaveBeenCalled()
@@ -537,8 +537,8 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
@@ -552,7 +552,7 @@ describe('category detail page', () => {
     await screen.findByText('Weekly shop')
     vi.mocked(getCategoryTrend).mockResolvedValue(noTrend)
 
-    await user.click(screen.getByRole('button', { name: 'Remove' }))
+    await user.click(screen.getByRole('button', { name: 'Delete entry from 15 Jan 2026' }))
 
     expect(deleteCategoryActual).toHaveBeenCalledWith(20)
     expect(await screen.findByText('No entries yet.')).toBeInTheDocument()
@@ -565,7 +565,7 @@ describe('category detail page', () => {
     const user = userEvent.setup()
     render(CategoryDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Remove' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete entry from 15 Jan 2026' }))
 
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
     expect(screen.getByText('Weekly shop')).toBeInTheDocument()

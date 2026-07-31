@@ -266,7 +266,10 @@ describe('utility detail page', () => {
     const aprCell = getCell(container, fixtureFyEndYear, 4)
     expect(within(aprCell).getByText('$100.00')).toBeInTheDocument()
     expect(within(aprCell).getByText('bills $300.00')).toBeInTheDocument()
-    expect(within(aprCell).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
+    // Deleting a billed month is edit-mode only now (no hover-revealed
+    // shortcut on the display cell) - see the "removes a billed cell from
+    // within edit mode" test below.
+    expect(within(aprCell).queryByRole('button', { name: /^Delete / })).toBeNull()
   })
 
   it("warns when a computed share overlaps a second bill's period, without a bill of its own", async () => {
@@ -446,7 +449,12 @@ describe('utility detail page', () => {
     await screen.findByRole('heading', { name: 'Electricity' })
 
     const aprCell = getCell(container, fixtureFyEndYear, 4)
-    await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
+    await user.click(within(aprCell).getByText('$100.00'))
+    await user.click(
+      within(aprCell).getByRole('button', {
+        name: `Delete ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
+      })
+    )
 
     expect(deleteUtilityBill).toHaveBeenCalledWith(10)
     await waitFor(() => expect(getUtilityBills).toHaveBeenCalledTimes(2))
@@ -460,7 +468,12 @@ describe('utility detail page', () => {
     await screen.findByRole('heading', { name: 'Electricity' })
 
     const aprCell = getCell(container, fixtureFyEndYear, 4)
-    await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
+    await user.click(within(aprCell).getByText('$100.00'))
+    await user.click(
+      within(aprCell).getByRole('button', {
+        name: `Delete ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
+      })
+    )
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -480,7 +493,11 @@ describe('utility detail page', () => {
     await user.click(within(aprCell).getByText('$100.00'))
     expect(within(aprCell).getByRole('spinbutton')).toBeInTheDocument()
 
-    await user.click(within(aprCell).getByRole('button', { name: 'Remove' }))
+    await user.click(
+      within(aprCell).getByRole('button', {
+        name: `Delete ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
+      })
+    )
 
     expect(deleteUtilityBill).toHaveBeenCalledWith(10)
     expect(upsertUtilityBill).not.toHaveBeenCalled()
@@ -488,7 +505,7 @@ describe('utility detail page', () => {
     expect(within(aprCell).queryByRole('spinbutton')).toBeNull()
   })
 
-  it('does not show a Remove button while editing an empty cell with no bill yet', async () => {
+  it('does not show a Delete button while editing an empty cell with no bill yet', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     const { container } = render(UtilityDetailPage)
@@ -497,7 +514,7 @@ describe('utility detail page', () => {
     const janCell = getCell(container, fixtureFyEndYear, 1)
     await user.click(within(janCell).getByRole('button', { name: '+' }))
 
-    expect(within(janCell).queryByRole('button', { name: 'Remove' })).toBeNull()
+    expect(within(janCell).queryByRole('button', { name: /^Delete / })).toBeNull()
   })
 
   it('shows a single financial year at a time, navigable with Prev/Next, with Next disabled at the current FY', async () => {
@@ -535,12 +552,12 @@ describe('utility detail page', () => {
     const user = userEvent.setup()
     render(UtilityDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity settings' }))
     await user.selectOptions(screen.getByLabelText('Frequency'), 'annual')
     const offsetInput = screen.getByLabelText('Due (day of the billing month)')
     await user.clear(offsetInput)
     await user.type(offsetInput, '30')
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Electricity settings' }))
 
     await waitFor(() =>
       expect(updateUtility).toHaveBeenCalledWith(1, {
@@ -558,9 +575,9 @@ describe('utility detail page', () => {
     const user = userEvent.setup()
     render(UtilityDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity settings' }))
     await user.click(screen.getByLabelText('Paid in advance / Pre-paid'))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(screen.getByRole('button', { name: 'Save Electricity settings' }))
 
     await waitFor(() =>
       expect(updateUtility).toHaveBeenCalledWith(1, {
@@ -577,8 +594,8 @@ describe('utility detail page', () => {
     const user = userEvent.setup()
     render(UtilityDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity settings' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing Electricity settings' }))
 
     expect(screen.queryByLabelText('Frequency')).toBeNull()
     expect(updateUtility).not.toHaveBeenCalled()
@@ -590,8 +607,8 @@ describe('utility detail page', () => {
     const user = userEvent.setup()
     render(UtilityDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity settings' }))
+    await user.click(screen.getByRole('button', { name: 'Save Electricity settings' }))
 
     expect(await screen.findByText('Could not save billing settings')).toBeInTheDocument()
   })
