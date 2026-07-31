@@ -258,22 +258,27 @@ Every data table follows the same recipe — see
 `apps/web/src/routes/categories/+page.svelte` as the reference:
 
 ```html
-<Card class="mt-6 overflow-x-auto">
-  <table class="w-full border-collapse text-sm">
-    <thead>
+<Card class="mt-6 sm:overflow-x-auto">
+  <table class="block w-full border-collapse text-sm sm:table">
+    <thead class="hidden sm:table-header-group">
       <tr class="border-b border-slate-200 dark:border-slate-700">
         <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">...</th>
         <!-- text-right on th for numeric columns, text-center for a checkbox column -->
       </tr>
     </thead>
-    <tbody>
-      <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-        <td class="px-3 py-2 ...">...</td>
+    <tbody class="block sm:table-row-group">
+      <tr
+        class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 dark:divide-slate-700/60 dark:border-slate-700 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 sm:dark:border-slate-700/60"
+      >
+        <td class="px-3 py-2 ... sm:table-cell">...</td>
+        <!-- see "Responsive tables (mobile)" below for cell-level rules -->
       </tr>
     </tbody>
     <!-- optional -->
-    <tfoot>
-      <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
+    <tfoot class="block sm:table-footer-group">
+      <tr
+        class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+      >
         ...
       </tr>
     </tfoot>
@@ -283,8 +288,12 @@ Every data table follows the same recipe — see
 
 - **Inline row edit mode**: swap the row for one styled
   `border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20`
-  (a light indigo tint), containing compact-sized inputs (see Form inputs
-  above) and `IconActionButton` primary (Save) + cancel (Cancel).
+  (a light indigo tint — on mobile this becomes
+  `bg-indigo-50/40 dark:bg-indigo-900/20` plus the same card-ification as any
+  other row, with its border/divide colors swapped to `indigo-*` instead of
+  `slate-*`; see "Responsive tables" below), containing compact-sized inputs
+  (see Form inputs above) and `IconActionButton` primary (Save) + cancel
+  (Cancel).
 - **Grouped section header row** inside a `<tbody>` (Paused/Archived/Removed
   in Categories/Bills/Subscriptions; frequency groups in Bills):
   `border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40`,
@@ -321,6 +330,71 @@ Every data table follows the same recipe — see
   there's nothing persisted yet to delete. Reuse this exact shape for any
   future "here's a known-but-not-yet-confirmed row" case rather than
   inventing a new muted-row treatment.
+
+### Responsive tables (mobile)
+
+Every table in the app reflows into stacked cards below `sm` (640px) instead
+of horizontally scrolling — the app is mobile-first, and a table wider than
+a phone screen is a poor mobile UX. This is done with responsive `display`
+utilities on the *same* markup, not a second parallel "mobile" template: one
+`{#each}`, one set of `<tr>`/`<td>` elements, restyled per breakpoint. See
+`apps/web/src/routes/monthly/+page.svelte` for the fullest worked example
+(due chip, Paid checkbox, multiple edit-mode variants), or
+`apps/web/src/routes/bills/+page.svelte` for a simpler one.
+
+- **`table`**: `block w-full border-collapse text-sm sm:table`.
+- **`thead`**: `hidden sm:table-header-group` — column headers are redundant
+  once every cell carries its own mobile label.
+- **`tbody`** / **`tfoot`**: `block sm:table-row-group` /
+  `block sm:table-footer-group`.
+- **A data `<tr>`** becomes a bordered card on mobile, a normal row on
+  desktop. Take whatever divider classes the row already has (e.g.
+  `border-b border-slate-100 last:border-0 dark:border-slate-700/60`, or the
+  indigo-tinted edit-mode variant) and move them behind `sm:`, replacing them
+  on mobile with:
+  `mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 dark:divide-slate-700/60 dark:border-slate-700 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 sm:dark:border-slate-700/60`
+  (swap `slate` for `indigo` — and add the `bg-indigo-50/40 dark:bg-indigo-900/20`
+  tint unprefixed — for an edit-mode row). `opacity-70`/`opacity-60` on a
+  muted row stays unprefixed (not display-related, applies at both sizes).
+- **A grouped colspan section-header `<tr>`** (Paused/Archived/Removed,
+  frequency groups) and the **`tfoot` totals `<tr>`** don't need the card
+  treatment — they're already a full-bleed bar. Just add `block sm:table-row`
+  to the `<tr>` (tfoot's row also gets `mt-1 pt-2 border-t ... sm:mt-0 sm:pt-0`
+  to separate it from the last card above it) and `block sm:table-cell` to
+  its `colspan`'d `<td>`.
+- **Every `<td>`** gets `sm:table-cell` added, then depending on the column:
+  - **Primary/title cell** (first column, e.g. Name) — just `sm:table-cell`,
+    nothing else. It reads as the card's title line on mobile since it's
+    already `font-medium text-slate-900 dark:text-slate-100`.
+  - **Any cell whose column has a visible `<th>` label** —
+    `flex items-center justify-between gap-3 px-3 py-2 <original text/color classes> sm:table-cell`
+    (move a bare `text-right`/`text-center` behind `sm:` too), with a label
+    prepended as the cell's first child:
+    `<span class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500">Label</span>`.
+    For a table with a **dynamic column set** (Income's YTD table, one
+    column per income source), the label is just the same data already used
+    for the `<th>` (`{source.name}`) — no special-casing needed.
+  - **A cell whose value is inherently multi-control** (e.g. Income sources'
+    Cadence cell: a `<select>` plus a conditional day/checkbox or date input)
+    doesn't fit the label-left/value-right flex row — use a stacked block
+    instead: `block px-3 py-2 sm:table-cell` with the label as
+    `<span class="mb-1 block text-xs ... sm:hidden">Label</span>` above the
+    unchanged control markup.
+  - **Actions cell** (blank `<th>`, holds `IconActionButton`s) — no label:
+    `flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right`.
+  - **A genuinely empty `<td>`** (nothing to show for this row/column) —
+    `hidden sm:table-cell`.
+- **Inline-edit `<input>`/`<select>` with a fixed width** (`w-24`, `w-32`,
+  `w-40`, etc.) becomes `w-full` unprefixed plus the original width behind
+  `sm:` (`w-full ... sm:w-24`), so it fills the mobile card row and matches
+  today's exact width at `sm:` and up. `type="date"` inputs and
+  `CategorySelect` have no fixed width today and need no change.
+- **Shared row components** (`IncomeEntryDisplayRow.svelte`/
+  `IncomeEntryEditRow.svelte`) bake these structural/responsive classes into
+  their own template, keeping the caller-supplied `cellClass`/`lastCellClass`
+  props purely about padding — a caller's `leading` snippet (whatever goes in
+  the first cell) follows the same primary-cell-or-labeled-cell rules as any
+  other table.
 
 ## Badges / status pills
 

@@ -393,9 +393,9 @@
     {/if}
   </Card>
 
-  <Card class="overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Month</th
           >
@@ -407,7 +407,7 @@
           >
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each fyMonths as { year, month } (`${year}-${month}`)}
           {@const bill = billFor(year, month)}
           {@const share = shareFor(year, month)}
@@ -415,13 +415,21 @@
           {@const displayAmount = share ? share.amount : bill?.amount}
           {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
           {@const conflicts = conflictingBills(year, month)}
-          <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+          <tr
+            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+          >
             <td
-              class="px-3 py-1.5 font-medium whitespace-nowrap text-slate-700 dark:text-slate-300"
+              class="px-3 py-1.5 font-medium whitespace-nowrap text-slate-700 sm:table-cell dark:text-slate-300"
             >
               {monthYearLabel(year, month)}
             </td>
-            <td class="px-1 py-1 text-right">
+            <td
+              class="flex items-center justify-between gap-3 px-1 py-1 sm:table-cell sm:text-right"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Amount</span
+              >
               {#if editingKey === key}
                 <input
                   type="number"
@@ -434,7 +442,7 @@
                     if (e.key === 'Escape') cancelEdit()
                   }}
                   use:focusOnMount
-                  class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
+                  class="w-full rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 sm:w-24 dark:bg-slate-900 dark:text-slate-100"
                 />
               {:else if !bill && share}
                 <span
@@ -479,9 +487,15 @@
                 </button>
               {/if}
             </td>
-            <td class="px-1 py-1 text-left">
+            <td
+              class="flex items-center justify-between gap-3 px-1 py-1 sm:table-cell sm:text-right"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Received</span
+              >
               {#if editingKey === key}
-                <div class="flex items-center gap-1">
+                <div class="flex items-center gap-1 sm:justify-end">
                   <input
                     type="date"
                     bind:value={editingReceivedOn}
@@ -520,12 +534,14 @@
                 <button
                   type="button"
                   onclick={() => startEdit(year, month)}
-                  class="w-full rounded-md px-2 py-1.5 text-left text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+                  class="w-full rounded-md px-2 py-1.5 text-right text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
                 >
                   {formatDate(bill.receivedOn)}
                 </button>
               {:else}
-                <span class="block px-2 py-1.5 text-slate-300 dark:text-slate-600">—</span>
+                <span class="block px-2 py-1.5 text-right text-slate-300 dark:text-slate-600"
+                  >—</span
+                >
               {/if}
             </td>
           </tr>

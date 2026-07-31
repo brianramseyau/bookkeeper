@@ -886,7 +886,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const dueCell = (await screen.findByText('Water')).closest('tr')!.children[1] as HTMLElement
-    expect(dueCell.textContent).toBe('—')
+    expect(dueCell.textContent).toBe('Due —')
     expect(dueCell.getAttribute('title')).toBeNull()
   })
 
@@ -918,7 +918,7 @@ describe('month page', () => {
 
     const dueCell = (await screen.findByText('Netflix (Brian)')).closest('tr')!
       .children[1] as HTMLElement
-    expect(dueCell.textContent).toBe('—')
+    expect(dueCell.textContent).toBe('Due —')
     expect(dueCell.getAttribute('title')).toBeNull()
   })
 

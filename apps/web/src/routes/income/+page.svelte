@@ -604,9 +604,9 @@
   </div>
 
   {#if selectedUserId !== null}
-    <Card class="mt-6 overflow-x-auto">
-      <table class="w-full border-collapse text-sm">
-        <thead>
+    <Card class="mt-6 sm:overflow-x-auto">
+      <table class="block w-full border-collapse text-sm sm:table">
+        <thead class="hidden sm:table-header-group">
           <tr class="border-b border-slate-200 dark:border-slate-700">
             <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
               >Name</th
@@ -623,29 +623,39 @@
             <th class="px-3 py-2"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody class="block sm:table-row-group">
           {#each visibleSources as source (source.id)}
             {#if editingId === source.id}
               <tr
-                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2">
+                <td class="px-3 py-2 sm:table-cell">
                   <input
                     type="text"
                     bind:value={editName}
-                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </td>
-                <td class="px-3 py-2 text-right">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Expected per pay</span
+                  >
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     bind:value={editExpectedAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </td>
-                <td class="px-3 py-2">
+                <td class="block px-3 py-2 sm:table-cell">
+                  <span
+                    class="mb-1 block text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Cadence</span
+                  >
                   <div class="flex flex-col gap-1">
                     <select
                       bind:value={editFrequency}
@@ -685,14 +695,20 @@
                     {/if}
                   </div>
                 </td>
-                <td class="px-3 py-2">
+                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Tax withheld</span
+                  >
                   <input
                     type="checkbox"
                     bind:checked={editTaxWithheld}
                     class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
                   />
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="primary"
                     disabled={savingEdit}
@@ -709,20 +725,42 @@
                 </td>
               </tr>
             {:else}
-              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-                <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+              <tr
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+              >
+                <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
                   {source.name}
                 </td>
-                <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Expected per pay</span
+                  >
                   {formatCurrency(source.expectedAmount)}
                 </td>
-                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Cadence</span
+                  >
                   {cadenceLabel(source)}
                 </td>
-                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Tax withheld</span
+                  >
                   {source.taxWithheld ? 'Yes' : 'No'}
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="neutral"
                     label="Edit {source.name}"
@@ -739,10 +777,10 @@
               </tr>
             {/if}
           {:else}
-            <tr>
+            <tr class="block sm:table-row">
               <td
                 colspan="5"
-                class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
+                class="block px-3 py-6 text-center text-sm text-slate-400 sm:table-cell dark:text-slate-500"
               >
                 No income sources yet.
               </td>
@@ -861,9 +899,9 @@
         acc.push((acc.at(-1) ?? 0) + m.total)
         return acc
       }, [])}
-      <Card class="mt-3 overflow-x-auto">
-        <table class="w-full border-collapse text-sm">
-          <thead>
+      <Card class="mt-3 sm:overflow-x-auto">
+        <table class="block w-full border-collapse text-sm sm:table">
+          <thead class="hidden sm:table-header-group">
             <tr class="border-b border-slate-200 dark:border-slate-700">
               <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
                 >Month</th
@@ -881,16 +919,16 @@
               >
             </tr>
           </thead>
-          <tbody>
+          <tbody class="block sm:table-row-group">
             {#each ytd.months as monthRow, i (monthRow.month)}
               {@const expanded = expandedMonth === monthRow.month}
               <tr
                 class={[
-                  'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
+                  'mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60',
                   expanded && 'bg-slate-100 dark:bg-slate-900/50',
                 ]}
               >
-                <td class="px-3 py-2 text-slate-900 dark:text-slate-100">
+                <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100">
                   <button
                     type="button"
                     onclick={() => toggleMonth(monthRow.year, monthRow.month)}
@@ -903,35 +941,57 @@
                   </button>
                 </td>
                 {#each ytd.sources as source (source.id)}
-                  <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >{source.name}</span
+                    >
                     {formatCurrency(monthRow.bySource[source.id] ?? 0)}
                   </td>
                 {/each}
-                <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
-                  {formatCurrency(monthRow.total)}
-                  {#if monthRow.estimated}
-                    <span
-                      class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
-                      title="No entry logged this month - backfilled from the projected amount"
-                      >(est.)</span
-                    >
-                  {/if}
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Total</span
+                  >
+                  <span>
+                    {formatCurrency(monthRow.total)}
+                    {#if monthRow.estimated}
+                      <span
+                        class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
+                        title="No entry logged this month - backfilled from the projected amount"
+                        >(est.)</span
+                      >
+                    {/if}
+                  </span>
                 </td>
-                <td class="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >YTD</span
+                  >
                   {formatCurrency(runningTotals[i]!)}
                 </td>
               </tr>
               {#if expanded}
-                <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                <tr
+                  class="block border-b border-slate-100 last:border-0 sm:table-row dark:border-slate-700/60"
+                >
                   <td
                     colspan={ytd.sources.length + 3}
-                    class="bg-slate-50 px-3 py-3 dark:bg-slate-900/25"
+                    class="block bg-slate-50 px-3 py-3 sm:table-cell dark:bg-slate-900/25"
                   >
                     {#if entriesLoading}
                       <p class="text-xs text-slate-400 dark:text-slate-500">Loading entries…</p>
                     {:else}
-                      <table class="w-full border-collapse text-sm">
-                        <thead>
+                      <table class="block w-full border-collapse text-sm sm:table">
+                        <thead class="hidden sm:table-header-group">
                           <tr class="border-b border-slate-200 dark:border-slate-700">
                             <th
                               class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
@@ -952,10 +1012,12 @@
                             <th class="py-1.5"></th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="block sm:table-row-group">
                           {#each monthEntries as entry (entry.id)}
                             {#snippet sourceCell()}
-                              <td class="py-1.5 pr-3 text-slate-700 dark:text-slate-300">
+                              <td
+                                class="py-1.5 pr-3 text-slate-700 sm:table-cell dark:text-slate-300"
+                              >
                                 {sourceName(entry.incomeSourceId)}
                               </td>
                             {/snippet}
@@ -987,10 +1049,10 @@
                               />
                             {/if}
                           {:else}
-                            <tr>
+                            <tr class="block sm:table-row">
                               <td
                                 colspan="5"
-                                class="py-3 text-center text-xs text-slate-400 dark:text-slate-500"
+                                class="block py-3 text-center text-xs text-slate-400 sm:table-cell dark:text-slate-500"
                               >
                                 No entries logged for {monthYearLabel(
                                   monthRow.year,
@@ -1013,15 +1075,24 @@
               {/if}
             {/each}
           </tbody>
-          <tfoot>
-            <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
+          <tfoot class="block sm:table-footer-group">
+            <tr
+              class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+            >
               <td
-                class="px-3 py-2 text-slate-900 dark:text-slate-100"
+                class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100"
                 colspan={1 + ytd.sources.length}>Year to date</td
               >
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100" colspan="2"
-                >{formatCurrency(ytd.ytdTotal)}</td
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                colspan="2"
               >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Total</span
+                >
+                {formatCurrency(ytd.ytdTotal)}
+              </td>
             </tr>
           </tfoot>
         </table>
@@ -1069,9 +1140,9 @@
     {#if nonPaygLoading}
       <LoadingIndicator class="mt-3" />
     {:else}
-      <Card class="mt-3 overflow-x-auto">
-        <table class="w-full border-collapse text-sm">
-          <thead>
+      <Card class="mt-3 sm:overflow-x-auto">
+        <table class="block w-full border-collapse text-sm sm:table">
+          <thead class="hidden sm:table-header-group">
             <tr class="border-b border-slate-200 dark:border-slate-700">
               <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
                 >Date</th
@@ -1094,45 +1165,77 @@
               <th class="px-3 py-2"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody class="block sm:table-row-group">
             {#each nonPaygItems as item (item.id)}
               {#if editingItemId === item.id}
                 <tr
-                  class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                  class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
                 >
-                  <td class="px-3 py-2">
+                  <td class="px-3 py-2 sm:table-cell">
                     <input
                       type="date"
                       bind:value={editItemDate}
                       class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="px-3 py-2">
+                  <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Item</span
+                    >
                     <input
                       type="text"
                       bind:value={editItemName}
-                      class="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="px-3 py-2 text-right">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Sale</span
+                    >
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       bind:value={editItemAmount}
-                      class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="px-3 py-2">
+                  <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Tax withheld</span
+                    >
                     <input
                       type="checkbox"
                       bind:checked={editItemTaxWithheld}
                       class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
                     />
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Tax</span
+                    >
+                    —
+                  </td>
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Gain</span
+                    >
+                    —
+                  </td>
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="primary"
                       disabled={savingItemEdit}
@@ -1149,26 +1252,60 @@
                   </td>
                 </tr>
               {:else}
-                <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-                  <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                <tr
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                >
+                  <td class="px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400">
                     {formatDate(item.receivedOn)}
                   </td>
-                  <td class="px-3 py-2 text-slate-900 dark:text-slate-100">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Item</span
+                    >
                     {item.note ?? '—'}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Sale</span
+                    >
                     {formatCurrency(item.amount)}
                   </td>
-                  <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Tax withheld</span
+                    >
                     {item.taxWithheld ? 'Yes' : 'No'}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Tax</span
+                    >
                     {formatCurrency(computeItemTax(item))}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Gain</span
+                    >
                     {formatCurrency(computeItemGain(item))}
                   </td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="neutral"
                       label="Edit entry from {formatDate(item.receivedOn)}"
@@ -1185,30 +1322,52 @@
                 </tr>
               {/if}
             {:else}
-              <tr>
+              <tr class="block sm:table-row">
                 <td
                   colspan="7"
-                  class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
+                  class="block px-3 py-6 text-center text-sm text-slate-400 sm:table-cell dark:text-slate-500"
                 >
                   No non-PAYG income logged for {financialYearLabel(selectedFinancialYear)}.
                 </td>
               </tr>
             {/each}
           </tbody>
-          <tfoot>
-            <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-              <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+          <tfoot class="block sm:table-footer-group">
+            <tr
+              class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+            >
+              <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100" colspan="2"
+                >Total</td
+              >
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Sale</span
+                >
                 {formatCurrency(nonPaygTotals.sale)}
               </td>
-              <td class="px-3 py-2"></td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+              <td class="hidden px-3 py-2 sm:table-cell"></td>
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Tax</span
+                >
                 {formatCurrency(nonPaygTotals.tax)}
               </td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Gain</span
+                >
                 {formatCurrency(nonPaygTotals.gain)}
               </td>
-              <td class="px-3 py-2"></td>
+              <td class="hidden px-3 py-2 sm:table-cell"></td>
             </tr>
           </tfoot>
         </table>

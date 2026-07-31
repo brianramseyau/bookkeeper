@@ -31,12 +31,48 @@
   const entryLabel = $derived(receivedOn ? `entry from ${formatDate(receivedOn)}` : 'entry')
 </script>
 
-<tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+<tr
+  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+>
   {@render leading()}
-  <td class={[cellClass, 'text-right', amountValueClass]}>{formatCurrency(amount)}</td>
-  <td class={[cellClass, 'text-slate-500 dark:text-slate-400']}>{formatDate(receivedOn)}</td>
-  <td class={[cellClass, 'text-slate-500 dark:text-slate-400']}>{note ?? '—'}</td>
-  <td class={lastCellClass}>
+  <td
+    class={[
+      cellClass,
+      'flex items-center justify-between gap-3 sm:table-cell sm:text-right',
+      amountValueClass,
+    ]}
+  >
+    <span
+      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+      >Amount</span
+    >
+    {formatCurrency(amount)}
+  </td>
+  <td
+    class={[
+      cellClass,
+      'flex items-center justify-between gap-3 text-slate-500 sm:table-cell dark:text-slate-400',
+    ]}
+  >
+    <span
+      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+      >Date</span
+    >
+    {formatDate(receivedOn)}
+  </td>
+  <td
+    class={[
+      cellClass,
+      'flex items-center justify-between gap-3 text-slate-500 sm:table-cell dark:text-slate-400',
+    ]}
+  >
+    <span
+      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+      >Note</span
+    >
+    {note ?? '—'}
+  </td>
+  <td class={[lastCellClass, 'flex justify-end gap-1 sm:table-cell']}>
     <IconActionButton
       variant="neutral"
       label="Edit {entryLabel}"

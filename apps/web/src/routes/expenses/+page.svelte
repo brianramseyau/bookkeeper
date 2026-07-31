@@ -242,16 +242,20 @@
 
 {#snippet editRow(expense: Expense)}
   <tr
-    class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+    class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
   >
-    <td class="px-3 py-2">
+    <td class="px-3 py-2 sm:table-cell">
       <input
         type="text"
         bind:value={editName}
-        class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-28 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
       />
     </td>
-    <td class="px-3 py-2">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Category</span
+      >
       <CategorySelect
         {categories}
         value={expense.categoryId}
@@ -259,7 +263,11 @@
         onchange={(value) => handleCategoryChange(expense, value)}
       />
     </td>
-    <td class="px-3 py-2 text-right">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Budget</span
+      >
       {#if expense.budgetItemCount > 0}
         <span
           class="text-sm text-slate-500 dark:text-slate-400"
@@ -274,14 +282,34 @@
           min="0"
           placeholder="—"
           bind:value={editBudgetAmount}
-          class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+          class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
         />
       {/if}
     </td>
-    <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-    <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-    <td class="px-3 py-2"></td>
-    <td class="px-3 py-2 text-center">
+    <td
+      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+    >
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Latest</span
+      >
+      —
+    </td>
+    <td
+      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+    >
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >12-mo avg</span
+      >
+      —
+    </td>
+    <td class="hidden px-3 py-2 sm:table-cell"></td>
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Recurring</span
+      >
       <input
         type="checkbox"
         aria-label="Recurring"
@@ -289,7 +317,11 @@
         class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
       />
     </td>
-    <td class="px-3 py-2 text-center">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Ignore budget</span
+      >
       <input
         type="checkbox"
         aria-label="Ignore budget"
@@ -297,7 +329,7 @@
         class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
       />
     </td>
-    <td class="px-3 py-2 text-right whitespace-nowrap">
+    <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
       <IconActionButton
         variant="primary"
         disabled={savingEdit}
@@ -312,7 +344,7 @@
         onclick={cancelEdit}
       />
     </td>
-    <td class="px-3 py-2"></td>
+    <td class="hidden px-3 py-2 sm:table-cell"></td>
   </tr>
 {/snippet}
 
@@ -336,9 +368,9 @@
 {#if loading}
   <LoadingIndicator />
 {:else}
-  <Card class="mt-6 overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="mt-6 sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Name</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
@@ -369,13 +401,15 @@
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each activeRows as row, index (row.expense.id)}
           {#if editingId === row.expense.id}
             {@render editRow(row.expense)}
           {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+            <tr
+              class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            >
+              <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
                 <a
                   href={`/expenses/${row.expense.id}`}
                   class="hover:text-indigo-600 dark:hover:text-indigo-400"
@@ -383,7 +417,11 @@
                   {row.expense.name}
                 </a>
               </td>
-              <td class="px-3 py-2">
+              <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Category</span
+                >
                 <CategorySelect
                   {categories}
                   value={row.expense.categoryId}
@@ -392,33 +430,67 @@
                 />
               </td>
               <td
-                class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
                 title={row.expense.budgetItemCount > 0
                   ? `Derived from ${row.expense.budgetItemCount} itemized budget line(s)`
                   : undefined}
               >
-                {formatCurrency(row.expense.budgetAmount)}
-                {#if row.expense.budgetItemCount > 0}
-                  <span class="text-slate-400 dark:text-slate-500">*</span>
-                {/if}
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Budget</span
+                >
+                <span>
+                  {formatCurrency(row.expense.budgetAmount)}
+                  {#if row.expense.budgetItemCount > 0}
+                    <span class="text-slate-400 dark:text-slate-500">*</span>
+                  {/if}
+                </span>
               </td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Latest</span
+                >
                 {formatCurrency(row.trend?.latestAmount ?? null)}
               </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >12-mo avg</span
+                >
                 {formatCurrency(row.trend?.average ?? null)}
               </td>
-              <td class="px-3 py-2">
+              <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Trend</span
+                >
                 <TrendIndicator trend={row.trend?.trend} class="text-xs font-medium" />
               </td>
-              <td class="px-3 py-2 text-center">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Recurring</span
+                >
                 {#if row.expense.isRecurring}
                   <span class="text-emerald-600 dark:text-emerald-400" title="Recurring">✓</span>
                 {:else}
                   <span class="text-slate-300 dark:text-slate-600" title="One-off">—</span>
                 {/if}
               </td>
-              <td class="px-3 py-2 text-center">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Ignore budget</span
+                >
                 {#if row.expense.excludeFromBudget}
                   <span
                     class="text-emerald-600 dark:text-emerald-400"
@@ -429,7 +501,9 @@
                   >
                 {/if}
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 <IconActionButton
                   variant="neutral"
                   label="Edit {row.expense.name}"
@@ -449,7 +523,7 @@
                   onclick={() => handleArchive(row.expense)}
                 />
               </td>
-              <td class="px-3 py-2 whitespace-nowrap">
+              <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell">
                 <button
                   type="button"
                   onclick={() => moveExpense(index, -1)}
@@ -476,11 +550,11 @@
         {#if showHidden}
           {#if pausedRows.length > 0}
             <tr
-              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="10"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Paused
               </td>
@@ -490,34 +564,70 @@
                 {@render editRow(row.expense)}
               {:else}
                 <tr
-                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
-                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  <td
+                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                  >
                     <span class="flex items-center">
                       <span>{row.expense.name}</span>
                       <StatusBadge label="Paused" tone="amber" />
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Category</span
+                    >
                     {categories.find((c) => c.id === row.expense.categoryId)?.name ?? ''}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Budget</span
+                    >
                     {formatCurrency(row.expense.budgetAmount)}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Latest</span
+                    >
                     {formatCurrency(row.trend?.latestAmount ?? null)}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >12-mo avg</span
+                    >
                     {formatCurrency(row.trend?.average ?? null)}
                   </td>
-                  <td class="px-3 py-2"></td>
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                   <td
-                    class="px-3 py-2 text-center text-slate-300 dark:text-slate-600"
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
                     title="Hidden from Monthly while paused"
                   >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Recurring</span
+                    >
                     —
                   </td>
-                  <td class="px-3 py-2 text-center">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Ignore budget</span
+                    >
                     {#if row.expense.excludeFromBudget}
                       <span
                         class="text-emerald-600 dark:text-emerald-400"
@@ -529,7 +639,9 @@
                       >
                     {/if}
                   </td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="neutral"
                       label="Edit {row.expense.name}"
@@ -549,7 +661,7 @@
                       onclick={() => handleArchive(row.expense)}
                     />
                   </td>
-                  <td class="px-3 py-2"></td>
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                 </tr>
               {/if}
             {/each}
@@ -557,11 +669,11 @@
 
           {#if archivedRows.length > 0}
             <tr
-              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="10"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Archived
               </td>
@@ -571,34 +683,70 @@
                 {@render editRow(row.expense)}
               {:else}
                 <tr
-                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
-                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  <td
+                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                  >
                     <span class="flex items-center">
                       <span>{row.expense.name}</span>
                       <StatusBadge label="Archived" tone="slate" />
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Category</span
+                    >
                     {categories.find((c) => c.id === row.expense.categoryId)?.name ?? ''}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Budget</span
+                    >
                     {formatCurrency(row.expense.budgetAmount)}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Latest</span
+                    >
                     {formatCurrency(row.trend?.latestAmount ?? null)}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >12-mo avg</span
+                    >
                     {formatCurrency(row.trend?.average ?? null)}
                   </td>
-                  <td class="px-3 py-2"></td>
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                   <td
-                    class="px-3 py-2 text-center text-slate-300 dark:text-slate-600"
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
                     title="Hidden from Monthly while archived"
                   >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Recurring</span
+                    >
                     —
                   </td>
-                  <td class="px-3 py-2 text-center">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Ignore budget</span
+                    >
                     {#if row.expense.excludeFromBudget}
                       <span
                         class="text-emerald-600 dark:text-emerald-400"
@@ -610,7 +758,9 @@
                       >
                     {/if}
                   </td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="neutral"
                       label="Edit {row.expense.name}"
@@ -630,7 +780,7 @@
                       onclick={() => handleRemove(row.expense)}
                     />
                   </td>
-                  <td class="px-3 py-2"></td>
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                 </tr>
               {/if}
             {/each}
@@ -638,41 +788,83 @@
 
           {#if removedRows.length > 0}
             <tr
-              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="10"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Removed
               </td>
             </tr>
             {#each removedRows as row (row.expense.id)}
               <tr
-                class="border-b border-slate-100 opacity-60 last:border-0 dark:border-slate-700/60"
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                <td class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300">
                   <span class="flex items-center">
                     <span>{row.expense.name}</span>
                     <StatusBadge label="Removed" tone="slate" />
                   </span>
                 </td>
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Category</span
+                  >
                   {categories.find((c) => c.id === row.expense.categoryId)?.name ?? ''}
                 </td>
-                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Budget</span
+                  >
                   {formatCurrency(row.expense.budgetAmount)}
                 </td>
-                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Latest</span
+                  >
                   {formatCurrency(row.trend?.latestAmount ?? null)}
                 </td>
-                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >12-mo avg</span
+                  >
                   {formatCurrency(row.trend?.average ?? null)}
                 </td>
-                <td class="px-3 py-2"></td>
-                <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
-                <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td class="hidden px-3 py-2 sm:table-cell"></td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Recurring</span
+                  >
+                  —
+                </td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Ignore budget</span
+                  >
+                  —
+                </td>
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="success"
                     label="Restore {row.expense.name}"
@@ -680,7 +872,7 @@
                     onclick={() => handleRestore(row.expense)}
                   />
                 </td>
-                <td class="px-3 py-2"></td>
+                <td class="hidden px-3 py-2 sm:table-cell"></td>
               </tr>
             {/each}
           {/if}

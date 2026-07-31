@@ -773,9 +773,9 @@
   </div>
 
   <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Outgoing</h2>
-  <Card class="mt-3 overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="mt-3 sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
@@ -791,7 +791,7 @@
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each sortedExpenseLines as line (line.key)}
           {@const editable =
             (line.key.startsWith('utility-') && line.editable) ||
@@ -799,9 +799,9 @@
             line.key.startsWith('expense-')}
           {#if editingExpenseKey === line.key}
             <tr
-              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+              class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
             >
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+              <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
                 {#if viewHref(line)}
                   <a
                     href={viewHref(line)}
@@ -813,7 +813,14 @@
                   {line.label}
                 {/if}
               </td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                title={dueTitle(line)}
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Due</span
+                >
                 {#if dueChipClass(line)}
                   <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
                     >{dueLabel(line)}</span
@@ -822,10 +829,22 @@
                   {dueLabel(line)}
                 {/if}
               </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-                >{formatCurrency(line.projected)}</td
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
               >
-              <td class="px-3 py-2 text-right">
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Projected</span
+                >
+                {formatCurrency(line.projected)}
+              </td>
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Actual</span
+                >
                 {#if editExpenseMode === 'expense-multiple'}
                   <span class="text-xs text-slate-500 dark:text-slate-400">Multiple entries</span>
                 {:else}
@@ -833,11 +852,17 @@
                     type="number"
                     step="0.01"
                     bind:value={editExpenseAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
                 {/if}
               </td>
-              <td class="px-3 py-2 text-center">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Paid</span
+                >
                 <input
                   type="checkbox"
                   checked={line.paid}
@@ -848,7 +873,9 @@
                   class="h-4 w-4 rounded border-slate-300 text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
                 />
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 {#if editExpenseMode === 'expense-multiple'}
                   <a
                     href="/expenses/{editActualsExpenseId}"
@@ -882,8 +909,10 @@
               </td>
             </tr>
           {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+            <tr
+              class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            >
+              <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
                 {#if viewHref(line)}
                   <a
                     href={viewHref(line)}
@@ -895,7 +924,14 @@
                   {line.label}
                 {/if}
               </td>
-              <td class="px-3 py-2 text-slate-600 dark:text-slate-400" title={dueTitle(line)}>
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                title={dueTitle(line)}
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Due</span
+                >
                 {#if dueChipClass(line)}
                   <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
                     >{dueLabel(line)}</span
@@ -904,13 +940,31 @@
                   {dueLabel(line)}
                 {/if}
               </td>
-              <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-                >{formatCurrency(line.projected)}</td
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
               >
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-                >{formatCurrency(line.actual)}</td
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Projected</span
+                >
+                {formatCurrency(line.projected)}
+              </td>
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
               >
-              <td class="px-3 py-2 text-center">
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Actual</span
+                >
+                {formatCurrency(line.actual)}
+              </td>
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Paid</span
+                >
                 <input
                   type="checkbox"
                   checked={line.paid}
@@ -921,7 +975,9 @@
                   class="h-4 w-4 rounded border-slate-300 text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
                 />
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 {#if editable}
                   <IconActionButton
                     variant="neutral"
@@ -935,17 +991,33 @@
           {/if}
         {/each}
       </tbody>
-      <tfoot>
-        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.expenses.projectedTotal)}</td
+      <tfoot class="block sm:table-footer-group">
+        <tr
+          class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+        >
+          <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100" colspan="2"
+            >Total</td
           >
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.expenses.actualTotal)}</td
+          <td
+            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
           >
-          <td class="px-3 py-2"></td>
-          <td class="px-3 py-2"></td>
+            <span
+              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              >Projected</span
+            >
+            {formatCurrency(data.expenses.projectedTotal)}
+          </td>
+          <td
+            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          >
+            <span
+              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              >Actual</span
+            >
+            {formatCurrency(data.expenses.actualTotal)}
+          </td>
+          <td class="hidden px-3 py-2 sm:table-cell"></td>
+          <td class="hidden px-3 py-2 sm:table-cell"></td>
         </tr>
       </tfoot>
     </table>
@@ -960,9 +1032,9 @@
       Manage income sources →
     </a>
   </div>
-  <Card class="mt-3 overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="mt-3 sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th
           >
@@ -980,46 +1052,72 @@
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each data.income.lines as line (line.key)}
           <tr
-            class="border-b border-slate-100 bg-slate-50 last:border-0 dark:border-slate-700/60 dark:bg-slate-800/60"
+            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-slate-50 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800/60 sm:dark:border-slate-700/60"
           >
-            <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+            <td
+              class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Owner</span
+              >
               {line.userId !== null
                 ? (users.find((u) => u.id === line.userId)?.fullName ?? '—')
                 : '—'}
             </td>
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
-            <td class="px-3 py-2"></td>
-            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-              >{formatCurrency(line.projected)}</td
+            <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100"
+              >{line.label}</td
             >
-            <td class="px-3 py-2 text-right font-medium text-slate-900 dark:text-slate-100">
-              {formatCurrency(line.actual)}
-              {#if line.estimated}
-                <span
-                  class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
-                  title="No entry logged this month - showing the projected amount"
-                >
-                  (est.)
-                </span>
-              {/if}
+            <td class="hidden px-3 py-2 sm:table-cell"></td>
+            <td
+              class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Projected</span
+              >
+              {formatCurrency(line.projected)}
             </td>
-            <td class="px-3 py-2" colspan="2"></td>
+            <td
+              class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Actual</span
+              >
+              <span>
+                {formatCurrency(line.actual)}
+                {#if line.estimated}
+                  <span
+                    class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
+                    title="No entry logged this month - showing the projected amount"
+                  >
+                    (est.)
+                  </span>
+                {/if}
+              </span>
+            </td>
+            <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
           </tr>
           {#each incomeRowsForLine(line) as row (row.key)}
             {#if row.type === 'actual'}
               {@const entry = row.entry}
               {#if editingEntryId === entry.id}
                 <tr
-                  class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                  class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
                 >
                   {#if entry.incomeSourceId === null}
-                    <td class="px-3 py-2">
+                    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Owner</span
+                      >
                       <select
                         bind:value={editEntryUserId}
-                        class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                        class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-auto dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                       >
                         <option value="">Select person</option>
                         {#each users as u (u.id)}
@@ -1027,7 +1125,7 @@
                         {/each}
                       </select>
                     </td>
-                    <td class="px-3 py-2">
+                    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
                       <label
                         class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
                       >
@@ -1040,35 +1138,57 @@
                       </label>
                     </td>
                   {:else}
-                    <td class="px-3 py-2" colspan="2"></td>
+                    <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
                   {/if}
-                  <td class="px-3 py-2">
+                  <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Date</span
+                    >
                     <input
                       type="date"
                       bind:value={editEntryReceivedOn}
                       class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
-                    >{formatCurrency(row.projected)}</td
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
                   >
-                  <td class="px-3 py-2 text-right">
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Projected</span
+                    >
+                    {formatCurrency(row.projected)}
+                  </td>
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Actual</span
+                    >
                     <input
                       type="number"
                       step="0.01"
                       min="0"
                       bind:value={editEntryAmount}
-                      class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="px-3 py-2">
+                  <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Note</span
+                    >
                     <input
                       type="text"
                       bind:value={editEntryNote}
-                      class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="primary"
                       disabled={savingEntryEdit}
@@ -1085,26 +1205,62 @@
                   </td>
                 </tr>
               {:else}
-                <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                <tr
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                >
                   {#if entry.incomeSourceId === null}
-                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Owner</span
+                      >
                       {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
                     </td>
-                    <td class="px-3 py-2"></td>
+                    <td class="hidden px-3 py-2 sm:table-cell"></td>
                   {:else}
-                    <td class="px-3 py-2" colspan="2"></td>
+                    <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
                   {/if}
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400"
-                    >{formatDate(entry.receivedOn)}</td
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
                   >
-                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
-                    >{formatCurrency(row.projected)}</td
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Date</span
+                    >
+                    {formatDate(entry.receivedOn)}
+                  </td>
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
                   >
-                  <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300"
-                    >{formatCurrency(entry.amount)}</td
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Projected</span
+                    >
+                    {formatCurrency(row.projected)}
+                  </td>
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-700 sm:table-cell sm:text-right dark:text-slate-300"
                   >
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{entry.note ?? '—'}</td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Actual</span
+                    >
+                    {formatCurrency(entry.amount)}
+                  </td>
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Note</span
+                    >
+                    {entry.note ?? '—'}
+                  </td>
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="neutral"
                       label="Edit {entryRowLabel(entry)}"
@@ -1122,36 +1278,58 @@
               {/if}
             {:else if editingPlaceholderKey === row.key}
               <tr
-                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2" colspan="2"></td>
-                <td class="px-3 py-2">
+                <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
+                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Date</span
+                  >
                   <input
                     type="date"
                     bind:value={editPlaceholderReceivedOn}
                     class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </td>
-                <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
-                  >{formatCurrency(row.projected)}</td
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
                 >
-                <td class="px-3 py-2 text-right">
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Projected</span
+                  >
+                  {formatCurrency(row.projected)}
+                </td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Actual</span
+                  >
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     bind:value={editPlaceholderAmount}
-                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </td>
-                <td class="px-3 py-2">
+                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Note</span
+                  >
                   <input
                     type="text"
                     bind:value={editPlaceholderNote}
-                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="primary"
                     disabled={savingPlaceholderEdit}
@@ -1168,15 +1346,49 @@
                 </td>
               </tr>
             {:else}
-              <tr class="border-b border-slate-100 italic last:border-0 dark:border-slate-700/60">
-                <td class="px-3 py-2" colspan="2"></td>
-                <td class="px-3 py-2 text-slate-400 dark:text-slate-500">{formatDate(row.date)}</td>
-                <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
-                  >{formatCurrency(row.projected)}</td
+              <tr
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 italic last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+              >
+                <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell dark:text-slate-500"
                 >
-                <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
-                <td class="px-3 py-2 text-slate-400 dark:text-slate-500">Not yet logged</td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Date</span
+                  >
+                  {formatDate(row.date)}
+                </td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Projected</span
+                  >
+                  {formatCurrency(row.projected)}
+                </td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Actual</span
+                  >
+                  —
+                </td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell dark:text-slate-500"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Note</span
+                  >
+                  Not yet logged
+                </td>
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="success"
                     disabled={acceptingPlaceholderKey === row.key}
@@ -1196,17 +1408,33 @@
           {/each}
         {/each}
       </tbody>
-      <tfoot>
-        <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-          <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
-          <td class="px-3 py-2"></td>
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.income.projectedTotal)}</td
+      <tfoot class="block sm:table-footer-group">
+        <tr
+          class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+        >
+          <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100" colspan="2"
+            >Total</td
           >
-          <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
-            >{formatCurrency(data.income.actualTotal)}</td
+          <td class="hidden px-3 py-2 sm:table-cell"></td>
+          <td
+            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
           >
-          <td class="px-3 py-2" colspan="2"></td>
+            <span
+              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              >Projected</span
+            >
+            {formatCurrency(data.income.projectedTotal)}
+          </td>
+          <td
+            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          >
+            <span
+              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              >Actual</span
+            >
+            {formatCurrency(data.income.actualTotal)}
+          </td>
+          <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
         </tr>
       </tfoot>
     </table>

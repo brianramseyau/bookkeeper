@@ -313,9 +313,9 @@
     </p>
   {/if}
 
-  <Card class="overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Item</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
@@ -324,29 +324,37 @@
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each budgetItems as item (item.id)}
           {#if editingItemId === item.id}
             <tr
-              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+              class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
             >
-              <td class="px-3 py-2">
+              <td class="px-3 py-2 sm:table-cell">
                 <input
                   type="text"
                   bind:value={editItemName}
-                  class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </td>
-              <td class="px-3 py-2 text-right">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Amount</span
+                >
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   bind:value={editItemAmount}
-                  class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 <IconActionButton
                   variant="primary"
                   disabled={savingItemEdit}
@@ -363,12 +371,24 @@
               </td>
             </tr>
           {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{item.name}</td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+            <tr
+              class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            >
+              <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100"
+                >{item.name}</td
+              >
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Amount</span
+                >
                 {formatCurrency(item.amount)}
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 <IconActionButton
                   variant="neutral"
                   label="Edit {item.name}"
@@ -385,10 +405,10 @@
             </tr>
           {/if}
         {:else}
-          <tr>
+          <tr class="block sm:table-row">
             <td
               colspan="3"
-              class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
+              class="block px-3 py-6 text-center text-sm text-slate-400 sm:table-cell dark:text-slate-500"
             >
               No items yet.
             </td>
@@ -396,13 +416,21 @@
         {/each}
       </tbody>
       {#if budgetItems.length > 0}
-        <tfoot>
-          <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
-            <td class="px-3 py-2 text-slate-900 dark:text-slate-100">Total</td>
-            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+        <tfoot class="block sm:table-footer-group">
+          <tr
+            class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+          >
+            <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100">Total</td>
+            <td
+              class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Amount</span
+              >
               {formatCurrency(budgetItemsTotal)}
             </td>
-            <td class="px-3 py-2"></td>
+            <td class="hidden px-3 py-2 sm:table-cell"></td>
           </tr>
         </tfoot>
       {/if}
@@ -440,9 +468,9 @@
   <h2 class="mt-8 mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
     Monthly actuals
   </h2>
-  <Card class="overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
@@ -453,36 +481,48 @@
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each sortedActuals as actual (actual.id)}
           {#if editingId === actual.id}
             <tr
-              class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+              class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
             >
-              <td class="px-3 py-2">
+              <td class="px-3 py-2 sm:table-cell">
                 <input
                   type="date"
                   bind:value={editOccurredOn}
                   class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </td>
-              <td class="px-3 py-2 text-right">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Amount</span
+                >
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   bind:value={editAmount}
-                  class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </td>
-              <td class="px-3 py-2">
+              <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Notes</span
+                >
                 <input
                   type="text"
                   bind:value={editNotes}
-                  class="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 />
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 <IconActionButton
                   variant="primary"
                   disabled={savingEdit}
@@ -499,15 +539,33 @@
               </td>
             </tr>
           {:else}
-            <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 text-slate-700 dark:text-slate-300">
+            <tr
+              class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            >
+              <td class="px-3 py-2 text-slate-700 sm:table-cell dark:text-slate-300">
                 {formatDate(actual.occurredOn)}
               </td>
-              <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Amount</span
+                >
                 {formatCurrency(actual.amount)}
               </td>
-              <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{actual.notes ?? ''}</td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td
+                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+              >
+                <span
+                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  >Notes</span
+                >
+                {actual.notes ?? ''}
+              </td>
+              <td
+                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              >
                 <IconActionButton
                   variant="neutral"
                   label="Edit entry from {formatDate(actual.occurredOn)}"
@@ -524,10 +582,10 @@
             </tr>
           {/if}
         {:else}
-          <tr>
+          <tr class="block sm:table-row">
             <td
               colspan="4"
-              class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500"
+              class="block px-3 py-6 text-center text-sm text-slate-400 sm:table-cell dark:text-slate-500"
             >
               No entries yet.
             </td>

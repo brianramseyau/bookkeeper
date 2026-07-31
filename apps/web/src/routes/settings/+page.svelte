@@ -469,18 +469,22 @@
 {:else if devices.length === 0}
   <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">No devices registered yet</p>
 {:else}
-  <Card class="mt-3 overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <tbody>
+  <Card class="mt-3 sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <tbody class="block sm:table-row-group">
         {#each devices as device (device.id)}
-          <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+          <tr
+            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+          >
+            <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
               {device.userAgent ?? 'Unknown device'}
             </td>
-            <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+            <td class="block px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400">
               {formatDateTime(device.createdAt)}
             </td>
-            <td class="px-3 py-2 text-right">
+            <td
+              class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+            >
               <IconActionButton
                 variant="danger"
                 disabled={deletingDeviceId === device.id}

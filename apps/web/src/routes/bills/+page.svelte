@@ -260,16 +260,20 @@
 
 {#snippet editRow(bill: UpcomingRecurringBill)}
   <tr
-    class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+    class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
   >
-    <td class="px-3 py-2">
+    <td class="px-3 py-2 sm:table-cell">
       <input
         type="text"
         bind:value={editName}
-        class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
       />
     </td>
-    <td class="px-3 py-2">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Category</span
+      >
       <CategorySelect
         {categories}
         value={bill.categoryId}
@@ -277,16 +281,24 @@
         variant="table"
       />
     </td>
-    <td class="px-3 py-2 text-right">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Amount</span
+      >
       <input
         type="number"
         step="0.01"
         min="0"
         bind:value={editAmount}
-        class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
       />
     </td>
-    <td class="px-3 py-2">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Frequency</span
+      >
       <select
         bind:value={editFrequency}
         class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
@@ -296,15 +308,19 @@
         {/each}
       </select>
     </td>
-    <td class="px-3 py-2">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Next due</span
+      >
       <input
         type="date"
         bind:value={editNextDueOn}
         class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
       />
     </td>
-    <td class="px-3 py-2"></td>
-    <td class="px-3 py-2 text-right whitespace-nowrap">
+    <td class="hidden px-3 py-2 sm:table-cell"></td>
+    <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
       <IconActionButton
         variant="primary"
         disabled={savingEdit}
@@ -342,9 +358,9 @@
 {#if loading}
   <LoadingIndicator />
 {:else}
-  <Card class="mt-6 overflow-x-auto">
-    <table class="w-full border-collapse text-sm">
-      <thead>
+  <Card class="mt-6 sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table">
+      <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Name</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
@@ -363,15 +379,15 @@
           <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody>
+      <tbody class="block sm:table-row-group">
         {#each groupedBills as group (group.value)}
           <tr
             id={group.value}
-            class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+            class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
           >
             <td
               colspan="7"
-              class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
             >
               {group.label}
             </td>
@@ -382,11 +398,16 @@
             {:else}
               <tr
                 id="bill-{bill.id}"
-                class="border-b border-slate-100 last:border-0 dark:border-slate-700/60"
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{bill.name}</td
+                <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100"
+                  >{bill.name}</td
                 >
-                <td class="px-3 py-2">
+                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Category</span
+                  >
                   <CategorySelect
                     {categories}
                     value={bill.categoryId}
@@ -394,14 +415,34 @@
                     variant="table"
                   />
                 </td>
-                <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Amount</span
+                  >
                   {formatCurrency(bill.amount)}
                 </td>
-                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">{frequencyLabel(bill)}</td>
-                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Frequency</span
+                  >
+                  {frequencyLabel(bill)}
+                </td>
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Next due</span
+                  >
                   {formatDate(bill.nextDueOn)}
                 </td>
-                <td class="px-3 py-2">
+                <td class="px-3 py-2 sm:table-cell">
                   {#if bill.dueSoon}
                     <span
                       class={[
@@ -419,7 +460,9 @@
                     </span>
                   {/if}
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="neutral"
                     label="Edit {bill.name}"
@@ -447,11 +490,11 @@
         {#if showHidden}
           {#if pausedBills.length > 0}
             <tr
-              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="7"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Paused
               </td>
@@ -461,26 +504,54 @@
                 {@render editRow(bill)}
               {:else}
                 <tr
-                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
-                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  <td
+                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                  >
                     {bill.name}
                     <StatusBadge label="Paused" tone="amber" />
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Category</span
+                    >
                     {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Amount</span
+                    >
                     {formatCurrency(bill.amount)}
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Frequency</span
+                    >
                     {frequencyLabel(bill)}
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Next due</span
+                    >
                     {formatDate(bill.nextDueOn)}
                   </td>
-                  <td class="px-3 py-2"></td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="neutral"
                       label="Edit {bill.name}"
@@ -507,11 +578,11 @@
 
           {#if archivedBills.length > 0}
             <tr
-              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="7"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Archived
               </td>
@@ -521,26 +592,54 @@
                 {@render editRow(bill)}
               {:else}
                 <tr
-                  class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
-                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  <td
+                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                  >
                     {bill.name}
                     <StatusBadge label="Archived" tone="slate" />
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Category</span
+                    >
                     {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
                   </td>
-                  <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Amount</span
+                    >
                     {formatCurrency(bill.amount)}
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Frequency</span
+                    >
                     {frequencyLabel(bill)}
                   </td>
-                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Next due</span
+                    >
                     {formatDate(bill.nextDueOn)}
                   </td>
-                  <td class="px-3 py-2"></td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
+                  <td
+                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  >
                     <IconActionButton
                       variant="neutral"
                       label="Edit {bill.name}"
@@ -567,37 +666,63 @@
 
           {#if removedBills.length > 0}
             <tr
-              class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
+              class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="7"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Removed
               </td>
             </tr>
             {#each removedBills as bill (bill.id)}
               <tr
-                class="border-b border-slate-100 opacity-60 last:border-0 dark:border-slate-700/60"
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                <td class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300">
                   {bill.name}
                   <StatusBadge label="Removed" tone="slate" />
                 </td>
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Category</span
+                  >
                   {categories.find((c) => c.id === bill.categoryId)?.name ?? 'Uncategorized'}
                 </td>
-                <td class="px-3 py-2 text-right text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Amount</span
+                  >
                   {formatCurrency(bill.amount)}
                 </td>
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Frequency</span
+                  >
                   {frequencyLabel(bill)}
                 </td>
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+                >
+                  <span
+                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                    >Next due</span
+                  >
                   {formatDate(bill.nextDueOn)}
                 </td>
-                <td class="px-3 py-2"></td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td class="hidden px-3 py-2 sm:table-cell"></td>
+                <td
+                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                >
                   <IconActionButton
                     variant="success"
                     label="Restore {bill.name}"
