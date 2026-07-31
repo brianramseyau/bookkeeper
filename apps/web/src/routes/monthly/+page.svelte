@@ -640,7 +640,7 @@
     </Card>
   </div>
 
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Expenses</h2>
+  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Outgoing</h2>
   <Card class="mt-3 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <thead>
@@ -878,7 +878,7 @@
   </Card>
 
   <div class="mt-8 flex items-center justify-between">
-    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income</h2>
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Incoming</h2>
     <a
       href="/income"
       class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
