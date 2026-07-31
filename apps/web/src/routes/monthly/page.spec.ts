@@ -324,14 +324,17 @@ describe('month page', () => {
     )
   })
 
-  it('shows the pay-periods hint and resolves the owner name for an income line', async () => {
+  it('resolves the owner name for an income line and shows its pay date only once, not duplicated', async () => {
     setDefaultMocks()
     render(MonthPage)
     expect(await screen.findByText('Brian', { selector: 'td' })).toBeInTheDocument()
-    expect(screen.getAllByText('14 Mar 2026').length).toBe(2)
+    // The source's single pay date positionally matches the one logged
+    // entry, so it renders as a single real row - no separate pay-dates
+    // subtitle and no placeholder row duplicating the date.
+    expect(screen.getAllByText('14 Mar 2026').length).toBe(1)
   })
 
-  it('shows a "many pay periods" hint when a source has more than two pay dates', async () => {
+  it('renders a greyed placeholder row for each pay date with no matching entry yet', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         income: {
@@ -361,8 +364,103 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    expect(await screen.findByText(/3 pay periods:/)).toBeInTheDocument()
-    expect(screen.getByText('—')).toBeInTheDocument()
+    expect(await screen.findByText('4 Mar 2026')).toBeInTheDocument()
+    expect(screen.getByText('18 Mar 2026')).toBeInTheDocument()
+    expect(screen.getByText('1 Apr 2026')).toBeInTheDocument()
+    // 2600 / 3 pay dates = 866.67 projected per placeholder row.
+    expect(screen.getAllByText('$866.67')).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: /^Accept projected pay for/ })).toHaveLength(3)
+  })
+
+  it('one-click accepts a placeholder pay date, logging it at the projected amount', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: {
+          lines: [
+            {
+              key: 'income-1',
+              label: 'Brian Income',
+              sourceId: 1,
+              userId: 1,
+              projected: 5000,
+              actual: 0,
+              estimated: false,
+              payDates: ['2026-03-14T00:00:00.000+00:00'],
+            },
+          ],
+          projectedTotal: 5000,
+          actualTotal: 0,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([brianSalary])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([brian])
+    vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Accept projected pay for 14 Mar 2026' })
+    )
+
+    await waitFor(() =>
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        incomeSourceId: 1,
+        year: 2026,
+        month: 3,
+        amount: 5000,
+        receivedOn: '2026-03-14',
+      })
+    )
+  })
+
+  it('edits a placeholder pay date before saving it as a real entry', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        income: {
+          lines: [
+            {
+              key: 'income-1',
+              label: 'Brian Income',
+              sourceId: 1,
+              userId: 1,
+              projected: 5000,
+              actual: 0,
+              estimated: false,
+              payDates: ['2026-03-14T00:00:00.000+00:00'],
+            },
+          ],
+          projectedTotal: 5000,
+          actualTotal: 0,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([brianSalary])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([brian])
+    vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Edit projected pay for 14 Mar 2026' })
+    )
+    const amountInput = screen.getByDisplayValue('5000')
+    await user.clear(amountInput)
+    await user.type(amountInput, '5100')
+    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+
+    await waitFor(() =>
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        incomeSourceId: 1,
+        year: 2026,
+        month: 3,
+        amount: 5100,
+        receivedOn: '2026-03-14',
+        note: null,
+      })
+    )
   })
 
   it('shows the "(est.)" tag for an estimated income actual', async () => {

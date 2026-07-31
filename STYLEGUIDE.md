@@ -91,6 +91,7 @@ and read the same on desktop and mobile.
   | Unarchive | `mdiPackageUp`   | `success` |
   | Delete    | `mdiDelete`      | `danger`  |
   | Restore   | `mdiRestore`     | `success` |
+  | Accept    | `mdiCheckBold`   | `success` |
 
   "Cancel" renders an X-mark shape (`mdiClose`) rather than MDI's own
   `mdi-cancel` glyph (a prohibition/circle-slash icon) — X-mark is what's
@@ -300,10 +301,26 @@ Every data table follows the same recipe — see
   expanded row/cell background is `bg-slate-100 dark:bg-slate-900/50` (row)
   or `bg-slate-50 dark:bg-slate-900/25` (nested detail cell).
 - **Shared income-entry rows**: `IncomeEntryDisplayRow.svelte` /
-  `IncomeEntryEditRow.svelte` factor out the repeated
-  amount/date/note/actions columns used identically in both
-  `month/+page.svelte` and `income/+page.svelte` — extend these rather than
-  duplicating the row markup a third time.
+  `IncomeEntryEditRow.svelte` factor out the repeated amount/date/note/actions
+  columns, used by `income/+page.svelte`'s YTD month expansion.
+  `monthly/+page.svelte`'s Incoming table hand-rolls its rows instead (see
+  "Not-yet-persisted placeholder row" below) since its column order and
+  per-row placeholder variant don't fit the shared components' fixed
+  amount→date→note cell order — extend the shared pair for a table that
+  matches their shape, don't force a divergent one onto them.
+- **Not-yet-persisted placeholder row** (Monthly's Incoming table — a
+  source's projected pay date with no logged entry yet, `monthly/+page.svelte`):
+  same row shape as a normal row, plus `italic` on the `<tr>` and
+  `text-slate-400 dark:text-slate-500` (the standard muted/placeholder text
+  tier — see Color usage below) on every cell instead of the row's usual
+  text color. Actions are Accept (`variant="success"`, `mdiCheckBold` — logs
+  the row immediately at its shown projected amount/date, no confirmation)
+  plus the normal Edit pencil (opens the same inline row-edit form as a real
+  entry, pre-filled from the placeholder's projected amount/date, and
+  creates a new entry on Save rather than updating one). No Delete action —
+  there's nothing persisted yet to delete. Reuse this exact shape for any
+  future "here's a known-but-not-yet-confirmed row" case rather than
+  inventing a new muted-row treatment.
 
 ## Badges / status pills
 

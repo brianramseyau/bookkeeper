@@ -36,14 +36,10 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
-  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
+  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete, mdiCheckBold } from '@mdi/js'
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
-  import IncomeEntryEditRow, {
-    type IncomeEntryEditUpdates,
-  } from '$lib/components/IncomeEntryEditRow.svelte'
-  import IncomeEntryDisplayRow from '$lib/components/IncomeEntryDisplayRow.svelte'
 
   // Mirrors the API's DUE_SOON_WINDOW_DAYS (recurring_bills_controller.ts) so
   // the Due chip here matches the Bills page: colored (and always
@@ -76,7 +72,21 @@
   let editingEntryId = $state<number | null>(null)
   let editEntryUserId = $state('')
   let editEntryTaxWithheld = $state(false)
+  let editEntryAmount = $state<number>(NaN)
+  let editEntryReceivedOn = $state('')
+  let editEntryNote = $state('')
   let savingEntryEdit = $state(false)
+
+  // Not-yet-logged pay dates render as greyed placeholder rows (see
+  // incomeRowsForLine below) - these three cover both ways a placeholder
+  // becomes a real IncomeEntry: instant one-click accept, or opening this
+  // inline form (pre-filled with the projected amount/date) to adjust first.
+  let editingPlaceholderKey = $state<string | null>(null)
+  let editPlaceholderAmount = $state<number>(NaN)
+  let editPlaceholderReceivedOn = $state('')
+  let editPlaceholderNote = $state('')
+  let savingPlaceholderEdit = $state(false)
+  let acceptingPlaceholderKey = $state<string | null>(null)
 
   type ExpenseEditMode =
     'utility' | 'recurring-bill' | 'category-add' | 'category-edit' | 'category-multiple'
@@ -219,14 +229,17 @@
     editingEntryId = entry.id
     editEntryUserId = entry.userId !== null ? String(entry.userId) : ''
     editEntryTaxWithheld = entry.taxWithheld ?? false
+    editEntryAmount = entry.amount
+    editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
+    editEntryNote = entry.note ?? ''
   }
 
   function cancelEditEntry() {
     editingEntryId = null
   }
 
-  async function saveEntryEdit(entry: IncomeEntry, updates: IncomeEntryEditUpdates) {
-    if (Number.isNaN(updates.amount) || updates.amount === null) {
+  async function saveEntryEdit(entry: IncomeEntry) {
+    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
       error = 'Amount is required'
       return
     }
@@ -239,9 +252,9 @@
     try {
       await updateIncomeEntry(entry.id, {
         userId: entry.incomeSourceId === null ? Number(editEntryUserId) : undefined,
-        amount: updates.amount,
-        receivedOn: updates.receivedOn,
-        note: updates.note,
+        amount: editEntryAmount,
+        receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
+        note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
         taxWithheld: entry.incomeSourceId === null ? editEntryTaxWithheld : undefined,
       })
       editingEntryId = null
@@ -250,6 +263,115 @@
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {
       savingEntryEdit = false
+    }
+  }
+
+  // Sourced lines with the projected 1-2 (occasionally 3) pay dates for the
+  // month pair each already-logged entry with a pay date positionally, in
+  // chronological order - the common case where entries are logged roughly
+  // in the order they're paid. Any pay date left over becomes a placeholder
+  // row; any entry left over (more entries than known pay dates) just
+  // renders as a normal extra row with no aligned projected figure.
+  // Unattributed ("Other income") lines always have no pay dates, so they
+  // only ever produce 'actual' rows here, unchanged from before.
+  type IncomeRow =
+    | { type: 'actual'; key: string; entry: IncomeEntry; projected: number | null }
+    | { type: 'placeholder'; key: string; date: string; projected: number }
+
+  function round2(value: number): number {
+    return Math.round(value * 100) / 100
+  }
+
+  function incomeRowsForLine(line: StandardMonthIncomeLine): IncomeRow[] {
+    const lineEntries = entriesForLine(line)
+    const perPeriod =
+      line.payDates.length > 0 ? round2(line.projected / line.payDates.length) : null
+    const rows: IncomeRow[] = []
+    const count = Math.max(lineEntries.length, line.payDates.length)
+    for (let i = 0; i < count; i++) {
+      const date = line.payDates[i]
+      if (i < lineEntries.length) {
+        const entry = lineEntries[i]!
+        rows.push({
+          type: 'actual',
+          key: `entry-${entry.id}`,
+          entry,
+          projected: date !== undefined ? perPeriod : null,
+        })
+      } else if (date !== undefined) {
+        rows.push({
+          type: 'placeholder',
+          key: `placeholder-${line.key}-${date}`,
+          date,
+          projected: perPeriod!,
+        })
+      }
+    }
+    return rows
+  }
+
+  function entryRowLabel(entry: IncomeEntry): string {
+    return entry.receivedOn ? `entry from ${formatDate(entry.receivedOn)}` : 'entry'
+  }
+
+  function startEditPlaceholder(row: Extract<IncomeRow, { type: 'placeholder' }>) {
+    editingPlaceholderKey = row.key
+    editPlaceholderAmount = row.projected
+    editPlaceholderReceivedOn = row.date.slice(0, 10)
+    editPlaceholderNote = ''
+  }
+
+  function cancelEditPlaceholder() {
+    editingPlaceholderKey = null
+  }
+
+  async function saveNewEntryFromPlaceholder(line: StandardMonthIncomeLine) {
+    if (Number.isNaN(editPlaceholderAmount) || editPlaceholderAmount === null) {
+      error = 'Amount is required'
+      return
+    }
+    savingPlaceholderEdit = true
+    error = null
+    try {
+      await createIncomeEntry({
+        incomeSourceId: line.sourceId,
+        year,
+        month,
+        amount: editPlaceholderAmount,
+        receivedOn: editPlaceholderReceivedOn === '' ? null : editPlaceholderReceivedOn,
+        note: editPlaceholderNote.trim() === '' ? null : editPlaceholderNote.trim(),
+      })
+      editingPlaceholderKey = null
+      await refreshIncome()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save entry'
+    } finally {
+      savingPlaceholderEdit = false
+    }
+  }
+
+  // The one-click accept path - just ratifies the projected amount/date
+  // as-is, for the common case where what actually landed matches the
+  // projection exactly.
+  async function acceptPlaceholder(
+    line: StandardMonthIncomeLine,
+    row: Extract<IncomeRow, { type: 'placeholder' }>
+  ) {
+    error = null
+    acceptingPlaceholderKey = row.key
+    try {
+      await createIncomeEntry({
+        incomeSourceId: line.sourceId,
+        year,
+        month,
+        amount: row.projected,
+        receivedOn: row.date.slice(0, 10),
+      })
+      await refreshIncome()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to accept pay date'
+    } finally {
+      acceptingPlaceholderKey = null
     }
   }
 
@@ -847,13 +969,13 @@
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
             >Source</th
           >
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Projected</th
           >
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Actual</th
           >
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Note</th>
           <th class="px-3 py-2"></th>
         </tr>
@@ -868,16 +990,8 @@
                 ? (users.find((u) => u.id === line.userId)?.fullName ?? '—')
                 : '—'}
             </td>
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
-              {line.label}
-              {#if line.payDates.length > 0}
-                <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
-                  {line.payDates.length > 2
-                    ? `${line.payDates.length} pay periods: `
-                    : ''}{line.payDates.map((d) => formatDate(d)).join(', ')}
-                </span>
-              {/if}
-            </td>
+            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">{line.label}</td>
+            <td class="px-3 py-2"></td>
             <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
               >{formatCurrency(line.projected)}</td
             >
@@ -892,67 +1006,192 @@
                 </span>
               {/if}
             </td>
-            <td class="px-3 py-2" colspan="3"></td>
+            <td class="px-3 py-2" colspan="2"></td>
           </tr>
-          {#each entriesForLine(line) as entry (entry.id)}
-            {#snippet editLeading()}
-              {#if entry.incomeSourceId === null}
-                <td class="px-3 py-2">
-                  <select
-                    bind:value={editEntryUserId}
-                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                  >
-                    <option value="">Select person</option>
-                    {#each users as u (u.id)}
-                      <option value={u.id}>{u.fullName ?? u.email}</option>
-                    {/each}
-                  </select>
-                </td>
-                <td class="px-3 py-2">
-                  <label class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+          {#each incomeRowsForLine(line) as row (row.key)}
+            {#if row.type === 'actual'}
+              {@const entry = row.entry}
+              {#if editingEntryId === entry.id}
+                <tr
+                  class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+                >
+                  {#if entry.incomeSourceId === null}
+                    <td class="px-3 py-2">
+                      <select
+                        bind:value={editEntryUserId}
+                        class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      >
+                        <option value="">Select person</option>
+                        {#each users as u (u.id)}
+                          <option value={u.id}>{u.fullName ?? u.email}</option>
+                        {/each}
+                      </select>
+                    </td>
+                    <td class="px-3 py-2">
+                      <label
+                        class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
+                      >
+                        <input
+                          type="checkbox"
+                          bind:checked={editEntryTaxWithheld}
+                          class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                        />
+                        Withheld
+                      </label>
+                    </td>
+                  {:else}
+                    <td class="px-3 py-2" colspan="2"></td>
+                  {/if}
+                  <td class="px-3 py-2">
                     <input
-                      type="checkbox"
-                      bind:checked={editEntryTaxWithheld}
-                      class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+                      type="date"
+                      bind:value={editEntryReceivedOn}
+                      class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
-                    Withheld
-                  </label>
-                </td>
-                <td class="px-3 py-2"></td>
+                  </td>
+                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
+                    >{formatCurrency(row.projected)}</td
+                  >
+                  <td class="px-3 py-2 text-right">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      bind:value={editEntryAmount}
+                      class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </td>
+                  <td class="px-3 py-2">
+                    <input
+                      type="text"
+                      bind:value={editEntryNote}
+                      class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                    />
+                  </td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <IconActionButton
+                      variant="primary"
+                      disabled={savingEntryEdit}
+                      label="Save income entry"
+                      path={mdiContentSave}
+                      onclick={() => saveEntryEdit(entry)}
+                    />
+                    <IconActionButton
+                      variant="cancel"
+                      label="Cancel editing income entry"
+                      path={mdiClose}
+                      onclick={cancelEditEntry}
+                    />
+                  </td>
+                </tr>
               {:else}
-                <td class="px-3 py-2" colspan="3"></td>
+                <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                  {#if entry.incomeSourceId === null}
+                    <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
+                      {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
+                    </td>
+                    <td class="px-3 py-2"></td>
+                  {:else}
+                    <td class="px-3 py-2" colspan="2"></td>
+                  {/if}
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400"
+                    >{formatDate(entry.receivedOn)}</td
+                  >
+                  <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
+                    >{formatCurrency(row.projected)}</td
+                  >
+                  <td class="px-3 py-2 text-right text-slate-700 dark:text-slate-300"
+                    >{formatCurrency(entry.amount)}</td
+                  >
+                  <td class="px-3 py-2 text-slate-500 dark:text-slate-400">{entry.note ?? '—'}</td>
+                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {entryRowLabel(entry)}"
+                      path={mdiPencil}
+                      onclick={() => startEditEntry(entry)}
+                    />
+                    <IconActionButton
+                      variant="danger"
+                      label="Delete {entryRowLabel(entry)}"
+                      path={mdiDelete}
+                      onclick={() => handleDeleteEntry(entry)}
+                    />
+                  </td>
+                </tr>
               {/if}
-            {/snippet}
-            {#snippet displayLeading()}
-              {#if entry.incomeSourceId === null}
-                <td class="px-3 py-2 text-slate-500 dark:text-slate-400">
-                  {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
+            {:else if editingPlaceholderKey === row.key}
+              <tr
+                class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
+              >
+                <td class="px-3 py-2" colspan="2"></td>
+                <td class="px-3 py-2">
+                  <input
+                    type="date"
+                    bind:value={editPlaceholderReceivedOn}
+                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
                 </td>
-                <td class="px-3 py-2"></td>
-                <td class="px-3 py-2"></td>
-              {:else}
-                <td class="px-3 py-2" colspan="3"></td>
-              {/if}
-            {/snippet}
-            {#if editingEntryId === entry.id}
-              <IncomeEntryEditRow
-                initialAmount={entry.amount}
-                initialReceivedOn={entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''}
-                initialNote={entry.note ?? ''}
-                saving={savingEntryEdit}
-                leading={editLeading}
-                onSave={(updates) => saveEntryEdit(entry, updates)}
-                onCancel={cancelEditEntry}
-              />
+                <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
+                  >{formatCurrency(row.projected)}</td
+                >
+                <td class="px-3 py-2 text-right">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    bind:value={editPlaceholderAmount}
+                    class="w-24 rounded-md border border-slate-300 px-2 py-1 text-right text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </td>
+                <td class="px-3 py-2">
+                  <input
+                    type="text"
+                    bind:value={editPlaceholderNote}
+                    class="w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <IconActionButton
+                    variant="primary"
+                    disabled={savingPlaceholderEdit}
+                    label="Save income entry"
+                    path={mdiContentSave}
+                    onclick={() => saveNewEntryFromPlaceholder(line)}
+                  />
+                  <IconActionButton
+                    variant="cancel"
+                    label="Cancel editing income entry"
+                    path={mdiClose}
+                    onclick={cancelEditPlaceholder}
+                  />
+                </td>
+              </tr>
             {:else}
-              <IncomeEntryDisplayRow
-                amount={entry.amount}
-                receivedOn={entry.receivedOn}
-                note={entry.note}
-                leading={displayLeading}
-                onEdit={() => startEditEntry(entry)}
-                onRemove={() => handleDeleteEntry(entry)}
-              />
+              <tr class="border-b border-slate-100 italic last:border-0 dark:border-slate-700/60">
+                <td class="px-3 py-2" colspan="2"></td>
+                <td class="px-3 py-2 text-slate-400 dark:text-slate-500">{formatDate(row.date)}</td>
+                <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500"
+                  >{formatCurrency(row.projected)}</td
+                >
+                <td class="px-3 py-2 text-right text-slate-400 dark:text-slate-500">—</td>
+                <td class="px-3 py-2 text-slate-400 dark:text-slate-500">Not yet logged</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <IconActionButton
+                    variant="success"
+                    disabled={acceptingPlaceholderKey === row.key}
+                    label="Accept projected pay for {formatDate(row.date)}"
+                    path={mdiCheckBold}
+                    onclick={() => acceptPlaceholder(line, row)}
+                  />
+                  <IconActionButton
+                    variant="neutral"
+                    label="Edit projected pay for {formatDate(row.date)}"
+                    path={mdiPencil}
+                    onclick={() => startEditPlaceholder(row)}
+                  />
+                </td>
+              </tr>
             {/if}
           {/each}
         {/each}
@@ -960,13 +1199,14 @@
       <tfoot>
         <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">
           <td class="px-3 py-2 text-slate-900 dark:text-slate-100" colspan="2">Total</td>
+          <td class="px-3 py-2"></td>
           <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
             >{formatCurrency(data.income.projectedTotal)}</td
           >
           <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100"
             >{formatCurrency(data.income.actualTotal)}</td
           >
-          <td class="px-3 py-2" colspan="3"></td>
+          <td class="px-3 py-2" colspan="2"></td>
         </tr>
       </tfoot>
     </table>
