@@ -12,14 +12,8 @@ import CategoryMonthlyActual from '#models/category_monthly_actual'
 import CategoryPayment from '#models/category_payment'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { isUtilityBillingMonth, utilityDueDateFor } from '#services/utility_billing_period'
+import { isRecurringBillDueMonth } from '#services/recurring_bill_due_date'
 import { computeIncomeLines, type IncomeLine } from '#services/income_lines'
-
-const PERIODS_PER_YEAR: Record<string, number> = {
-  monthly: 12,
-  quarterly: 4,
-  biannual: 2,
-  annual: 1,
-}
 
 export interface StandardMonthLine {
   key: string
@@ -37,19 +31,6 @@ export interface StandardMonthLine {
 }
 
 export type StandardMonthIncomeLine = IncomeLine
-
-/**
- * A non-monthly recurring bill's contribution to the amortized-bills
- * section - `amount` is the real per-occurrence amount (what the Bills page
- * shows), `monthlyShare` is that spread evenly across the year.
- */
-export interface StandardMonthAmortizedBill {
-  key: string
-  label: string
-  amount: number
-  frequency: string
-  monthlyShare: number
-}
 
 export interface StandardMonthResult {
   year: number
@@ -70,18 +51,6 @@ export interface StandardMonthResult {
     lines: StandardMonthLine[]
     projectedTotal: number
     actualTotal: number
-    /**
-     * Non-monthly recurring bills (quarterly/biannual/annual/custom),
-     * amortized into one monthly figure - kept out of `lines` and its own
-     * section instead, since each bill already has its own due date/amount
-     * tracked individually on the Bills page and doesn't need a second,
-     * itemized home here too.
-     */
-    amortizedBills: {
-      label: string
-      total: number
-      items: StandardMonthAmortizedBill[]
-    }
   }
   projectedNet: number
   actualNet: number
@@ -101,14 +70,14 @@ export class StandardMonthService {
   private rollingAverage = new RollingAverageService()
 
   async compute(year: number, month: number): Promise<StandardMonthResult> {
-    const [carryover, income, { lines: expenseLines, amortizedBills }] = await Promise.all([
+    const [carryover, income, expenseLines] = await Promise.all([
       this.computeCarryover(year, month),
       computeIncomeLines(year, month),
       this.computeExpenseLines(year, month),
     ])
 
     const expensesProjectedTotal = round(
-      expenseLines.reduce((sum, line) => sum + line.projected, 0) + amortizedBills.total
+      expenseLines.reduce((sum, line) => sum + line.projected, 0)
     )
     const expensesActualTotal = round(
       expenseLines.reduce((sum, line) => sum + (line.actual ?? 0), 0)
@@ -123,7 +92,6 @@ export class StandardMonthService {
         lines: expenseLines,
         projectedTotal: expensesProjectedTotal,
         actualTotal: expensesActualTotal,
-        amortizedBills,
       },
       projectedNet: round(carryover + income.projectedTotal - expensesProjectedTotal),
       actualNet: round(carryover + income.actualTotal - expensesActualTotal),
@@ -135,13 +103,7 @@ export class StandardMonthService {
     return carryover?.amount ?? 0
   }
 
-  private async computeExpenseLines(
-    year: number,
-    month: number
-  ): Promise<{
-    lines: StandardMonthLine[]
-    amortizedBills: StandardMonthResult['expenses']['amortizedBills']
-  }> {
+  private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {
     const lines: StandardMonthLine[] = []
 
     // Recurring bills and subscriptions only get a payment row once someone
@@ -200,57 +162,38 @@ export class StandardMonthService {
       .andWhere('isPaused', false)
       .andWhere('isArchived', false)
       .orderBy('name', 'asc')
-    const monthlyBillIds = recurringBills
-      .filter((bill) => bill.frequency === 'monthly')
-      .map((bill) => bill.id)
-    const recurringBillPayments = monthlyBillIds.length
+    const billIds = recurringBills.map((bill) => bill.id)
+    const recurringBillPayments = billIds.length
       ? await RecurringBillPayment.query()
-          .whereIn('recurringBillId', monthlyBillIds)
+          .whereIn('recurringBillId', billIds)
           .where('year', year)
           .where('month', month)
       : []
-    const recurringBillPaidById = new Map(
-      recurringBillPayments.map((payment) => [payment.recurringBillId, payment.paid])
+    const recurringBillPaymentById = new Map(
+      recurringBillPayments.map((payment) => [payment.recurringBillId, payment])
     )
 
-    let nonMonthlyAmortizedTotal = 0
-    const amortizedBillItems: StandardMonthAmortizedBill[] = []
     for (const bill of recurringBills) {
-      if (bill.frequency === 'monthly') {
-        lines.push({
-          key: `recurring-bill-${bill.id}`,
-          label: bill.name,
-          projected: bill.amount,
-          actual: bill.amount,
-          dueDay: bill.dueDay,
-          dueDate: null,
-          paid: recurringBillPaidById.get(bill.id) ?? isPastMonth,
-          editable: true,
-        })
-      } else {
-        // The `?? 1` fallback can't fire: the `frequency` column has a DB-level
-        // CHECK constraint restricting it to 'monthly'|'quarterly'|'biannual'|
-        // 'annual'|'custom' - 'monthly' is handled above and 'custom' just
-        // above, so every value reaching this lookup is already in the map.
-        const periodsPerYear =
-          bill.frequency === 'custom'
-            ? this.customPeriodsPerYear(bill.customIntervalValue, bill.customIntervalUnit)
-            : /* c8 ignore next */ (PERIODS_PER_YEAR[bill.frequency] ?? 1)
-        const monthlyShare = (bill.amount * periodsPerYear) / 12
-        nonMonthlyAmortizedTotal += monthlyShare
-        amortizedBillItems.push({
-          key: `recurring-bill-${bill.id}`,
-          label: bill.name,
-          amount: bill.amount,
-          frequency: bill.frequency,
-          monthlyShare: round(monthlyShare),
-        })
-      }
-    }
-    const amortizedBills = {
-      label: 'Annual Bills (amortized)',
-      total: round(nonMonthlyAmortizedTotal),
-      items: amortizedBillItems,
+      // A non-monthly bill (e.g. an annual Council Rates bill) is only ever
+      // actually due once per cycle - only the month it's actually due in
+      // gets a line at all, at its full amount, the same way a non-monthly
+      // utility only shows up in its billing month (see isUtilityBillingMonth
+      // above).
+      if (!isRecurringBillDueMonth(bill.frequency, bill.dueMonth, month)) continue
+
+      const payment = recurringBillPaymentById.get(bill.id)
+      const isNonMonthly = bill.frequency !== 'monthly'
+
+      lines.push({
+        key: `recurring-bill-${bill.id}`,
+        label: isNonMonthly ? `${bill.name} (Bill)` : bill.name,
+        projected: bill.amount,
+        actual: payment?.amount ?? bill.amount,
+        dueDay: bill.dueDay,
+        dueDate: null,
+        paid: payment?.paid ?? isPastMonth,
+        editable: true,
+      })
     }
 
     const users = await User.query().orderBy('fullName', 'asc')
@@ -341,14 +284,6 @@ export class StandardMonthService {
       })
     }
 
-    return { lines, amortizedBills }
-  }
-
-  private customPeriodsPerYear(value: number | null, unit: string | null): number {
-    if (!value || !unit) return 1
-    if (unit === 'days') return 365 / value
-    if (unit === 'weeks') return 52 / value
-    if (unit === 'months') return 12 / value
-    return 1
+    return lines
   }
 }

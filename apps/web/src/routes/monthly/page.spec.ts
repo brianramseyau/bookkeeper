@@ -151,7 +151,6 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
       ],
       projectedTotal: 700,
       actualTotal: 730,
-      amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
     },
     projectedNet: 4300,
     actualNet: 4270,
@@ -516,9 +515,7 @@ describe('month page', () => {
     await user.type(await screen.findByLabelText('Amount'), '100')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
-    expect(
-      await screen.findByText('A person is required for other income')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('A person is required for other income')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
   })
 
@@ -679,7 +676,6 @@ describe('month page', () => {
           ],
           projectedTotal: 45.99,
           actualTotal: 0,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -710,7 +706,6 @@ describe('month page', () => {
           ],
           projectedTotal: 45.99,
           actualTotal: 0,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -747,7 +742,6 @@ describe('month page', () => {
           ],
           projectedTotal: 45.99,
           actualTotal: 0,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -785,7 +779,6 @@ describe('month page', () => {
           ],
           projectedTotal: 120,
           actualTotal: 0,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -817,7 +810,6 @@ describe('month page', () => {
           ],
           projectedTotal: 40,
           actualTotal: 40,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -875,7 +867,6 @@ describe('month page', () => {
           ],
           projectedTotal: 305.42,
           actualTotal: 0,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -914,7 +905,6 @@ describe('month page', () => {
           ],
           projectedTotal: 300,
           actualTotal: 300,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -945,7 +935,6 @@ describe('month page', () => {
           ],
           projectedTotal: 300,
           actualTotal: 300,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -1012,7 +1001,6 @@ describe('month page', () => {
           ],
           projectedTotal: 45.99,
           actualTotal: 45.99,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -1025,6 +1013,7 @@ describe('month page', () => {
       year: 2026,
       month: 3,
       paid: true,
+      amount: null,
       createdAt: '',
       updatedAt: '',
     })
@@ -1055,7 +1044,6 @@ describe('month page', () => {
           ],
           projectedTotal: 22.99,
           actualTotal: 22.99,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -1294,7 +1282,6 @@ describe('month page', () => {
           ],
           projectedTotal: 40,
           actualTotal: 40,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -1307,115 +1294,6 @@ describe('month page', () => {
     const tables = await screen.findAllByRole('table')
     expect(within(tables[0]!).getByText('Water (shared)')).toBeInTheDocument()
     expect(within(tables[0]!).queryByRole('button', { name: /^Edit / })).toBeNull()
-  })
-
-  it('shows the amortized annual bills row as the last row of the expenses table, with a link to Bills', async () => {
-    vi.mocked(getStandardMonth).mockResolvedValue(
-      baseData({
-        expenses: {
-          lines: [
-            {
-              key: 'category-1',
-              label: 'Groceries',
-              projected: 600,
-              actual: 620,
-              dueDay: 5,
-              dueDate: null,
-              paid: true,
-              editable: true,
-            },
-          ],
-          projectedTotal: 735.42,
-          actualTotal: 620,
-          amortizedBills: {
-            label: 'Annual Bills (amortized)',
-            total: 135.42,
-            items: [
-              {
-                key: 'recurring-bill-1',
-                label: 'Costco Membership',
-                amount: 65,
-                frequency: 'annual',
-                monthlyShare: 5.42,
-              },
-              {
-                key: 'recurring-bill-2',
-                label: 'Cleaner',
-                amount: 60,
-                frequency: 'custom',
-                monthlyShare: 130,
-              },
-            ],
-          },
-        },
-      })
-    )
-    vi.mocked(listIncomeSources).mockResolvedValue([])
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
-    vi.mocked(listUsers).mockResolvedValue([])
-    render(MonthPage)
-
-    const expensesTable = (await screen.findAllByRole('table'))[0]!
-    const rows = expensesTable.querySelectorAll('tbody tr')
-    expect(rows).toHaveLength(2)
-    expect(rows[1]!.textContent).toContain('Annual Bills (amortized)')
-    expect(within(rows[1]! as HTMLElement).getByText('$135.42')).toBeInTheDocument()
-
-    const link = within(expensesTable).getByRole('link', { name: 'View bills →' })
-    expect(link.getAttribute('href')).toBe('/bills#annual')
-
-    // Collapsed by default - itemized bills aren't shown yet.
-    expect(screen.queryByText('Costco Membership')).toBeNull()
-  })
-
-  it('expands the amortized bills row to reveal each bill and its monthly share', async () => {
-    vi.mocked(getStandardMonth).mockResolvedValue(
-      baseData({
-        expenses: {
-          lines: [],
-          projectedTotal: 135.42,
-          actualTotal: 0,
-          amortizedBills: {
-            label: 'Annual Bills (amortized)',
-            total: 135.42,
-            items: [
-              {
-                key: 'recurring-bill-1',
-                label: 'Costco Membership',
-                amount: 65,
-                frequency: 'annual',
-                monthlyShare: 5.42,
-              },
-              {
-                key: 'recurring-bill-2',
-                label: 'Cleaner',
-                amount: 60,
-                frequency: 'custom',
-                monthlyShare: 130,
-              },
-            ],
-          },
-        },
-      })
-    )
-    vi.mocked(listIncomeSources).mockResolvedValue([])
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
-    vi.mocked(listUsers).mockResolvedValue([])
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: /Annual Bills \(amortized\)/ }))
-
-    expect(await screen.findByText('Costco Membership')).toBeInTheDocument()
-    expect(screen.getByText('Annual · $65.00')).toBeInTheDocument()
-    expect(screen.getByText('$5.42')).toBeInTheDocument()
-    expect(screen.getByText('Cleaner')).toBeInTheDocument()
-    expect(screen.getByText('Custom · $60.00')).toBeInTheDocument()
-    expect(screen.getByText('$130.00')).toBeInTheDocument()
-
-    // Collapses again on a second click.
-    await user.click(screen.getByRole('button', { name: /Annual Bills \(amortized\)/ }))
-    expect(screen.queryByText('Costco Membership')).toBeNull()
   })
 
   it('links each expense line label to its corresponding view page', async () => {
@@ -1466,7 +1344,6 @@ describe('month page', () => {
           ],
           projectedTotal: 810,
           actualTotal: 840,
-          amortizedBills: { label: 'Annual Bills (amortized)', total: 0, items: [] },
         },
       })
     )
@@ -1487,41 +1364,5 @@ describe('month page', () => {
     expect(screen.getByRole('link', { name: 'Netflix (Brian)' }).getAttribute('href')).toBe(
       '/subscriptions'
     )
-  })
-
-  it('links an amortized bill item label to its bills anchor', async () => {
-    vi.mocked(getStandardMonth).mockResolvedValue(
-      baseData({
-        expenses: {
-          lines: [],
-          projectedTotal: 5.42,
-          actualTotal: 0,
-          amortizedBills: {
-            label: 'Annual Bills (amortized)',
-            total: 5.42,
-            items: [
-              {
-                key: 'recurring-bill-1',
-                label: 'Costco Membership',
-                amount: 65,
-                frequency: 'annual',
-                monthlyShare: 5.42,
-              },
-            ],
-          },
-        },
-      })
-    )
-    vi.mocked(listIncomeSources).mockResolvedValue([])
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
-    vi.mocked(listUsers).mockResolvedValue([])
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: /Annual Bills \(amortized\)/ }))
-
-    expect(
-      (await screen.findByRole('link', { name: 'Costco Membership' })).getAttribute('href')
-    ).toBe('/bills#bill-1')
   })
 })

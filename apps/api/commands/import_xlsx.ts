@@ -272,57 +272,6 @@ function isPastBillMonth(year: number, month: number): boolean {
   return year === CONFIRMED_PAID_THROUGH_MONTH.year && month === CONFIRMED_PAID_THROUGH_MONTH.month
 }
 
-function nextMonthlyOccurrence(dayOfMonth: number): DateTime {
-  const today = DateTime.utc().startOf('day')
-  let candidate = today.set({ day: Math.min(dayOfMonth, today.daysInMonth) })
-  if (candidate < today) {
-    candidate = candidate.plus({ months: 1 })
-    candidate = candidate.set({ day: Math.min(dayOfMonth, candidate.daysInMonth) })
-  }
-  return candidate
-}
-
-/**
- * Rolls a recurring day/month pattern forward from anchorYear until it
- * lands on or after today - the sheets only ever capture a due date as of
- * whenever they were last edited, so importing it verbatim produces a
- * stale (often "overdue by months") next_due_on.
- */
-function advanceToFutureOccurrence(
-  dueDay: number,
-  dueMonth: number,
-  frequency: string,
-  customIntervalValue: number | null,
-  customIntervalUnit: string | null,
-  anchorYear: number
-): DateTime {
-  const today = DateTime.utc().startOf('day')
-  const stepMonths =
-    frequency === 'custom'
-      ? customIntervalUnit === 'months'
-        ? (customIntervalValue ?? 1)
-        : null
-      : ({ monthly: 1, quarterly: 3, biannual: 6, annual: 12 }[frequency] ?? 12)
-  const stepDays =
-    frequency === 'custom' && customIntervalUnit !== 'months'
-      ? customIntervalUnit === 'weeks'
-        ? (customIntervalValue ?? 4) * 7
-        : (customIntervalValue ?? 30)
-      : null
-
-  let candidate = DateTime.utc(anchorYear, dueMonth, 1).set({
-    day: Math.min(dueDay, DateTime.utc(anchorYear, dueMonth).daysInMonth ?? 28),
-  })
-  while (candidate < today) {
-    candidate =
-      stepMonths !== null
-        ? candidate.plus({ months: stepMonths })
-        : candidate.plus({ days: stepDays! })
-    candidate = candidate.set({ day: Math.min(dueDay, candidate.daysInMonth ?? 28) })
-  }
-  return candidate
-}
-
 export default class ImportXlsx extends BaseCommand {
   static commandName = 'import:xlsx'
   static description = 'Import historical data from the Joint Account Workbook xlsx'
@@ -638,20 +587,6 @@ export default class ImportXlsx extends BaseCommand {
               continue
             }
 
-            // The sheet's own "Next" date is only correct as of whenever it
-            // was last edited - roll the day/month pattern it captures
-            // forward to a genuinely future date instead of importing it
-            // verbatim (see the Rolling-sheet cross-reference below, which
-            // overrides this with a confirmed date where one exists).
-            const nextDueOn = advanceToFutureOccurrence(
-              row.dueDay,
-              row.dueMonth,
-              'annual',
-              null,
-              null,
-              row.dueYear ?? DateTime.utc().year
-            )
-
             if (ANNUAL_BILLS_MANAGED_AS_UTILITIES.has(row.name)) {
               // The due date shown is day `dueOffsetDays` of the billing
               // month itself, so the sheet's own due-day doubles as the
@@ -697,8 +632,6 @@ export default class ImportXlsx extends BaseCommand {
                 frequency: 'annual',
                 dueDay: row.dueDay,
                 dueMonth: row.dueMonth,
-                dueYear: row.dueYear,
-                nextDueOn,
                 categoryId,
               },
               { client: trx }
@@ -852,13 +785,7 @@ export default class ImportXlsx extends BaseCommand {
         this.rollingStartMonth
       )
 
-      const existingRecurringBills = await RecurringBill.query().select(
-        'id',
-        'name',
-        'frequency',
-        'customIntervalValue',
-        'customIntervalUnit'
-      )
+      const existingRecurringBills = await RecurringBill.query().select('id', 'name', 'frequency')
       const existingRecurringBillsByName = new Map(
         existingRecurringBills.map((bill) => [bill.name, bill])
       )
@@ -949,8 +876,6 @@ export default class ImportXlsx extends BaseCommand {
                   frequency: 'monthly',
                   dueDay,
                   dueMonth: null,
-                  dueYear: null,
-                  nextDueOn: dueDay ? nextMonthlyOccurrence(dueDay) : null,
                 },
                 { client: trx }
               )
@@ -984,30 +909,21 @@ export default class ImportXlsx extends BaseCommand {
       // time Rolling is processed, so their entries land here instead of
       // byNote above. Rolling records the day they were *actually* paid
       // that month, which is more trustworthy than the Annual sheet's own
-      // static "Next" column - use it to correct due_day/due_month/
-      // next_due_on for whichever bills happen to fall in Rolling's
-      // Feb-Sep window. Bills outside that window keep the forward-rolled
-      // date already computed from the Annual sheet above.
+      // static "Next" column - use it to correct due_day/due_month for
+      // whichever bills happen to fall in Rolling's Feb-Sep window. Bills
+      // outside that window keep the day/month already parsed from the
+      // Annual sheet above.
       for (const [name, matchEntries] of rollingRecurringBillMatches) {
         const bill = existingRecurringBillsByName.get(name)
         const confirmed = [...matchEntries].reverse().find((entry) => entry.dayOfMonth !== null)
         if (!bill || !confirmed || confirmed.dayOfMonth === null) continue
 
-        const nextDueOn = advanceToFutureOccurrence(
-          confirmed.dayOfMonth,
-          confirmed.month,
-          bill.frequency,
-          bill.customIntervalValue,
-          bill.customIntervalUnit,
-          confirmed.year
-        )
-
         this.logger.info(
-          `Rolling: confirmed "${name}" actually due day ${confirmed.dayOfMonth} of month ${confirmed.month} - next due ${nextDueOn.toISODate()}`
+          `Rolling: confirmed "${name}" actually due day ${confirmed.dayOfMonth} of month ${confirmed.month}`
         )
 
         if (!this.dryRun) {
-          bill.merge({ dueDay: confirmed.dayOfMonth, dueMonth: confirmed.month, nextDueOn })
+          bill.merge({ dueDay: confirmed.dayOfMonth, dueMonth: confirmed.month })
           await bill.save()
         }
         totalDueDateCorrections += 1

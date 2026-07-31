@@ -1,53 +1,90 @@
-import type { DateTime } from 'luxon'
+import { DateTime } from 'luxon'
 
-const FREQUENCY_PERIOD_MONTHS: Record<string, number> = {
+export const RECURRING_BILL_PERIOD_MONTHS: Record<string, number> = {
   monthly: 1,
   quarterly: 3,
   biannual: 6,
   annual: 12,
 }
 
-function advance(
-  date: DateTime,
-  frequency: string,
-  customIntervalValue: number | null,
-  customIntervalUnit: string | null
-): DateTime {
-  if (frequency === 'custom') {
-    const value = customIntervalValue ?? 1
-    if (customIntervalUnit === 'days') return date.plus({ days: value })
-    if (customIntervalUnit === 'weeks') return date.plus({ weeks: value })
-    return date.plus({ months: value })
-  }
-  // The `?? 1` fallback can't fire: the `frequency` column has a DB-level
-  // CHECK constraint restricting it to 'monthly'|'quarterly'|'biannual'|
-  // 'annual'|'custom' - 'custom' is handled above, so every other value
-  // reaching this lookup is already a key in FREQUENCY_PERIOD_MONTHS.
-  const periodMonths = /* c8 ignore next */ FREQUENCY_PERIOD_MONTHS[frequency] ?? 1
-  return date.plus({ months: periodMonths })
+export function recurringBillPeriodMonths(frequency: string): number {
+  return RECURRING_BILL_PERIOD_MONTHS[frequency] ?? 1
 }
 
 /**
- * A recurring bill's `nextDueOn` is a fixed anchor date set whenever it's
- * created or edited - nothing advances it as real time passes. Once that
- * date is in the past, roll it forward by the bill's own frequency until it
- * lands on the next upcoming occurrence, so a bill last edited a year ago
- * still reads as "due in N days" rather than "overdue" forever.
+ * Whether `month` is a due month for this bill's cycle - a monthly bill is
+ * due every month; a quarterly/biannual/annual bill repeats from `dueMonth`
+ * every `periodMonths` months, indefinitely. The calendar year never
+ * matters (every supported period divides evenly into 12), only the bill's
+ * position in its own cycle - so unlike a utility bill there's no need to
+ * anchor against billing history, just the bill's own configured due month.
  */
-export function resolveNextOccurrence(
-  nextDueOn: DateTime | null,
+export function isRecurringBillDueMonth(
   frequency: string,
-  customIntervalValue: number | null,
-  customIntervalUnit: string | null,
+  dueMonth: number | null,
+  month: number
+): boolean {
+  const periodMonths = recurringBillPeriodMonths(frequency)
+  if (periodMonths <= 1) return true
+  if (dueMonth === null) return false
+  return (((month - dueMonth) % periodMonths) + periodMonths) % periodMonths === 0
+}
+
+/**
+ * The due date for one specific (year, month), or null if it isn't a due
+ * month for this bill's cycle, or `dueDay` isn't set. `dueDay` is clamped to
+ * however many days that month actually has.
+ */
+export function recurringBillDueDateFor(
+  frequency: string,
+  dueDay: number | null,
+  dueMonth: number | null,
+  year: number,
+  month: number
+): DateTime | null {
+  if (dueDay === null) return null
+  if (!isRecurringBillDueMonth(frequency, dueMonth, month)) return null
+
+  // `daysInMonth` is only ever undefined for an invalid DateTime - (year,
+  // month) here always comes from a real calendar month, so the `?? 31`
+  // fallback can't actually fire.
+  const daysInMonth = /* c8 ignore next */ DateTime.utc(year, month, 1).daysInMonth ?? 31
+  const day = Math.min(Math.max(dueDay, 1), daysInMonth)
+  return DateTime.utc(year, month, day)
+}
+
+/**
+ * The next upcoming due date on or after `today` - scans at most one full
+ * cycle ahead so a non-monthly bill only turns up the next month it's
+ * actually due, not every month. The trailing `return null` can't actually
+ * be reached (same pigeonhole reasoning as `nextUtilityDueDate`) - kept only
+ * to satisfy TypeScript's control-flow analysis.
+ */
+export function nextRecurringBillDueDate(
+  frequency: string,
+  dueDay: number | null,
+  dueMonth: number | null,
   today: DateTime
 ): DateTime | null {
-  if (!nextDueOn) return null
+  if (dueDay === null) return null
 
-  let occurrence = nextDueOn
-  while (occurrence < today) {
-    occurrence = advance(occurrence, frequency, customIntervalValue, customIntervalUnit)
+  const periodMonths = recurringBillPeriodMonths(frequency)
+  let year = today.year
+  let month = today.month
+
+  for (let i = 0; i <= periodMonths; i++) {
+    const due = recurringBillDueDateFor(frequency, dueDay, dueMonth, year, month)
+    if (due && due >= today) return due
+
+    month += 1
+    if (month > 12) {
+      month = 1
+      year += 1
+    }
+    /* c8 ignore next */
   }
-  return occurrence
+  /* c8 ignore next 2 */
+  return null
 }
 
 /** Soonest-first, with bills that have no due date at all pushed to the end. */

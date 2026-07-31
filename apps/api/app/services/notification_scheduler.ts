@@ -8,7 +8,7 @@ import UtilityBill from '#models/utility_bill'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 import PushSubscription from '#models/push_subscription'
-import { compareByDaysUntilDue, resolveNextOccurrence } from '#services/recurring_bill_due_date'
+import { compareByDaysUntilDue, nextRecurringBillDueDate } from '#services/recurring_bill_due_date'
 import { sendPushNotification, type PushPayload } from '#services/push_service'
 
 /** The one settings row this app has for the shared daily check - there's no per-user dimension to when the job runs. */
@@ -55,17 +55,16 @@ export function isNotificationCheckDue(
 }
 
 async function findDueRecurringBills(today: DateTime, leadDays: number): Promise<DueBill[]> {
-  const bills = await RecurringBill.query().where('isActive', true).whereNotNull('nextDueOn')
+  const bills = await RecurringBill.query().where('isActive', true).whereNotNull('dueDay')
 
   return bills
     .map((bill) => {
-      // whereNotNull('nextDueOn') above guarantees resolveNextOccurrence
+      // whereNotNull('dueDay') above guarantees nextRecurringBillDueDate
       // returns non-null here too.
-      const nextOccurrence = resolveNextOccurrence(
-        bill.nextDueOn,
+      const nextOccurrence = nextRecurringBillDueDate(
         bill.frequency,
-        bill.customIntervalValue,
-        bill.customIntervalUnit,
+        bill.dueDay,
+        bill.dueMonth,
         today
       )!
       return {

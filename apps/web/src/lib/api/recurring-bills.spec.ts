@@ -48,8 +48,19 @@ describe('recurring bills api', () => {
     expect(api.delete).toHaveBeenCalledWith('/recurring-bills/4')
   })
 
-  it('upserts a recurring bill payment', () => {
+  it('upserts a recurring bill payment paid flag', () => {
     upsertRecurringBillPayment(4, 2026, 3, true)
-    expect(api.put).toHaveBeenCalledWith('/recurring-bills/4/payments/2026/3', { paid: true })
+    expect(api.put).toHaveBeenCalledWith('/recurring-bills/4/payments/2026/3', {
+      paid: true,
+      amount: undefined,
+    })
+  })
+
+  it('upserts a recurring bill payment amount override', () => {
+    upsertRecurringBillPayment(4, 2026, 3, undefined, 70)
+    expect(api.put).toHaveBeenCalledWith('/recurring-bills/4/payments/2026/3', {
+      paid: undefined,
+      amount: 70,
+    })
   })
 })

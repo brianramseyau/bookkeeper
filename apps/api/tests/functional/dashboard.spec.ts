@@ -79,18 +79,20 @@ test.group('Dashboard / summary', () => {
     const today = DateTime.utc().startOf('day')
 
     for (let i = 0; i < 6; i++) {
+      const dueOn = today.plus({ days: 10 - i })
       await RecurringBill.create({
         name: `Bill ${i}`,
         amount: 10,
         frequency: 'annual',
-        nextDueOn: today.plus({ days: 10 - i }),
+        dueDay: dueOn.day,
+        dueMonth: dueOn.month,
       })
     }
     await RecurringBill.create({
       name: 'No due date',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: null,
+      dueDay: null,
     })
 
     const response = await client.get('/api/dashboard/summary').loginAs(brian)
@@ -99,26 +101,29 @@ test.group('Dashboard / summary', () => {
     assert.equal(response.body().upcomingBills[0].name, 'Bill 5')
   })
 
-  test('rolls a stale nextDueOn forward instead of leaving a bill perpetually overdue', async ({
+  test('rolls a due month/day that already passed this year forward to next year', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
     const today = DateTime.utc().startOf('day')
 
-    // Stale by over a year - without rollover this would sort first (most
-    // overdue) and report an ever-growing overdue count.
+    // A month that's already passed this year - without rolling forward to
+    // next year this would sort as overdue instead of upcoming.
+    const alreadyPassed = today.minus({ months: 2 })
     await RecurringBill.create({
       name: 'Car Insurance',
       amount: 600,
       frequency: 'annual',
-      nextDueOn: today.minus({ years: 1, days: 10 }),
+      dueDay: alreadyPassed.day,
+      dueMonth: alreadyPassed.month,
     })
+    const in3Days = today.plus({ days: 3 })
     await RecurringBill.create({
       name: 'Rent',
       amount: 2000,
       frequency: 'monthly',
-      nextDueOn: today.plus({ days: 3 }),
+      dueDay: in3Days.day,
     })
 
     const response = await client.get('/api/dashboard/summary').loginAs(brian)

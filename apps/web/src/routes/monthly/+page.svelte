@@ -7,7 +7,6 @@
     type StandardMonthResult,
     type StandardMonthLine,
     type StandardMonthIncomeLine,
-    type StandardMonthAmortizedBill,
   } from '$lib/api/standard-month'
   import { setMonthCarryover } from '$lib/api/month-carryover'
   import {
@@ -79,7 +78,8 @@
   let editEntryTaxWithheld = $state(false)
   let savingEntryEdit = $state(false)
 
-  type ExpenseEditMode = 'utility' | 'category-add' | 'category-edit' | 'category-multiple'
+  type ExpenseEditMode =
+    'utility' | 'recurring-bill' | 'category-add' | 'category-edit' | 'category-multiple'
   let editingExpenseKey = $state<string | null>(null)
   let editExpenseMode = $state<ExpenseEditMode | null>(null)
   let editExpenseTargetId = $state<number | null>(null)
@@ -87,7 +87,6 @@
   let editExpenseAmount = $state<number>(NaN)
   let savingExpense = $state(false)
   let savingPaidKey = $state<string | null>(null)
-  let amortizedExpanded = $state(false)
 
   onMount(load)
 
@@ -424,6 +423,14 @@
       editExpenseAmount = line.actual ?? NaN
       return
     }
+    if (line.key.startsWith('recurring-bill-')) {
+      editingExpenseKey = line.key
+      editExpenseMode = 'recurring-bill'
+      editExpenseTargetId = Number(line.key.slice('recurring-bill-'.length))
+      editExpenseCategoryId = null
+      editExpenseAmount = line.actual ?? line.projected
+      return
+    }
     if (line.key.startsWith('category-')) {
       const categoryId = Number(line.key.slice('category-'.length))
       try {
@@ -457,6 +464,14 @@
     try {
       if (editExpenseMode === 'utility') {
         await upsertUtilityBill(editExpenseTargetId, year, month, editExpenseAmount)
+      } else if (editExpenseMode === 'recurring-bill') {
+        await upsertRecurringBillPayment(
+          editExpenseTargetId,
+          year,
+          month,
+          undefined,
+          editExpenseAmount
+        )
       } else if (editExpenseMode === 'category-add') {
         await createCategoryActual(editExpenseTargetId, {
           occurredOn: lastDayOfMonthIso(year, month),
@@ -486,15 +501,10 @@
     }
   }
 
-  function frequencyLabel(item: StandardMonthAmortizedBill): string {
-    return item.frequency.charAt(0).toUpperCase() + item.frequency.slice(1)
-  }
-
   // Maps an expense line back to the page where it's actually managed, so
   // its label can link there - a recurring bill's row on that page carries
-  // a matching `bill-{id}` anchor (see bills/+page.svelte) the
-  // same way the amortized-bills group header already links to `#annual`.
-  // Subscriptions have no per-item detail view and are filtered by a person
+  // a matching `bill-{id}` anchor (see bills/+page.svelte). Subscriptions
+  // have no per-item detail view and are filtered by a person
   // tab with no owner on this line to pre-select, so they link to the list
   // page only.
   function viewHref(line: StandardMonthLine): string | null {
@@ -662,7 +672,9 @@
       <tbody>
         {#each sortedExpenseLines as line (line.key)}
           {@const editable =
-            (line.key.startsWith('utility-') && line.editable) || line.key.startsWith('category-')}
+            (line.key.startsWith('utility-') && line.editable) ||
+            line.key.startsWith('recurring-bill-') ||
+            line.key.startsWith('category-')}
           {#if editingExpenseKey === line.key}
             <tr
               class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
@@ -800,66 +812,6 @@
             </tr>
           {/if}
         {/each}
-        {#if data.expenses.amortizedBills.items.length > 0}
-          <tr
-            class={[
-              'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
-              amortizedExpanded && 'bg-slate-100 dark:bg-slate-900/50',
-            ]}
-          >
-            <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
-              <button
-                type="button"
-                onclick={() => (amortizedExpanded = !amortizedExpanded)}
-                class="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400"
-              >
-                <span class="text-slate-400 dark:text-slate-500" aria-hidden="true"
-                  >{amortizedExpanded ? '▾' : '▸'}</span
-                >
-                {data.expenses.amortizedBills.label}
-              </button>
-              <a
-                href="/bills#annual"
-                class="ml-2 text-xs font-normal text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-              >
-                View bills →
-              </a>
-            </td>
-            <td class="px-3 py-2 text-slate-600 dark:text-slate-400">—</td>
-            <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-              >{formatCurrency(data.expenses.amortizedBills.total)}</td
-            >
-            <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">—</td>
-            <td class="px-3 py-2"></td>
-            <td class="px-3 py-2"></td>
-          </tr>
-          {#if amortizedExpanded}
-            {#each data.expenses.amortizedBills.items as item (item.key)}
-              <tr
-                class="border-b border-slate-100 bg-slate-50 last:border-0 dark:border-slate-700/60 dark:bg-slate-900/25"
-              >
-                <td class="py-2 pr-3 pl-8 text-slate-700 dark:text-slate-300">
-                  <a
-                    href="/bills#bill-{item.key.slice('recurring-bill-'.length)}"
-                    class="hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
-                  >
-                    {item.label}
-                  </a>
-                  <span class="block text-xs font-normal text-slate-400 dark:text-slate-500">
-                    {frequencyLabel(item)} · {formatCurrency(item.amount)}
-                  </span>
-                </td>
-                <td class="px-3 py-2 text-slate-600 dark:text-slate-400">—</td>
-                <td class="px-3 py-2 text-right text-slate-600 dark:text-slate-400"
-                  >{formatCurrency(item.monthlyShare)}</td
-                >
-                <td class="px-3 py-2 text-right text-slate-900 dark:text-slate-100">—</td>
-                <td class="px-3 py-2"></td>
-                <td class="px-3 py-2"></td>
-              </tr>
-            {/each}
-          {/if}
-        {/if}
       </tbody>
       <tfoot>
         <tr class="border-t border-slate-200 font-semibold dark:border-slate-700">

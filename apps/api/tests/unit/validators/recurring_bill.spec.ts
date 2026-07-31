@@ -26,19 +26,7 @@ test.group('createRecurringBillValidator', () => {
     )
   })
 
-  test('rejects a missing nextDueOn', async ({ assert }) => {
-    await assert.rejects(() =>
-      createRecurringBillValidator.validate({
-        name: 'Kayo',
-        amount: 45.99,
-        frequency: 'monthly',
-      })
-    )
-  })
-
-  test('requires customIntervalValue and customIntervalUnit when frequency is custom', async ({
-    assert,
-  }) => {
+  test('rejects "custom" - no longer a supported frequency', async ({ assert }) => {
     await assert.rejects(() =>
       createRecurringBillValidator.validate({
         name: 'Fortnightly thing',
@@ -49,20 +37,17 @@ test.group('createRecurringBillValidator', () => {
     )
   })
 
-  test('accepts a custom frequency with its interval fields provided', async ({ assert }) => {
-    const payload = await createRecurringBillValidator.validate({
-      name: 'Fortnightly thing',
-      amount: 10,
-      frequency: 'custom',
-      customIntervalValue: 2,
-      customIntervalUnit: 'weeks',
-      nextDueOn: '2026-03-01',
-    })
-    assert.equal(payload.customIntervalValue, 2)
-    assert.equal(payload.customIntervalUnit, 'weeks')
+  test('rejects a missing nextDueOn', async ({ assert }) => {
+    await assert.rejects(() =>
+      createRecurringBillValidator.validate({
+        name: 'Kayo',
+        amount: 45.99,
+        frequency: 'monthly',
+      })
+    )
   })
 
-  test('does not require interval fields for a non-custom frequency', async ({ assert }) => {
+  test('accepts a non-monthly frequency', async ({ assert }) => {
     const payload = await createRecurringBillValidator.validate({
       name: 'Council Rates',
       amount: 2689.3,
@@ -79,9 +64,7 @@ test.group('updateRecurringBillValidator', () => {
     assert.deepEqual(payload, {})
   })
 
-  test('rejects an invalid customIntervalUnit when provided', async ({ assert }) => {
-    await assert.rejects(() =>
-      updateRecurringBillValidator.validate({ customIntervalUnit: 'years' })
-    )
+  test('rejects "custom" - no longer a supported frequency', async ({ assert }) => {
+    await assert.rejects(() => updateRecurringBillValidator.validate({ frequency: 'custom' }))
   })
 })

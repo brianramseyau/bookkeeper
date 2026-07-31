@@ -9,7 +9,7 @@ import {
   updateRecurringBillValidator,
 } from '#validators/recurring_bill'
 import { upsertRecurringBillPaymentValidator } from '#validators/recurring_bill_payment'
-import { compareByDaysUntilDue, resolveNextOccurrence } from '#services/recurring_bill_due_date'
+import { compareByDaysUntilDue, nextRecurringBillDueDate } from '#services/recurring_bill_due_date'
 
 const DUE_SOON_WINDOW_DAYS = 30
 
@@ -32,12 +32,8 @@ export default class RecurringBillsController {
       categoryId: payload.categoryId ?? null,
       amount: payload.amount,
       frequency: payload.frequency,
-      customIntervalValue: payload.customIntervalValue ?? null,
-      customIntervalUnit: payload.customIntervalUnit ?? null,
       dueDay: nextDueOn.day,
       dueMonth: nextDueOn.month,
-      dueYear: nextDueOn.year,
-      nextDueOn,
       notes: payload.notes ?? null,
     })
 
@@ -53,8 +49,6 @@ export default class RecurringBillsController {
       categoryId: payload.categoryId,
       amount: payload.amount,
       frequency: payload.frequency,
-      customIntervalValue: payload.customIntervalValue,
-      customIntervalUnit: payload.customIntervalUnit,
       isActive: payload.isActive,
       isPaused: payload.isArchived ? false : payload.isPaused,
       isArchived: payload.isArchived,
@@ -62,11 +56,8 @@ export default class RecurringBillsController {
     })
 
     if (payload.nextDueOn) {
-      const nextDueOn = payload.nextDueOn
-      bill.nextDueOn = nextDueOn
-      bill.dueDay = nextDueOn.day
-      bill.dueMonth = nextDueOn.month
-      bill.dueYear = nextDueOn.year
+      bill.dueDay = payload.nextDueOn.day
+      bill.dueMonth = payload.nextDueOn.month
     }
 
     await bill.save()
@@ -92,10 +83,25 @@ export default class RecurringBillsController {
     const year = Number(params.year)
     const month = Number(params.month)
 
-    const payment = await RecurringBillPayment.updateOrCreate(
-      { recurringBillId, year, month },
-      { paid: payload.paid }
-    )
+    // Same distinguish-omitted-from-unset reasoning as UtilityBillsController.upsert -
+    // the Paid checkbox and the amount-edit form each send only their own
+    // field, and neither should stomp the other's already-saved value.
+    let payment = await RecurringBillPayment.query().where({ recurringBillId, year, month }).first()
+    if (payment) {
+      payment.merge({
+        ...(payload.paid !== undefined ? { paid: payload.paid } : {}),
+        ...(payload.amount !== undefined ? { amount: payload.amount } : {}),
+      })
+      await payment.save()
+    } else {
+      payment = await RecurringBillPayment.create({
+        recurringBillId,
+        year,
+        month,
+        paid: payload.paid ?? false,
+        amount: payload.amount ?? null,
+      })
+    }
 
     return serialize(RecurringBillPaymentTransformer.transform(payment))
   }
@@ -112,11 +118,10 @@ export default class RecurringBillsController {
 
     const results = serialized.map((item, index) => {
       const bill = bills[index]!
-      const nextOccurrence = resolveNextOccurrence(
-        bill.nextDueOn,
+      const nextOccurrence = nextRecurringBillDueDate(
         bill.frequency,
-        bill.customIntervalValue,
-        bill.customIntervalUnit,
+        bill.dueDay,
+        bill.dueMonth,
         today
       )
       const daysUntilDue = nextOccurrence
@@ -124,16 +129,14 @@ export default class RecurringBillsController {
         : null
       return {
         ...item,
-        nextDueOn: nextOccurrence ?? item.nextDueOn,
+        nextDueOn: nextOccurrence?.toISODate() ?? null,
         daysUntilDue,
         dueSoon: daysUntilDue !== null && daysUntilDue <= DUE_SOON_WINDOW_DAYS,
       }
     })
 
-    // Sorted here (rather than in the query) because the rolled-forward
-    // `daysUntilDue` above can reorder bills relative to their raw stored
-    // `nextDueOn` - a bill overdue by months now sorts by its *next*
-    // upcoming occurrence, not the stale anchor date.
+    // Sorted here (rather than in the query) because `daysUntilDue` is
+    // computed, not a stored column.
     results.sort((a, b) => compareByDaysUntilDue(a.daysUntilDue, b.daysUntilDue))
 
     return { data: results }

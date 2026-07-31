@@ -7,7 +7,6 @@
     deleteRecurringBill,
     type UpcomingRecurringBill,
     type RecurringBillFrequency,
-    type RecurringBillCustomIntervalUnit,
   } from '$lib/api/recurring-bills'
   import { listCategories, type Category } from '$lib/api/categories'
   import { formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
@@ -37,7 +36,6 @@
     { value: 'quarterly', label: 'Quarterly' },
     { value: 'biannual', label: 'Biannual' },
     { value: 'annual', label: 'Annual' },
-    { value: 'custom', label: 'Custom' },
   ]
 
   let bills = $state<UpcomingRecurringBill[]>([])
@@ -65,8 +63,6 @@
   let name = $state('')
   let amount = $state<number>(NaN)
   let frequency = $state<RecurringBillFrequency>('annual')
-  let customIntervalValue = $state<number>(NaN)
-  let customIntervalUnit = $state<RecurringBillCustomIntervalUnit>('weeks')
   let nextDueOn = $state('')
   let categoryId = $state('')
   let creating = $state(false)
@@ -75,8 +71,6 @@
   let editName = $state('')
   let editAmount = $state<number>(NaN)
   let editFrequency = $state<RecurringBillFrequency>('annual')
-  let editCustomIntervalValue = $state<number>(NaN)
-  let editCustomIntervalUnit = $state<RecurringBillCustomIntervalUnit>('weeks')
   let editNextDueOn = $state('')
   let savingEdit = $state(false)
 
@@ -91,11 +85,11 @@
       loading = false
     }
 
-    // The frequency group headers (e.g. #annual, linked from the Monthly
-    // page's amortized-bills row) only exist once `bills` has loaded and
-    // rendered - the browser's own load-time hash scroll runs too early to
-    // find them in this client-rendered SPA, so it has to be redone by hand
-    // once the DOM actually reflects the fetched data.
+    // The per-bill anchors (e.g. #bill-12, linked from a bill's row on the
+    // Monthly page) only exist once `bills` has loaded and rendered - the
+    // browser's own load-time hash scroll runs too early to find them in
+    // this client-rendered SPA, so it has to be redone by hand once the DOM
+    // actually reflects the fetched data.
     if (window.location.hash) {
       await tick()
       const target = document.getElementById(window.location.hash.slice(1))
@@ -123,11 +117,6 @@
   }
 
   function frequencyLabel(bill: UpcomingRecurringBill): string {
-    if (bill.frequency === 'custom') {
-      const value = bill.customIntervalValue
-      const unit = bill.customIntervalUnit
-      return value && unit ? `Every ${value} ${unit}` : 'Custom'
-    }
     return FREQUENCIES.find((f) => f.value === bill.frequency)?.label ?? bill.frequency
   }
 
@@ -217,18 +206,12 @@
         name: name.trim(),
         amount,
         frequency,
-        customIntervalValue:
-          frequency === 'custom' && !Number.isNaN(customIntervalValue)
-            ? customIntervalValue
-            : undefined,
-        customIntervalUnit: frequency === 'custom' ? customIntervalUnit : undefined,
         nextDueOn,
         categoryId: categoryId === '' ? undefined : Number(categoryId),
       })
       name = ''
       amount = NaN
       frequency = 'annual'
-      customIntervalValue = NaN
       nextDueOn = ''
       categoryId = ''
       await refresh()
@@ -244,8 +227,6 @@
     editName = bill.name
     editAmount = bill.amount
     editFrequency = bill.frequency
-    editCustomIntervalValue = bill.customIntervalValue ?? NaN
-    editCustomIntervalUnit = bill.customIntervalUnit ?? 'weeks'
     editNextDueOn = bill.nextDueOn ? bill.nextDueOn.slice(0, 10) : ''
   }
 
@@ -265,11 +246,6 @@
         name: editName.trim(),
         amount: editAmount,
         frequency: editFrequency,
-        customIntervalValue:
-          editFrequency === 'custom' && !Number.isNaN(editCustomIntervalValue)
-            ? editCustomIntervalValue
-            : undefined,
-        customIntervalUnit: editFrequency === 'custom' ? editCustomIntervalUnit : undefined,
         nextDueOn: editNextDueOn,
       })
       editingId = null
@@ -311,34 +287,14 @@
       />
     </td>
     <td class="px-3 py-2">
-      <div class="flex flex-col gap-1">
-        <select
-          bind:value={editFrequency}
-          class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-        >
-          {#each FREQUENCIES as f (f.value)}
-            <option value={f.value}>{f.label}</option>
-          {/each}
-        </select>
-        {#if editFrequency === 'custom'}
-          <div class="flex gap-1">
-            <input
-              type="number"
-              min="1"
-              bind:value={editCustomIntervalValue}
-              class="w-14 rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-            />
-            <select
-              bind:value={editCustomIntervalUnit}
-              class="rounded-md border border-slate-300 px-1 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-            >
-              <option value="days">Days</option>
-              <option value="weeks">Weeks</option>
-              <option value="months">Months</option>
-            </select>
-          </div>
-        {/if}
-      </div>
+      <select
+        bind:value={editFrequency}
+        class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      >
+        {#each FREQUENCIES as f (f.value)}
+          <option value={f.value}>{f.label}</option>
+        {/each}
+      </select>
     </td>
     <td class="px-3 py-2">
       <input
@@ -695,28 +651,6 @@
         {/each}
       </select>
     </label>
-    {#if frequency === 'custom'}
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Every</span>
-        <input
-          type="number"
-          min="1"
-          bind:value={customIntervalValue}
-          class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </label>
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Unit</span>
-        <select
-          bind:value={customIntervalUnit}
-          class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          <option value="days">Days</option>
-          <option value="weeks">Weeks</option>
-          <option value="months">Months</option>
-        </select>
-      </label>
-    {/if}
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Next due</span>
       <input

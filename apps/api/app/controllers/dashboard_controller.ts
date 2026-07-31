@@ -7,7 +7,7 @@ import CategoryMonthlyActual from '#models/category_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { StandardMonthService } from '#services/standard_month_service'
 import { expandUtilityBillsToMonthlyShares } from '#services/utility_billing_period'
-import { compareByDaysUntilDue, resolveNextOccurrence } from '#services/recurring_bill_due_date'
+import { compareByDaysUntilDue, nextRecurringBillDueDate } from '#services/recurring_bill_due_date'
 
 const UPCOMING_BILLS_LIMIT = 5
 const MONTHLY_EXPENSE_WINDOW = 12
@@ -63,18 +63,17 @@ export default class DashboardController {
   }
 
   private async upcomingBills() {
-    const bills = await RecurringBill.query().where('isActive', true).whereNotNull('nextDueOn')
+    const bills = await RecurringBill.query().where('isActive', true).whereNotNull('dueDay')
 
     const todayStart = DateTime.utc().startOf('day')
     return bills
       .map((bill) => {
-        // whereNotNull('nextDueOn') above guarantees resolveNextOccurrence
+        // whereNotNull('dueDay') above guarantees nextRecurringBillDueDate
         // returns non-null here too.
-        const nextOccurrence = resolveNextOccurrence(
-          bill.nextDueOn,
+        const nextOccurrence = nextRecurringBillDueDate(
           bill.frequency,
-          bill.customIntervalValue,
-          bill.customIntervalUnit,
+          bill.dueDay,
+          bill.dueMonth,
           todayStart
         )!
         return {

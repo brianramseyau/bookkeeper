@@ -105,17 +105,20 @@ test.group('findDueBillsForUser', (group) => {
     assert,
   }) => {
     const brian = await loginAsBrian()
+    const vpnDue = today.plus({ days: 2 })
+    const carRegoDue = today.plus({ days: 30 })
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: today.plus({ days: 2 }),
+      dueDay: vpnDue.day,
     })
     await RecurringBill.create({
       name: 'Car rego',
       amount: 500,
       frequency: 'annual',
-      nextDueOn: today.plus({ days: 30 }),
+      dueDay: carRegoDue.day,
+      dueMonth: carRegoDue.month,
     })
 
     const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
@@ -127,11 +130,12 @@ test.group('findDueBillsForUser', (group) => {
 
   test('excludes recurring bills when notifyRecurringBills is off', async ({ assert }) => {
     const brian = await loginAsBrian()
+    const vpnDue = today.plus({ days: 2 })
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: today.plus({ days: 2 }),
+      dueDay: vpnDue.day,
     })
 
     const dueBills = await findDueBillsForUser(
@@ -143,18 +147,19 @@ test.group('findDueBillsForUser', (group) => {
     assert.lengthOf(dueBills, 0)
   })
 
-  test('a recurring bill with a stale nextDueOn rolls forward rather than reading as overdue', async ({
+  test('a monthly bill whose day has already passed this month rolls forward rather than reading as overdue', async ({
     assert,
   }) => {
-    // resolveNextOccurrence (shared with the dashboard) always advances a
-    // past-due anchor date forward by the bill's frequency until it's not
-    // in the past - so this never surfaces as negative daysUntilDue.
+    // nextRecurringBillDueDate (shared with the dashboard) always advances a
+    // past due day forward by the bill's frequency until it's not in the
+    // past - so this never surfaces as negative daysUntilDue.
     const brian = await loginAsBrian()
+    const insuranceDue = today.minus({ days: 5 })
     await RecurringBill.create({
       name: 'Insurance',
       amount: 200,
       frequency: 'monthly',
-      nextDueOn: today.minus({ days: 5 }),
+      dueDay: insuranceDue.day,
     })
 
     const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
@@ -350,7 +355,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 28),
+      dueDay: 28,
     })
 
     await runDueNotificationCheck(DateTime.local(2026, 7, 28, 7, 0, 0))
@@ -369,7 +374,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 29),
+      dueDay: 29,
     })
     // A second, also-not-overdue due bill so the summary payload's plural,
     // no-overdue-suffix wording path gets exercised too.
@@ -377,7 +382,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'Streaming',
       amount: 15,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 30),
+      dueDay: 30,
     })
 
     await runDueNotificationCheck(DateTime.local(2026, 7, 28, 9, 0, 0))
@@ -397,7 +402,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 29),
+      dueDay: 29,
     })
     await UserSubscription.create({
       userId: brian.id,
@@ -434,7 +439,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 29),
+      dueDay: 29,
     })
 
     await runDueNotificationCheck(DateTime.local(2026, 7, 28, 9, 0, 0))
@@ -450,7 +455,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 29),
+      dueDay: 29,
     })
 
     server.setResponseStatus(410)
@@ -470,7 +475,7 @@ test.group('runDueNotificationCheck', (group) => {
       name: 'VPN',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: DateTime.local(2026, 7, 29),
+      dueDay: 29,
     })
 
     server.setResponseStatus(500)

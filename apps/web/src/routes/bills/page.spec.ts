@@ -40,11 +40,8 @@ const carInsurance: UpcomingRecurringBill = {
   categoryId: 1,
   amount: 600,
   frequency: 'annual',
-  customIntervalValue: null,
-  customIntervalUnit: null,
   dueDay: null,
   dueMonth: null,
-  dueYear: null,
   nextDueOn: '2026-08-01T00:00:00.000+00:00',
   isActive: true,
   isPaused: false,
@@ -60,12 +57,9 @@ const pestControl: UpcomingRecurringBill = {
   name: 'Pest Control',
   categoryId: null,
   amount: 120,
-  frequency: 'custom',
-  customIntervalValue: 3,
-  customIntervalUnit: 'months',
+  frequency: 'quarterly',
   dueDay: null,
   dueMonth: null,
-  dueYear: null,
   nextDueOn: '2026-07-20T00:00:00.000+00:00',
   isActive: true,
   isPaused: false,
@@ -82,11 +76,8 @@ const gym: UpcomingRecurringBill = {
   categoryId: null,
   amount: 50,
   frequency: 'monthly',
-  customIntervalValue: null,
-  customIntervalUnit: null,
   dueDay: null,
   dueMonth: null,
-  dueYear: null,
   nextDueOn: '2026-09-01T00:00:00.000+00:00',
   isActive: true,
   isPaused: false,
@@ -148,7 +139,7 @@ describe('recurring bills page', () => {
     const pestRow = screen.getByText('Pest Control').closest('tr')!
     const gymRow = screen.getByText('Gym Membership').closest('tr')!
     expect(within(carRow).getByText('Annual')).toBeInTheDocument()
-    expect(within(pestRow).getByText('Every 3 months')).toBeInTheDocument()
+    expect(within(pestRow).getByText('Quarterly')).toBeInTheDocument()
     expect(within(gymRow).getByText('Monthly')).toBeInTheDocument()
 
     expect(within(carRow).getByText(formatDate(carInsurance.nextDueOn))).toBeInTheDocument()
@@ -326,8 +317,6 @@ describe('recurring bills page', () => {
         name: 'Water',
         amount: 80,
         frequency: 'monthly',
-        customIntervalValue: undefined,
-        customIntervalUnit: undefined,
         nextDueOn: '2026-09-15',
         categoryId: undefined,
       })
@@ -335,18 +324,15 @@ describe('recurring bills page', () => {
     expect(listUpcomingRecurringBills).toHaveBeenCalledTimes(2)
   })
 
-  it('adds a custom-frequency bill with an interval value and unit', async () => {
+  it('adds a quarterly bill', async () => {
     setDefaultMocks()
     vi.mocked(createRecurringBill).mockResolvedValue(pestControl)
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
     await user.type(await screen.findByPlaceholderText('e.g. Netflix'), 'Termite Check')
-    await user.selectOptions(screen.getByLabelText('Frequency'), 'custom')
-    const spinbuttons = screen.getAllByRole('spinbutton')
-    await user.type(spinbuttons[0]!, '150')
-    await user.type(screen.getByLabelText('Every'), '4')
-    await user.selectOptions(screen.getByLabelText('Unit'), 'weeks')
+    await user.selectOptions(screen.getByLabelText('Frequency'), 'quarterly')
+    await user.type(screen.getAllByRole('spinbutton')[0]!, '150')
     await fireEvent.input(screen.getByLabelText('Next due'), { target: { value: '2026-10-01' } })
     await user.selectOptions(screen.getByLabelText('Category'), 'Insurance')
     await user.click(screen.getByRole('button', { name: 'Add bill' }))
@@ -355,9 +341,7 @@ describe('recurring bills page', () => {
       expect(createRecurringBill).toHaveBeenCalledWith({
         name: 'Termite Check',
         amount: 150,
-        frequency: 'custom',
-        customIntervalValue: 4,
-        customIntervalUnit: 'weeks',
+        frequency: 'quarterly',
         nextDueOn: '2026-10-01',
         categoryId: 1,
       })
@@ -397,15 +381,13 @@ describe('recurring bills page', () => {
         name: 'Car Insurance 2',
         amount: 600,
         frequency: 'annual',
-        customIntervalValue: undefined,
-        customIntervalUnit: undefined,
         nextDueOn: '2026-08-01',
       })
     )
     expect(listUpcomingRecurringBills).toHaveBeenCalledTimes(2)
   })
 
-  it('switches an edited bill to a custom frequency and shows the interval inputs', async () => {
+  it('switches an edited bill to a different frequency', async () => {
     setDefaultMocks()
     vi.mocked(updateRecurringBill).mockResolvedValue(pestControl)
     const user = userEvent.setup()
@@ -416,13 +398,7 @@ describe('recurring bills page', () => {
 
     const row = screen.getByDisplayValue('Car Insurance').closest('tr')!
     const frequencySelect = within(row).getAllByRole('combobox')[1]!
-    await user.selectOptions(frequencySelect, 'custom')
-
-    const intervalInputs = within(row).getAllByRole('spinbutton')
-    await user.clear(intervalInputs[1]!)
-    await user.type(intervalInputs[1]!, '6')
-    const unitSelect = within(row).getAllByRole('combobox')[2]!
-    await user.selectOptions(unitSelect, 'days')
+    await user.selectOptions(frequencySelect, 'quarterly')
 
     await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
@@ -430,9 +406,7 @@ describe('recurring bills page', () => {
       expect(updateRecurringBill).toHaveBeenCalledWith(1, {
         name: 'Car Insurance',
         amount: 600,
-        frequency: 'custom',
-        customIntervalValue: 6,
-        customIntervalUnit: 'days',
+        frequency: 'quarterly',
         nextDueOn: '2026-08-01',
       })
     )

@@ -62,13 +62,13 @@ test.group('StandardMonths / show', () => {
       amount: 45.99,
       frequency: 'monthly',
       dueDay: 15,
-      nextDueOn: DateTime.fromISO('2026-02-15'),
     })
-    await RecurringBill.create({
+    const costco = await RecurringBill.create({
       name: 'Costco Membership',
       amount: 65,
       frequency: 'annual',
-      nextDueOn: DateTime.fromISO('2026-01-31'),
+      dueDay: 15,
+      dueMonth: 2,
     })
 
     const netflix = await UserSubscription.create({
@@ -117,13 +117,18 @@ test.group('StandardMonths / show', () => {
       body.expenses.lines.map((l: { key: string }) => l.key),
       'recurring-bills-avg'
     )
-    assert.equal(body.expenses.amortizedBills.total, 5.42)
-    const costcoAmortized = body.expenses.amortizedBills.items.find(
-      (i: { label: string }) => i.label === 'Costco Membership'
+
+    const costcoLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `recurring-bill-${costco.id}`
     )
-    assert.equal(costcoAmortized.amount, 65)
-    assert.equal(costcoAmortized.frequency, 'annual')
-    assert.equal(costcoAmortized.monthlyShare, 5.42)
+    // A non-monthly bill shows up in its due month at its full,
+    // non-amortized amount, suffixed "(Bill)" to distinguish it from a
+    // monthly recurring bill.
+    assert.equal(costcoLine.label, 'Costco Membership (Bill)')
+    assert.equal(costcoLine.projected, 65)
+    assert.equal(costcoLine.actual, 65)
+    // Same past-month default as Kayo above.
+    assert.equal(costcoLine.paid, true)
 
     const subscriptionLine = body.expenses.lines.find(
       (l: { key: string }) => l.key === `subscription-${netflix.id}`
@@ -143,11 +148,11 @@ test.group('StandardMonths / show', () => {
     // past-month-defaults-to-paid rule as Kayo and Netflix above.
     assert.equal(groceriesLine.paid, true)
 
-    assert.equal(body.expenses.projectedTotal, 774.4)
-    assert.equal(body.expenses.actualTotal, 788.98)
+    assert.equal(body.expenses.projectedTotal, 833.98)
+    assert.equal(body.expenses.actualTotal, 853.98)
 
-    assert.equal(body.projectedNet, 5225.6)
-    assert.equal(body.actualNet, 5411.02)
+    assert.equal(body.projectedNet, 5166.02)
+    assert.equal(body.actualNet, 5346.02)
   })
 
   test('a category with no actuals and no budget is omitted entirely', async ({
@@ -212,22 +217,88 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Bike Insurance')
   })
 
-  test('amortizes a custom-frequency recurring bill and shows a null actual for a budgeted category with no actuals this month', async ({
+  test('a quarterly recurring bill only appears in its actual due month, at its full non-amortized amount', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
 
-    // Fortnightly (every 2 weeks): 26 periods/year, amortized to a monthly figure.
-    await RecurringBill.create({
+    const cleaner = await RecurringBill.create({
       name: 'Cleaner',
-      amount: 60,
-      frequency: 'custom',
-      customIntervalValue: 2,
-      customIntervalUnit: 'weeks',
-      nextDueOn: DateTime.fromISO('2026-02-01'),
+      amount: 180,
+      frequency: 'quarterly',
+      dueDay: 1,
+      dueMonth: 2,
     })
 
+    const dueMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 2 })
+      .loginAs(brian)
+    const dueLine = dueMonth
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
+    assert.equal(dueLine.label, 'Cleaner (Bill)')
+    assert.equal(dueLine.projected, 180)
+    assert.equal(dueLine.actual, 180)
+
+    // 2026-03 isn't a multiple of 3 months from the Feb anchor - not a due
+    // month, so no line at all rather than a fractional amortized figure.
+    const notDueMonth = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+    const notDueLine = notDueMonth
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
+    assert.isUndefined(notDueLine)
+  })
+
+  test("a recurring bill's actual mirrors its configured amount unless a RecurringBillPayment overrides it", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const councilRates = await RecurringBill.create({
+      name: 'Council Rates',
+      amount: 2689.3,
+      frequency: 'annual',
+      dueDay: 30,
+      dueMonth: 9,
+    })
+
+    const withoutOverride = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 9 })
+      .loginAs(brian)
+    const lineWithoutOverride = withoutOverride
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${councilRates.id}`)
+    assert.equal(lineWithoutOverride.actual, 2689.3)
+
+    await RecurringBillPayment.create({
+      recurringBillId: councilRates.id,
+      year: 2026,
+      month: 9,
+      amount: 2750.15,
+      paid: false,
+    })
+
+    const withOverride = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 9 })
+      .loginAs(brian)
+    const lineWithOverride = withOverride
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${councilRates.id}`)
+    assert.equal(lineWithOverride.actual, 2750.15)
+  })
+
+  test('a category with a budget but no actuals this month projects the budget with a null actual', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
     const household = await Category.findByOrFail('name', 'Household')
     household.budgetAmount = 200
     await household.save()
@@ -237,19 +308,9 @@ test.group('StandardMonths / show', () => {
       .qs({ year: 2026, month: 2 })
       .loginAs(brian)
 
-    response.assertStatus(200)
-    const body = response.body()
-
-    // 60 * (52/2) periods/year / 12 months = 130/mo, rounded to 2dp.
-    assert.equal(body.expenses.amortizedBills.total, 130)
-    const cleanerAmortized = body.expenses.amortizedBills.items.find(
-      (i: { label: string }) => i.label === 'Cleaner'
-    )
-    assert.equal(cleanerAmortized.monthlyShare, 130)
-
-    const householdLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === `category-${household.id}`
-    )
+    const householdLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `category-${household.id}`)
     assert.equal(householdLine.projected, 200)
     assert.isNull(householdLine.actual)
   })

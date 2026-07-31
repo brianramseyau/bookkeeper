@@ -1,7 +1,6 @@
 import { api } from '$lib/api'
 
-export type RecurringBillFrequency = 'monthly' | 'quarterly' | 'biannual' | 'annual' | 'custom'
-export type RecurringBillCustomIntervalUnit = 'days' | 'weeks' | 'months'
+export type RecurringBillFrequency = 'monthly' | 'quarterly' | 'biannual' | 'annual'
 
 export interface RecurringBill {
   id: number
@@ -9,12 +8,8 @@ export interface RecurringBill {
   categoryId: number | null
   amount: number
   frequency: RecurringBillFrequency
-  customIntervalValue: number | null
-  customIntervalUnit: RecurringBillCustomIntervalUnit | null
   dueDay: number | null
   dueMonth: number | null
-  dueYear: number | null
-  nextDueOn: string | null
   isActive: boolean
   isPaused: boolean
   isArchived: boolean
@@ -24,6 +19,8 @@ export interface RecurringBill {
 }
 
 export interface UpcomingRecurringBill extends RecurringBill {
+  /** Computed from dueDay/dueMonth at request time - the next occurrence on or after today. */
+  nextDueOn: string | null
   daysUntilDue: number | null
   dueSoon: boolean
 }
@@ -34,6 +31,7 @@ export interface RecurringBillPayment {
   year: number
   month: number
   paid: boolean
+  amount: number | null
   createdAt: string
   updatedAt: string
 }
@@ -43,8 +41,7 @@ export interface RecurringBillInput {
   categoryId?: number | null
   amount: number
   frequency: RecurringBillFrequency
-  customIntervalValue?: number
-  customIntervalUnit?: RecurringBillCustomIntervalUnit
+  /** A one-off anchor date - only its day/month are kept, repeating indefinitely from there. */
   nextDueOn: string
   notes?: string | null
   isActive?: boolean
@@ -73,10 +70,11 @@ export function upsertRecurringBillPayment(
   recurringBillId: number,
   year: number,
   month: number,
-  paid: boolean
+  paid?: boolean,
+  amount?: number
 ) {
   return api.put<RecurringBillPayment>(
     `/recurring-bills/${recurringBillId}/payments/${year}/${month}`,
-    { paid }
+    { paid, amount }
   )
 }

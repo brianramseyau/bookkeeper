@@ -9,6 +9,7 @@ export default class RecurringBillPaymentTransformer extends BaseTransformer<Rec
       'year',
       'month',
       'paid',
+      'amount',
       'createdAt',
       'updatedAt',
     ])

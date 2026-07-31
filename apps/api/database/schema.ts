@@ -337,6 +337,7 @@ export class PushSubscriptionSchema extends BaseModel {
 
 export class RecurringBillPaymentSchema extends BaseModel {
   static $columns = [
+    'amount',
     'createdAt',
     'id',
     'month',
@@ -346,6 +347,8 @@ export class RecurringBillPaymentSchema extends BaseModel {
     'year',
   ] as const
   $columns = RecurringBillPaymentSchema.$columns
+  @column()
+  declare amount: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })
@@ -367,18 +370,14 @@ export class RecurringBillSchema extends BaseModel {
     'amount',
     'categoryId',
     'createdAt',
-    'customIntervalUnit',
-    'customIntervalValue',
     'dueDay',
     'dueMonth',
-    'dueYear',
     'frequency',
     'id',
     'isActive',
     'isArchived',
     'isPaused',
     'name',
-    'nextDueOn',
     'notes',
     'updatedAt',
   ] as const
@@ -390,15 +389,9 @@ export class RecurringBillSchema extends BaseModel {
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
-  declare customIntervalUnit: string | null
-  @column()
-  declare customIntervalValue: number | null
-  @column()
   declare dueDay: number | null
   @column()
   declare dueMonth: number | null
-  @column()
-  declare dueYear: number | null
   @column()
   declare frequency: string
   @column({ isPrimary: true })
@@ -411,8 +404,6 @@ export class RecurringBillSchema extends BaseModel {
   declare isPaused: boolean
   @column()
   declare name: string
-  @column.date()
-  declare nextDueOn: DateTime | null
   @column()
   declare notes: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })

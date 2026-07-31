@@ -302,7 +302,6 @@ export default class DemoSeed extends BaseCommand {
           amount: 19.99,
           frequency: 'monthly',
           dueDay: 5,
-          nextDueOn: upcomingDueDate(0, 5),
         },
         { client: trx }
       )
@@ -313,7 +312,6 @@ export default class DemoSeed extends BaseCommand {
           amount: 210.5,
           frequency: 'monthly',
           dueDay: 10,
-          nextDueOn: upcomingDueDate(0, 10),
         },
         { client: trx }
       )
@@ -324,7 +322,6 @@ export default class DemoSeed extends BaseCommand {
           amount: 850,
           frequency: 'monthly',
           dueDay: 1,
-          nextDueOn: upcomingDueDate(0, 1),
         },
         { client: trx }
       )
@@ -337,8 +334,6 @@ export default class DemoSeed extends BaseCommand {
           frequency: 'quarterly',
           dueDay: pestControlDue.day,
           dueMonth: pestControlDue.month,
-          dueYear: pestControlDue.year,
-          nextDueOn: pestControlDue,
         },
         { client: trx }
       )
@@ -351,8 +346,6 @@ export default class DemoSeed extends BaseCommand {
           frequency: 'annual',
           dueDay: contentsInsuranceDue.day,
           dueMonth: contentsInsuranceDue.month,
-          dueYear: contentsInsuranceDue.year,
-          nextDueOn: contentsInsuranceDue,
         },
         { client: trx }
       )
@@ -365,8 +358,6 @@ export default class DemoSeed extends BaseCommand {
           frequency: 'annual',
           dueDay: carRegoDue.day,
           dueMonth: carRegoDue.month,
-          dueYear: carRegoDue.year,
-          nextDueOn: carRegoDue,
         },
         { client: trx }
       )

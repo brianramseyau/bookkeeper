@@ -17,7 +17,6 @@ test.group('RecurringBills / index', () => {
       frequency: 'annual',
       dueDay: 15,
       dueMonth: 6,
-      nextDueOn: DateTime.fromISO('2026-06-15'),
     })
     await RecurringBill.create({
       name: 'Costco Membership',
@@ -25,7 +24,6 @@ test.group('RecurringBills / index', () => {
       frequency: 'annual',
       dueDay: 31,
       dueMonth: 1,
-      nextDueOn: DateTime.fromISO('2026-01-31'),
     })
 
     const response = await client.get('/api/recurring-bills').loginAs(brian)
@@ -78,7 +76,7 @@ test.group('RecurringBills / index', () => {
 })
 
 test.group('RecurringBills / store', () => {
-  test('derives dueDay/dueMonth/dueYear from nextDueOn', async ({ client, assert }) => {
+  test('derives dueDay/dueMonth from nextDueOn', async ({ client, assert }) => {
     const brian = await loginAsBrian()
 
     const response = await client.post('/api/recurring-bills').withCsrfToken().loginAs(brian).json({
@@ -91,10 +89,10 @@ test.group('RecurringBills / store', () => {
     response.assertStatus(201)
     assert.equal(response.body().data.dueDay, 31)
     assert.equal(response.body().data.dueMonth, 1)
-    assert.equal(response.body().data.dueYear, 2026)
+    assert.notProperty(response.body().data, 'nextDueOn')
   })
 
-  test('rejects a custom frequency without its interval fields', async ({ client }) => {
+  test('rejects a "custom" frequency - no longer supported', async ({ client }) => {
     const brian = await loginAsBrian()
 
     const response = await client
@@ -108,7 +106,7 @@ test.group('RecurringBills / store', () => {
 })
 
 test.group('RecurringBills / update', () => {
-  test('re-derives dueDay/dueMonth/dueYear when nextDueOn changes', async ({ client, assert }) => {
+  test('re-derives dueDay/dueMonth when nextDueOn changes', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     const bill = await RecurringBill.create({
       name: 'Costco Membership',
@@ -116,7 +114,6 @@ test.group('RecurringBills / update', () => {
       frequency: 'annual',
       dueDay: 31,
       dueMonth: 1,
-      nextDueOn: DateTime.fromISO('2026-01-31'),
     })
 
     const response = await client
@@ -128,10 +125,9 @@ test.group('RecurringBills / update', () => {
     response.assertStatus(200)
     assert.equal(response.body().data.dueDay, 28)
     assert.equal(response.body().data.dueMonth, 2)
-    assert.equal(response.body().data.dueYear, 2027)
   })
 
-  test('leaves dueDay/dueMonth/dueYear untouched when nextDueOn is not provided', async ({
+  test('leaves dueDay/dueMonth untouched when nextDueOn is not provided', async ({
     client,
     assert,
   }) => {
@@ -142,7 +138,6 @@ test.group('RecurringBills / update', () => {
       frequency: 'annual',
       dueDay: 31,
       dueMonth: 1,
-      nextDueOn: DateTime.fromISO('2026-01-31'),
     })
 
     const response = await client
@@ -181,7 +176,8 @@ test.group('RecurringBills / destroy', () => {
       name: 'Costco Membership',
       amount: 65,
       frequency: 'annual',
-      nextDueOn: DateTime.fromISO('2026-01-31'),
+      dueDay: 31,
+      dueMonth: 1,
     })
 
     const response = await client
@@ -202,7 +198,8 @@ test.group('RecurringBills / destroy', () => {
       name: 'Costco Membership',
       amount: 65,
       frequency: 'annual',
-      nextDueOn: DateTime.fromISO('2026-01-31'),
+      dueDay: 31,
+      dueMonth: 1,
     })
     bill.isArchived = true
     await bill.save()
@@ -242,7 +239,32 @@ test.group('RecurringBills / upsertPayment', () => {
 
     response.assertStatus(200)
     assert.isTrue(response.body().data.paid)
+    assert.isNull(response.body().data.amount)
     assert.equal(response.body().data.recurringBillId, bill.id)
+  })
+
+  test('creates a payment row with an explicit amount override, defaulting paid to false', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Council Rates',
+      amount: 2689.3,
+      frequency: 'annual',
+      dueDay: 30,
+      dueMonth: 9,
+    })
+
+    const response = await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/9`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 2750.15 })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.amount, 2750.15)
+    assert.isFalse(response.body().data.paid)
   })
 
   test('updates the existing payment row for that month rather than duplicating it', async ({
@@ -272,6 +294,67 @@ test.group('RecurringBills / upsertPayment', () => {
     assert.isFalse(response.body().data.paid)
     const payments = await RecurringBillPayment.query().where('recurringBillId', bill.id)
     assert.lengthOf(payments, 1)
+  })
+
+  test('updating paid alone does not clear a previously saved amount override', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Council Rates',
+      amount: 2689.3,
+      frequency: 'annual',
+      dueDay: 30,
+      dueMonth: 9,
+    })
+    await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/9`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 2750.15 })
+
+    const response = await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/9`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+    assert.equal(response.body().data.amount, 2750.15)
+  })
+
+  test('updating amount alone does not clear a previously saved paid flag', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    const response = await client
+      .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 50 })
+
+    response.assertStatus(200)
+    // Loose equal, not isTrue: this value came back through a fresh DB
+    // re-query inside the controller, and SQLite has no native boolean type
+    // - Lucid returns it as 1/0 for a row read this way rather than a
+    // genuine JS boolean (see the equivalent utility_bills.spec.ts case).
+    assert.equal(response.body().data.paid, true)
+    assert.equal(response.body().data.amount, 50)
   })
 
   test('returns 404 for a non-existent recurring bill', async ({ client }) => {
@@ -309,29 +392,33 @@ test.group('RecurringBills / upcoming', () => {
   test('flags bills due within 30 days and sorts soonest-first', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     const today = DateTime.utc().startOf('day')
+    const in60Days = today.plus({ days: 60 })
+    const in10Days = today.plus({ days: 10 })
     await RecurringBill.create({
       name: 'Due in 60 days',
       amount: 10,
       frequency: 'annual',
-      nextDueOn: today.plus({ days: 60 }),
+      dueDay: in60Days.day,
+      dueMonth: in60Days.month,
     })
     await RecurringBill.create({
       name: 'Due in 10 days',
       amount: 10,
       frequency: 'annual',
-      nextDueOn: today.plus({ days: 10 }),
+      dueDay: in10Days.day,
+      dueMonth: in10Days.month,
     })
     await RecurringBill.create({
       name: 'No next due date',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: null,
+      dueDay: null,
     })
     await RecurringBill.create({
       name: 'Also no next due date',
       amount: 10,
       frequency: 'monthly',
-      nextDueOn: null,
+      dueDay: null,
     })
 
     const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
@@ -346,60 +433,53 @@ test.group('RecurringBills / upcoming', () => {
     assert.isNull(response.body().data[3].daysUntilDue)
   })
 
-  test('rolls a stale nextDueOn forward by frequency instead of showing it as ever more overdue', async ({
+  test("an annual bill's due month/day repeats indefinitely, independent of year", async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
     const today = DateTime.utc().startOf('day')
-    const carStart = today.minus({ years: 1, days: 10 })
-    const streamingStart = today.minus({ months: 2, days: 3 })
-    const pestStart = today.minus({ months: 4 })
+    // A month that has already passed this year rolls to next year, not
+    // "overdue forever" - the stored day/month has no year of its own.
+    const alreadyPassed = today.minus({ months: 2 })
     await RecurringBill.create({
       name: 'Car Insurance',
       amount: 600,
       frequency: 'annual',
-      nextDueOn: carStart,
-    })
-    await RecurringBill.create({
-      name: 'Streaming',
-      amount: 15,
-      frequency: 'monthly',
-      nextDueOn: streamingStart,
-    })
-    await RecurringBill.create({
-      name: 'Pest Control',
-      amount: 120,
-      frequency: 'custom',
-      customIntervalValue: 3,
-      customIntervalUnit: 'months',
-      nextDueOn: pestStart,
+      dueDay: alreadyPassed.day,
+      dueMonth: alreadyPassed.month,
     })
 
     const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
 
     response.assertStatus(200)
-    const byName = new Map<string, { daysUntilDue: number; nextDueOn: string }>(
-      response
-        .body()
-        .data.map((b: { name: string; daysUntilDue: number; nextDueOn: string }) => [b.name, b])
-    )
-
-    // Each bill's raw stored date is well in the past; the API should roll
-    // it forward - by whole periods of the bill's own frequency - to the
-    // next occurrence on or after today, not just report it as overdue.
-    const car = byName.get('Car Insurance')!
+    const car = response.body().data[0]
+    assert.equal(car.name, 'Car Insurance')
     assert.isAtLeast(car.daysUntilDue, 0)
     assert.isTrue(DateTime.fromISO(car.nextDueOn) >= today)
-    assert.isTrue(DateTime.fromISO(car.nextDueOn) < carStart.plus({ years: 3 }))
+  })
 
-    const streaming = byName.get('Streaming')!
+  test('a monthly bill rolls forward to next month once past its due day', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.utc().startOf('day')
+    const yesterday = today.minus({ days: 1 })
+    await RecurringBill.create({
+      name: 'Streaming',
+      amount: 15,
+      frequency: 'monthly',
+      dueDay: yesterday.day,
+    })
+
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+
+    response.assertStatus(200)
+    const streaming = response.body().data[0]
+    assert.equal(streaming.name, 'Streaming')
     assert.isAtLeast(streaming.daysUntilDue, 0)
     assert.isBelow(streaming.daysUntilDue, 31)
-
-    const pest = byName.get('Pest Control')!
-    assert.isAtLeast(pest.daysUntilDue, 0)
-    assert.isBelow(pest.daysUntilDue, 92)
   })
 
   test('excludes inactive bills', async ({ client, assert }) => {
@@ -408,7 +488,8 @@ test.group('RecurringBills / upcoming', () => {
       name: 'Cancelled thing',
       amount: 10,
       frequency: 'annual',
-      nextDueOn: DateTime.utc().plus({ days: 5 }),
+      dueDay: 15,
+      dueMonth: DateTime.utc().month,
     })
     bill.isActive = false
     await bill.save()
@@ -427,7 +508,7 @@ test.group('RecurringBills / upcoming', () => {
       name: 'Kayo',
       amount: 45.99,
       frequency: 'monthly',
-      nextDueOn: DateTime.utc().plus({ days: 5 }),
+      dueDay: 15,
     })
     paused.isPaused = true
     await paused.save()
@@ -435,7 +516,8 @@ test.group('RecurringBills / upcoming', () => {
       name: 'Nintendo',
       amount: 29.95,
       frequency: 'annual',
-      nextDueOn: DateTime.utc().plus({ days: 5 }),
+      dueDay: 15,
+      dueMonth: DateTime.utc().month,
     })
     archived.isArchived = true
     await archived.save()
