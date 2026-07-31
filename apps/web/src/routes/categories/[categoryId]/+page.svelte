@@ -26,7 +26,7 @@
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
-  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
+  import { mdiPencil, mdiCloseThick, mdiContentSave, mdiDelete } from '@mdi/js'
 
   const categoryId = Number(page.params.categoryId)
 
@@ -336,7 +336,7 @@
                 <IconActionButton
                   variant="cancel"
                   label="Cancel editing {item.name}"
-                  path={mdiClose}
+                  path={mdiCloseThick}
                   onclick={cancelEditItem}
                 />
               </td>
@@ -472,7 +472,7 @@
                 <IconActionButton
                   variant="cancel"
                   label="Cancel editing entry from {formatDate(actual.occurredOn)}"
-                  path={mdiClose}
+                  path={mdiCloseThick}
                   onclick={cancelEdit}
                 />
               </td>

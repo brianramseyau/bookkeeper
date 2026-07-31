@@ -21,7 +21,7 @@
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import {
     mdiPencil,
-    mdiClose,
+    mdiCloseThick,
     mdiContentSave,
     mdiPause,
     mdiPlay,
@@ -315,7 +315,7 @@
       <IconActionButton
         variant="cancel"
         label="Cancel editing {bill.name}"
-        path={mdiClose}
+        path={mdiCloseThick}
         onclick={cancelEdit}
       />
     </td>

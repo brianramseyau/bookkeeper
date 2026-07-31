@@ -34,7 +34,7 @@
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
-  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
+  import { mdiPencil, mdiCloseThick, mdiContentSave, mdiDelete } from '@mdi/js'
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
@@ -703,7 +703,7 @@
                   <IconActionButton
                     variant="cancel"
                     label="Cancel editing {source.name}"
-                    path={mdiClose}
+                    path={mdiCloseThick}
                     onclick={cancelEdit}
                   />
                 </td>
@@ -1143,7 +1143,7 @@
                     <IconActionButton
                       variant="cancel"
                       label="Cancel editing entry from {formatDate(item.receivedOn)}"
-                      path={mdiClose}
+                      path={mdiCloseThick}
                       onclick={cancelEditItem}
                     />
                   </td>

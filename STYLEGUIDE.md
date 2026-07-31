@@ -84,7 +84,7 @@ and read the same on desktop and mobile.
   | --------- | ---------------- | --------- |
   | Edit      | `mdiPencil`      | `neutral` |
   | Save      | `mdiContentSave` | `primary` |
-  | Cancel    | `mdiClose`       | `cancel`  |
+  | Cancel    | `mdiCloseThick`  | `cancel`  |
   | Pause     | `mdiPause`       | `amber`   |
   | Unpause   | `mdiPlay`        | `success` |
   | Archive   | `mdiArchive`     | `muted`   |
@@ -93,7 +93,7 @@ and read the same on desktop and mobile.
   | Restore   | `mdiRestore`     | `success` |
   | Accept    | `mdiCheckBold`   | `success` |
 
-  "Cancel" renders an X-mark shape (`mdiClose`) rather than MDI's own
+  "Cancel" renders an X-mark shape (`mdiCloseThick`) rather than MDI's own
   `mdi-cancel` glyph (a prohibition/circle-slash icon) — X-mark is what's
   actually meant, and matches the × this app already used elsewhere for
   "close/cancel".

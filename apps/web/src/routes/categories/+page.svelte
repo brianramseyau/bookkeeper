@@ -20,7 +20,7 @@
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
   import {
     mdiPencil,
-    mdiClose,
+    mdiCloseThick,
     mdiContentSave,
     mdiPause,
     mdiPlay,
@@ -281,7 +281,7 @@
       <IconActionButton
         variant="cancel"
         label="Cancel editing {category.name}"
-        path={mdiClose}
+        path={mdiCloseThick}
         onclick={cancelEdit}
       />
     </td>

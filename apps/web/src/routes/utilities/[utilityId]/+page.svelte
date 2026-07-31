@@ -27,7 +27,7 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
-  import { mdiPencil, mdiClose, mdiContentSave, mdiDelete } from '@mdi/js'
+  import { mdiPencil, mdiCloseThick, mdiContentSave, mdiDelete } from '@mdi/js'
 
   function focusOnMount(node: HTMLElement) {
     node.focus()
@@ -345,7 +345,7 @@
         <IconActionButton
           variant="cancel"
           label="Cancel editing {utility.name} settings"
-          path={mdiClose}
+          path={mdiCloseThick}
           onclick={cancelEditSettings}
         />
       </div>

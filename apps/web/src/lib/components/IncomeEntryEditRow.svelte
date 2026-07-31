@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack, type Snippet } from 'svelte'
   import IconActionButton from './IconActionButton.svelte'
-  import { mdiContentSave, mdiClose } from '@mdi/js'
+  import { mdiContentSave, mdiCloseThick } from '@mdi/js'
 
   export interface IncomeEntryEditUpdates {
     amount: number
@@ -89,7 +89,7 @@
     <IconActionButton
       variant="cancel"
       label="Cancel editing income entry"
-      path={mdiClose}
+      path={mdiCloseThick}
       onclick={onCancel}
     />
   </td>
