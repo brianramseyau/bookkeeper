@@ -40,6 +40,8 @@
   let reordering = $state(false)
 
   const activeCategories = $derived(categories.filter((c) => c.isActive && !c.isArchived))
+  const nonSystemActiveCategories = $derived(activeCategories.filter((c) => !c.isSystem))
+  const systemCategories = $derived(activeCategories.filter((c) => c.isSystem))
   const archivedCategories = $derived(categories.filter((c) => c.isActive && c.isArchived))
   const removedCategories = $derived(categories.filter((c) => !c.isActive))
 
@@ -155,15 +157,15 @@
     }
   }
 
-  async function moveCategory(index: number, direction: -1 | 1) {
+  async function moveCategory(list: Category[], index: number, direction: -1 | 1) {
     const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= activeCategories.length) return
+    if (targetIndex < 0 || targetIndex >= list.length) return
 
     reordering = true
     error = null
     try {
-      const current = activeCategories[index]!
-      const target = activeCategories[targetIndex]!
+      const current = list[index]!
+      const target = list[targetIndex]!
       await Promise.all([
         updateCategory(current.id, { sortOrder: target.sortOrder }),
         updateCategory(target.id, { sortOrder: current.sortOrder }),
@@ -257,7 +259,7 @@
         </tr>
       </thead>
       <tbody>
-        {#each activeCategories as category, index (category.id)}
+        {#each nonSystemActiveCategories as category, index (category.id)}
           {#if editingId === category.id}
             {@render editRow(category)}
           {:else}
@@ -269,9 +271,6 @@
                     style="background-color: {category.color ?? '#94a3b8'}"
                   ></span>
                   {category.name}
-                  {#if category.isSystem}
-                    <StatusBadge label="System" tone="slate" />
-                  {/if}
                 </span>
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
@@ -281,19 +280,17 @@
                   path={mdiPencil}
                   onclick={() => startEdit(category)}
                 />
-                {#if !category.isSystem}
-                  <IconActionButton
-                    variant="muted"
-                    label="Archive {category.name}"
-                    path={mdiArchive}
-                    onclick={() => handleArchive(category)}
-                  />
-                {/if}
+                <IconActionButton
+                  variant="muted"
+                  label="Archive {category.name}"
+                  path={mdiArchive}
+                  onclick={() => handleArchive(category)}
+                />
               </td>
               <td class="px-3 py-2 whitespace-nowrap">
                 <button
                   type="button"
-                  onclick={() => moveCategory(index, -1)}
+                  onclick={() => moveCategory(nonSystemActiveCategories, index, -1)}
                   disabled={index === 0 || reordering}
                   aria-label="Move {category.name} up"
                   class="text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
@@ -302,8 +299,8 @@
                 </button>
                 <button
                   type="button"
-                  onclick={() => moveCategory(index, 1)}
-                  disabled={index === activeCategories.length - 1 || reordering}
+                  onclick={() => moveCategory(nonSystemActiveCategories, index, 1)}
+                  disabled={index === nonSystemActiveCategories.length - 1 || reordering}
                   aria-label="Move {category.name} down"
                   class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
                 >
@@ -408,6 +405,66 @@
           {/if}
         {/if}
       </tbody>
+      {#if systemCategories.length > 0}
+        <thead>
+          <tr class="border-b border-slate-200 dark:border-slate-700">
+            <th
+              colspan="3"
+              class="px-3 py-1.5 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+            >
+              System categories
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each systemCategories as category, index (category.id)}
+            {#if editingId === category.id}
+              {@render editRow(category)}
+            {:else}
+              <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
+                <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+                  <span class="flex items-center gap-2">
+                    <span
+                      class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                      style="background-color: {category.color ?? '#94a3b8'}"
+                    ></span>
+                    {category.name}
+                    <StatusBadge label="System" tone="slate" />
+                  </span>
+                </td>
+                <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <IconActionButton
+                    variant="neutral"
+                    label="Edit {category.name}"
+                    path={mdiPencil}
+                    onclick={() => startEdit(category)}
+                  />
+                </td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <button
+                    type="button"
+                    onclick={() => moveCategory(systemCategories, index, -1)}
+                    disabled={index === 0 || reordering}
+                    aria-label="Move {category.name} up"
+                    class="text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => moveCategory(systemCategories, index, 1)}
+                    disabled={index === systemCategories.length - 1 || reordering}
+                    aria-label="Move {category.name} down"
+                    class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    ▼
+                  </button>
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        </tbody>
+      {/if}
     </table>
   </Card>
 
