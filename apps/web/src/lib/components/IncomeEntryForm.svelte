@@ -46,7 +46,7 @@
   // sources - showing every household member's sources in one list let you
   // attribute an entry to the wrong person's source with nothing to catch it.
   // Until a person is chosen there's nothing to scope the list to, so it's
-  // just "Unattributed".
+  // just "Other".
   const availableSources = $derived(
     allowUnattributed ? sources.filter((s) => s.userId === Number(userId)) : sources
   )
@@ -61,7 +61,7 @@
   }
 
   // Changing person invalidates whatever source was picked for the previous
-  // person - reset to Unattributed rather than silently keeping a now-hidden
+  // person - reset to Other rather than silently keeping a now-hidden
   // selection.
   function handlePersonChange() {
     sourceId = ''
@@ -102,10 +102,10 @@
     <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
     <select
       bind:value={sourceId}
-      class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      class="min-w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     >
       {#if allowUnattributed}
-        <option value="">Unattributed</option>
+        <option value="">Other</option>
       {/if}
       {#each availableSources as source (source.id)}
         <option value={source.id}>{source.name}</option>

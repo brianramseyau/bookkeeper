@@ -62,13 +62,13 @@ describe('IncomeEntryForm', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ incomeSourceId: 1 }))
   })
 
-  it('does not show an Unattributed option when allowUnattributed is false', () => {
+  it('does not show an Other option when allowUnattributed is false', () => {
     const { queryByText } = render(IncomeEntryForm, {
       sources,
       submitting: false,
       onSubmit: vi.fn(),
     })
-    expect(queryByText('Unattributed')).toBeNull()
+    expect(queryByText('Other')).toBeNull()
   })
 
   it('submits the source-attributed values on submit', async () => {
@@ -106,7 +106,7 @@ describe('IncomeEntryForm', () => {
     expect(amountInput.value).toBe('250')
   })
 
-  it('shows an Unattributed option and defaults to showing person/tax fields', () => {
+  it('shows an Other option and defaults to showing person/tax fields', () => {
     const { getByText } = render(IncomeEntryForm, {
       sources,
       users,
@@ -114,7 +114,7 @@ describe('IncomeEntryForm', () => {
       submitting: false,
       onSubmit: vi.fn(),
     })
-    expect(getByText('Unattributed')).toBeInTheDocument()
+    expect(getByText('Other')).toBeInTheDocument()
     expect(getByText('Person')).toBeInTheDocument()
     expect(getByText('Tax withheld')).toBeInTheDocument()
   })
@@ -134,7 +134,7 @@ describe('IncomeEntryForm', () => {
     expect(queryByText('Person')).not.toBeNull()
   })
 
-  it('only offers Unattributed as a source until a person is selected', () => {
+  it('only offers Other as a source until a person is selected', () => {
     const { getByText, queryByText } = render(IncomeEntryForm, {
       sources: multiUserSources,
       users: multiUsers,
@@ -142,7 +142,7 @@ describe('IncomeEntryForm', () => {
       submitting: false,
       onSubmit: vi.fn(),
     })
-    expect(getByText('Unattributed')).toBeInTheDocument()
+    expect(getByText('Other')).toBeInTheDocument()
     expect(queryByText('Salary')).toBeNull()
     expect(queryByText('Freelance')).toBeNull()
   })

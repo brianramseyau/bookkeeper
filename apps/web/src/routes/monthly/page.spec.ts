@@ -517,7 +517,7 @@ describe('month page', () => {
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
     expect(
-      await screen.findByText('A person is required for unattributed income')
+      await screen.findByText('A person is required for other income')
     ).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
   })

@@ -180,7 +180,7 @@
       return false
     }
     if (values.incomeSourceId === null && values.userId === null) {
-      error = 'A person is required for unattributed income'
+      error = 'A person is required for other income'
       return false
     }
     loggingEntry = true
@@ -232,7 +232,7 @@
       return
     }
     if (entry.incomeSourceId === null && editEntryUserId === '') {
-      error = 'A person is required for unattributed income'
+      error = 'A person is required for other income'
       return
     }
     savingEntryEdit = true
