@@ -7,9 +7,10 @@ import hash from '@adonisjs/core/services/hash'
 import env from '#start/env'
 import User from '#models/user'
 import Category from '#models/category'
-import CategoryBudgetItem from '#models/category_budget_item'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
-import CategoryPayment from '#models/category_payment'
+import Expense from '#models/expense'
+import ExpenseBudgetItem from '#models/expense_budget_item'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
@@ -119,7 +120,10 @@ export default class DemoSeed extends BaseCommand {
 
     const existingRows = await Promise.all([
       User.query().first(),
-      Category.query().first(),
+      // Not Category - migrations always create the protected "Utilities"
+      // system category, so it's never empty even on a freshly-migrated DB
+      // and would make this check refuse to run unconditionally.
+      Expense.query().first(),
       Utility.query().first(),
       RecurringBill.query().first(),
       UserSubscription.query().first(),
@@ -150,50 +154,51 @@ export default class DemoSeed extends BaseCommand {
       const jordan = await insertDemoUser(trx, jordanRow!)
       const taylor = await insertDemoUser(trx, taylorRow!)
 
-      const groceries = await Category.create(
-        { name: 'Groceries', color: '#22c55e' },
-        { client: trx }
-      )
-      const household = await Category.create(
-        { name: 'Household', color: '#f59e0b' },
-        { client: trx }
-      )
-      const utilitiesCategory = await Category.create(
-        { name: 'Utilities', color: '#0ea5e9' },
-        { client: trx }
-      )
+      // Lean Category tags - "Utilities" already exists by the time this
+      // runs (migrations always create the protected system category), so
+      // it's looked up rather than created.
+      const utilitiesCategory = await Category.findByOrFail('name', 'Utilities')
       const subscriptionsCategory = await Category.create(
         { name: 'Subscriptions', color: '#a855f7' },
         { client: trx }
       )
-      await Category.create({ name: 'Fees', color: '#64748b', budgetAmount: 25 }, { client: trx })
-      const transport = await Category.create(
-        { name: 'Transport', color: '#3b82f6' },
-        { client: trx }
-      )
-      const clothing = await Category.create(
-        { name: 'Clothing', color: '#f43f5e' },
-        { client: trx }
-      )
-      const childcare = await Category.create(
-        { name: 'Childcare', color: '#14b8a6' },
-        { client: trx }
-      )
-      const insurance = await Category.create(
+      const insuranceCategory = await Category.create(
         { name: 'Insurance', color: '#8b5cf6' },
         { client: trx }
       )
-      const dog = await Category.create({ name: 'Dog', color: '#d97706' }, { client: trx })
+      const childcareCategory = await Category.create(
+        { name: 'Childcare', color: '#14b8a6' },
+        { client: trx }
+      )
 
-      // Two categories driven by a budget breakdown rather than logged
-      // actuals - shows off category budget items with nothing further to log.
+      // Expenses - the actual budget/trend/actuals-tracking entities, each
+      // independent of any category (Pest Control/Car Registration below
+      // are left uncategorized to also show that state in the demo).
+      const groceries = await Expense.create(
+        { name: 'Groceries', color: '#22c55e' },
+        { client: trx }
+      )
+      const household = await Expense.create(
+        { name: 'Household', color: '#f59e0b' },
+        { client: trx }
+      )
+      await Expense.create({ name: 'Fees', color: '#64748b', budgetAmount: 25 }, { client: trx })
+      const transport = await Expense.create(
+        { name: 'Transport', color: '#3b82f6' },
+        { client: trx }
+      )
+      const clothing = await Expense.create({ name: 'Clothing', color: '#f43f5e' }, { client: trx })
+      const dog = await Expense.create({ name: 'Dog', color: '#d97706' }, { client: trx })
+
+      // Two expenses driven by a budget breakdown rather than logged
+      // actuals - shows off expense budget items with nothing further to log.
       const householdItems = [
         { name: 'Cleaning Supplies', amount: 35 },
         { name: 'Home Maintenance Fund', amount: 150 },
       ]
       for (const item of householdItems) {
-        await CategoryBudgetItem.create(
-          { categoryId: household.id, name: item.name, amount: item.amount },
+        await ExpenseBudgetItem.create(
+          { expenseId: household.id, name: item.name, amount: item.amount },
           { client: trx }
         )
       }
@@ -205,8 +210,8 @@ export default class DemoSeed extends BaseCommand {
         { name: 'Vet Insurance', amount: 48 },
       ]
       for (const item of dogItems) {
-        await CategoryBudgetItem.create(
-          { categoryId: dog.id, name: item.name, amount: item.amount },
+        await ExpenseBudgetItem.create(
+          { expenseId: dog.id, name: item.name, amount: item.amount },
           { client: trx }
         )
       }
@@ -308,7 +313,7 @@ export default class DemoSeed extends BaseCommand {
       await RecurringBill.create(
         {
           name: 'Health Insurance',
-          categoryId: insurance.id,
+          categoryId: insuranceCategory.id,
           amount: 210.5,
           frequency: 'monthly',
           dueDay: 10,
@@ -318,18 +323,18 @@ export default class DemoSeed extends BaseCommand {
       await RecurringBill.create(
         {
           name: 'Childcare',
-          categoryId: childcare.id,
+          categoryId: childcareCategory.id,
           amount: 850,
           frequency: 'monthly',
           dueDay: 1,
         },
         { client: trx }
       )
+      // Left uncategorized, to show that state alongside the tagged bills.
       const pestControlDue = upcomingDueDate(2, 8)
       await RecurringBill.create(
         {
           name: 'Pest Control',
-          categoryId: household.id,
           amount: 150,
           frequency: 'quarterly',
           dueDay: pestControlDue.day,
@@ -341,7 +346,7 @@ export default class DemoSeed extends BaseCommand {
       await RecurringBill.create(
         {
           name: 'Home & Contents Insurance',
-          categoryId: insurance.id,
+          categoryId: insuranceCategory.id,
           amount: 620,
           frequency: 'annual',
           dueDay: contentsInsuranceDue.day,
@@ -353,7 +358,6 @@ export default class DemoSeed extends BaseCommand {
       await RecurringBill.create(
         {
           name: 'Car Registration',
-          categoryId: transport.id,
           amount: 780,
           frequency: 'annual',
           dueDay: carRegoDue.day,
@@ -416,7 +420,7 @@ export default class DemoSeed extends BaseCommand {
         { client: trx }
       )
 
-      // Category actuals - Groceries/Transport logged every month, Clothing
+      // Expense actuals - Groceries/Transport logged every month, Clothing
       // logged sparsely (a realistic "not every month" spend pattern).
       const groceriesAmounts = [652.3, 698.15, 671.9, 715.4, 683.25, 705.6]
       const transportAmounts = [165, 210.5, 188.75, 225, 172.4, 198.9]
@@ -427,17 +431,17 @@ export default class DemoSeed extends BaseCommand {
       ])
 
       for (const [index, { year, month }] of months.entries()) {
-        await CategoryMonthlyActual.create(
+        await ExpenseMonthlyActual.create(
           {
-            categoryId: groceries.id,
+            expenseId: groceries.id,
             occurredOn: DateTime.utc(year, month, 18),
             amount: groceriesAmounts[index]!,
           },
           { client: trx }
         )
-        await CategoryMonthlyActual.create(
+        await ExpenseMonthlyActual.create(
           {
-            categoryId: transport.id,
+            expenseId: transport.id,
             occurredOn: DateTime.utc(year, month, 18),
             amount: transportAmounts[index]!,
           },
@@ -445,9 +449,9 @@ export default class DemoSeed extends BaseCommand {
         )
         const clothingAmount = clothingByIndex.get(index)
         if (clothingAmount !== undefined) {
-          await CategoryMonthlyActual.create(
+          await ExpenseMonthlyActual.create(
             {
-              categoryId: clothing.id,
+              expenseId: clothing.id,
               occurredOn: DateTime.utc(year, month, 18),
               amount: clothingAmount,
             },
@@ -458,8 +462,8 @@ export default class DemoSeed extends BaseCommand {
 
       // Reconciled this month (Transport) vs. still outstanding (Groceries) -
       // again, showing both states rather than one uniform default.
-      await CategoryPayment.create(
-        { categoryId: transport.id, year: current.year, month: current.month, paid: true },
+      await ExpensePayment.create(
+        { expenseId: transport.id, year: current.year, month: current.month, paid: true },
         { client: trx }
       )
 

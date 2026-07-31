@@ -26,12 +26,9 @@ const insurance: Category = {
   name: 'Insurance',
   color: null,
   sortOrder: 0,
-  budgetAmount: null,
-  budgetItemCount: 0,
-  includeInStandardMonth: true,
   isActive: true,
-  isPaused: false,
   isArchived: false,
+  isSystem: false,
 }
 
 const carInsurance: UpcomingRecurringBill = {

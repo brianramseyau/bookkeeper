@@ -248,11 +248,13 @@ describe('tasks page', () => {
     expect(jsonLink.getAttribute('href')).toBe('/api/export/json')
 
     const csvLinks = screen.getAllByRole('link', { name: 'Download CSV' })
-    expect(csvLinks).toHaveLength(8)
+    expect(csvLinks).toHaveLength(9)
     expect(csvLinks.map((link) => link.getAttribute('href'))).toContain(
       '/api/export/csv/income-entries'
     )
     expect(screen.getByText('Categories')).toBeInTheDocument()
+    expect(screen.getByText('Expenses')).toBeInTheDocument()
+    expect(screen.getByText('Expense actuals')).toBeInTheDocument()
     expect(screen.getByText('Income entries')).toBeInTheDocument()
   })
 

@@ -7,9 +7,9 @@ import RecurringBill from '#models/recurring_bill'
 import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
-import Category from '#models/category'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
-import CategoryPayment from '#models/category_payment'
+import Expense from '#models/expense'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { isUtilityBillingMonth, utilityDueDateFor } from '#services/utility_billing_period'
 import { isRecurringBillDueMonth } from '#services/recurring_bill_due_date'
@@ -230,25 +230,25 @@ export class StandardMonthService {
       }
     }
 
-    const categories = await Category.query()
+    const expenses = await Expense.query()
       .where('isActive', true)
       .andWhere('isPaused', false)
       .andWhere('isArchived', false)
       .where('includeInStandardMonth', true)
       .orderBy('sortOrder', 'asc')
-    const categoryIds = categories.map((category) => category.id)
-    const categoryPayments = categoryIds.length
-      ? await CategoryPayment.query()
-          .whereIn('categoryId', categoryIds)
+    const expenseIds = expenses.map((expense) => expense.id)
+    const expensePayments = expenseIds.length
+      ? await ExpensePayment.query()
+          .whereIn('expenseId', expenseIds)
           .where('year', year)
           .where('month', month)
       : []
-    const categoryPaidById = new Map(
-      categoryPayments.map((payment) => [payment.categoryId, payment.paid])
+    const expensePaidById = new Map(
+      expensePayments.map((payment) => [payment.expenseId, payment.paid])
     )
-    for (const category of categories) {
-      const actuals = await CategoryMonthlyActual.query().where('categoryId', category.id)
-      if (actuals.length === 0 && category.budgetAmount === null) continue
+    for (const expense of expenses) {
+      const actuals = await ExpenseMonthlyActual.query().where('expenseId', expense.id)
+      if (actuals.length === 0 && expense.budgetAmount === null) continue
 
       const trend = this.rollingAverage.computeTrend(
         actuals.map((actual) => ({
@@ -262,14 +262,14 @@ export class StandardMonthService {
       )
 
       lines.push({
-        key: `category-${category.id}`,
-        label: category.name,
+        key: `expense-${expense.id}`,
+        label: expense.name,
         // The `?? 0` fallback can only fire when budgetAmount is null AND
         // trend.average is null, but the guard above (actuals.length === 0
         // && budgetAmount === null -> continue) already excludes exactly
         // that case, so one of the two is always set by this point.
         /* c8 ignore next */
-        projected: category.budgetAmount ?? trend.average ?? 0,
+        projected: expense.budgetAmount ?? trend.average ?? 0,
         actual:
           thisMonthActuals.length > 0
             ? round(thisMonthActuals.reduce((sum, actual) => sum + actual.amount, 0))
@@ -279,7 +279,7 @@ export class StandardMonthService {
         // Same past-month-defaults-to-paid rule as recurring bills/subscriptions
         // above - only meaningful once there's an actual to reconcile against,
         // since the checkbox itself is hidden while `actual` is null.
-        paid: categoryPaidById.get(category.id) ?? isPastMonth,
+        paid: expensePaidById.get(expense.id) ?? isPastMonth,
         editable: true,
       })
     }

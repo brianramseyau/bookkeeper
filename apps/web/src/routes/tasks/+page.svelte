@@ -38,11 +38,12 @@
 
   const EXPORT_TABLES: { key: string; label: string }[] = [
     { key: 'categories', label: 'Categories' },
+    { key: 'expenses', label: 'Expenses' },
     { key: 'utilities', label: 'Utilities' },
     { key: 'utility-bills', label: 'Utility bills' },
     { key: 'recurring-bills', label: 'Recurring bills' },
     { key: 'subscriptions', label: 'Personal subscriptions' },
-    { key: 'category-actuals', label: 'Category actuals' },
+    { key: 'expense-actuals', label: 'Expense actuals' },
     { key: 'income-sources', label: 'Income sources' },
     { key: 'income-entries', label: 'Income entries' },
   ]

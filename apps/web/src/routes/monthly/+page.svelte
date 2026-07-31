@@ -20,12 +20,12 @@
   } from '$lib/api/income'
   import { upsertUtilityBill } from '$lib/api/utilities'
   import {
-    listCategoryActuals,
-    createCategoryActual,
-    updateCategoryActual,
-    deleteCategoryActual,
-  } from '$lib/api/category-actuals'
-  import { upsertCategoryPayment } from '$lib/api/categories'
+    listExpenseActuals,
+    createExpenseActual,
+    updateExpenseActual,
+    deleteExpenseActual,
+  } from '$lib/api/expense-actuals'
+  import { upsertExpensePayment } from '$lib/api/expenses'
   import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
   import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
   import { listUsers, type UserSummary } from '$lib/api/users'
@@ -89,11 +89,11 @@
   let acceptingPlaceholderKey = $state<string | null>(null)
 
   type ExpenseEditMode =
-    'utility' | 'recurring-bill' | 'category-add' | 'category-edit' | 'category-multiple'
+    'utility' | 'recurring-bill' | 'expense-add' | 'expense-edit' | 'expense-multiple'
   let editingExpenseKey = $state<string | null>(null)
   let editExpenseMode = $state<ExpenseEditMode | null>(null)
   let editExpenseTargetId = $state<number | null>(null)
-  let editExpenseCategoryId = $state<number | null>(null)
+  let editActualsExpenseId = $state<number | null>(null)
   let editExpenseAmount = $state<number>(NaN)
   let savingExpense = $state(false)
   let savingPaidKey = $state<string | null>(null)
@@ -442,15 +442,15 @@
       : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
   }
 
-  // Category lines have no due date (they're not a single billed obligation
+  // Expense lines have no due date (they're not a single billed obligation
   // like a utility/recurring bill/subscription, just an aggregate of
   // whatever actuals were logged), so gating the checkbox on resolveDueDate
-  // like the other line types would hide it for every category, always.
-  // Instead, show it whenever there's an actual to reconcile against - a
-  // category with nothing logged this month (actual === null) has nothing
+  // like the other line types would hide it for every expense, always.
+  // Instead, show it whenever there's an actual to reconcile against - an
+  // expense with nothing logged this month (actual === null) has nothing
   // to mark paid.
   function canTrackPaid(line: StandardMonthLine): boolean {
-    if (line.key.startsWith('category-')) return line.actual !== null
+    if (line.key.startsWith('expense-')) return line.actual !== null
     return resolveDueDate(line) !== null
   }
 
@@ -459,8 +459,8 @@
   // reads consistently row to row - this explains why to anyone who hovers.
   function paidTooltip(line: StandardMonthLine): string | undefined {
     if (canTrackPaid(line)) return undefined
-    if (line.key.startsWith('category-')) {
-      return 'No actual amount logged for this category this month'
+    if (line.key.startsWith('expense-')) {
+      return 'No actual amount logged for this expense this month'
     }
     return line.actual === null
       ? 'No actual amount recorded for this month yet'
@@ -503,9 +503,9 @@
       } else if (line.key.startsWith('subscription-')) {
         const subscriptionId = Number(line.key.slice('subscription-'.length))
         await upsertSubscriptionPayment(subscriptionId, year, month, paid)
-      } else if (line.key.startsWith('category-')) {
-        const categoryId = Number(line.key.slice('category-'.length))
-        await upsertCategoryPayment(categoryId, year, month, paid)
+      } else if (line.key.startsWith('expense-')) {
+        const expenseId = Number(line.key.slice('expense-'.length))
+        await upsertExpensePayment(expenseId, year, month, paid)
       }
       await refreshMonth()
     } catch (err) {
@@ -532,7 +532,7 @@
     editingExpenseKey = null
     editExpenseMode = null
     editExpenseTargetId = null
-    editExpenseCategoryId = null
+    editActualsExpenseId = null
   }
 
   async function startEditExpense(line: StandardMonthLine) {
@@ -541,7 +541,7 @@
       editingExpenseKey = line.key
       editExpenseMode = 'utility'
       editExpenseTargetId = Number(line.key.slice('utility-'.length))
-      editExpenseCategoryId = null
+      editActualsExpenseId = null
       editExpenseAmount = line.actual ?? NaN
       return
     }
@@ -549,27 +549,27 @@
       editingExpenseKey = line.key
       editExpenseMode = 'recurring-bill'
       editExpenseTargetId = Number(line.key.slice('recurring-bill-'.length))
-      editExpenseCategoryId = null
+      editActualsExpenseId = null
       editExpenseAmount = line.actual ?? line.projected
       return
     }
-    if (line.key.startsWith('category-')) {
-      const categoryId = Number(line.key.slice('category-'.length))
+    if (line.key.startsWith('expense-')) {
+      const expenseId = Number(line.key.slice('expense-'.length))
       try {
-        const actuals = await listCategoryActuals(categoryId, year, month)
+        const actuals = await listExpenseActuals(expenseId, year, month)
         editingExpenseKey = line.key
-        editExpenseCategoryId = categoryId
+        editActualsExpenseId = expenseId
         if (actuals.length === 0) {
-          editExpenseMode = 'category-add'
-          editExpenseTargetId = categoryId
+          editExpenseMode = 'expense-add'
+          editExpenseTargetId = expenseId
           editExpenseAmount = NaN
         } else if (actuals.length === 1) {
-          editExpenseMode = 'category-edit'
+          editExpenseMode = 'expense-edit'
           editExpenseTargetId = actuals[0]!.id
           editExpenseAmount = actuals[0]!.amount
         } else {
-          editExpenseMode = 'category-multiple'
-          editExpenseTargetId = categoryId
+          editExpenseMode = 'expense-multiple'
+          editExpenseTargetId = expenseId
         }
       } catch (err) {
         error = err instanceof ApiError ? err.message : 'Failed to load actuals'
@@ -578,7 +578,7 @@
   }
 
   async function saveExpenseEdit() {
-    if (editExpenseMode === 'category-multiple' || editExpenseTargetId === null) return
+    if (editExpenseMode === 'expense-multiple' || editExpenseTargetId === null) return
     if (Number.isNaN(editExpenseAmount) || editExpenseAmount === null) return
 
     savingExpense = true
@@ -594,13 +594,13 @@
           undefined,
           editExpenseAmount
         )
-      } else if (editExpenseMode === 'category-add') {
-        await createCategoryActual(editExpenseTargetId, {
+      } else if (editExpenseMode === 'expense-add') {
+        await createExpenseActual(editExpenseTargetId, {
           occurredOn: lastDayOfMonthIso(year, month),
           amount: editExpenseAmount,
         })
-      } else if (editExpenseMode === 'category-edit') {
-        await updateCategoryActual(editExpenseTargetId, { amount: editExpenseAmount })
+      } else if (editExpenseMode === 'expense-edit') {
+        await updateExpenseActual(editExpenseTargetId, { amount: editExpenseAmount })
       }
       cancelEditExpense()
       await refreshMonth()
@@ -612,10 +612,10 @@
   }
 
   async function removeExpenseActual() {
-    if (editExpenseMode !== 'category-edit' || editExpenseTargetId === null) return
+    if (editExpenseMode !== 'expense-edit' || editExpenseTargetId === null) return
     error = null
     try {
-      await deleteCategoryActual(editExpenseTargetId)
+      await deleteExpenseActual(editExpenseTargetId)
       cancelEditExpense()
       await refreshMonth()
     } catch (err) {
@@ -635,7 +635,7 @@
       return `/bills#bill-${line.key.slice('recurring-bill-'.length)}`
     }
     if (line.key.startsWith('subscription-')) return '/subscriptions'
-    if (line.key.startsWith('category-')) return `/categories/${line.key.slice('category-'.length)}`
+    if (line.key.startsWith('expense-')) return `/expenses/${line.key.slice('expense-'.length)}`
     return null
   }
 </script>
@@ -796,7 +796,7 @@
           {@const editable =
             (line.key.startsWith('utility-') && line.editable) ||
             line.key.startsWith('recurring-bill-') ||
-            line.key.startsWith('category-')}
+            line.key.startsWith('expense-')}
           {#if editingExpenseKey === line.key}
             <tr
               class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
@@ -826,7 +826,7 @@
                 >{formatCurrency(line.projected)}</td
               >
               <td class="px-3 py-2 text-right">
-                {#if editExpenseMode === 'category-multiple'}
+                {#if editExpenseMode === 'expense-multiple'}
                   <span class="text-xs text-slate-500 dark:text-slate-400">Multiple entries</span>
                 {:else}
                   <input
@@ -849,9 +849,9 @@
                 />
               </td>
               <td class="px-3 py-2 text-right whitespace-nowrap">
-                {#if editExpenseMode === 'category-multiple'}
+                {#if editExpenseMode === 'expense-multiple'}
                   <a
-                    href="/categories/{editExpenseCategoryId}"
+                    href="/expenses/{editActualsExpenseId}"
                     class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
                   >
                     View all →
@@ -864,7 +864,7 @@
                     path={mdiContentSave}
                     onclick={saveExpenseEdit}
                   />
-                  {#if editExpenseMode === 'category-edit'}
+                  {#if editExpenseMode === 'expense-edit'}
                     <IconActionButton
                       variant="danger"
                       label="Delete {line.label} entry"

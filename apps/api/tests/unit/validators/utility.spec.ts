@@ -58,9 +58,9 @@ test.group('updateUtilityValidator', () => {
     assert.equal(payload.isActive, false)
   })
 
-  test('allows a null categoryId', async ({ assert }) => {
-    const payload = await updateUtilityValidator.validate({ categoryId: null })
-    assert.isNull(payload.categoryId)
+  test('strips a categoryId from the payload - it is not a settable field', async ({ assert }) => {
+    const payload = await updateUtilityValidator.validate({ categoryId: 5 })
+    assert.notProperty(payload, 'categoryId')
   })
 
   test('accepts toggling paidInAdvance', async ({ assert }) => {

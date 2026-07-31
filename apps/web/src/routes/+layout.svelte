@@ -22,6 +22,7 @@
     { href: '/utilities', label: 'Utilities' },
     { href: '/bills', label: 'Bills' },
     { href: '/subscriptions', label: 'Subscriptions' },
+    { href: '/expenses', label: 'Expenses' },
     { href: '/categories', label: 'Categories' },
     { href: '/tasks', label: 'Tasks' },
   ]

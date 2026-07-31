@@ -1,7 +1,5 @@
 import { CategorySchema } from '#database/schema'
-import { beforeCreate, hasMany } from '@adonisjs/lucid/orm'
-import type { HasMany } from '@adonisjs/lucid/types/relations'
-import CategoryBudgetItem from '#models/category_budget_item'
+import { beforeCreate } from '@adonisjs/lucid/orm'
 
 /**
  * Fixed palette a new category's color is picked from when none is given -
@@ -35,9 +33,6 @@ export function colorForSortOrder(sortOrder: number): string {
 }
 
 export default class Category extends CategorySchema {
-  @hasMany(() => CategoryBudgetItem)
-  declare budgetItems: HasMany<typeof CategoryBudgetItem>
-
   /**
    * Categories are created from several places (the UI's "add category"
    * form, findOrCreate calls during xlsx import) that don't specify a

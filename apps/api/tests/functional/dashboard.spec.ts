@@ -4,8 +4,8 @@ import User from '#models/user'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
-import Category from '#models/category'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
+import Expense from '#models/expense'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
@@ -134,7 +134,7 @@ test.group('Dashboard / summary', () => {
     assert.isAtLeast(car.daysUntilDue, 0)
   })
 
-  test('sums utility bills and category actuals into the monthlyExpenses window', async ({
+  test('sums utility bills and expense actuals into the monthlyExpenses window', async ({
     client,
     assert,
   }) => {
@@ -147,9 +147,9 @@ test.group('Dashboard / summary', () => {
       month: today.month,
       amount: 400,
     })
-    const groceries = await Category.findByOrFail('name', 'Groceries')
-    await CategoryMonthlyActual.create({
-      categoryId: groceries.id,
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
       occurredOn: DateTime.local(today.year, today.month, 1),
       amount: 300,
     })

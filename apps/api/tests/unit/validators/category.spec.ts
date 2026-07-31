@@ -12,11 +12,9 @@ test.group('createCategoryValidator', () => {
       name: 'Groceries',
       color: '#ff0000',
       sortOrder: 3,
-      budgetAmount: 500,
-      includeInStandardMonth: false,
     })
-    assert.equal(payload.budgetAmount, 500)
-    assert.equal(payload.includeInStandardMonth, false)
+    assert.equal(payload.color, '#ff0000')
+    assert.equal(payload.sortOrder, 3)
   })
 
   test('trims the name', async ({ assert }) => {
@@ -36,18 +34,12 @@ test.group('createCategoryValidator', () => {
     await assert.rejects(() => createCategoryValidator.validate({ name: 'a'.repeat(81) }))
   })
 
-  test('rejects a negative budgetAmount', async ({ assert }) => {
-    await assert.rejects(() =>
-      createCategoryValidator.validate({ name: 'Groceries', budgetAmount: -1 })
-    )
-  })
-
-  test('allows a null budgetAmount', async ({ assert }) => {
+  test('allows a null color', async ({ assert }) => {
     const payload = await createCategoryValidator.validate({
       name: 'Groceries',
-      budgetAmount: null,
+      color: null,
     })
-    assert.isNull(payload.budgetAmount)
+    assert.isNull(payload.color)
   })
 })
 
@@ -60,6 +52,11 @@ test.group('updateCategoryValidator', () => {
   test('accepts isActive toggling', async ({ assert }) => {
     const payload = await updateCategoryValidator.validate({ isActive: false })
     assert.equal(payload.isActive, false)
+  })
+
+  test('accepts isArchived toggling', async ({ assert }) => {
+    const payload = await updateCategoryValidator.validate({ isArchived: true })
+    assert.equal(payload.isArchived, true)
   })
 
   test('rejects an empty-string name when provided', async ({ assert }) => {

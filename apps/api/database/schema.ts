@@ -8,15 +8,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class BackupSettingSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'enabled',
-    'id',
-    'intervalHours',
-    'lastRunAt',
-    'retentionDays',
-    'updatedAt',
-  ] as const
+  static $columns = ['createdAt', 'enabled', 'id', 'intervalHours', 'lastRunAt', 'retentionDays', 'updatedAt'] as const
   $columns = BackupSettingSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -35,22 +27,92 @@ export class BackupSettingSchema extends BaseModel {
 }
 
 export class CategorySchema extends BaseModel {
-  static $columns = [
-    'budgetAmount',
-    'color',
-    'createdAt',
-    'id',
-    'includeInStandardMonth',
-    'isActive',
-    'isArchived',
-    'isPaused',
-    'name',
-    'sortOrder',
-    'updatedAt',
-  ] as const
+  static $columns = ['color', 'createdAt', 'id', 'isActive', 'isArchived', 'isSystem', 'name', 'sortOrder', 'updatedAt'] as const
   $columns = CategorySchema.$columns
   @column()
+  declare color: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare isActive: boolean
+  @column()
+  declare isArchived: boolean
+  @column()
+  declare isSystem: boolean
+  @column()
+  declare name: string
+  @column()
+  declare sortOrder: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class ExpenseBudgetItemSchema extends BaseModel {
+  static $columns = ['amount', 'createdAt', 'expenseId', 'id', 'name', 'notes', 'updatedAt'] as const
+  $columns = ExpenseBudgetItemSchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare expenseId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare notes: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class ExpenseMonthlyActualSchema extends BaseModel {
+  static $columns = ['amount', 'createdAt', 'expenseId', 'id', 'notes', 'occurredOn', 'updatedAt'] as const
+  $columns = ExpenseMonthlyActualSchema.$columns
+  @column()
+  declare amount: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare expenseId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare notes: string | null
+  @column.date()
+  declare occurredOn: DateTime
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class ExpensePaymentSchema extends BaseModel {
+  static $columns = ['createdAt', 'expenseId', 'id', 'month', 'paid', 'updatedAt', 'year'] as const
+  $columns = ExpensePaymentSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare expenseId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare month: number
+  @column()
+  declare paid: boolean
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
+}
+
+export class ExpenseSchema extends BaseModel {
+  static $columns = ['budgetAmount', 'categoryId', 'color', 'createdAt', 'id', 'includeInStandardMonth', 'isActive', 'isArchived', 'isPaused', 'name', 'sortOrder', 'updatedAt'] as const
+  $columns = ExpenseSchema.$columns
+  @column()
   declare budgetAmount: number | null
+  @column()
+  declare categoryId: number | null
   @column()
   declare color: string | null
   @column.dateTime({ autoCreate: true })
@@ -73,93 +135,8 @@ export class CategorySchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
-export class CategoryBudgetItemSchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'categoryId',
-    'createdAt',
-    'id',
-    'name',
-    'notes',
-    'updatedAt',
-  ] as const
-  $columns = CategoryBudgetItemSchema.$columns
-  @column()
-  declare amount: number
-  @column()
-  declare categoryId: number
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare name: string
-  @column()
-  declare notes: string | null
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: DateTime | null
-}
-
-export class CategoryMonthlyActualSchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'categoryId',
-    'createdAt',
-    'id',
-    'notes',
-    'occurredOn',
-    'updatedAt',
-  ] as const
-  $columns = CategoryMonthlyActualSchema.$columns
-  @column()
-  declare amount: number
-  @column()
-  declare categoryId: number
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare notes: string | null
-  @column.date()
-  declare occurredOn: DateTime
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: DateTime | null
-}
-
-export class CategoryPaymentSchema extends BaseModel {
-  static $columns = ['categoryId', 'createdAt', 'id', 'month', 'paid', 'updatedAt', 'year'] as const
-  $columns = CategoryPaymentSchema.$columns
-  @column()
-  declare categoryId: number
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare month: number
-  @column()
-  declare paid: boolean
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: DateTime | null
-  @column()
-  declare year: number
-}
-
 export class IncomeEntrySchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'createdAt',
-    'id',
-    'incomeSourceId',
-    'month',
-    'note',
-    'receivedOn',
-    'taxWithheld',
-    'updatedAt',
-    'userId',
-    'year',
-  ] as const
+  static $columns = ['amount', 'createdAt', 'id', 'incomeSourceId', 'month', 'note', 'receivedOn', 'taxWithheld', 'updatedAt', 'userId', 'year'] as const
   $columns = IncomeEntrySchema.$columns
   @column()
   declare amount: number
@@ -186,21 +163,7 @@ export class IncomeEntrySchema extends BaseModel {
 }
 
 export class IncomeSourceSchema extends BaseModel {
-  static $columns = [
-    'anchorDate',
-    'createdAt',
-    'expectedAmount',
-    'frequency',
-    'id',
-    'isActive',
-    'name',
-    'notes',
-    'payDayOfMonth',
-    'taxWithheld',
-    'updatedAt',
-    'userId',
-    'weekendRollback',
-  ] as const
+  static $columns = ['anchorDate', 'createdAt', 'expectedAmount', 'frequency', 'id', 'isActive', 'name', 'notes', 'payDayOfMonth', 'taxWithheld', 'updatedAt', 'userId', 'weekendRollback'] as const
   $columns = IncomeSourceSchema.$columns
   @column.date()
   declare anchorDate: DateTime | null
@@ -231,14 +194,7 @@ export class IncomeSourceSchema extends BaseModel {
 }
 
 export class IncomeTaxSettingSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'financialYear',
-    'id',
-    'marginalRate',
-    'updatedAt',
-    'userId',
-  ] as const
+  static $columns = ['createdAt', 'financialYear', 'id', 'marginalRate', 'updatedAt', 'userId'] as const
   $columns = IncomeTaxSettingSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -306,16 +262,7 @@ export class PushConfigSchema extends BaseModel {
 }
 
 export class PushSubscriptionSchema extends BaseModel {
-  static $columns = [
-    'auth',
-    'createdAt',
-    'endpoint',
-    'id',
-    'p256Dh',
-    'updatedAt',
-    'userAgent',
-    'userId',
-  ] as const
+  static $columns = ['auth', 'createdAt', 'endpoint', 'id', 'p256Dh', 'updatedAt', 'userAgent', 'userId'] as const
   $columns = PushSubscriptionSchema.$columns
   @column()
   declare auth: string
@@ -336,16 +283,7 @@ export class PushSubscriptionSchema extends BaseModel {
 }
 
 export class RecurringBillPaymentSchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'createdAt',
-    'id',
-    'month',
-    'paid',
-    'recurringBillId',
-    'updatedAt',
-    'year',
-  ] as const
+  static $columns = ['amount', 'createdAt', 'id', 'month', 'paid', 'recurringBillId', 'updatedAt', 'year'] as const
   $columns = RecurringBillPaymentSchema.$columns
   @column()
   declare amount: number | null
@@ -366,21 +304,7 @@ export class RecurringBillPaymentSchema extends BaseModel {
 }
 
 export class RecurringBillSchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'categoryId',
-    'createdAt',
-    'dueDay',
-    'dueMonth',
-    'frequency',
-    'id',
-    'isActive',
-    'isArchived',
-    'isPaused',
-    'name',
-    'notes',
-    'updatedAt',
-  ] as const
+  static $columns = ['amount', 'categoryId', 'createdAt', 'dueDay', 'dueMonth', 'frequency', 'id', 'isActive', 'isArchived', 'isPaused', 'name', 'notes', 'updatedAt'] as const
   $columns = RecurringBillSchema.$columns
   @column()
   declare amount: number
@@ -411,15 +335,7 @@ export class RecurringBillSchema extends BaseModel {
 }
 
 export class SubscriptionPaymentSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'id',
-    'month',
-    'paid',
-    'updatedAt',
-    'userSubscriptionId',
-    'year',
-  ] as const
+  static $columns = ['createdAt', 'id', 'month', 'paid', 'updatedAt', 'userSubscriptionId', 'year'] as const
   $columns = SubscriptionPaymentSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -438,17 +354,7 @@ export class SubscriptionPaymentSchema extends BaseModel {
 }
 
 export class UserNotificationPreferenceSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'enabled',
-    'id',
-    'leadDays',
-    'notifyRecurringBills',
-    'notifySubscriptions',
-    'notifyUtilityBills',
-    'updatedAt',
-    'userId',
-  ] as const
+  static $columns = ['createdAt', 'enabled', 'id', 'leadDays', 'notifyRecurringBills', 'notifySubscriptions', 'notifyUtilityBills', 'updatedAt', 'userId'] as const
   $columns = UserNotificationPreferenceSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -471,21 +377,7 @@ export class UserNotificationPreferenceSchema extends BaseModel {
 }
 
 export class UserSubscriptionSchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'categoryId',
-    'createdAt',
-    'dayOfMonth',
-    'id',
-    'includeInStandardMonth',
-    'isActive',
-    'isArchived',
-    'isPaused',
-    'name',
-    'notes',
-    'updatedAt',
-    'userId',
-  ] as const
+  static $columns = ['amount', 'categoryId', 'createdAt', 'dayOfMonth', 'id', 'includeInStandardMonth', 'isActive', 'isArchived', 'isPaused', 'name', 'notes', 'updatedAt', 'userId'] as const
   $columns = UserSubscriptionSchema.$columns
   @column()
   declare amount: number
@@ -516,15 +408,7 @@ export class UserSubscriptionSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = [
-    'createdAt',
-    'displayColor',
-    'email',
-    'fullName',
-    'id',
-    'password',
-    'updatedAt',
-  ] as const
+  static $columns = ['createdAt', 'displayColor', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -543,17 +427,7 @@ export class UserSchema extends BaseModel {
 }
 
 export class UtilitySchema extends BaseModel {
-  static $columns = [
-    'categoryId',
-    'createdAt',
-    'dueOffsetDays',
-    'frequency',
-    'id',
-    'isActive',
-    'name',
-    'paidInAdvance',
-    'updatedAt',
-  ] as const
+  static $columns = ['categoryId', 'createdAt', 'dueOffsetDays', 'frequency', 'id', 'isActive', 'name', 'paidInAdvance', 'updatedAt'] as const
   $columns = UtilitySchema.$columns
   @column()
   declare categoryId: number | null
@@ -576,17 +450,7 @@ export class UtilitySchema extends BaseModel {
 }
 
 export class UtilityBillSchema extends BaseModel {
-  static $columns = [
-    'amount',
-    'createdAt',
-    'id',
-    'month',
-    'notes',
-    'paid',
-    'updatedAt',
-    'utilityId',
-    'year',
-  ] as const
+  static $columns = ['amount', 'createdAt', 'id', 'month', 'notes', 'paid', 'updatedAt', 'utilityId', 'year'] as const
   $columns = UtilityBillSchema.$columns
   @column()
   declare amount: number

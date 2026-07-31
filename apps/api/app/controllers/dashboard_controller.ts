@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { StandardMonthService } from '#services/standard_month_service'
 import { expandUtilityBillsToMonthlyShares } from '#services/utility_billing_period'
@@ -90,7 +90,7 @@ export default class DashboardController {
 
   /**
    * Total actual spend per month for the trailing window - utility bills and
-   * category actuals are the two tables with real per-month historical
+   * expense actuals are the two tables with real per-month historical
    * depth (recurring bills/subscriptions only carry a current snapshot
    * amount, not a monthly log, so they're left out to avoid implying a
    * false history).
@@ -98,9 +98,9 @@ export default class DashboardController {
   private async monthlyExpenses(today: DateTime) {
     const start = today.startOf('month').minus({ months: MONTHLY_EXPENSE_WINDOW - 1 })
 
-    const [utilityBills, categoryActuals] = await Promise.all([
+    const [utilityBills, expenseActuals] = await Promise.all([
       UtilityBill.query().preload('utility'),
-      CategoryMonthlyActual.query(),
+      ExpenseMonthlyActual.query(),
     ])
 
     const totals = new Map<string, number>()
@@ -114,7 +114,7 @@ export default class DashboardController {
         addTotal(share.year, share.month, share.amount)
       }
     }
-    for (const actual of categoryActuals) {
+    for (const actual of expenseActuals) {
       addTotal(actual.occurredOn.year, actual.occurredOn.month, actual.amount)
     }
 

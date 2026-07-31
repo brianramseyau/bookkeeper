@@ -1,4 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
+import Category from '#models/category'
 import Utility from '#models/utility'
 import UtilityTransformer from '#transformers/utility_transformer'
 import { createUtilityValidator, updateUtilityValidator } from '#validators/utility'
@@ -11,6 +12,13 @@ export default class UtilitiesController {
 
   async store({ request, response, serialize }: HttpContext) {
     const payload = await request.validateUsing(createUtilityValidator)
+    // Utilities are always tagged with the protected "Utilities" system
+    // category, not user-selectable - see CategoriesController#update/
+    // #destroy for how that category is protected from rename/archive.
+    const utilitiesCategory = await Category.query()
+      .where('name', 'Utilities')
+      .andWhere('isSystem', true)
+      .firstOrFail()
     // The DB column default isn't read back onto the in-memory instance
     // returned by `create`, so a `paidInAdvance` the client never sent must
     // still resolve to an explicit `false` here rather than staying
@@ -18,6 +26,7 @@ export default class UtilitiesController {
     // UtilityBillsController#upsert.
     const utility = await Utility.create({
       ...payload,
+      categoryId: utilitiesCategory.id,
       paidInAdvance: payload.paidInAdvance ?? false,
     })
     return response.created(await serialize(UtilityTransformer.transform(utility)))

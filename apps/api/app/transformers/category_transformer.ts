@@ -8,11 +8,9 @@ export default class CategoryTransformer extends BaseTransformer<Category> {
       'name',
       'color',
       'sortOrder',
-      'budgetAmount',
-      'includeInStandardMonth',
       'isActive',
-      'isPaused',
       'isArchived',
+      'isSystem',
     ])
   }
 }

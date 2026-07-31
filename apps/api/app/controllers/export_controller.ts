@@ -1,21 +1,23 @@
 import type { HttpContext } from '@adonisjs/core/http'
 import type { LucidModel } from '@adonisjs/lucid/types/model'
 import Category from '#models/category'
+import Expense from '#models/expense'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
 import UserSubscription from '#models/user_subscription'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 
 const TABLES: Record<string, LucidModel> = {
   'categories': Category,
+  'expenses': Expense,
   'utilities': Utility,
   'utility-bills': UtilityBill,
   'recurring-bills': RecurringBill,
   'subscriptions': UserSubscription,
-  'category-actuals': CategoryMonthlyActual,
+  'expense-actuals': ExpenseMonthlyActual,
   'income-sources': IncomeSource,
   'income-entries': IncomeEntry,
 }

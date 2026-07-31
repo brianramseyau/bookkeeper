@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import User from '#models/user'
+import Category from '#models/category'
 import Utility from '#models/utility'
 
 async function loginAsBrian() {
@@ -79,6 +80,27 @@ test.group('Utilities / store', () => {
 
     response.assertStatus(422)
   })
+
+  test('always assigns the system Utilities category, ignoring any categoryId in the payload', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utilitiesCategory = await Category.query()
+      .where('name', 'Utilities')
+      .andWhere('isSystem', true)
+      .firstOrFail()
+    const other = await Category.create({ name: 'Not Utilities' })
+
+    const response = await client
+      .post('/api/utilities')
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ name: 'Gas', categoryId: other.id })
+
+    response.assertStatus(201)
+    assert.equal(response.body().data.categoryId, utilitiesCategory.id)
+  })
 })
 
 test.group('Utilities / update', () => {
@@ -94,6 +116,28 @@ test.group('Utilities / update', () => {
 
     response.assertStatus(200)
     assert.equal(response.body().data.dueOffsetDays, 0)
+  })
+
+  test('ignores a categoryId in the update payload - it is not a settable field', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utilitiesCategory = await Category.query()
+      .where('name', 'Utilities')
+      .andWhere('isSystem', true)
+      .firstOrFail()
+    const other = await Category.create({ name: 'Not Utilities Either' })
+    const utility = await Utility.create({ name: 'Electricity', categoryId: utilitiesCategory.id })
+
+    const response = await client
+      .patch(`/api/utilities/${utility.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ categoryId: other.id })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.categoryId, utilitiesCategory.id)
   })
 
   test('toggles paidInAdvance', async ({ client, assert }) => {

@@ -5,23 +5,16 @@ export interface Category {
   name: string
   color: string | null
   sortOrder: number
-  budgetAmount: number | null
-  /** Number of itemized budget lines - when > 0, budgetAmount is derived from them, not manually set. */
-  budgetItemCount: number
-  includeInStandardMonth: boolean
   isActive: boolean
-  isPaused: boolean
   isArchived: boolean
+  isSystem: boolean
 }
 
 export interface CategoryInput {
   name: string
   color?: string | null
   sortOrder?: number
-  budgetAmount?: number | null
-  includeInStandardMonth?: boolean
   isActive?: boolean
-  isPaused?: boolean
   isArchived?: boolean
 }
 
@@ -40,23 +33,4 @@ export function updateCategory(id: number, input: Partial<CategoryInput>) {
 
 export function deleteCategory(id: number) {
   return api.delete<void>(`/categories/${id}`)
-}
-
-export interface CategoryPayment {
-  id: number
-  categoryId: number
-  year: number
-  month: number
-  paid: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-export function upsertCategoryPayment(
-  categoryId: number,
-  year: number,
-  month: number,
-  paid: boolean
-) {
-  return api.put<CategoryPayment>(`/categories/${categoryId}/payments/${year}/${month}`, { paid })
 }

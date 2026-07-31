@@ -1,9 +1,9 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import User from '#models/user'
-import Category from '#models/category'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
-import CategoryPayment from '#models/category_payment'
+import Expense from '#models/expense'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import MonthCarryover from '#models/month_carryover'
@@ -29,7 +29,7 @@ test.group('StandardMonths / show', () => {
     response.assertBodyContains({ year: today.year, month: today.month })
   })
 
-  test('aggregates carryover, income, utilities, recurring bills, subscriptions and categories', async ({
+  test('aggregates carryover, income, utilities, recurring bills, subscriptions and expenses', async ({
     client,
     assert,
   }) => {
@@ -78,9 +78,9 @@ test.group('StandardMonths / show', () => {
       dayOfMonth: 10,
     })
 
-    const groceries = await Category.findByOrFail('name', 'Groceries')
-    await CategoryMonthlyActual.create({
-      categoryId: groceries.id,
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
       occurredOn: DateTime.fromISO('2026-02-01'),
       amount: 300,
     })
@@ -140,11 +140,11 @@ test.group('StandardMonths / show', () => {
     assert.equal(subscriptionLine.paid, true)
 
     const groceriesLine = body.expenses.lines.find(
-      (l: { key: string }) => l.key === `category-${groceries.id}`
+      (l: { key: string }) => l.key === `expense-${groceries.id}`
     )
     assert.equal(groceriesLine.projected, 300)
     assert.equal(groceriesLine.actual, 300)
-    // Feb 2026 is in the past with no CategoryPayment row - same
+    // Feb 2026 is in the past with no ExpensePayment row - same
     // past-month-defaults-to-paid rule as Kayo and Netflix above.
     assert.equal(groceriesLine.paid, true)
 
@@ -155,11 +155,12 @@ test.group('StandardMonths / show', () => {
     assert.equal(body.actualNet, 5346.02)
   })
 
-  test('a category with no actuals and no budget is omitted entirely', async ({
+  test('an expense with no actuals and no budget is omitted entirely', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
+    await Expense.create({ name: 'Household' })
 
     const response = await client
       .get('/api/standard-month')
@@ -171,7 +172,7 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Household')
   })
 
-  test('paused or archived recurring bills, subscriptions, and categories produce no line', async ({
+  test('paused or archived recurring bills, subscriptions, and expenses produce no line', async ({
     client,
     assert,
   }) => {
@@ -200,7 +201,7 @@ test.group('StandardMonths / show', () => {
     pausedSub.isPaused = true
     await pausedSub.save()
 
-    const bikeInsurance = await Category.create({ name: 'Bike Insurance', budgetAmount: 40 })
+    const bikeInsurance = await Expense.create({ name: 'Bike Insurance', budgetAmount: 40 })
     bikeInsurance.isArchived = true
     await bikeInsurance.save()
 
@@ -294,14 +295,12 @@ test.group('StandardMonths / show', () => {
     assert.equal(lineWithOverride.actual, 2750.15)
   })
 
-  test('a category with a budget but no actuals this month projects the budget with a null actual', async ({
+  test('an expense with a budget but no actuals this month projects the budget with a null actual', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
-    const household = await Category.findByOrFail('name', 'Household')
-    household.budgetAmount = 200
-    await household.save()
+    const household = await Expense.create({ name: 'Household', budgetAmount: 200 })
 
     const response = await client
       .get('/api/standard-month')
@@ -310,7 +309,7 @@ test.group('StandardMonths / show', () => {
 
     const householdLine = response
       .body()
-      .expenses.lines.find((l: { key: string }) => l.key === `category-${household.id}`)
+      .expenses.lines.find((l: { key: string }) => l.key === `expense-${household.id}`)
     assert.equal(householdLine.projected, 200)
     assert.isNull(householdLine.actual)
   })
@@ -719,18 +718,18 @@ test.group('StandardMonths / paid tracking', () => {
     assert.equal(netflixLine.paid, true)
   })
 
-  test("a category's line reflects a CategoryPayment row for the viewed month", async ({
+  test("an expense's line reflects an ExpensePayment row for the viewed month", async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
-    const groceries = await Category.findByOrFail('name', 'Groceries')
-    await CategoryMonthlyActual.create({
-      categoryId: groceries.id,
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
       occurredOn: DateTime.fromISO('2026-03-01'),
       amount: 300,
     })
-    await CategoryPayment.create({ categoryId: groceries.id, year: 2026, month: 3, paid: true })
+    await ExpensePayment.create({ expenseId: groceries.id, year: 2026, month: 3, paid: true })
 
     const response = await client
       .get('/api/standard-month')
@@ -739,18 +738,18 @@ test.group('StandardMonths / paid tracking', () => {
 
     const groceriesLine = response
       .body()
-      .expenses.lines.find((l: { key: string }) => l.key === `category-${groceries.id}`)
+      .expenses.lines.find((l: { key: string }) => l.key === `expense-${groceries.id}`)
     assert.equal(groceriesLine.paid, true)
   })
 
-  test("a CategoryPayment row for a different month doesn't leak into this month's line", async ({
+  test("an ExpensePayment row for a different month doesn't leak into this month's line", async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
-    const groceries = await Category.findByOrFail('name', 'Groceries')
-    await CategoryMonthlyActual.create({
-      categoryId: groceries.id,
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
       occurredOn: DateTime.fromISO('2026-03-01'),
       amount: 300,
     })
@@ -758,7 +757,7 @@ test.group('StandardMonths / paid tracking', () => {
     // past-month default (both 2026-02 and 2026-03 are in the past relative
     // to "today" - if March's line leaked Feb's row it would read false;
     // isolated correctly, it falls back to true instead).
-    await CategoryPayment.create({ categoryId: groceries.id, year: 2026, month: 2, paid: false })
+    await ExpensePayment.create({ expenseId: groceries.id, year: 2026, month: 2, paid: false })
 
     const response = await client
       .get('/api/standard-month')
@@ -767,19 +766,19 @@ test.group('StandardMonths / paid tracking', () => {
 
     const groceriesLine = response
       .body()
-      .expenses.lines.find((l: { key: string }) => l.key === `category-${groceries.id}`)
+      .expenses.lines.find((l: { key: string }) => l.key === `expense-${groceries.id}`)
     assert.equal(groceriesLine.paid, true)
   })
 
-  test('defaults a category to unpaid for the current month with no payment row', async ({
+  test('defaults an expense to unpaid for the current month with no payment row', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
     const today = DateTime.utc()
-    const groceries = await Category.findByOrFail('name', 'Groceries')
-    await CategoryMonthlyActual.create({
-      categoryId: groceries.id,
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
       occurredOn: today,
       amount: 300,
     })
@@ -791,16 +790,16 @@ test.group('StandardMonths / paid tracking', () => {
 
     const groceriesLine = response
       .body()
-      .expenses.lines.find((l: { key: string }) => l.key === `category-${groceries.id}`)
+      .expenses.lines.find((l: { key: string }) => l.key === `expense-${groceries.id}`)
     assert.equal(groceriesLine.paid, false)
   })
 
-  test('skips the CategoryPayment lookup entirely when there are no categories', async ({
+  test('skips the ExpensePayment lookup entirely when there are no expenses', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
-    await Category.query().delete()
+    await Expense.query().delete()
 
     const response = await client
       .get('/api/standard-month')
@@ -809,7 +808,7 @@ test.group('StandardMonths / paid tracking', () => {
 
     response.assertStatus(200)
     assert.isEmpty(
-      response.body().expenses.lines.filter((l: { key: string }) => l.key.startsWith('category-'))
+      response.body().expenses.lines.filter((l: { key: string }) => l.key.startsWith('expense-'))
     )
   })
 })

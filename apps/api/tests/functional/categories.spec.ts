@@ -1,18 +1,17 @@
 import { test } from '@japa/runner'
-import { DateTime } from 'luxon'
 import User from '#models/user'
 import Category from '#models/category'
-import CategoryBudgetItem from '#models/category_budget_item'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
-import CategoryPayment from '#models/category_payment'
+import Expense from '#models/expense'
 import RecurringBill from '#models/recurring_bill'
+import UserSubscription from '#models/user_subscription'
+import Utility from '#models/utility'
 
 async function loginAsBrian() {
   return User.findByOrFail('fullName', 'Brian')
 }
 
 test.group('Categories / index', () => {
-  test('lists only active categories, ordered by sortOrder, with a budgetItemCount', async ({
+  test('lists only active, non-archived categories, ordered by sortOrder', async ({
     client,
     assert,
   }) => {
@@ -20,33 +19,27 @@ test.group('Categories / index', () => {
     const archived = await Category.create({ name: 'Archived', sortOrder: 999 })
     archived.isActive = false
     await archived.save()
-    const dog = await Category.create({ name: 'Dog' })
-    await CategoryBudgetItem.create({ categoryId: dog.id, name: 'Food', amount: 50 })
+    await Category.create({ name: 'Dog' })
 
     const response = await client.get('/api/categories').loginAs(brian)
 
     response.assertStatus(200)
     const names = response.body().data.map((c: { name: string }) => c.name)
     assert.notInclude(names, 'Archived')
-    const dogEntry = response.body().data.find((c: { name: string }) => c.name === 'Dog')
-    assert.equal(dogEntry.budgetItemCount, 1)
+    assert.include(names, 'Dog')
   })
 
-  test('excludes paused and archived categories by default, but includes them with includeHidden', async ({
+  test('excludes archived categories by default, but includes them with includeHidden', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
-    const paused = await Category.create({ name: 'Paused Cat' })
-    paused.isPaused = true
-    await paused.save()
     const archived = await Category.create({ name: 'Archived Cat' })
     archived.isArchived = true
     await archived.save()
 
     const defaultResponse = await client.get('/api/categories').loginAs(brian)
     const defaultNames = defaultResponse.body().data.map((c: { name: string }) => c.name)
-    assert.notInclude(defaultNames, 'Paused Cat')
     assert.notInclude(defaultNames, 'Archived Cat')
 
     const hiddenResponse = await client
@@ -54,7 +47,6 @@ test.group('Categories / index', () => {
       .qs({ includeHidden: true })
       .loginAs(brian)
     const hiddenNames = hiddenResponse.body().data.map((c: { name: string }) => c.name)
-    assert.include(hiddenNames, 'Paused Cat')
     assert.include(hiddenNames, 'Archived Cat')
   })
 })
@@ -161,21 +153,67 @@ test.group('Categories / update', () => {
     response.assertStatus(404)
   })
 
-  test('archiving a category clears an existing pause', async ({ client, assert }) => {
+  test('rejects renaming the system category', async ({ client, assert }) => {
     const brian = await loginAsBrian()
-    const category = await Category.create({ name: 'Kayo-like' })
-    category.isPaused = true
-    await category.save()
+    const utilities = await Category.findByOrFail('name', 'Utilities')
+    assert.equal(utilities.isSystem, true)
 
     const response = await client
-      .patch(`/api/categories/${category.id}`)
+      .patch(`/api/categories/${utilities.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ name: 'Renamed Utilities' })
+
+    response.assertStatus(409)
+    await utilities.refresh()
+    assert.equal(utilities.name, 'Utilities')
+  })
+
+  test('rejects archiving the system category', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utilities = await Category.findByOrFail('name', 'Utilities')
+
+    const response = await client
+      .patch(`/api/categories/${utilities.id}`)
       .withCsrfToken()
       .loginAs(brian)
       .json({ isArchived: true })
 
+    response.assertStatus(409)
+    await utilities.refresh()
+    assert.equal(utilities.isArchived, false)
+  })
+
+  test('allows changing the system category color and sortOrder', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utilities = await Category.findByOrFail('name', 'Utilities')
+
+    const response = await client
+      .patch(`/api/categories/${utilities.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ color: '#abcdef', sortOrder: 42 })
+
     response.assertStatus(200)
-    assert.equal(response.body().data.isArchived, true)
-    assert.equal(response.body().data.isPaused, false)
+    assert.equal(response.body().data.color, '#abcdef')
+    assert.equal(response.body().data.sortOrder, 42)
+  })
+
+  test('allows updating the system category when name is sent unchanged', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utilities = await Category.findByOrFail('name', 'Utilities')
+
+    const response = await client
+      .patch(`/api/categories/${utilities.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ name: 'Utilities', color: '#abcdef' })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.color, '#abcdef')
   })
 })
 
@@ -193,7 +231,20 @@ test.group('Categories / destroy', () => {
     assert.isNotNull(await Category.find(category.id))
   })
 
-  test('permanently deletes an archived category and its dependents', async ({
+  test('rejects removing the system category even when archived', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utilities = await Category.findByOrFail('name', 'Utilities')
+
+    const response = await client
+      .delete(`/api/categories/${utilities.id}`)
+      .withCsrfToken()
+      .loginAs(brian)
+
+    response.assertStatus(409)
+    assert.isNotNull(await Category.find(utilities.id))
+  })
+
+  test('permanently deletes an archived category and clears dependents', async ({
     client,
     assert,
   }) => {
@@ -201,19 +252,21 @@ test.group('Categories / destroy', () => {
     const category = await Category.create({ name: 'Temp' })
     category.isArchived = true
     await category.save()
-    await CategoryBudgetItem.create({ categoryId: category.id, name: 'Line', amount: 10 })
-    await CategoryMonthlyActual.create({
-      categoryId: category.id,
-      occurredOn: DateTime.fromISO('2026-01-01'),
-      amount: 50,
-    })
+
     const bill = await RecurringBill.create({
       name: 'Linked Bill',
       categoryId: category.id,
       amount: 10,
       frequency: 'monthly',
     })
-    await CategoryPayment.create({ categoryId: category.id, year: 2026, month: 1, paid: true })
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Linked Sub',
+      categoryId: category.id,
+      amount: 5,
+    })
+    const utility = await Utility.create({ name: 'Linked Utility', categoryId: category.id })
+    const expense = await Expense.create({ name: 'Linked Expense', categoryId: category.id })
 
     const response = await client
       .delete(`/api/categories/${category.id}`)
@@ -222,76 +275,13 @@ test.group('Categories / destroy', () => {
 
     response.assertStatus(204)
     assert.isNull(await Category.find(category.id))
-    assert.lengthOf(await CategoryBudgetItem.query().where('categoryId', category.id), 0)
-    assert.lengthOf(await CategoryMonthlyActual.query().where('categoryId', category.id), 0)
-    assert.lengthOf(await CategoryPayment.query().where('categoryId', category.id), 0)
     await bill.refresh()
     assert.isNull(bill.categoryId)
-  })
-})
-
-test.group('Categories / upsertPayment', () => {
-  test('creates a payment row marking the month paid', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-    const category = await Category.create({ name: 'Groceries3' })
-
-    const response = await client
-      .put(`/api/categories/${category.id}/payments/2026/3`)
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ paid: true })
-
-    response.assertStatus(200)
-    assert.isTrue(response.body().data.paid)
-    assert.equal(response.body().data.categoryId, category.id)
-  })
-
-  test('updates the existing payment row for that month rather than duplicating it', async ({
-    client,
-    assert,
-  }) => {
-    const brian = await loginAsBrian()
-    const category = await Category.create({ name: 'Groceries3' })
-    await client
-      .put(`/api/categories/${category.id}/payments/2026/3`)
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ paid: true })
-
-    const response = await client
-      .put(`/api/categories/${category.id}/payments/2026/3`)
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ paid: false })
-
-    response.assertStatus(200)
-    assert.isFalse(response.body().data.paid)
-    const payments = await CategoryPayment.query().where('categoryId', category.id)
-    assert.lengthOf(payments, 1)
-  })
-
-  test('returns 404 for a non-existent category', async ({ client }) => {
-    const brian = await loginAsBrian()
-
-    const response = await client
-      .put('/api/categories/999999/payments/2026/3')
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ paid: true })
-
-    response.assertStatus(404)
-  })
-
-  test('rejects a non-boolean paid value', async ({ client }) => {
-    const brian = await loginAsBrian()
-    const category = await Category.create({ name: 'Groceries3' })
-
-    const response = await client
-      .put(`/api/categories/${category.id}/payments/2026/3`)
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ paid: 'yes' })
-
-    response.assertStatus(422)
+    await subscription.refresh()
+    assert.isNull(subscription.categoryId)
+    await utility.refresh()
+    assert.isNull(utility.categoryId)
+    await expense.refresh()
+    assert.isNull(expense.categoryId)
   })
 })

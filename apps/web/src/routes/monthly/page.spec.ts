@@ -16,15 +16,15 @@ import {
 } from '$lib/api/income'
 import { upsertUtilityBill } from '$lib/api/utilities'
 import {
-  createCategoryActual,
-  deleteCategoryActual,
-  listCategoryActuals,
-  updateCategoryActual,
-  type CategoryMonthlyActual,
-} from '$lib/api/category-actuals'
+  createExpenseActual,
+  deleteExpenseActual,
+  listExpenseActuals,
+  updateExpenseActual,
+  type ExpenseMonthlyActual,
+} from '$lib/api/expense-actuals'
 import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
 import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
-import { upsertCategoryPayment } from '$lib/api/categories'
+import { upsertExpensePayment } from '$lib/api/expenses'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
 import MonthPage from './+page.svelte'
@@ -41,15 +41,15 @@ vi.mock('$lib/api/income', () => ({
   deleteIncomeEntry: vi.fn(),
 }))
 vi.mock('$lib/api/utilities', () => ({ upsertUtilityBill: vi.fn() }))
-vi.mock('$lib/api/category-actuals', () => ({
-  listCategoryActuals: vi.fn(),
-  createCategoryActual: vi.fn(),
-  updateCategoryActual: vi.fn(),
-  deleteCategoryActual: vi.fn(),
+vi.mock('$lib/api/expense-actuals', () => ({
+  listExpenseActuals: vi.fn(),
+  createExpenseActual: vi.fn(),
+  updateExpenseActual: vi.fn(),
+  deleteExpenseActual: vi.fn(),
 }))
 vi.mock('$lib/api/recurring-bills', () => ({ upsertRecurringBillPayment: vi.fn() }))
 vi.mock('$lib/api/subscriptions', () => ({ upsertSubscriptionPayment: vi.fn() }))
-vi.mock('$lib/api/categories', () => ({ upsertCategoryPayment: vi.fn() }))
+vi.mock('$lib/api/expenses', () => ({ upsertExpensePayment: vi.fn() }))
 vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
 
 // SvelteKit's real `Page.url` type brands `pathname` with a union of the
@@ -139,7 +139,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           editable: true,
         },
         {
-          key: 'category-1',
+          key: 'expense-1',
           label: 'Groceries',
           projected: 600,
           actual: 620,
@@ -181,13 +181,13 @@ describe('month page', () => {
     vi.mocked(updateIncomeEntry).mockReset()
     vi.mocked(deleteIncomeEntry).mockReset()
     vi.mocked(upsertUtilityBill).mockReset()
-    vi.mocked(listCategoryActuals).mockReset()
-    vi.mocked(createCategoryActual).mockReset()
-    vi.mocked(updateCategoryActual).mockReset()
-    vi.mocked(deleteCategoryActual).mockReset()
+    vi.mocked(listExpenseActuals).mockReset()
+    vi.mocked(createExpenseActual).mockReset()
+    vi.mocked(updateExpenseActual).mockReset()
+    vi.mocked(deleteExpenseActual).mockReset()
     vi.mocked(upsertRecurringBillPayment).mockReset()
     vi.mocked(upsertSubscriptionPayment).mockReset()
-    vi.mocked(upsertCategoryPayment).mockReset()
+    vi.mocked(upsertExpensePayment).mockReset()
     vi.mocked(replaceState).mockReset()
   })
 
@@ -943,7 +943,7 @@ describe('month page', () => {
         expenses: {
           lines: [
             {
-              key: 'category-1',
+              key: 'expense-1',
               label: 'Groceries',
               projected: 300,
               actual: null,
@@ -979,19 +979,19 @@ describe('month page', () => {
     expect(checkboxes[0]).toBeDisabled()
     expect(checkboxes[0]).toHaveAttribute(
       'title',
-      'No actual amount logged for this category this month'
+      'No actual amount logged for this expense this month'
     )
     expect(checkboxes[1]).toBeDisabled()
     expect(checkboxes[1]).toHaveAttribute('title', 'No actual amount recorded for this month yet')
   })
 
-  it('shows a Paid checkbox for a category line once it has a known actual, even with no due date', async () => {
+  it('shows a Paid checkbox for an expense line once it has a known actual, even with no due date', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
           lines: [
             {
-              key: 'category-1',
+              key: 'expense-1',
               label: 'Groceries',
               projected: 300,
               actual: 300,
@@ -1015,13 +1015,13 @@ describe('month page', () => {
     expect(checkbox).not.toBeChecked()
   })
 
-  it('ticking Paid on a category line calls upsertCategoryPayment', async () => {
+  it('ticking Paid on an expense line calls upsertExpensePayment', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
           lines: [
             {
-              key: 'category-1',
+              key: 'expense-1',
               label: 'Groceries',
               projected: 300,
               actual: 300,
@@ -1039,9 +1039,9 @@ describe('month page', () => {
     vi.mocked(listIncomeSources).mockResolvedValue([])
     vi.mocked(listIncomeEntries).mockResolvedValue([])
     vi.mocked(listUsers).mockResolvedValue([])
-    vi.mocked(upsertCategoryPayment).mockResolvedValue({
+    vi.mocked(upsertExpensePayment).mockResolvedValue({
       id: 1,
-      categoryId: 1,
+      expenseId: 1,
       year: 2026,
       month: 3,
       paid: true,
@@ -1054,7 +1054,7 @@ describe('month page', () => {
     const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
     await user.click(checkbox)
 
-    await waitFor(() => expect(upsertCategoryPayment).toHaveBeenCalledWith(1, 2026, 3, true))
+    await waitFor(() => expect(upsertExpensePayment).toHaveBeenCalledWith(1, 2026, 3, true))
   })
 
   it('ticking Paid on a utility line resends its known amount alongside paid', async () => {
@@ -1205,10 +1205,10 @@ describe('month page', () => {
     await waitFor(() => expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 120))
   })
 
-  it('adds a category actual when none is logged yet', async () => {
+  it('adds an expense actual when none is logged yet', async () => {
     setDefaultMocks()
-    vi.mocked(listCategoryActuals).mockResolvedValue([])
-    vi.mocked(createCategoryActual).mockResolvedValue({} as CategoryMonthlyActual)
+    vi.mocked(listExpenseActuals).mockResolvedValue([])
+    vi.mocked(createExpenseActual).mockResolvedValue({} as ExpenseMonthlyActual)
     const user = userEvent.setup()
     render(MonthPage)
 
@@ -1222,19 +1222,19 @@ describe('month page', () => {
     await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
 
     await waitFor(() =>
-      expect(createCategoryActual).toHaveBeenCalledWith(1, {
+      expect(createExpenseActual).toHaveBeenCalledWith(1, {
         occurredOn: '2026-03-31',
         amount: 650,
       })
     )
   })
 
-  it('edits and removes a single existing category actual', async () => {
+  it('edits and removes a single existing expense actual', async () => {
     setDefaultMocks()
-    vi.mocked(listCategoryActuals).mockResolvedValue([
+    vi.mocked(listExpenseActuals).mockResolvedValue([
       {
         id: 5,
-        categoryId: 1,
+        expenseId: 1,
         occurredOn: '2026-03-10',
         amount: 620,
         notes: null,
@@ -1242,27 +1242,27 @@ describe('month page', () => {
         updatedAt: '',
       },
     ])
-    vi.mocked(updateCategoryActual).mockResolvedValue({} as CategoryMonthlyActual)
-    vi.mocked(deleteCategoryActual).mockResolvedValue(undefined)
+    vi.mocked(updateExpenseActual).mockResolvedValue({} as ExpenseMonthlyActual)
+    vi.mocked(deleteExpenseActual).mockResolvedValue(undefined)
     const user = userEvent.setup()
     render(MonthPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     await user.click(await screen.findByRole('button', { name: 'Save Groceries' }))
-    await waitFor(() => expect(updateCategoryActual).toHaveBeenCalledWith(5, { amount: 620 }))
+    await waitFor(() => expect(updateExpenseActual).toHaveBeenCalledWith(5, { amount: 620 }))
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     const expensesTable = (await screen.findAllByRole('table'))[0]!
     await user.click(within(expensesTable).getByRole('button', { name: 'Delete Groceries entry' }))
-    await waitFor(() => expect(deleteCategoryActual).toHaveBeenCalledWith(5))
+    await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
   })
 
-  it('shows a link to view all entries when a category has multiple actuals that month', async () => {
+  it('shows a link to view all entries when an expense has multiple actuals that month', async () => {
     setDefaultMocks()
-    vi.mocked(listCategoryActuals).mockResolvedValue([
+    vi.mocked(listExpenseActuals).mockResolvedValue([
       {
         id: 5,
-        categoryId: 1,
+        expenseId: 1,
         occurredOn: '2026-03-10',
         amount: 300,
         notes: null,
@@ -1271,7 +1271,7 @@ describe('month page', () => {
       },
       {
         id: 6,
-        categoryId: 1,
+        expenseId: 1,
         occurredOn: '2026-03-20',
         amount: 320,
         notes: null,
@@ -1286,13 +1286,13 @@ describe('month page', () => {
 
     expect(await screen.findByText('Multiple entries')).toBeInTheDocument()
     const viewAll = screen.getByRole('link', { name: 'View all →' })
-    expect(viewAll.getAttribute('href')).toBe('/categories/1')
+    expect(viewAll.getAttribute('href')).toBe('/expenses/1')
     expect(screen.queryByRole('button', { name: 'Save Groceries' })).toBeNull()
   })
 
   it('cancels editing an expense line', async () => {
     setDefaultMocks()
-    vi.mocked(listCategoryActuals).mockResolvedValue([])
+    vi.mocked(listExpenseActuals).mockResolvedValue([])
     const user = userEvent.setup()
     render(MonthPage)
 
@@ -1304,7 +1304,7 @@ describe('month page', () => {
 
   it('shows an error when loading actuals for an expense edit fails', async () => {
     setDefaultMocks()
-    vi.mocked(listCategoryActuals).mockRejectedValue(new ApiError(500, 'Could not load actuals'))
+    vi.mocked(listExpenseActuals).mockRejectedValue(new ApiError(500, 'Could not load actuals'))
     const user = userEvent.setup()
     render(MonthPage)
 
@@ -1327,10 +1327,10 @@ describe('month page', () => {
 
   it('shows an error when removing an expense actual fails', async () => {
     setDefaultMocks()
-    vi.mocked(listCategoryActuals).mockResolvedValue([
+    vi.mocked(listExpenseActuals).mockResolvedValue([
       {
         id: 5,
-        categoryId: 1,
+        expenseId: 1,
         occurredOn: '2026-03-10',
         amount: 620,
         notes: null,
@@ -1338,7 +1338,7 @@ describe('month page', () => {
         updatedAt: '',
       },
     ])
-    vi.mocked(deleteCategoryActual).mockRejectedValue(new ApiError(500, 'Could not remove actual'))
+    vi.mocked(deleteExpenseActual).mockRejectedValue(new ApiError(500, 'Could not remove actual'))
     const user = userEvent.setup()
     render(MonthPage)
 
@@ -1410,7 +1410,7 @@ describe('month page', () => {
               editable: true,
             },
             {
-              key: 'category-1',
+              key: 'expense-1',
               label: 'Groceries',
               projected: 600,
               actual: 620,
@@ -1453,9 +1453,7 @@ describe('month page', () => {
     expect((await screen.findByRole('link', { name: 'Electricity' })).getAttribute('href')).toBe(
       '/utilities/1'
     )
-    expect(screen.getByRole('link', { name: 'Groceries' }).getAttribute('href')).toBe(
-      '/categories/1'
-    )
+    expect(screen.getByRole('link', { name: 'Groceries' }).getAttribute('href')).toBe('/expenses/1')
     expect(screen.getByRole('link', { name: 'Internet' }).getAttribute('href')).toBe(
       '/bills#bill-3'
     )

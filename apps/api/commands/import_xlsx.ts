@@ -11,9 +11,10 @@ import RecurringBillPayment from '#models/recurring_bill_payment'
 import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
-import CategoryMonthlyActual from '#models/category_monthly_actual'
-import CategoryPayment from '#models/category_payment'
-import CategoryBudgetItem from '#models/category_budget_item'
+import Expense from '#models/expense'
+import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
+import ExpenseBudgetItem from '#models/expense_budget_item'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import IncomeTaxSetting from '#models/income_tax_setting'
@@ -299,26 +300,26 @@ export default class ImportXlsx extends BaseCommand {
   declare rollingStartMonth: number
 
   /**
-   * findOrCreates a category by name and inserts the given actual rows
-   * under it. The sheet gives no stable row id, so (category, date, amount,
+   * findOrCreates an expense by name and inserts the given actual rows
+   * under it. The sheet gives no stable row id, so (expense, date, amount,
    * notes) stands in as the natural key - re-running the import without
    * --truncate upserts onto the same rows instead of duplicating them. A
    * real second transaction that happens to match all four fields exactly
    * would collapse into one row, but that's the same reproducibility
    * tradeoff the rest of the importer already makes.
    */
-  private async importCategoryActuals(categoryName: string, rows: SimpleActualRow[]) {
+  private async importExpenseActuals(expenseName: string, rows: SimpleActualRow[]) {
     if (rows.length === 0) return
 
     await db.transaction(async (trx) => {
-      const category = await Category.firstOrCreate(
-        { name: categoryName },
-        { name: categoryName },
+      const expense = await Expense.firstOrCreate(
+        { name: expenseName },
+        { name: expenseName },
         { client: trx }
       )
 
       if (this.truncate) {
-        await CategoryMonthlyActual.query({ client: trx }).where('categoryId', category.id).delete()
+        await ExpenseMonthlyActual.query({ client: trx }).where('expenseId', expense.id).delete()
       }
 
       for (const row of rows) {
@@ -329,8 +330,8 @@ export default class ImportXlsx extends BaseCommand {
         // the column's DateTime -> SQL prepare step - a DateTime instance
         // there makes better-sqlite3 reject the bind param outright, so the
         // lookup needs the already-formatted SQL date string instead.
-        const existing = await CategoryMonthlyActual.query({ client: trx })
-          .where('categoryId', category.id)
+        const existing = await ExpenseMonthlyActual.query({ client: trx })
+          .where('expenseId', expense.id)
           .where('occurredOn', occurredOn.toISODate()!)
           .where('amount', row.amount)
           .where((query) =>
@@ -340,8 +341,8 @@ export default class ImportXlsx extends BaseCommand {
 
         if (existing) continue
 
-        await CategoryMonthlyActual.create(
-          { categoryId: category.id, occurredOn, amount: row.amount, notes: row.notes },
+        await ExpenseMonthlyActual.create(
+          { expenseId: expense.id, occurredOn, amount: row.amount, notes: row.notes },
           { client: trx }
         )
       }
@@ -416,16 +417,16 @@ export default class ImportXlsx extends BaseCommand {
 
   /**
    * Marks CONFIRMED_PAID_THROUGH_MONTH's payment row as paid for every
-   * monthly recurring bill, active subscription, and category with an
+   * monthly recurring bill, active subscription, and expense with an
    * actual logged that month - the same confirmation `isPastBillMonth`
    * applies to utility bills, but utilities set `paid` directly on their
-   * bill row while recurring bills/subscriptions/categories track it in a
+   * bill row while recurring bills/subscriptions/expenses track it in a
    * separate payment row that only exists once checked, and the current
    * month intentionally defaults to unpaid otherwise (see
    * standard_month_service's `isPastMonth` fallback) - so it has to be
    * written explicitly rather than falling out of the same date check.
    * Non-monthly bills (quarterly/annual/etc.) have no such per-month
-   * checkbox to set, so they're left alone; categories with no actual
+   * checkbox to set, so they're left alone; expenses with no actual
    * logged for the month have no checkbox to check either.
    */
   private async markConfirmedPaidThrough() {
@@ -466,19 +467,19 @@ export default class ImportXlsx extends BaseCommand {
         )
       }
 
-      // Categories have no per-month checkbox until an actual is logged for
+      // Expenses have no per-month checkbox until an actual is logged for
       // that month - only mark the ones with a real actual in the confirmed
-      // month, mirroring standard_month_service's own category query.
-      const categories = await Category.query({ client: trx })
+      // month, mirroring standard_month_service's own expense query.
+      const expenses = await Expense.query({ client: trx })
         .where('isActive', true)
         .andWhere('isPaused', false)
         .andWhere('isArchived', false)
         .andWhere('includeInStandardMonth', true)
 
-      for (const category of categories) {
-        const actuals = await CategoryMonthlyActual.query({ client: trx }).where(
-          'categoryId',
-          category.id
+      for (const expense of expenses) {
+        const actuals = await ExpenseMonthlyActual.query({ client: trx }).where(
+          'expenseId',
+          expense.id
         )
         const hasActualThisMonth = actuals.some(
           (actual) =>
@@ -487,9 +488,9 @@ export default class ImportXlsx extends BaseCommand {
         )
         if (!hasActualThisMonth) continue
 
-        await CategoryPayment.updateOrCreate(
+        await ExpensePayment.updateOrCreate(
           {
-            categoryId: category.id,
+            expenseId: expense.id,
             year: CONFIRMED_PAID_THROUGH_MONTH.year,
             month: CONFIRMED_PAID_THROUGH_MONTH.month,
           },
@@ -698,7 +699,7 @@ export default class ImportXlsx extends BaseCommand {
       totalSubscriptions += rows.length
     }
 
-    let totalCategoryActuals = 0
+    let totalExpenseActuals = 0
 
     const foodSheet = workbook.getWorksheet('Food')
     if (!foodSheet) {
@@ -709,10 +710,10 @@ export default class ImportXlsx extends BaseCommand {
         `Food: parsed ${groceries.length} Groceries + ${takeaways.length} Takeaway entries`
       )
       if (!this.dryRun) {
-        await this.importCategoryActuals('Groceries', groceries)
-        await this.importCategoryActuals('Takeaway/Eating Out', takeaways)
+        await this.importExpenseActuals('Groceries', groceries)
+        await this.importExpenseActuals('Takeaway/Eating Out', takeaways)
       }
-      totalCategoryActuals += groceries.length + takeaways.length
+      totalExpenseActuals += groceries.length + takeaways.length
     }
 
     for (const { sheet: sheetName, category: categoryName } of CATEGORY_ACTUAL_SHEETS) {
@@ -725,9 +726,9 @@ export default class ImportXlsx extends BaseCommand {
       const rows = parseSimpleActualsSheet(sheet)
       this.logger.info(`${sheetName}: parsed ${rows.length} entries`)
       if (!this.dryRun) {
-        await this.importCategoryActuals(categoryName, rows)
+        await this.importExpenseActuals(categoryName, rows)
       }
-      totalCategoryActuals += rows.length
+      totalExpenseActuals += rows.length
     }
 
     const amberSheet = workbook.getWorksheet('Amber')
@@ -737,28 +738,28 @@ export default class ImportXlsx extends BaseCommand {
       const items = parseUserItemSheet(amberSheet)
       const total = items.reduce((sum, item) => sum + item.amount, 0)
       this.logger.info(
-        `Amber: parsed ${items.length} cost item(s), total $${total.toFixed(2)} - seeding "Dog" category budget + itemized breakdown`
+        `Amber: parsed ${items.length} cost item(s), total $${total.toFixed(2)} - seeding "Dog" expense budget + itemized breakdown`
       )
 
       if (!this.dryRun) {
         await db.transaction(async (trx) => {
-          const dogCategory = await Category.firstOrCreate(
+          const dogExpense = await Expense.firstOrCreate(
             { name: 'Dog' },
             { name: 'Dog' },
             { client: trx }
           )
-          dogCategory.budgetAmount = total
-          await dogCategory.save()
+          dogExpense.budgetAmount = total
+          await dogExpense.save()
 
           if (this.truncate) {
-            await CategoryBudgetItem.query({ client: trx })
-              .where('categoryId', dogCategory.id)
+            await ExpenseBudgetItem.query({ client: trx })
+              .where('expenseId', dogExpense.id)
               .delete()
           }
 
           for (const item of items) {
-            await CategoryBudgetItem.updateOrCreate(
-              { categoryId: dogCategory.id, name: item.name },
+            await ExpenseBudgetItem.updateOrCreate(
+              { expenseId: dogExpense.id, name: item.name },
               {
                 amount: item.amount,
                 notes: item.dayOfMonth ? `Day ${item.dayOfMonth}` : null,
@@ -894,14 +895,14 @@ export default class ImportXlsx extends BaseCommand {
             }))
 
           this.logger.info(
-            `Rolling: "${note}" -> category actuals under "${categoryName}" (${rows.length} entries)`
+            `Rolling: "${note}" -> expense actuals under "${categoryName}" (${rows.length} entries)`
           )
 
           if (!this.dryRun) {
-            await this.importCategoryActuals(categoryName, rows)
+            await this.importExpenseActuals(categoryName, rows)
           }
 
-          totalCategoryActuals += rows.length
+          totalExpenseActuals += rows.length
         }
       }
 
@@ -1029,7 +1030,7 @@ export default class ImportXlsx extends BaseCommand {
               }
               const perPeriod = round(rawAmount / dates.length)
               for (const date of dates) {
-                // Mirrors the CategoryMonthlyActual lookup above - a date
+                // Mirrors the ExpenseMonthlyActual lookup above - a date
                 // column in `updateOrCreate`'s search payload gets bound
                 // straight to `.where()`, skipping the DateTime -> SQL
                 // prepare step, so the lookup needs the formatted string
@@ -1127,7 +1128,7 @@ export default class ImportXlsx extends BaseCommand {
     } else {
       await this.markConfirmedPaidThrough()
       this.logger.success(
-        `Imported ${totalImported + totalRollingUtilityBills} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalCategoryActuals} category actuals, ${totalIncomeEntries} income entries, ${totalNonPaygItems} non-PAYG income item(s), and ${totalCarryoversImported} carryover balance(s)`
+        `Imported ${totalImported + totalRollingUtilityBills} utility bill entries, ${totalRecurringBills + totalRollingRecurringBills} recurring bills (${totalDueDateCorrections} due dates confirmed against Rolling), ${totalSubscriptions} personal subscriptions, ${totalExpenseActuals} expense actuals, ${totalIncomeEntries} income entries, ${totalNonPaygItems} non-PAYG income item(s), and ${totalCarryoversImported} carryover balance(s)`
       )
     }
   }

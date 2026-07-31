@@ -25,21 +25,23 @@ router
         router.post('categories', [controllers.Categories, 'store'])
         router.patch('categories/:id', [controllers.Categories, 'update'])
         router.delete('categories/:id', [controllers.Categories, 'destroy'])
-        router.put('categories/:id/payments/:year/:month', [
-          controllers.Categories,
-          'upsertPayment',
-        ])
 
-        router.get('categories/:id/actuals', [controllers.CategoryActuals, 'index'])
-        router.post('categories/:id/actuals', [controllers.CategoryActuals, 'store'])
-        router.get('categories/:id/trend', [controllers.CategoryActuals, 'trend'])
-        router.patch('category-actuals/:id', [controllers.CategoryActuals, 'update'])
-        router.delete('category-actuals/:id', [controllers.CategoryActuals, 'destroy'])
+        router.get('expenses', [controllers.Expenses, 'index'])
+        router.post('expenses', [controllers.Expenses, 'store'])
+        router.patch('expenses/:id', [controllers.Expenses, 'update'])
+        router.delete('expenses/:id', [controllers.Expenses, 'destroy'])
+        router.put('expenses/:id/payments/:year/:month', [controllers.Expenses, 'upsertPayment'])
 
-        router.get('categories/:id/budget-items', [controllers.CategoryBudgetItems, 'index'])
-        router.post('categories/:id/budget-items', [controllers.CategoryBudgetItems, 'store'])
-        router.patch('category-budget-items/:id', [controllers.CategoryBudgetItems, 'update'])
-        router.delete('category-budget-items/:id', [controllers.CategoryBudgetItems, 'destroy'])
+        router.get('expenses/:id/actuals', [controllers.ExpenseActuals, 'index'])
+        router.post('expenses/:id/actuals', [controllers.ExpenseActuals, 'store'])
+        router.get('expenses/:id/trend', [controllers.ExpenseActuals, 'trend'])
+        router.patch('expense-actuals/:id', [controllers.ExpenseActuals, 'update'])
+        router.delete('expense-actuals/:id', [controllers.ExpenseActuals, 'destroy'])
+
+        router.get('expenses/:id/budget-items', [controllers.ExpenseBudgetItems, 'index'])
+        router.post('expenses/:id/budget-items', [controllers.ExpenseBudgetItems, 'store'])
+        router.patch('expense-budget-items/:id', [controllers.ExpenseBudgetItems, 'update'])
+        router.delete('expense-budget-items/:id', [controllers.ExpenseBudgetItems, 'destroy'])
 
         router.get('users', [controllers.Users, 'index'])
         router.patch('users/:id', [controllers.Users, 'update'])
