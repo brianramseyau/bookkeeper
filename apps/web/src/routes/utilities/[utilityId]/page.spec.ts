@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -54,6 +54,7 @@ const aprilBill = {
   amount: 300,
   notes: null,
   paid: false,
+  receivedOn: `${fixtureFyEndYear}-04-01T00:00:00.000Z`,
   createdAt: '',
   updatedAt: '',
 }
@@ -79,6 +80,7 @@ const mayBill = {
   amount: 300,
   notes: null,
   paid: false,
+  receivedOn: null,
   createdAt: '',
   updatedAt: '',
 }
@@ -125,6 +127,14 @@ function getCell(container: HTMLElement, year: number, month: number): HTMLEleme
     .getByText(monthYearLabel(year, month), { selector: 'td' })
     .closest('tr')!
   return row.cells[1] as HTMLElement
+}
+
+/** The Received cell (3rd column) of the row for a given year/month. */
+function getReceivedCell(container: HTMLElement, year: number, month: number): HTMLElement {
+  const row = within(container)
+    .getByText(monthYearLabel(year, month), { selector: 'td' })
+    .closest('tr')!
+  return row.cells[2] as HTMLElement
 }
 
 describe('utility detail page', () => {
@@ -204,7 +214,7 @@ describe('utility detail page', () => {
     await screen.findByRole('heading', { name: 'Electricity' })
     expect(screen.getByText('quarterly')).toBeInTheDocument()
     expect(screen.getByText(/paid in arrears/)).toBeInTheDocument()
-    expect(screen.getByText(/due on day 14 of the billing month/)).toBeInTheDocument()
+    expect(screen.getByText(/due 14 days after received/)).toBeInTheDocument()
     expect(screen.getByText(/Click the month it's actually billed in/)).toBeInTheDocument()
     expect(screen.getByText(/billing month is the/)).toBeInTheDocument()
     expect(screen.getByText('last')).toBeInTheDocument()
@@ -234,13 +244,13 @@ describe('utility detail page', () => {
     expect(screen.queryByText(/Click the month it's actually billed in/)).toBeNull()
   })
 
-  it('shows the configured due day for an offset of 1', async () => {
+  it('uses the singular "day" for an offset of 1', async () => {
     vi.mocked(listUtilities).mockResolvedValue([{ ...electricity, dueOffsetDays: 1 }])
     vi.mocked(getUtilityBills).mockResolvedValue(emptyBillsResponse)
     vi.mocked(getUtilityTrend).mockResolvedValue(emptyTrend)
     render(UtilityDetailPage)
 
-    expect(await screen.findByText(/due on day 1 of the billing month/)).toBeInTheDocument()
+    expect(await screen.findByText(/due 1 day after received/)).toBeInTheDocument()
   })
 
   it('shows a read-only, italicized computed share for a non-billing month', async () => {
@@ -333,6 +343,7 @@ describe('utility detail page', () => {
       amount: 75.5,
       notes: null,
       paid: false,
+      receivedOn: null,
       createdAt: '',
       updatedAt: '',
     })
@@ -347,6 +358,7 @@ describe('utility detail page', () => {
           amount: 75.5,
           notes: null,
           paid: false,
+          receivedOn: null,
           createdAt: '',
           updatedAt: '',
         },
@@ -366,9 +378,47 @@ describe('utility detail page', () => {
     await user.type(input, '75.5')
     await user.keyboard('{Enter}')
 
-    expect(upsertUtilityBill).toHaveBeenCalledWith(1, fixtureFyEndYear, 1, 75.5)
+    expect(upsertUtilityBill).toHaveBeenCalledWith(1, fixtureFyEndYear, 1, 75.5, undefined, null)
     await waitFor(() => expect(getUtilityBills).toHaveBeenCalledTimes(2))
     expect(await within(janCell).findByText('$75.50')).toBeInTheDocument()
+  })
+
+  it('sets a received date alongside the amount, via the explicit Save button', async () => {
+    setDefaultMocks()
+    vi.mocked(upsertUtilityBill).mockResolvedValue({
+      id: 20,
+      utilityId: 1,
+      year: fixtureFyEndYear,
+      month: 1,
+      amount: 75.5,
+      notes: null,
+      paid: false,
+      receivedOn: `${fixtureFyEndYear}-01-05T00:00:00.000Z`,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const janCell = getCell(container, fixtureFyEndYear, 1)
+    await user.click(within(janCell).getByRole('button', { name: '+' }))
+    await user.type(within(janCell).getByRole('spinbutton'), '75.5')
+    const receivedCell = getReceivedCell(container, fixtureFyEndYear, 1)
+    const dateInput = receivedCell.querySelector('input[type="date"]')!
+    await fireEvent.input(dateInput, { target: { value: `${fixtureFyEndYear}-01-05` } })
+    await user.click(
+      screen.getByRole('button', { name: `Save ${monthYearLabel(fixtureFyEndYear, 1)} bill` })
+    )
+
+    expect(upsertUtilityBill).toHaveBeenCalledWith(
+      1,
+      fixtureFyEndYear,
+      1,
+      75.5,
+      undefined,
+      `${fixtureFyEndYear}-01-05`
+    )
   })
 
   it('cancels editing an empty cell on Escape without saving', async () => {
@@ -434,7 +484,63 @@ describe('utility detail page', () => {
     await user.type(input, '350')
     await user.keyboard('{Enter}')
 
-    expect(upsertUtilityBill).toHaveBeenCalledWith(1, fixtureFyEndYear, 4, 350)
+    expect(upsertUtilityBill).toHaveBeenCalledWith(
+      1,
+      fixtureFyEndYear,
+      4,
+      350,
+      undefined,
+      `${fixtureFyEndYear}-04-01`
+    )
+  })
+
+  it('shows the received date for a billed month, and a dash for one with no bill', async () => {
+    setDefaultMocks()
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    const aprReceivedCell = getReceivedCell(container, fixtureFyEndYear, 4)
+    expect(within(aprReceivedCell).getByText(`1 Apr ${fixtureFyEndYear}`)).toBeInTheDocument()
+
+    const janReceivedCell = getReceivedCell(container, fixtureFyEndYear, 1)
+    expect(within(janReceivedCell).getByText('—')).toBeInTheDocument()
+  })
+
+  it("edits an existing bill's received date, pre-filled from the bill", async () => {
+    setDefaultMocks()
+    vi.mocked(upsertUtilityBill).mockResolvedValue({ ...aprilBill, receivedOn: null })
+    const user = userEvent.setup()
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    await user.click(within(getCell(container, fixtureFyEndYear, 4)).getByText('$100.00'))
+    const receivedCell = getReceivedCell(container, fixtureFyEndYear, 4)
+    const dateInput = receivedCell.querySelector('input[type="date"]') as HTMLInputElement
+    expect(dateInput.value).toBe(`${fixtureFyEndYear}-04-01`)
+
+    await fireEvent.input(dateInput, { target: { value: '' } })
+    await user.click(
+      screen.getByRole('button', { name: `Save ${monthYearLabel(fixtureFyEndYear, 4)} bill` })
+    )
+
+    expect(upsertUtilityBill).toHaveBeenCalledWith(1, fixtureFyEndYear, 4, 300, undefined, null)
+  })
+
+  it('cancels editing via the explicit Cancel button without saving', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    const { container } = render(UtilityDetailPage)
+    await screen.findByRole('heading', { name: 'Electricity' })
+
+    await user.click(within(getCell(container, fixtureFyEndYear, 4)).getByText('$100.00'))
+    await user.click(
+      screen.getByRole('button', {
+        name: `Cancel editing ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
+      })
+    )
+
+    expect(upsertUtilityBill).not.toHaveBeenCalled()
+    expect(within(getCell(container, fixtureFyEndYear, 4)).getByText('$100.00')).toBeInTheDocument()
   })
 
   it('deletes a billed cell and refreshes bills and trend', async () => {
@@ -451,7 +557,7 @@ describe('utility detail page', () => {
     const aprCell = getCell(container, fixtureFyEndYear, 4)
     await user.click(within(aprCell).getByText('$100.00'))
     await user.click(
-      within(aprCell).getByRole('button', {
+      screen.getByRole('button', {
         name: `Delete ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
       })
     )
@@ -470,7 +576,7 @@ describe('utility detail page', () => {
     const aprCell = getCell(container, fixtureFyEndYear, 4)
     await user.click(within(aprCell).getByText('$100.00'))
     await user.click(
-      within(aprCell).getByRole('button', {
+      screen.getByRole('button', {
         name: `Delete ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
       })
     )
@@ -494,7 +600,7 @@ describe('utility detail page', () => {
     expect(within(aprCell).getByRole('spinbutton')).toBeInTheDocument()
 
     await user.click(
-      within(aprCell).getByRole('button', {
+      screen.getByRole('button', {
         name: `Delete ${monthYearLabel(fixtureFyEndYear, 4)} bill`,
       })
     )
@@ -514,7 +620,7 @@ describe('utility detail page', () => {
     const janCell = getCell(container, fixtureFyEndYear, 1)
     await user.click(within(janCell).getByRole('button', { name: '+' }))
 
-    expect(within(janCell).queryByRole('button', { name: /^Delete / })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Delete / })).toBeNull()
   })
 
   it('shows a single financial year at a time, navigable with Prev/Next, with Next disabled at the current FY', async () => {
@@ -554,7 +660,7 @@ describe('utility detail page', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Edit Electricity settings' }))
     await user.selectOptions(screen.getByLabelText('Frequency'), 'annual')
-    const offsetInput = screen.getByLabelText('Due (day of the billing month)')
+    const offsetInput = screen.getByLabelText('Due (days after received)')
     await user.clear(offsetInput)
     await user.type(offsetInput, '30')
     await user.click(screen.getByRole('button', { name: 'Save Electricity settings' }))

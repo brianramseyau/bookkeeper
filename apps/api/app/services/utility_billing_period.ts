@@ -101,12 +101,32 @@ export function expandUtilityBillsToMonthlyShares(
 }
 
 /**
+ * The typical day-of-month a utility's bills actually arrive on, from
+ * whichever recorded bills have a received date - the best estimate
+ * available for projecting a due date into a month that hasn't been billed
+ * yet. Null if no bill has a received date recorded at all.
+ */
+export function typicalReceivedDayOfMonth(bills: UtilityBill[]): number | null {
+  const days = bills.flatMap((bill) => (bill.receivedOn ? [bill.receivedOn.day] : []))
+  if (days.length === 0) return null
+  return Math.round(days.reduce((sum, day) => sum + day, 0) / days.length)
+}
+
+/**
  * The due date for one specific (year, month), or null if either the
  * utility has no configured due-day offset, or that month isn't actually a
  * billing month for it (a non-monthly utility, e.g. a quarterly Water bill,
  * is only ever due in the months it's actually billed - see
- * `isUtilityBillingMonth`). `dueOffsetDays` doubles as a plain day-of-month,
- * clamped to however many days that month actually has.
+ * `isUtilityBillingMonth`).
+ *
+ * `dueOffsetDays` is the number of days after the bill is actually received
+ * that payment is due. For a month with a real bill on record, the due date
+ * is exact only once that bill's received date has been entered - if it
+ * hasn't, the due date is genuinely unknown rather than guessed, so this
+ * returns null and leaves the gap visible. For a month with no bill on
+ * record yet (forecasting ahead of the next bill actually arriving), it
+ * falls back to `typicalReceivedDayOfMonth` to estimate when the bill will
+ * likely turn up.
  */
 export function utilityDueDateFor(
   utility: Utility,
@@ -117,23 +137,37 @@ export function utilityDueDateFor(
   if (utility.dueOffsetDays === null) return null
   if (!isUtilityBillingMonth(utility, bills, year, month)) return null
 
+  const bill = bills.find((b) => b.year === year && b.month === month)
+  if (bill) {
+    if (!bill.receivedOn) return null
+    // `.toUTC()` normalizes a DB-loaded date's zone (SQLite round-trips it
+    // through a fixed-offset zone, not the literal UTC zone) so callers get
+    // a consistent `Z`-suffixed ISO string either way.
+    return bill.receivedOn.plus({ days: utility.dueOffsetDays }).toUTC()
+  }
+
+  const typicalDay = typicalReceivedDayOfMonth(bills)
+  if (typicalDay === null) return null
+
   // `daysInMonth` is only ever undefined for an invalid DateTime - (year,
   // month) here always comes from a real calendar month, so the `?? 31`
-  // fallback can't actually fire.
+  // fallback can't actually fire. The lower bound doesn't need clamping -
+  // `typicalReceivedDayOfMonth` averages real `DateTime.day` values, which
+  // are never less than 1.
   const daysInMonth = /* c8 ignore next */ DateTime.utc(year, month, 1).daysInMonth ?? 31
-  const day = Math.min(Math.max(utility.dueOffsetDays, 1), daysInMonth)
-  return DateTime.utc(year, month, day)
+  const day = Math.min(typicalDay, daysInMonth)
+  const estimatedReceivedOn = DateTime.utc(year, month, day)
+  return estimatedReceivedOn.plus({ days: utility.dueOffsetDays })
 }
 
 /**
  * The next upcoming due date from `today` onward - scans at most one full
  * billing cycle ahead so a non-monthly utility only turns up the next month
- * it's actually predicted to be billed in, not every month. The trailing
- * `return null` can't actually be reached: any `periodMonths`-long run of
- * consecutive months contains exactly one billing month (pigeonhole on the
- * cadence's fixed residue), and a billing month in a later calendar month
- * always has a due date >= today - it's kept only to satisfy TypeScript's
- * control-flow analysis, which can't know that.
+ * it's actually predicted to be billed in, not every month. Genuinely
+ * returns null (not just as unreachable TypeScript control-flow padding) if
+ * no bill for this utility has ever had a received date recorded -
+ * `utilityDueDateFor` then has nothing to anchor an estimate on for any
+ * month in the scanned range.
  */
 export function nextUtilityDueDate(
   utility: Utility,
@@ -157,6 +191,5 @@ export function nextUtilityDueDate(
     }
     /* c8 ignore next */
   }
-  /* c8 ignore next 2 */
   return null
 }

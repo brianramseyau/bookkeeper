@@ -61,6 +61,22 @@ describe('utilities api', () => {
     })
   })
 
+  it('upserts a utility bill including receivedOn when given', () => {
+    upsertUtilityBill(1, 2026, 3, 409.08, undefined, '2026-03-05')
+    expect(api.put).toHaveBeenCalledWith('/utilities/1/bills/2026/3', {
+      amount: 409.08,
+      receivedOn: '2026-03-05',
+    })
+  })
+
+  it('upserts a utility bill clearing receivedOn when explicitly null', () => {
+    upsertUtilityBill(1, 2026, 3, 409.08, undefined, null)
+    expect(api.put).toHaveBeenCalledWith('/utilities/1/bills/2026/3', {
+      amount: 409.08,
+      receivedOn: null,
+    })
+  })
+
   it('deletes a utility bill', () => {
     deleteUtilityBill(9)
     expect(api.delete).toHaveBeenCalledWith('/utility-bills/9')

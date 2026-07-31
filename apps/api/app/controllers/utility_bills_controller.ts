@@ -67,6 +67,7 @@ export default class UtilityBillsController {
         amount: payload.amount,
         notes: payload.notes ?? null,
         ...(payload.paid !== undefined ? { paid: payload.paid } : {}),
+        ...(payload.receivedOn !== undefined ? { receivedOn: payload.receivedOn } : {}),
       })
       await bill.save()
     } else {
@@ -77,6 +78,7 @@ export default class UtilityBillsController {
         amount: payload.amount,
         notes: payload.notes ?? null,
         paid: payload.paid ?? false,
+        receivedOn: payload.receivedOn ?? null,
       })
     }
 

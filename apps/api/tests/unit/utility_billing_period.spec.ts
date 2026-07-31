@@ -7,6 +7,7 @@ import {
   isUtilityBillingMonth,
   mostRecentUtilityBill,
   nextUtilityDueDate,
+  typicalReceivedDayOfMonth,
   utilityDueDateFor,
   utilityPeriodMonths,
 } from '#services/utility_billing_period'
@@ -15,8 +16,20 @@ function fakeUtility(frequency: string, dueOffsetDays: number | null = null): Ut
   return { frequency, dueOffsetDays } as Utility
 }
 
-function fakeBill(id: number, year: number, month: number, amount: number): UtilityBill {
-  return { id, year, month, amount } as UtilityBill
+function fakeBill(
+  id: number,
+  year: number,
+  month: number,
+  amount: number,
+  receivedOn: string | null = null
+): UtilityBill {
+  return {
+    id,
+    year,
+    month,
+    amount,
+    receivedOn: receivedOn ? DateTime.fromISO(receivedOn, { zone: 'utc' }) : null,
+  } as UtilityBill
 }
 
 test.group('utilityPeriodMonths', () => {
@@ -215,6 +228,32 @@ test.group('expandUtilityBillsToMonthlyShares', () => {
   })
 })
 
+test.group('typicalReceivedDayOfMonth', () => {
+  test('returns null when no bill has a received date', ({ assert }) => {
+    assert.isNull(typicalReceivedDayOfMonth([]))
+    assert.isNull(typicalReceivedDayOfMonth([fakeBill(1, 2026, 1, 100)]))
+  })
+
+  test('returns the single received day when only one bill has one', ({ assert }) => {
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-07')]
+
+    assert.equal(typicalReceivedDayOfMonth(bills), 7)
+  })
+
+  test('averages and rounds the received day across bills that have one, ignoring the rest', ({
+    assert,
+  }) => {
+    const bills = [
+      fakeBill(1, 2026, 1, 100, '2026-01-05'),
+      fakeBill(2, 2026, 2, 100, '2026-02-10'),
+      fakeBill(3, 2026, 3, 100),
+    ]
+
+    // (5 + 10) / 2 = 7.5, rounds to 8.
+    assert.equal(typicalReceivedDayOfMonth(bills), 8)
+  })
+})
+
 test.group('utilityDueDateFor', () => {
   test('returns null when the utility has no configured due offset', ({ assert }) => {
     const utility = fakeUtility('monthly', null)
@@ -222,60 +261,91 @@ test.group('utilityDueDateFor', () => {
     assert.isNull(utilityDueDateFor(utility, [], 2026, 2))
   })
 
-  test('a monthly utility gets a due date every month, on the configured day of that month', ({
+  test('a real bill with a received date is due that many days after receipt', ({ assert }) => {
+    const utility = fakeUtility('monthly', 13)
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-01')]
+
+    const result = utilityDueDateFor(utility, bills, 2026, 1)
+
+    assert.equal(result?.toISO(), '2026-01-14T00:00:00.000Z')
+  })
+
+  test('a due offset of 0 falls due the same day the bill is received', ({ assert }) => {
+    const utility = fakeUtility('monthly', 0)
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-15')]
+
+    const result = utilityDueDateFor(utility, bills, 2026, 1)
+
+    assert.equal(result?.toISO(), '2026-01-15T00:00:00.000Z')
+  })
+
+  test('a real bill with no received date yet has an unknown, not guessed, due date', ({
     assert,
   }) => {
     const utility = fakeUtility('monthly', 13)
+    const bills = [fakeBill(1, 2026, 1, 100)]
 
-    const result = utilityDueDateFor(utility, [], 2026, 1)
-
-    assert.equal(result?.toISO(), '2026-01-13T00:00:00.000Z')
+    assert.isNull(utilityDueDateFor(utility, bills, 2026, 1))
   })
 
-  test('clamps the due day to the last day of a shorter month (Water: 28 days, Feb)', ({
+  test('a month with no bill yet estimates from the typical received day of past bills', ({
     assert,
   }) => {
-    const utility = fakeUtility('monthly', 30)
+    const utility = fakeUtility('monthly', 13)
+    const bills = [
+      fakeBill(1, 2025, 12, 100, '2025-12-03'),
+      fakeBill(2, 2026, 1, 105, '2026-01-05'),
+    ]
 
-    const result = utilityDueDateFor(utility, [], 2026, 2)
+    // Typical received day = round((3 + 5) / 2) = 4, so Feb 4 + 13 days.
+    const result = utilityDueDateFor(utility, bills, 2026, 2)
 
-    assert.equal(result?.toISO(), '2026-02-28T00:00:00.000Z')
+    assert.equal(result?.toISO(), '2026-02-17T00:00:00.000Z')
   })
 
-  test('treats a configured day of 0 as day 1', ({ assert }) => {
-    const utility = fakeUtility('monthly', 0)
+  test('clamps the estimated received day to the last day of a shorter month', ({ assert }) => {
+    const utility = fakeUtility('monthly', 5)
+    const bills = [
+      fakeBill(1, 2025, 12, 100, '2025-12-30'),
+      fakeBill(2, 2026, 1, 100, '2026-01-30'),
+    ]
 
-    const result = utilityDueDateFor(utility, [], 2026, 1)
+    // Typical received day = 30, clamped to Feb's 28 days, then +5 days.
+    const result = utilityDueDateFor(utility, bills, 2026, 2)
 
-    assert.equal(result?.toISO(), '2026-01-01T00:00:00.000Z')
+    assert.equal(result?.toISO(), '2026-03-05T00:00:00.000Z')
+  })
+
+  test('returns null for any month when no bill has ever recorded a received date', ({
+    assert,
+  }) => {
+    const utility = fakeUtility('quarterly', 14)
+    const bills = [fakeBill(1, 2026, 1, 100)]
+
+    assert.isNull(utilityDueDateFor(utility, bills, 2026, 1))
+    assert.isNull(utilityDueDateFor(utility, [], 2026, 2))
   })
 
   test('a quarterly utility only shows a due date in months aligned to its last bill', ({
     assert,
   }) => {
     const utility = fakeUtility('quarterly', 14)
-    const bills = [fakeBill(1, 2026, 1, 100)]
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-05')]
 
-    // Same month as the anchor bill - due.
+    // Same month as the anchor bill - due, from its own received date.
     assert.isNotNull(utilityDueDateFor(utility, bills, 2026, 1))
-    // 3 months later (one quarter on) - due again.
+    // 3 months later (one quarter on) - due again, estimated from history.
     assert.isNotNull(utilityDueDateFor(utility, bills, 2026, 4))
-    // 1 or 2 months off the quarterly cadence - not due.
+    // 1 or 2 months off the quarterly cadence - not a billing month at all.
     assert.isNull(utilityDueDateFor(utility, bills, 2026, 2))
     assert.isNull(utilityDueDateFor(utility, bills, 2026, 3))
-  })
-
-  test('a quarterly utility with no bills yet is not restricted by cadence', ({ assert }) => {
-    const utility = fakeUtility('quarterly', 14)
-
-    assert.isNotNull(utilityDueDateFor(utility, [], 2026, 2))
   })
 
   test('an unrecognized frequency falls back to a period of 1 month (due every month)', ({
     assert,
   }) => {
     const utility = fakeUtility('fortnightly', 5)
-    const bills = [fakeBill(1, 2026, 1, 100)]
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-10')]
 
     assert.isNotNull(utilityDueDateFor(utility, bills, 2026, 2))
     assert.isNotNull(utilityDueDateFor(utility, bills, 2026, 3))
@@ -289,42 +359,54 @@ test.group('nextUtilityDueDate', () => {
     assert.isNull(nextUtilityDueDate(utility, [], DateTime.utc(2026, 3, 1)))
   })
 
+  test('returns null when no bill has ever recorded a received date', ({ assert }) => {
+    const utility = fakeUtility('monthly', 10)
+    const bills = [fakeBill(1, 2026, 1, 100)]
+
+    assert.isNull(nextUtilityDueDate(utility, bills, DateTime.utc(2026, 3, 1)))
+  })
+
   test("returns this month's due date when it hasn't passed yet", ({ assert }) => {
     const utility = fakeUtility('monthly', 20)
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-10')]
 
-    const result = nextUtilityDueDate(utility, [], DateTime.utc(2026, 3, 10))
+    // Typical received day = 10, so March 10 + 20 days = March 30.
+    const result = nextUtilityDueDate(utility, bills, DateTime.utc(2026, 3, 10))
 
-    assert.equal(result?.toISO(), '2026-03-20T00:00:00.000Z')
+    assert.equal(result?.toISO(), '2026-03-30T00:00:00.000Z')
   })
 
   test('rolls forward to next month once this month is already past its due day', ({ assert }) => {
     const utility = fakeUtility('monthly', 5)
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-01')]
 
-    const result = nextUtilityDueDate(utility, [], DateTime.utc(2026, 3, 10))
+    // Typical received day = 1, so March's due date (Mar 6) has already
+    // passed by the 10th - rolls to April 1 + 5 days.
+    const result = nextUtilityDueDate(utility, bills, DateTime.utc(2026, 3, 10))
 
-    assert.equal(result?.toISO(), '2026-04-05T00:00:00.000Z')
+    assert.equal(result?.toISO(), '2026-04-06T00:00:00.000Z')
   })
 
   test('a quarterly utility skips ahead to its next actual billing month', ({ assert }) => {
     const utility = fakeUtility('quarterly', 14)
-    const bills = [fakeBill(1, 2026, 1, 300)]
+    const bills = [fakeBill(1, 2026, 1, 300, '2026-01-10')]
 
     // February and March aren't billing months for a Jan-anchored quarterly
-    // utility - the next one is April.
+    // utility - the next one is April, estimated from January's received day.
     const result = nextUtilityDueDate(utility, bills, DateTime.utc(2026, 2, 1))
 
-    assert.equal(result?.toISO(), '2026-04-14T00:00:00.000Z')
+    assert.equal(result?.toISO(), '2026-04-24T00:00:00.000Z')
   })
 
   test('an annual utility due date that already passed this cycle rolls to next year', ({
     assert,
   }) => {
     const utility = fakeUtility('annual', 7)
-    const bills = [fakeBill(1, 2025, 6, 1200)]
+    const bills = [fakeBill(1, 2025, 6, 1200, '2025-06-01')]
 
-    // Anchored on June - due on the 7th, but "today" is already past that.
+    // Anchored on June - due on the 8th, but "today" is already past that.
     const result = nextUtilityDueDate(utility, bills, DateTime.utc(2026, 6, 20))
 
-    assert.equal(result?.toISO(), '2027-06-07T00:00:00.000Z')
+    assert.equal(result?.toISO(), '2027-06-08T00:00:00.000Z')
   })
 })

@@ -19,4 +19,23 @@ test.group('upsertUtilityBillValidator', () => {
     const payload = await upsertUtilityBillValidator.validate({ amount: 100, notes: null })
     assert.isNull(payload.notes)
   })
+
+  test('accepts a received date', async ({ assert }) => {
+    const payload = await upsertUtilityBillValidator.validate({
+      amount: 100,
+      receivedOn: '2026-01-15',
+    })
+    assert.equal(payload.receivedOn?.toISODate(), '2026-01-15')
+  })
+
+  test('allows a null received date', async ({ assert }) => {
+    const payload = await upsertUtilityBillValidator.validate({ amount: 100, receivedOn: null })
+    assert.isNull(payload.receivedOn)
+  })
+
+  test('rejects an invalid received date', async ({ assert }) => {
+    await assert.rejects(() =>
+      upsertUtilityBillValidator.validate({ amount: 100, receivedOn: 'not-a-date' })
+    )
+  })
 })

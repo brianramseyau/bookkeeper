@@ -1067,6 +1067,7 @@ describe('month page', () => {
       amount: 110,
       notes: null,
       paid: true,
+      receivedOn: null,
       createdAt: '',
       updatedAt: '',
     })
@@ -1190,6 +1191,7 @@ describe('month page', () => {
       amount: 120,
       notes: null,
       paid: false,
+      receivedOn: null,
       createdAt: '',
       updatedAt: '',
     })

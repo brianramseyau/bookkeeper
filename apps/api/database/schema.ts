@@ -8,7 +8,15 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class BackupSettingSchema extends BaseModel {
-  static $columns = ['createdAt', 'enabled', 'id', 'intervalHours', 'lastRunAt', 'retentionDays', 'updatedAt'] as const
+  static $columns = [
+    'createdAt',
+    'enabled',
+    'id',
+    'intervalHours',
+    'lastRunAt',
+    'retentionDays',
+    'updatedAt',
+  ] as const
   $columns = BackupSettingSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -27,7 +35,17 @@ export class BackupSettingSchema extends BaseModel {
 }
 
 export class CategorySchema extends BaseModel {
-  static $columns = ['color', 'createdAt', 'id', 'isActive', 'isArchived', 'isSystem', 'name', 'sortOrder', 'updatedAt'] as const
+  static $columns = [
+    'color',
+    'createdAt',
+    'id',
+    'isActive',
+    'isArchived',
+    'isSystem',
+    'name',
+    'sortOrder',
+    'updatedAt',
+  ] as const
   $columns = CategorySchema.$columns
   @column()
   declare color: string | null
@@ -50,7 +68,15 @@ export class CategorySchema extends BaseModel {
 }
 
 export class ExpenseBudgetItemSchema extends BaseModel {
-  static $columns = ['amount', 'createdAt', 'expenseId', 'id', 'name', 'notes', 'updatedAt'] as const
+  static $columns = [
+    'amount',
+    'createdAt',
+    'expenseId',
+    'id',
+    'name',
+    'notes',
+    'updatedAt',
+  ] as const
   $columns = ExpenseBudgetItemSchema.$columns
   @column()
   declare amount: number
@@ -69,7 +95,15 @@ export class ExpenseBudgetItemSchema extends BaseModel {
 }
 
 export class ExpenseMonthlyActualSchema extends BaseModel {
-  static $columns = ['amount', 'createdAt', 'expenseId', 'id', 'notes', 'occurredOn', 'updatedAt'] as const
+  static $columns = [
+    'amount',
+    'createdAt',
+    'expenseId',
+    'id',
+    'notes',
+    'occurredOn',
+    'updatedAt',
+  ] as const
   $columns = ExpenseMonthlyActualSchema.$columns
   @column()
   declare amount: number
@@ -107,7 +141,20 @@ export class ExpensePaymentSchema extends BaseModel {
 }
 
 export class ExpenseSchema extends BaseModel {
-  static $columns = ['budgetAmount', 'categoryId', 'color', 'createdAt', 'id', 'includeInStandardMonth', 'isActive', 'isArchived', 'isPaused', 'name', 'sortOrder', 'updatedAt'] as const
+  static $columns = [
+    'budgetAmount',
+    'categoryId',
+    'color',
+    'createdAt',
+    'id',
+    'includeInStandardMonth',
+    'isActive',
+    'isArchived',
+    'isPaused',
+    'name',
+    'sortOrder',
+    'updatedAt',
+  ] as const
   $columns = ExpenseSchema.$columns
   @column()
   declare budgetAmount: number | null
@@ -136,7 +183,19 @@ export class ExpenseSchema extends BaseModel {
 }
 
 export class IncomeEntrySchema extends BaseModel {
-  static $columns = ['amount', 'createdAt', 'id', 'incomeSourceId', 'month', 'note', 'receivedOn', 'taxWithheld', 'updatedAt', 'userId', 'year'] as const
+  static $columns = [
+    'amount',
+    'createdAt',
+    'id',
+    'incomeSourceId',
+    'month',
+    'note',
+    'receivedOn',
+    'taxWithheld',
+    'updatedAt',
+    'userId',
+    'year',
+  ] as const
   $columns = IncomeEntrySchema.$columns
   @column()
   declare amount: number
@@ -163,7 +222,21 @@ export class IncomeEntrySchema extends BaseModel {
 }
 
 export class IncomeSourceSchema extends BaseModel {
-  static $columns = ['anchorDate', 'createdAt', 'expectedAmount', 'frequency', 'id', 'isActive', 'name', 'notes', 'payDayOfMonth', 'taxWithheld', 'updatedAt', 'userId', 'weekendRollback'] as const
+  static $columns = [
+    'anchorDate',
+    'createdAt',
+    'expectedAmount',
+    'frequency',
+    'id',
+    'isActive',
+    'name',
+    'notes',
+    'payDayOfMonth',
+    'taxWithheld',
+    'updatedAt',
+    'userId',
+    'weekendRollback',
+  ] as const
   $columns = IncomeSourceSchema.$columns
   @column.date()
   declare anchorDate: DateTime | null
@@ -194,7 +267,14 @@ export class IncomeSourceSchema extends BaseModel {
 }
 
 export class IncomeTaxSettingSchema extends BaseModel {
-  static $columns = ['createdAt', 'financialYear', 'id', 'marginalRate', 'updatedAt', 'userId'] as const
+  static $columns = [
+    'createdAt',
+    'financialYear',
+    'id',
+    'marginalRate',
+    'updatedAt',
+    'userId',
+  ] as const
   $columns = IncomeTaxSettingSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -262,7 +342,16 @@ export class PushConfigSchema extends BaseModel {
 }
 
 export class PushSubscriptionSchema extends BaseModel {
-  static $columns = ['auth', 'createdAt', 'endpoint', 'id', 'p256Dh', 'updatedAt', 'userAgent', 'userId'] as const
+  static $columns = [
+    'auth',
+    'createdAt',
+    'endpoint',
+    'id',
+    'p256Dh',
+    'updatedAt',
+    'userAgent',
+    'userId',
+  ] as const
   $columns = PushSubscriptionSchema.$columns
   @column()
   declare auth: string
@@ -283,7 +372,16 @@ export class PushSubscriptionSchema extends BaseModel {
 }
 
 export class RecurringBillPaymentSchema extends BaseModel {
-  static $columns = ['amount', 'createdAt', 'id', 'month', 'paid', 'recurringBillId', 'updatedAt', 'year'] as const
+  static $columns = [
+    'amount',
+    'createdAt',
+    'id',
+    'month',
+    'paid',
+    'recurringBillId',
+    'updatedAt',
+    'year',
+  ] as const
   $columns = RecurringBillPaymentSchema.$columns
   @column()
   declare amount: number | null
@@ -304,7 +402,21 @@ export class RecurringBillPaymentSchema extends BaseModel {
 }
 
 export class RecurringBillSchema extends BaseModel {
-  static $columns = ['amount', 'categoryId', 'createdAt', 'dueDay', 'dueMonth', 'frequency', 'id', 'isActive', 'isArchived', 'isPaused', 'name', 'notes', 'updatedAt'] as const
+  static $columns = [
+    'amount',
+    'categoryId',
+    'createdAt',
+    'dueDay',
+    'dueMonth',
+    'frequency',
+    'id',
+    'isActive',
+    'isArchived',
+    'isPaused',
+    'name',
+    'notes',
+    'updatedAt',
+  ] as const
   $columns = RecurringBillSchema.$columns
   @column()
   declare amount: number
@@ -335,7 +447,15 @@ export class RecurringBillSchema extends BaseModel {
 }
 
 export class SubscriptionPaymentSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'month', 'paid', 'updatedAt', 'userSubscriptionId', 'year'] as const
+  static $columns = [
+    'createdAt',
+    'id',
+    'month',
+    'paid',
+    'updatedAt',
+    'userSubscriptionId',
+    'year',
+  ] as const
   $columns = SubscriptionPaymentSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -354,7 +474,17 @@ export class SubscriptionPaymentSchema extends BaseModel {
 }
 
 export class UserNotificationPreferenceSchema extends BaseModel {
-  static $columns = ['createdAt', 'enabled', 'id', 'leadDays', 'notifyRecurringBills', 'notifySubscriptions', 'notifyUtilityBills', 'updatedAt', 'userId'] as const
+  static $columns = [
+    'createdAt',
+    'enabled',
+    'id',
+    'leadDays',
+    'notifyRecurringBills',
+    'notifySubscriptions',
+    'notifyUtilityBills',
+    'updatedAt',
+    'userId',
+  ] as const
   $columns = UserNotificationPreferenceSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -377,7 +507,21 @@ export class UserNotificationPreferenceSchema extends BaseModel {
 }
 
 export class UserSubscriptionSchema extends BaseModel {
-  static $columns = ['amount', 'categoryId', 'createdAt', 'dayOfMonth', 'id', 'includeInStandardMonth', 'isActive', 'isArchived', 'isPaused', 'name', 'notes', 'updatedAt', 'userId'] as const
+  static $columns = [
+    'amount',
+    'categoryId',
+    'createdAt',
+    'dayOfMonth',
+    'id',
+    'includeInStandardMonth',
+    'isActive',
+    'isArchived',
+    'isPaused',
+    'name',
+    'notes',
+    'updatedAt',
+    'userId',
+  ] as const
   $columns = UserSubscriptionSchema.$columns
   @column()
   declare amount: number
@@ -408,7 +552,15 @@ export class UserSubscriptionSchema extends BaseModel {
 }
 
 export class UserSchema extends BaseModel {
-  static $columns = ['createdAt', 'displayColor', 'email', 'fullName', 'id', 'password', 'updatedAt'] as const
+  static $columns = [
+    'createdAt',
+    'displayColor',
+    'email',
+    'fullName',
+    'id',
+    'password',
+    'updatedAt',
+  ] as const
   $columns = UserSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -427,7 +579,17 @@ export class UserSchema extends BaseModel {
 }
 
 export class UtilitySchema extends BaseModel {
-  static $columns = ['categoryId', 'createdAt', 'dueOffsetDays', 'frequency', 'id', 'isActive', 'name', 'paidInAdvance', 'updatedAt'] as const
+  static $columns = [
+    'categoryId',
+    'createdAt',
+    'dueOffsetDays',
+    'frequency',
+    'id',
+    'isActive',
+    'name',
+    'paidInAdvance',
+    'updatedAt',
+  ] as const
   $columns = UtilitySchema.$columns
   @column()
   declare categoryId: number | null
@@ -450,7 +612,18 @@ export class UtilitySchema extends BaseModel {
 }
 
 export class UtilityBillSchema extends BaseModel {
-  static $columns = ['amount', 'createdAt', 'id', 'month', 'notes', 'paid', 'updatedAt', 'utilityId', 'year'] as const
+  static $columns = [
+    'amount',
+    'createdAt',
+    'id',
+    'month',
+    'notes',
+    'paid',
+    'receivedOn',
+    'updatedAt',
+    'utilityId',
+    'year',
+  ] as const
   $columns = UtilityBillSchema.$columns
   @column()
   declare amount: number
@@ -464,6 +637,8 @@ export class UtilityBillSchema extends BaseModel {
   declare notes: string | null
   @column()
   declare paid: boolean
+  @column.date()
+  declare receivedOn: DateTime | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()

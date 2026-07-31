@@ -7,7 +7,7 @@ export interface Utility {
   name: string
   categoryId: number | null
   frequency: UtilityFrequency
-  /** Days after the billing period's month-end that payment is due - null if unknown. */
+  /** Days after a bill's received date that payment is due - null if unknown. */
   dueOffsetDays: number | null
   /** False (default) means billed in arrears - the bill's month is the last month it covers. True means paid in advance - the bill's month is the first. */
   paidInAdvance: boolean
@@ -24,6 +24,8 @@ export interface UtilityBill {
   amount: number
   notes: string | null
   paid: boolean
+  /** The date this bill was actually received - anchors its due-date calculation. */
+  receivedOn: string | null
   createdAt: string
   updatedAt: string
 }
@@ -85,11 +87,13 @@ export function upsertUtilityBill(
   year: number,
   month: number,
   amount: number,
-  paid?: boolean
+  paid?: boolean,
+  receivedOn?: string | null
 ) {
   return api.put<UtilityBill>(`/utilities/${utilityId}/bills/${year}/${month}`, {
     amount,
     ...(paid !== undefined ? { paid } : {}),
+    ...(receivedOn !== undefined ? { receivedOn } : {}),
   })
 }
 

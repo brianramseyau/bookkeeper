@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import User from '#models/user'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
@@ -212,6 +213,103 @@ test.group('UtilityBills / upsert', () => {
     // row read this way rather than a genuine JS boolean.
     assert.equal(response.body().data.paid, true)
   })
+
+  test('defaults received date to null when not sent', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08 })
+
+    response.assertStatus(200)
+    assert.isNull(response.body().data.receivedOn)
+  })
+
+  test('persists a received date when sent', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08, receivedOn: '2026-02-10' })
+
+    response.assertStatus(200)
+    assert.match(response.body().data.receivedOn, /^2026-02-10T00:00:00/)
+  })
+
+  test('updates the received date on an existing bill when sent', async ({ client, assert }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: 2026,
+      month: 2,
+      amount: 400,
+      receivedOn: DateTime.utc(2026, 2, 5),
+    })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08, receivedOn: '2026-02-11' })
+
+    response.assertStatus(200)
+    assert.match(response.body().data.receivedOn, /^2026-02-11T00:00:00/)
+  })
+
+  test('leaves the existing received date untouched when a later update omits it', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: 2026,
+      month: 2,
+      amount: 400,
+      receivedOn: DateTime.utc(2026, 2, 5),
+    })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08 })
+
+    response.assertStatus(200)
+    assert.match(response.body().data.receivedOn, /^2026-02-05T00:00:00/)
+  })
+
+  test('clears an existing received date when explicitly sent as null', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: 2026,
+      month: 2,
+      amount: 400,
+      receivedOn: DateTime.utc(2026, 2, 5),
+    })
+
+    const response = await client
+      .put(`/api/utilities/${utility.id}/bills/2026/2`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 409.08, receivedOn: null })
+
+    response.assertStatus(200)
+    assert.isNull(response.body().data.receivedOn)
+  })
 })
 
 test.group('UtilityBills / destroy', () => {
@@ -276,16 +374,37 @@ test.group('UtilityBills / trend', () => {
     assert.isNull(response.body().nextDueOn)
   })
 
-  test('includes the next due date on the configured day once billing settings are set', async ({
+  test('nextDueOn is null when a due-day offset is set but no bill has a received date yet', async ({
     client,
     assert,
   }) => {
     const brian = await loginAsBrian()
     const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 15 })
+    await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 1, amount: 400 })
 
     const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
 
     response.assertStatus(200)
-    assert.match(response.body().nextDueOn, /^\d{4}-\d{2}-15T00:00:00/)
+    assert.isNull(response.body().nextDueOn)
+  })
+
+  test('includes the next due date, offset from a received bill, once billing settings and a received date are set', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 15 })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: 2026,
+      month: 1,
+      amount: 400,
+      receivedOn: DateTime.utc(2026, 1, 1),
+    })
+
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+
+    response.assertStatus(200)
+    assert.match(response.body().nextDueOn, /^\d{4}-\d{2}-16T00:00:00/)
   })
 })

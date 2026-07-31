@@ -19,6 +19,7 @@
     financialYearLabel,
     financialYearMonths,
     formatCurrency,
+    formatDate,
     monthYearLabel,
   } from '$lib/format'
   import { ApiError } from '$lib/api'
@@ -46,6 +47,9 @@
   // bind:value on a number input coerces to an actual number (NaN when empty),
   // not a string - see https://svelte.dev/docs/svelte/bind#Number-inputs
   let editingValue = $state<number>(NaN)
+  // bind:value on a date input is always a plain string ("" when empty, else
+  // "yyyy-MM-dd") - normalized to null on save, same as IncomeEntryEditRow.
+  let editingReceivedOn = $state('')
   let saving = $state(false)
 
   let editingSettings = $state(false)
@@ -136,11 +140,13 @@
     const bill = billFor(year, month)
     editingKey = cellKey(year, month)
     editingValue = bill ? bill.amount : NaN
+    editingReceivedOn = bill?.receivedOn ? bill.receivedOn.slice(0, 10) : ''
   }
 
   function cancelEdit() {
     editingKey = null
     editingValue = NaN
+    editingReceivedOn = ''
   }
 
   async function saveEdit(year: number, month: number) {
@@ -157,7 +163,8 @@
     saving = true
     error = null
     try {
-      await upsertUtilityBill(utilityId, year, month, amount)
+      const receivedOn = editingReceivedOn === '' ? null : editingReceivedOn
+      await upsertUtilityBill(utilityId, year, month, amount, undefined, receivedOn)
       // A single bill's amount also changes the computed shares of the
       // other months in its period, so refetch the whole set rather than
       // patching just this cell in place.
@@ -315,7 +322,7 @@
         </label>
         <label class="flex flex-col gap-1">
           <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-            >Due (day of the billing month)</span
+            >Due (days after received)</span
           >
           <input
             type="number"
@@ -357,7 +364,7 @@
           >
           · {utility.paidInAdvance ? 'paid in advance' : 'paid in arrears'}
           {#if utility.dueOffsetDays !== null}
-            · due on day {utility.dueOffsetDays} of the billing month
+            · due {utility.dueOffsetDays} day{utility.dueOffsetDays === 1 ? '' : 's'} after received
           {:else}
             · no due-date offset set
           {/if}
@@ -395,6 +402,9 @@
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Amount</th
           >
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
+            >Received</th
+          >
         </tr>
       </thead>
       <tbody>
@@ -413,32 +423,19 @@
             </td>
             <td class="px-1 py-1 text-right">
               {#if editingKey === key}
-                <div class="flex items-center justify-end gap-1">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    bind:value={editingValue}
-                    disabled={saving}
-                    onblur={() => saveEdit(year, month)}
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') saveEdit(year, month)
-                      if (e.key === 'Escape') cancelEdit()
-                    }}
-                    use:focusOnMount
-                    class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                  {#if bill}
-                    <IconActionButton
-                      variant="danger"
-                      disabled={saving}
-                      label="Delete {monthYearLabel(year, month)} bill"
-                      path={mdiDelete}
-                      onmousedown={(e) => e.preventDefault()}
-                      onclick={() => removeCell(year, month)}
-                    />
-                  {/if}
-                </div>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  bind:value={editingValue}
+                  disabled={saving}
+                  onkeydown={(e) => {
+                    if (e.key === 'Enter') saveEdit(year, month)
+                    if (e.key === 'Escape') cancelEdit()
+                  }}
+                  use:focusOnMount
+                  class="w-24 rounded-md border border-indigo-400 px-2 py-1 text-right text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
+                />
               {:else if !bill && share}
                 <span
                   class="block w-full cursor-default rounded-md px-2 py-1.5 text-right text-slate-400 italic dark:text-slate-500"
@@ -480,6 +477,55 @@
                     </span>
                   {/if}
                 </button>
+              {/if}
+            </td>
+            <td class="px-1 py-1 text-left">
+              {#if editingKey === key}
+                <div class="flex items-center gap-1">
+                  <input
+                    type="date"
+                    bind:value={editingReceivedOn}
+                    disabled={saving}
+                    onkeydown={(e) => {
+                      if (e.key === 'Enter') saveEdit(year, month)
+                      if (e.key === 'Escape') cancelEdit()
+                    }}
+                    class="rounded-md border border-indigo-400 px-2 py-1 text-sm focus:ring-indigo-500 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                  <IconActionButton
+                    variant="primary"
+                    disabled={saving}
+                    label="Save {monthYearLabel(year, month)} bill"
+                    path={mdiContentSave}
+                    onclick={() => saveEdit(year, month)}
+                  />
+                  <IconActionButton
+                    variant="cancel"
+                    disabled={saving}
+                    label="Cancel editing {monthYearLabel(year, month)} bill"
+                    path={mdiCloseThick}
+                    onclick={cancelEdit}
+                  />
+                  {#if bill}
+                    <IconActionButton
+                      variant="danger"
+                      disabled={saving}
+                      label="Delete {monthYearLabel(year, month)} bill"
+                      path={mdiDelete}
+                      onclick={() => removeCell(year, month)}
+                    />
+                  {/if}
+                </div>
+              {:else if bill}
+                <button
+                  type="button"
+                  onclick={() => startEdit(year, month)}
+                  class="w-full rounded-md px-2 py-1.5 text-left text-slate-600 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+                >
+                  {formatDate(bill.receivedOn)}
+                </button>
+              {:else}
+                <span class="block px-2 py-1.5 text-slate-300 dark:text-slate-600">—</span>
               {/if}
             </td>
           </tr>

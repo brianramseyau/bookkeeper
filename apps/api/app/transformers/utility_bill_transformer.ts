@@ -11,6 +11,7 @@ export default class UtilityBillTransformer extends BaseTransformer<UtilityBill>
       'amount',
       'notes',
       'paid',
+      'receivedOn',
       'createdAt',
       'updatedAt',
     ])

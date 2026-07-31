@@ -55,7 +55,13 @@ test.group('StandardMonths / show', () => {
     const electricity = await Utility.create({ name: 'Electricity', dueOffsetDays: 20 })
     await UtilityBill.create({ utilityId: electricity.id, year: 2025, month: 12, amount: 380 })
     await UtilityBill.create({ utilityId: electricity.id, year: 2026, month: 1, amount: 400 })
-    await UtilityBill.create({ utilityId: electricity.id, year: 2026, month: 2, amount: 420 })
+    await UtilityBill.create({
+      utilityId: electricity.id,
+      year: 2026,
+      month: 2,
+      amount: 420,
+      receivedOn: DateTime.utc(2026, 1, 31),
+    })
 
     await RecurringBill.create({
       name: 'Kayo',
