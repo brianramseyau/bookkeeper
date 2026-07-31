@@ -453,7 +453,7 @@ export default class ImportXlsx extends BaseCommand {
         .where('isActive', true)
         .andWhere('isPaused', false)
         .andWhere('isArchived', false)
-        .andWhere('includeInStandardMonth', true)
+        .andWhere('isRecurring', true)
 
       for (const subscription of subscriptions) {
         await SubscriptionPayment.updateOrCreate(
@@ -474,7 +474,7 @@ export default class ImportXlsx extends BaseCommand {
         .where('isActive', true)
         .andWhere('isPaused', false)
         .andWhere('isArchived', false)
-        .andWhere('includeInStandardMonth', true)
+        .andWhere('isRecurring', true)
 
       for (const expense of expenses) {
         const actuals = await ExpenseMonthlyActual.query({ client: trx }).where(

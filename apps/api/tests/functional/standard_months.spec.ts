@@ -178,6 +178,88 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Household')
   })
 
+  test('a non-recurring expense with an actual logged this month appears with no projected amount', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const flights = await Expense.create({ name: 'Flights', isRecurring: false })
+    await ExpenseMonthlyActual.create({
+      expenseId: flights.id,
+      occurredOn: DateTime.fromISO('2026-02-01'),
+      amount: 450,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 2 })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    const body = response.body()
+    const flightsLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `expense-${flights.id}`
+    )
+    assert.isDefined(flightsLine)
+    assert.isNull(flightsLine.projected)
+    assert.equal(flightsLine.actual, 450)
+    assert.equal(body.expenses.actualTotal, 450)
+    assert.equal(body.expenses.projectedTotal, 0)
+  })
+
+  test('a non-recurring expense with no actual logged in the viewed month is omitted, even with a budget or actuals elsewhere', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const flights = await Expense.create({
+      name: 'Flights',
+      isRecurring: false,
+      budgetAmount: 500,
+    })
+    await ExpenseMonthlyActual.create({
+      expenseId: flights.id,
+      occurredOn: DateTime.fromISO('2026-01-01'),
+      amount: 450,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 2 })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    const labels = response.body().expenses.lines.map((l: { label: string }) => l.label)
+    assert.notInclude(labels, 'Flights')
+  })
+
+  test('an expense excluded from budget is omitted entirely, even with actuals this month', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const creditCard = await Expense.create({
+      name: 'Credit Card',
+      excludeFromBudget: true,
+    })
+    await ExpenseMonthlyActual.create({
+      expenseId: creditCard.id,
+      occurredOn: DateTime.fromISO('2026-02-01'),
+      amount: 900,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 2 })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    const body = response.body()
+    const labels = body.expenses.lines.map((l: { label: string }) => l.label)
+    assert.notInclude(labels, 'Credit Card')
+    assert.equal(body.expenses.actualTotal, 0)
+  })
+
   test('paused or archived recurring bills, subscriptions, and expenses produce no line', async ({
     client,
     assert,

@@ -35,7 +35,8 @@ const groceries: Expense = {
   sortOrder: 1,
   budgetAmount: 400,
   budgetItemCount: 0,
-  includeInStandardMonth: true,
+  isRecurring: true,
+  excludeFromBudget: false,
   categoryId: null,
   isActive: true,
   isPaused: false,
@@ -49,7 +50,23 @@ const rent: Expense = {
   sortOrder: 2,
   budgetAmount: 2000,
   budgetItemCount: 3,
-  includeInStandardMonth: false,
+  isRecurring: false,
+  excludeFromBudget: false,
+  categoryId: null,
+  isActive: true,
+  isPaused: false,
+  isArchived: false,
+}
+
+const creditCard: Expense = {
+  id: 3,
+  name: 'Credit Card',
+  color: null,
+  sortOrder: 3,
+  budgetAmount: null,
+  budgetItemCount: 0,
+  isRecurring: true,
+  excludeFromBudget: true,
   categoryId: null,
   isActive: true,
   isPaused: false,
@@ -109,7 +126,7 @@ describe('expenses page', () => {
   })
 
   it('renders expenses with budget, trend and standard-month indicators', async () => {
-    vi.mocked(listExpenses).mockResolvedValue([groceries, rent])
+    vi.mocked(listExpenses).mockResolvedValue([groceries, rent, creditCard])
     vi.mocked(getExpenseTrend).mockImplementation((id) =>
       Promise.resolve(
         id === groceries.id
@@ -133,9 +150,39 @@ describe('expenses page', () => {
     expect(screen.getByText('$350.00')).toBeInTheDocument()
 
     // Rent is itemized, so its budget shows a derived-value marker.
-    expect(screen.getByTitle('Excluded from Monthly')).toBeInTheDocument()
-    expect(screen.getByTitle('Included in Monthly')).toBeInTheDocument()
+    expect(screen.getByTitle('One-off')).toBeInTheDocument()
+    expect(screen.getAllByTitle('Recurring')).toHaveLength(2)
     expect(screen.getByTitle('Derived from 3 itemized budget line(s)')).toBeInTheDocument()
+
+    // Credit Card is flagged to ignore from budget - the other two aren't.
+    expect(screen.getByTitle('Ignored from Monthly and Dashboard totals')).toBeInTheDocument()
+    expect(screen.getAllByTitle('Counted in totals')).toHaveLength(2)
+  })
+
+  it('toggles the ignore-budget checkbox and saves it', async () => {
+    vi.mocked(listExpenses).mockResolvedValue([groceries])
+    vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
+    vi.mocked(updateExpense).mockResolvedValue(groceries)
+    const user = userEvent.setup()
+    render(ExpensesPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+
+    const ignoreCheckbox = screen.getByRole('checkbox', {
+      name: 'Ignore budget',
+    }) as HTMLInputElement
+    expect(ignoreCheckbox.checked).toBe(false)
+    await user.click(ignoreCheckbox)
+
+    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+
+    expect(updateExpense).toHaveBeenCalledWith(1, {
+      name: 'Groceries',
+      color: '#22c55e',
+      budgetAmount: 400,
+      isRecurring: true,
+      excludeFromBudget: true,
+    })
   })
 
   it('shows a flat trend indicator', async () => {
@@ -243,9 +290,11 @@ describe('expenses page', () => {
     await user.clear(budgetInput)
     await user.type(budgetInput, '450')
 
-    const checkbox = screen.getByRole('checkbox') as HTMLInputElement
-    expect(checkbox.checked).toBe(true)
-    await user.click(checkbox)
+    const recurringCheckbox = screen.getByRole('checkbox', {
+      name: 'Recurring',
+    }) as HTMLInputElement
+    expect(recurringCheckbox.checked).toBe(true)
+    await user.click(recurringCheckbox)
 
     vi.mocked(listExpenses).mockResolvedValue([{ ...groceries, name: 'Food' }])
 
@@ -255,7 +304,8 @@ describe('expenses page', () => {
       name: 'Food',
       color: '#22c55e',
       budgetAmount: 450,
-      includeInStandardMonth: false,
+      isRecurring: false,
+      excludeFromBudget: false,
     })
     expect(await screen.findByText('Food')).toBeInTheDocument()
   })
@@ -273,7 +323,8 @@ describe('expenses page', () => {
     expect(updateExpense).toHaveBeenCalledWith(2, {
       name: 'Rent',
       color: '#64748b',
-      includeInStandardMonth: false,
+      isRecurring: false,
+      excludeFromBudget: false,
     })
   })
 

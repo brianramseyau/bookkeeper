@@ -50,7 +50,8 @@
   let editName = $state('')
   let editColor = $state('#64748b')
   let editBudgetAmount = $state<number>(NaN)
-  let editIncludeInStandardMonth = $state(true)
+  let editIsRecurring = $state(true)
+  let editExcludeFromBudget = $state(false)
   let savingEdit = $state(false)
   let reordering = $state(false)
 
@@ -113,7 +114,8 @@
     editName = expense.name
     editColor = expense.color ?? '#64748b'
     editBudgetAmount = expense.budgetAmount ?? NaN
-    editIncludeInStandardMonth = expense.includeInStandardMonth
+    editIsRecurring = expense.isRecurring
+    editExcludeFromBudget = expense.excludeFromBudget
   }
 
   function cancelEdit() {
@@ -136,7 +138,8 @@
         ...(expense.budgetItemCount === 0
           ? { budgetAmount: Number.isNaN(editBudgetAmount) ? null : editBudgetAmount }
           : {}),
-        includeInStandardMonth: editIncludeInStandardMonth,
+        isRecurring: editIsRecurring,
+        excludeFromBudget: editExcludeFromBudget,
       })
       editingId = null
       await refresh()
@@ -291,7 +294,16 @@
     <td class="px-3 py-2 text-center">
       <input
         type="checkbox"
-        bind:checked={editIncludeInStandardMonth}
+        aria-label="Recurring"
+        bind:checked={editIsRecurring}
+        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+      />
+    </td>
+    <td class="px-3 py-2 text-center">
+      <input
+        type="checkbox"
+        aria-label="Ignore budget"
+        bind:checked={editExcludeFromBudget}
         class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
       />
     </td>
@@ -353,8 +365,15 @@
           >
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Trend</th
           >
-          <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
-            >Monthly</th
+          <th
+            class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
+            title="A recurring item is projected forward on the Monthly page even without an actual logged yet; a one-off only shows up there for a month it actually has an actual."
+            >Recurring</th
+          >
+          <th
+            class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
+            title="Hides this expense from the Monthly page and Dashboard trend entirely - for spend already counted under other expenses, e.g. Credit Card."
+            >Ignore budget</th
           >
           <th class="px-3 py-2"></th>
           <th class="px-3 py-2"></th>
@@ -407,13 +426,20 @@
                 <TrendIndicator trend={row.trend?.trend} class="text-xs font-medium" />
               </td>
               <td class="px-3 py-2 text-center">
-                {#if row.expense.includeInStandardMonth}
-                  <span class="text-emerald-600 dark:text-emerald-400" title="Included in Monthly"
-                    >✓</span
+                {#if row.expense.isRecurring}
+                  <span class="text-emerald-600 dark:text-emerald-400" title="Recurring">✓</span>
+                {:else}
+                  <span class="text-slate-300 dark:text-slate-600" title="One-off">—</span>
+                {/if}
+              </td>
+              <td class="px-3 py-2 text-center">
+                {#if row.expense.excludeFromBudget}
+                  <span
+                    class="text-emerald-600 dark:text-emerald-400"
+                    title="Ignored from Monthly and Dashboard totals">✓</span
                   >
                 {:else}
-                  <span class="text-slate-300 dark:text-slate-600" title="Excluded from Monthly"
-                    >—</span
+                  <span class="text-slate-300 dark:text-slate-600" title="Counted in totals">—</span
                   >
                 {/if}
               </td>
@@ -467,7 +493,7 @@
               class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
-                colspan="9"
+                colspan="10"
                 class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
               >
                 Paused
@@ -505,9 +531,21 @@
                   <td class="px-3 py-2"></td>
                   <td
                     class="px-3 py-2 text-center text-slate-300 dark:text-slate-600"
-                    title="Excluded from Monthly while paused"
+                    title="Hidden from Monthly while paused"
                   >
                     —
+                  </td>
+                  <td class="px-3 py-2 text-center">
+                    {#if row.expense.excludeFromBudget}
+                      <span
+                        class="text-emerald-600 dark:text-emerald-400"
+                        title="Ignored from Monthly and Dashboard totals">✓</span
+                      >
+                    {:else}
+                      <span class="text-slate-300 dark:text-slate-600" title="Counted in totals"
+                        >—</span
+                      >
+                    {/if}
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
                     <IconActionButton
@@ -540,7 +578,7 @@
               class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
-                colspan="9"
+                colspan="10"
                 class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
               >
                 Archived
@@ -578,9 +616,21 @@
                   <td class="px-3 py-2"></td>
                   <td
                     class="px-3 py-2 text-center text-slate-300 dark:text-slate-600"
-                    title="Excluded from Monthly while archived"
+                    title="Hidden from Monthly while archived"
                   >
                     —
+                  </td>
+                  <td class="px-3 py-2 text-center">
+                    {#if row.expense.excludeFromBudget}
+                      <span
+                        class="text-emerald-600 dark:text-emerald-400"
+                        title="Ignored from Monthly and Dashboard totals">✓</span
+                      >
+                    {:else}
+                      <span class="text-slate-300 dark:text-slate-600" title="Counted in totals"
+                        >—</span
+                      >
+                    {/if}
                   </td>
                   <td class="px-3 py-2 text-right whitespace-nowrap">
                     <IconActionButton
@@ -613,7 +663,7 @@
               class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
-                colspan="9"
+                colspan="10"
                 class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
               >
                 Removed
@@ -646,6 +696,7 @@
                   {formatCurrency(row.trend?.average ?? null)}
                 </td>
                 <td class="px-3 py-2"></td>
+                <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
                 <td class="px-3 py-2 text-center text-slate-300 dark:text-slate-600">—</td>
                 <td class="px-3 py-2 text-right whitespace-nowrap">
                   <IconActionButton

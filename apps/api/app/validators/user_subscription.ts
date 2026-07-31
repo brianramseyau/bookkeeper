@@ -14,7 +14,7 @@ export const updateUserSubscriptionValidator = vine.create({
   categoryId: vine.number().positive().nullable().optional(),
   amount: vine.number().min(0).optional(),
   dayOfMonth: vine.number().min(1).max(31).nullable().optional(),
-  includeInStandardMonth: vine.boolean().optional(),
+  isRecurring: vine.boolean().optional(),
   isActive: vine.boolean().optional(),
   isPaused: vine.boolean().optional(),
   isArchived: vine.boolean().optional(),

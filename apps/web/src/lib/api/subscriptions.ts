@@ -7,7 +7,7 @@ export interface UserSubscription {
   categoryId: number | null
   amount: number
   dayOfMonth: number | null
-  includeInStandardMonth: boolean
+  isRecurring: boolean
   isActive: boolean
   isPaused: boolean
   isArchived: boolean

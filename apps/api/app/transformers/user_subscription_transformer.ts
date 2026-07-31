@@ -10,7 +10,7 @@ export default class UserSubscriptionTransformer extends BaseTransformer<UserSub
       'categoryId',
       'amount',
       'dayOfMonth',
-      'includeInStandardMonth',
+      'isRecurring',
       'isActive',
       'isPaused',
       'isArchived',

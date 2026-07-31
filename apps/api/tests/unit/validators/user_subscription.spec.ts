@@ -48,10 +48,10 @@ test.group('updateUserSubscriptionValidator', () => {
     assert.deepEqual(payload, {})
   })
 
-  test('accepts toggling includeInStandardMonth', async ({ assert }) => {
+  test('accepts toggling isRecurring', async ({ assert }) => {
     const payload = await updateUserSubscriptionValidator.validate({
-      includeInStandardMonth: false,
+      isRecurring: false,
     })
-    assert.equal(payload.includeInStandardMonth, false)
+    assert.equal(payload.isRecurring, false)
   })
 })

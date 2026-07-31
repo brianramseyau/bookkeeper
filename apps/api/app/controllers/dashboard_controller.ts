@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
+import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { StandardMonthService } from '#services/standard_month_service'
@@ -98,9 +99,18 @@ export default class DashboardController {
   private async monthlyExpenses(today: DateTime) {
     const start = today.startOf('month').minus({ months: MONTHLY_EXPENSE_WINDOW - 1 })
 
+    const ignoredExpenses = await Expense.query().where('excludeFromBudget', true).select('id')
+    const ignoredExpenseIds = ignoredExpenses.map((expense) => expense.id)
+
     const [utilityBills, expenseActuals] = await Promise.all([
       UtilityBill.query().preload('utility'),
-      ExpenseMonthlyActual.query(),
+      // Actuals belonging to an ignored expense (e.g. Credit Card, whose
+      // spend already shows up under other expenses) are left out here too,
+      // not just on the Monthly page - otherwise the trend chart double-
+      // counts the same spend.
+      ignoredExpenseIds.length
+        ? ExpenseMonthlyActual.query().whereNotIn('expenseId', ignoredExpenseIds)
+        : ExpenseMonthlyActual.query(),
     ])
 
     const totals = new Map<string, number>()

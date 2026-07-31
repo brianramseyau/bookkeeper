@@ -164,4 +164,35 @@ test.group('Dashboard / summary', () => {
     assert.equal(currentMonthEntry.total, 700)
     assert.lengthOf(response.body().monthlyExpenses, 12)
   })
+
+  test('excludes actuals for an expense flagged excludeFromBudget from the monthlyExpenses window', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const today = DateTime.local()
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
+      occurredOn: DateTime.local(today.year, today.month, 1),
+      amount: 300,
+    })
+    const creditCard = await Expense.create({ name: 'Credit Card', excludeFromBudget: true })
+    await ExpenseMonthlyActual.create({
+      expenseId: creditCard.id,
+      occurredOn: DateTime.local(today.year, today.month, 1),
+      amount: 900,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+
+    const currentMonthEntry = response
+      .body()
+      .monthlyExpenses.find((m: { year: number; month: number }) => {
+        return m.year === today.year && m.month === today.month
+      })
+    // Only Groceries' 300 counts - Credit Card's 900 is excluded so its
+    // already-categorized spend (Groceries, Shopping, etc.) isn't doubled.
+    assert.equal(currentMonthEntry.total, 300)
+  })
 })

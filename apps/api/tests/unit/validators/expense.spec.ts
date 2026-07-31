@@ -13,11 +13,13 @@ test.group('createExpenseValidator', () => {
       color: '#ff0000',
       sortOrder: 3,
       budgetAmount: 500,
-      includeInStandardMonth: false,
+      isRecurring: false,
+      excludeFromBudget: true,
       categoryId: 7,
     })
     assert.equal(payload.budgetAmount, 500)
-    assert.equal(payload.includeInStandardMonth, false)
+    assert.equal(payload.isRecurring, false)
+    assert.equal(payload.excludeFromBudget, true)
     assert.equal(payload.categoryId, 7)
   })
 

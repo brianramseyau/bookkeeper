@@ -550,7 +550,7 @@
       editExpenseMode = 'recurring-bill'
       editExpenseTargetId = Number(line.key.slice('recurring-bill-'.length))
       editActualsExpenseId = null
-      editExpenseAmount = line.actual ?? line.projected
+      editExpenseAmount = line.actual ?? line.projected ?? NaN
       return
     }
     if (line.key.startsWith('expense-')) {

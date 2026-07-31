@@ -49,7 +49,7 @@ test.group('Export / json', () => {
     for (const key of ['id', 'name', 'color', 'sortOrder', 'isActive', 'isArchived']) {
       assert.include(keys, key)
     }
-    for (const key of ['budgetAmount', 'includeInStandardMonth', 'isPaused']) {
+    for (const key of ['budgetAmount', 'isRecurring', 'excludeFromBudget', 'isPaused']) {
       assert.notInclude(keys, key)
     }
   })
@@ -71,7 +71,8 @@ test.group('Export / json', () => {
       'color',
       'sortOrder',
       'budgetAmount',
-      'includeInStandardMonth',
+      'isRecurring',
+      'excludeFromBudget',
       'categoryId',
       'isActive',
       'isPaused',

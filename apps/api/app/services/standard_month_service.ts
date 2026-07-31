@@ -18,7 +18,8 @@ import { computeIncomeLines, type IncomeLine } from '#services/income_lines'
 export interface StandardMonthLine {
   key: string
   label: string
-  projected: number
+  /** null = not projected forward at all (a non-recurring expense only ever shows its actual). */
+  projected: number | null
   /** null = not tracked for this specific month (e.g. a future utility bill not entered yet). */
   actual: number | null
   dueDay: number | null
@@ -77,7 +78,7 @@ export class StandardMonthService {
     ])
 
     const expensesProjectedTotal = round(
-      expenseLines.reduce((sum, line) => sum + line.projected, 0)
+      expenseLines.reduce((sum, line) => sum + (line.projected ?? 0), 0)
     )
     const expensesActualTotal = round(
       expenseLines.reduce((sum, line) => sum + (line.actual ?? 0), 0)
@@ -201,7 +202,7 @@ export class StandardMonthService {
       .where('isActive', true)
       .andWhere('isPaused', false)
       .andWhere('isArchived', false)
-      .where('includeInStandardMonth', true)
+      .where('isRecurring', true)
       .orderBy('name', 'asc')
     const subscriptionIds = subscriptions.map((sub) => sub.id)
     const subscriptionPayments = subscriptionIds.length
@@ -234,7 +235,7 @@ export class StandardMonthService {
       .where('isActive', true)
       .andWhere('isPaused', false)
       .andWhere('isArchived', false)
-      .where('includeInStandardMonth', true)
+      .andWhere('excludeFromBudget', false)
       .orderBy('sortOrder', 'asc')
     const expenseIds = expenses.map((expense) => expense.id)
     const expensePayments = expenseIds.length
@@ -248,6 +249,30 @@ export class StandardMonthService {
     )
     for (const expense of expenses) {
       const actuals = await ExpenseMonthlyActual.query().where('expenseId', expense.id)
+      const thisMonthActuals = actuals.filter(
+        (actual) => actual.occurredOn.year === year && actual.occurredOn.month === month
+      )
+
+      // A non-recurring expense (e.g. a one-off like Flights) only ever
+      // gets a line in the month it actually happened - there's nothing to
+      // project forward for it, so unlike a recurring expense, actuals from
+      // other months or a budgetAmount aren't enough to earn it a line.
+      if (!expense.isRecurring) {
+        if (thisMonthActuals.length === 0) continue
+
+        lines.push({
+          key: `expense-${expense.id}`,
+          label: expense.name,
+          projected: null,
+          actual: round(thisMonthActuals.reduce((sum, actual) => sum + actual.amount, 0)),
+          dueDay: null,
+          dueDate: null,
+          paid: expensePaidById.get(expense.id) ?? isPastMonth,
+          editable: true,
+        })
+        continue
+      }
+
       if (actuals.length === 0 && expense.budgetAmount === null) continue
 
       const trend = this.rollingAverage.computeTrend(
@@ -256,9 +281,6 @@ export class StandardMonthService {
           month: actual.occurredOn.month,
           amount: actual.amount,
         }))
-      )
-      const thisMonthActuals = actuals.filter(
-        (actual) => actual.occurredOn.year === year && actual.occurredOn.month === month
       )
 
       lines.push({

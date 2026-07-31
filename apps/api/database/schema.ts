@@ -146,11 +146,12 @@ export class ExpenseSchema extends BaseModel {
     'categoryId',
     'color',
     'createdAt',
+    'excludeFromBudget',
     'id',
-    'includeInStandardMonth',
     'isActive',
     'isArchived',
     'isPaused',
+    'isRecurring',
     'name',
     'sortOrder',
     'updatedAt',
@@ -164,16 +165,18 @@ export class ExpenseSchema extends BaseModel {
   declare color: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare excludeFromBudget: boolean
   @column({ isPrimary: true })
   declare id: number
-  @column()
-  declare includeInStandardMonth: boolean
   @column()
   declare isActive: boolean
   @column()
   declare isArchived: boolean
   @column()
   declare isPaused: boolean
+  @column()
+  declare isRecurring: boolean
   @column()
   declare name: string
   @column()
@@ -513,10 +516,10 @@ export class UserSubscriptionSchema extends BaseModel {
     'createdAt',
     'dayOfMonth',
     'id',
-    'includeInStandardMonth',
     'isActive',
     'isArchived',
     'isPaused',
+    'isRecurring',
     'name',
     'notes',
     'updatedAt',
@@ -534,13 +537,13 @@ export class UserSubscriptionSchema extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
   @column()
-  declare includeInStandardMonth: boolean
-  @column()
   declare isActive: boolean
   @column()
   declare isArchived: boolean
   @column()
   declare isPaused: boolean
+  @column()
+  declare isRecurring: boolean
   @column()
   declare name: string
   @column()

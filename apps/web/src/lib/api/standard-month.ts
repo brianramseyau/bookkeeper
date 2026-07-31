@@ -3,7 +3,8 @@ import { api } from '$lib/api'
 export interface StandardMonthLine {
   key: string
   label: string
-  projected: number
+  /** null when this line isn't projected forward at all (a non-recurring expense only ever shows its actual). */
+  projected: number | null
   actual: number | null
   dueDay: number | null
   dueDate: string | null

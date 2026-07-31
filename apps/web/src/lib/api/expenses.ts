@@ -8,7 +8,9 @@ export interface Expense {
   budgetAmount: number | null
   /** Number of itemized budget lines - when > 0, budgetAmount is derived from them, not manually set. */
   budgetItemCount: number
-  includeInStandardMonth: boolean
+  isRecurring: boolean
+  /** Hides this expense from Monthly (and the Dashboard trend) entirely - e.g. Credit Card, whose spend already shows up under other expenses. */
+  excludeFromBudget: boolean
   categoryId: number | null
   isActive: boolean
   isPaused: boolean
@@ -20,7 +22,8 @@ export interface ExpenseInput {
   color?: string | null
   sortOrder?: number
   budgetAmount?: number | null
-  includeInStandardMonth?: boolean
+  isRecurring?: boolean
+  excludeFromBudget?: boolean
   categoryId?: number | null
   isActive?: boolean
   isPaused?: boolean
