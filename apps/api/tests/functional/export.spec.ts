@@ -68,7 +68,6 @@ test.group('Export / json', () => {
     for (const key of [
       'id',
       'name',
-      'color',
       'sortOrder',
       'budgetAmount',
       'isRecurring',

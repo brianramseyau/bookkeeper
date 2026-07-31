@@ -110,8 +110,13 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   to actually log in to the running app (e.g. to verify a UI change in a
   browser), the login credentials (`Name`, `Email`, `Password` columns) are
   in the same `Joint Account Workbook.xlsx` referenced by
-  `SEED_WORKBOOK_PATH`, under its "Users" sheet — never hardcode or commit
-  the actual email/password anywhere in this repo.
+  `SEED_WORKBOOK_PATH`, under its "Users" sheet. Reading the workbook
+  directly is frequently permission-blocked for agents, though — the root
+  `.env` (repo root, not `apps/api/.env`) also mirrors the same two logins
+  under `SEED_BRIAN_EMAIL`/`SEED_BRIAN_PASSWORD` and
+  `SEED_ARIEL_EMAIL`/`SEED_ARIEL_PASSWORD` for exactly this purpose — use
+  those instead of trying to parse the xlsx. Never hardcode or commit the
+  actual email/password anywhere else in this repo.
 - **Authentik proxy auto-login** (opt-in, off by default —
   `AUTHENTIK_PROXY_AUTH_ENABLED` / `AUTHENTIK_SHARED_SECRET`): a global
   router middleware (`app/middleware/authentik_proxy_auth_middleware.ts`,

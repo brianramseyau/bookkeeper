@@ -52,7 +52,6 @@ vi.mock('$lib/api/categories', () => ({
 const groceries: Expense = {
   id: 1,
   name: 'Groceries',
-  color: '#22c55e',
   sortOrder: 1,
   budgetAmount: 400,
   budgetItemCount: 0,

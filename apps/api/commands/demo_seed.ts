@@ -174,21 +174,12 @@ export default class DemoSeed extends BaseCommand {
       // Expenses - the actual budget/trend/actuals-tracking entities, each
       // independent of any category (Pest Control/Car Registration below
       // are left uncategorized to also show that state in the demo).
-      const groceries = await Expense.create(
-        { name: 'Groceries', color: '#22c55e' },
-        { client: trx }
-      )
-      const household = await Expense.create(
-        { name: 'Household', color: '#f59e0b' },
-        { client: trx }
-      )
-      await Expense.create({ name: 'Fees', color: '#64748b', budgetAmount: 25 }, { client: trx })
-      const transport = await Expense.create(
-        { name: 'Transport', color: '#3b82f6' },
-        { client: trx }
-      )
-      const clothing = await Expense.create({ name: 'Clothing', color: '#f43f5e' }, { client: trx })
-      const dog = await Expense.create({ name: 'Dog', color: '#d97706' }, { client: trx })
+      const groceries = await Expense.create({ name: 'Groceries' }, { client: trx })
+      const household = await Expense.create({ name: 'Household' }, { client: trx })
+      await Expense.create({ name: 'Fees', budgetAmount: 25 }, { client: trx })
+      const transport = await Expense.create({ name: 'Transport' }, { client: trx })
+      const clothing = await Expense.create({ name: 'Clothing' }, { client: trx })
+      const dog = await Expense.create({ name: 'Dog' }, { client: trx })
 
       // Two expenses driven by a budget breakdown rather than logged
       // actuals - shows off expense budget items with nothing further to log.

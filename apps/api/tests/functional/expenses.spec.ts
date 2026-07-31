@@ -72,33 +72,6 @@ test.group('Expenses / store', () => {
     assert.equal(response.body().data.name, 'Entertainment')
   })
 
-  test('auto-assigns a color when none is given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-
-    const response = await client
-      .post('/api/expenses')
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ name: 'Entertainment' })
-
-    assert.isString(response.body().data.color)
-  })
-
-  test('keeps an explicitly given color instead of auto-assigning one', async ({
-    client,
-    assert,
-  }) => {
-    const brian = await loginAsBrian()
-
-    const response = await client
-      .post('/api/expenses')
-      .withCsrfToken()
-      .loginAs(brian)
-      .json({ name: 'Entertainment', color: '#123456' })
-
-    assert.equal(response.body().data.color, '#123456')
-  })
-
   test('auto-assigns the next sortOrder when none is given', async ({ client, assert }) => {
     const brian = await loginAsBrian()
     await Expense.create({ name: 'Existing', sortOrder: 5 })
@@ -143,10 +116,10 @@ test.group('Expenses / update', () => {
       .patch(`/api/expenses/${expense.id}`)
       .withCsrfToken()
       .loginAs(brian)
-      .json({ color: '#123456' })
+      .json({ name: 'Groceries3' })
 
     response.assertStatus(200)
-    assert.equal(response.body().data.color, '#123456')
+    assert.equal(response.body().data.name, 'Groceries3')
   })
 
   test('returns 404 for a non-existent expense', async ({ client }) => {
@@ -156,7 +129,7 @@ test.group('Expenses / update', () => {
       .patch('/api/expenses/999999')
       .withCsrfToken()
       .loginAs(brian)
-      .json({ color: '#123456' })
+      .json({ name: 'Groceries3' })
 
     response.assertStatus(404)
   })

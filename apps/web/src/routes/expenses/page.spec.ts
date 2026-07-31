@@ -31,7 +31,6 @@ vi.mock('$lib/api/categories', () => ({
 const groceries: Expense = {
   id: 1,
   name: 'Groceries',
-  color: '#22c55e',
   sortOrder: 1,
   budgetAmount: 400,
   budgetItemCount: 0,
@@ -46,7 +45,6 @@ const groceries: Expense = {
 const rent: Expense = {
   id: 2,
   name: 'Rent',
-  color: null,
   sortOrder: 2,
   budgetAmount: 2000,
   budgetItemCount: 3,
@@ -61,7 +59,6 @@ const rent: Expense = {
 const creditCard: Expense = {
   id: 3,
   name: 'Credit Card',
-  color: null,
   sortOrder: 3,
   budgetAmount: null,
   budgetItemCount: 0,
@@ -178,7 +175,6 @@ describe('expenses page', () => {
 
     expect(updateExpense).toHaveBeenCalledWith(1, {
       name: 'Groceries',
-      color: '#22c55e',
       budgetAmount: 400,
       isRecurring: true,
       excludeFromBudget: true,
@@ -302,7 +298,6 @@ describe('expenses page', () => {
 
     expect(updateExpense).toHaveBeenCalledWith(1, {
       name: 'Food',
-      color: '#22c55e',
       budgetAmount: 450,
       isRecurring: false,
       excludeFromBudget: false,
@@ -322,7 +317,6 @@ describe('expenses page', () => {
 
     expect(updateExpense).toHaveBeenCalledWith(2, {
       name: 'Rent',
-      color: '#64748b',
       isRecurring: false,
       excludeFromBudget: false,
     })

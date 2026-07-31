@@ -48,7 +48,6 @@
 
   let editingId = $state<number | null>(null)
   let editName = $state('')
-  let editColor = $state('#64748b')
   let editBudgetAmount = $state<number>(NaN)
   let editIsRecurring = $state(true)
   let editExcludeFromBudget = $state(false)
@@ -112,7 +111,6 @@
   function startEdit(expense: Expense) {
     editingId = expense.id
     editName = expense.name
-    editColor = expense.color ?? '#64748b'
     editBudgetAmount = expense.budgetAmount ?? NaN
     editIsRecurring = expense.isRecurring
     editExcludeFromBudget = expense.excludeFromBudget
@@ -132,7 +130,6 @@
     try {
       await updateExpense(expense.id, {
         name: editName.trim(),
-        color: editColor,
         // Itemized expenses derive their budget from their items (see the
         // expense detail page) - budgetAmount isn't manually editable here.
         ...(expense.budgetItemCount === 0
@@ -248,18 +245,11 @@
     class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
   >
     <td class="px-3 py-2">
-      <div class="flex items-center gap-2">
-        <input
-          type="color"
-          bind:value={editColor}
-          class="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
-        />
-        <input
-          type="text"
-          bind:value={editName}
-          class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </div>
+      <input
+        type="text"
+        bind:value={editName}
+        class="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+      />
     </td>
     <td class="px-3 py-2">
       <CategorySelect
@@ -388,12 +378,8 @@
               <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
                 <a
                   href={`/expenses/${row.expense.id}`}
-                  class="flex items-center gap-2 hover:text-indigo-600 dark:hover:text-indigo-400"
+                  class="hover:text-indigo-600 dark:hover:text-indigo-400"
                 >
-                  <span
-                    class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                    style="background-color: {row.expense.color ?? '#94a3b8'}"
-                  ></span>
                   {row.expense.name}
                 </a>
               </td>
@@ -508,11 +494,7 @@
                 >
                   <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
                     <span class="flex items-center">
-                      <span
-                        class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                        style="background-color: {row.expense.color ?? '#94a3b8'}"
-                      ></span>
-                      <span class="ml-2">{row.expense.name}</span>
+                      <span>{row.expense.name}</span>
                       <StatusBadge label="Paused" tone="amber" />
                     </span>
                   </td>
@@ -593,11 +575,7 @@
                 >
                   <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
                     <span class="flex items-center">
-                      <span
-                        class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                        style="background-color: {row.expense.color ?? '#94a3b8'}"
-                      ></span>
-                      <span class="ml-2">{row.expense.name}</span>
+                      <span>{row.expense.name}</span>
                       <StatusBadge label="Archived" tone="slate" />
                     </span>
                   </td>
@@ -675,11 +653,7 @@
               >
                 <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
                   <span class="flex items-center">
-                    <span
-                      class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                      style="background-color: {row.expense.color ?? '#94a3b8'}"
-                    ></span>
-                    <span class="ml-2">{row.expense.name}</span>
+                    <span>{row.expense.name}</span>
                     <StatusBadge label="Removed" tone="slate" />
                   </span>
                 </td>

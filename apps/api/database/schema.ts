@@ -144,7 +144,6 @@ export class ExpenseSchema extends BaseModel {
   static $columns = [
     'budgetAmount',
     'categoryId',
-    'color',
     'createdAt',
     'excludeFromBudget',
     'id',
@@ -161,8 +160,6 @@ export class ExpenseSchema extends BaseModel {
   declare budgetAmount: number | null
   @column()
   declare categoryId: number | null
-  @column()
-  declare color: string | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()

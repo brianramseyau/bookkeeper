@@ -3,7 +3,6 @@ import { api } from '$lib/api'
 export interface Expense {
   id: number
   name: string
-  color: string | null
   sortOrder: number
   budgetAmount: number | null
   /** Number of itemized budget lines - when > 0, budgetAmount is derived from them, not manually set. */
@@ -19,7 +18,6 @@ export interface Expense {
 
 export interface ExpenseInput {
   name: string
-  color?: string | null
   sortOrder?: number
   budgetAmount?: number | null
   isRecurring?: boolean

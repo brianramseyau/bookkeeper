@@ -29,8 +29,8 @@ describe('expenses api', () => {
   })
 
   it('updates an expense', () => {
-    updateExpense(3, { color: '#fff' })
-    expect(api.patch).toHaveBeenCalledWith('/expenses/3', { color: '#fff' })
+    updateExpense(3, { name: 'Groceries' })
+    expect(api.patch).toHaveBeenCalledWith('/expenses/3', { name: 'Groceries' })
   })
 
   it('deletes an expense', () => {

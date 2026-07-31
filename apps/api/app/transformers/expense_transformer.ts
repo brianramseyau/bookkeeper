@@ -6,7 +6,6 @@ export default class ExpenseTransformer extends BaseTransformer<Expense> {
     return this.pick(this.resource, [
       'id',
       'name',
-      'color',
       'sortOrder',
       'budgetAmount',
       'isRecurring',

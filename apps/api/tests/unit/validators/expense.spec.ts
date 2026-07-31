@@ -10,7 +10,6 @@ test.group('createExpenseValidator', () => {
   test('accepts a full payload with all optional fields', async ({ assert }) => {
     const payload = await createExpenseValidator.validate({
       name: 'Groceries',
-      color: '#ff0000',
       sortOrder: 3,
       budgetAmount: 500,
       isRecurring: false,
