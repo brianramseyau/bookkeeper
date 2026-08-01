@@ -1,23 +1,39 @@
-import { fireEvent, render, screen } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { goto } from '$app/navigation'
+import { goto, replaceState } from '$app/navigation'
+import { page } from '$app/state'
 import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
 import { ApiError } from '$lib/api'
 import { authState } from '$lib/stores/auth.svelte'
 import DashboardPage from './+page.svelte'
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }))
+vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/') } }))
 vi.mock('$lib/api/dashboard', () => ({ getDashboardSummary: vi.fn() }))
+
+// SvelteKit's real `Page.url` type brands `pathname` with a union of the
+// app's known routes - the mock above is a plain URL, so route it through a
+// cast here rather than fighting that type at every call site below.
+function setPageUrl(url: string) {
+  page.url = new URL(url) as unknown as typeof page.url
+}
 
 const baseSummary: DashboardSummary = {
   currentMonth: { year: 2026, month: 3, projectedNet: 500, actualNet: -50 },
   upcomingBills: [],
-  utilities: [],
   monthlyExpenses: [],
+  categoryBreakdown: [],
 }
 
 describe('dashboard page', () => {
   beforeEach(() => {
+    // Fixes "now" so isCurrentMonth/"This Month" behave deterministically -
+    // matches baseSummary's currentMonth of March 2026.
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    setPageUrl('http://localhost/')
+    vi.mocked(getDashboardSummary).mockReset()
+    vi.mocked(replaceState).mockReset()
     authState.user = {
       id: 1,
       fullName: 'Brian',
@@ -109,30 +125,17 @@ describe('dashboard page', () => {
     expect(overdueText.className).toContain('text-red-600')
   })
 
-  it('renders utilities with a link to their detail page and calls goto from the chart', async () => {
+  it('calls goto from the monthly expense chart', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
       monthlyExpenses: [
         { year: 2026, month: 1, total: 100 },
         { year: 2026, month: 2, total: 200 },
       ],
-      utilities: [
-        {
-          id: 7,
-          name: 'Electricity',
-          latestAmount: 100,
-          average: 90,
-          trend: 'up',
-          sparkline: [1, 2, 3],
-        },
-      ],
     })
     render(DashboardPage)
 
-    const link = await screen.findByRole('link', { name: /Electricity/ })
-    expect(link.getAttribute('href')).toBe('/utilities/7')
-
-    const chart = screen.getByRole('button', { name: /Monthly expenses/ })
+    const chart = await screen.findByRole('button', { name: /Monthly expenses/ })
     vi.spyOn(chart, 'getBoundingClientRect').mockReturnValue({
       width: 720,
       height: 240,
@@ -149,10 +152,67 @@ describe('dashboard page', () => {
     expect(goto).toHaveBeenCalledWith('/monthly?year=2026&month=2')
   })
 
-  it('does not render a utilities section when there are none', async () => {
+  it('shows the category breakdown ranked by spend', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      categoryBreakdown: [
+        { id: 1, name: 'Utilities', color: '#0066b2', total: 400 },
+        { id: 2, name: 'Groceries', color: '#72b258', total: 300 },
+      ],
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Utilities')).toBeInTheDocument()
+    expect(screen.getByText('Groceries')).toBeInTheDocument()
+    expect(screen.getByText('$400.00')).toBeInTheDocument()
+  })
+
+  it('shows a placeholder when there is no category spend yet', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     render(DashboardPage)
-    await screen.findByText('Nothing scheduled')
-    expect(screen.queryByText('Utilities')).toBeNull()
+    expect(await screen.findByText('No spend recorded yet')).toBeInTheDocument()
+  })
+
+  it('reads year/month from the URL and requests that month', async () => {
+    setPageUrl('http://localhost/?year=2025&month=11')
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      currentMonth: { year: 2025, month: 11, projectedNet: 500, actualNet: -50 },
+    })
+    render(DashboardPage)
+
+    await screen.findByText('November 2025')
+    expect(getDashboardSummary).toHaveBeenCalledWith(2025, 11)
+  })
+
+  it('navigates to the previous and next month, wrapping the year, and updates URL params', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
+    const user = userEvent.setup()
+    render(DashboardPage)
+    await screen.findByText('March 2026')
+
+    await user.click(screen.getByRole('button', { name: '← Prev' }))
+    expect(await screen.findByText('February 2026')).toBeInTheDocument()
+    expect(replaceState).toHaveBeenCalledWith('/?year=2026&month=2', {})
+    expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2)
+
+    for (let i = 0; i < 2; i++) {
+      await user.click(screen.getByRole('button', { name: '← Prev' }))
+    }
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2025, 12))
+    expect(await screen.findByText('December 2025')).toBeInTheDocument()
+  })
+
+  it('jumps back to the current month', async () => {
+    setPageUrl('http://localhost/?year=2020&month=1')
+    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
+    const user = userEvent.setup()
+    render(DashboardPage)
+    await screen.findByText('January 2020')
+
+    await user.click(screen.getByRole('button', { name: 'This Month' }))
+
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
+    expect(replaceState).toHaveBeenCalledWith('/', {})
   })
 })

@@ -8,18 +8,16 @@ export interface DashboardUpcomingBill {
   daysUntilDue: number | null
 }
 
-export interface DashboardUtility {
-  id: number
-  name: string
-  latestAmount: number | null
-  average: number | null
-  trend: 'up' | 'down' | 'flat' | null
-  sparkline: number[]
-}
-
 export interface DashboardMonthlyExpense {
   year: number
   month: number
+  total: number
+}
+
+export interface DashboardCategoryBreakdown {
+  id: number
+  name: string
+  color: string | null
   total: number
 }
 
@@ -31,10 +29,10 @@ export interface DashboardSummary {
     actualNet: number
   }
   upcomingBills: DashboardUpcomingBill[]
-  utilities: DashboardUtility[]
   monthlyExpenses: DashboardMonthlyExpense[]
+  categoryBreakdown: DashboardCategoryBreakdown[]
 }
 
-export function getDashboardSummary() {
-  return api.get<DashboardSummary>('/dashboard/summary')
+export function getDashboardSummary(year: number, month: number) {
+  return api.get<DashboardSummary>(`/dashboard/summary?year=${year}&month=${month}`)
 }
