@@ -25,6 +25,13 @@ export interface StandardMonthLine {
   dueDay: number | null
   /** Full due date (utilities only) - offset from month-end rather than a fixed day-of-month. */
   dueDate: string | null
+  /**
+   * Whether `dueDate` is a guess rather than a confirmed date - true when a
+   * utility has no bill on record yet for this month, so `dueDate` was
+   * projected from the average received-day of past bills (see
+   * `typicalReceivedDayOfMonth`) instead of a real received date.
+   */
+  dueDateEstimated: boolean
   /** Whether the money has actually left the account, independent of whether the amount is known. */
   paid: boolean
   /** Whether the amount itself can be edited here (vs. only its paid state). */
@@ -147,6 +154,7 @@ export class StandardMonthService {
       const billTrend = this.rollingAverage.computeTrend(
         bills.map((bill) => ({ year: bill.year, month: bill.month, amount: bill.amount }))
       )
+      const dueDate = utilityDueDateFor(utility, bills, year, month)
 
       lines.push({
         key: `utility-${utility.id}`,
@@ -154,7 +162,11 @@ export class StandardMonthService {
         projected: billTrend.average ?? 0,
         actual: monthBill ? round(monthBill.amount) : null,
         dueDay: null,
-        dueDate: utilityDueDateFor(utility, bills, year, month)?.toISO() ?? null,
+        dueDate: dueDate?.toISO() ?? null,
+        // No bill on record for this month yet means `dueDate` (if set) came
+        // from the `typicalReceivedDayOfMonth` fallback in `utilityDueDateFor`
+        // rather than a real received date - a projection, not a fact.
+        dueDateEstimated: dueDate !== null && !monthBill,
         paid: monthBill?.paid ?? false,
         editable: true,
         receivedOn: monthBill?.receivedOn?.toISODate() ?? null,
@@ -195,6 +207,7 @@ export class StandardMonthService {
         actual: payment?.amount ?? bill.amount,
         dueDay: bill.dueDay,
         dueDate: null,
+        dueDateEstimated: false,
         paid: payment?.paid ?? isPastMonth,
         editable: true,
         receivedOn: null,
@@ -229,6 +242,7 @@ export class StandardMonthService {
           actual: sub.amount,
           dueDay: sub.dayOfMonth,
           dueDate: null,
+          dueDateEstimated: false,
           paid: subscriptionPaidById.get(sub.id) ?? isPastMonth,
           editable: true,
           receivedOn: null,
@@ -272,6 +286,7 @@ export class StandardMonthService {
           actual: round(thisMonthActuals.reduce((sum, actual) => sum + actual.amount, 0)),
           dueDay: null,
           dueDate: null,
+          dueDateEstimated: false,
           paid: expensePaidById.get(expense.id) ?? isPastMonth,
           editable: true,
           receivedOn: null,
@@ -304,6 +319,7 @@ export class StandardMonthService {
             : null,
         dueDay: null,
         dueDate: null,
+        dueDateEstimated: false,
         // Same past-month-defaults-to-paid rule as recurring bills/subscriptions
         // above - only meaningful once there's an actual to reconcile against,
         // since the checkbox itself is hidden while `actual` is null.

@@ -111,6 +111,9 @@ test.group('StandardMonths / show', () => {
     assert.equal(electricityLine.actual, 420)
     assert.equal(electricityLine.paid, false)
     assert.equal(electricityLine.dueDate, '2026-02-20T00:00:00.000Z')
+    // A real bill with a received date is on record for this month, so the
+    // due date is a confirmed fact, not a guess.
+    assert.equal(electricityLine.dueDateEstimated, false)
 
     const kayoLine = body.expenses.lines.find((l: { label: string }) => l.label === 'Kayo')
     assert.equal(kayoLine.projected, 45.99)
@@ -486,6 +489,42 @@ test.group('StandardMonths / show', () => {
       (l: { key: string }) => l.key === `subscription-${spotify.id}`
     )
     assert.equal(noNameSubsLine.label, 'Spotify (noname@example.com)')
+  })
+
+  test('flags a utility due date as estimated when no bill is on record yet for the viewed month', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+
+    const water = await Utility.create({ name: 'Sewage', dueOffsetDays: 14 })
+    const today = DateTime.utc()
+    const priorMonth = today.minus({ months: 1 })
+    // Only a past bill is on record, received on the 18th - no bill yet for
+    // the currently viewed (current) month, so its due date can only be a
+    // projection from that one data point.
+    await UtilityBill.create({
+      utilityId: water.id,
+      year: priorMonth.year,
+      month: priorMonth.month,
+      amount: 60,
+      receivedOn: DateTime.utc(priorMonth.year, priorMonth.month, 18),
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: today.year, month: today.month })
+      .loginAs(brian)
+
+    response.assertStatus(200)
+    const body = response.body()
+
+    const waterLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `utility-${water.id}`
+    )
+    assert.isNull(waterLine.actual)
+    assert.isNotNull(waterLine.dueDate)
+    assert.isTrue(waterLine.dueDateEstimated)
   })
 
   test('shows a quarterly utility bill only in its billing month, hiding the covered non-billing months', async ({

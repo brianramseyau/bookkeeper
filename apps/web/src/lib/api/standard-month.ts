@@ -8,6 +8,13 @@ export interface StandardMonthLine {
   actual: number | null
   dueDay: number | null
   dueDate: string | null
+  /**
+   * Whether `dueDate` is a guess rather than a confirmed date - true when a
+   * utility has no bill on record yet for this month, so `dueDate` was
+   * projected from the average received-day of past bills instead of a
+   * real received date.
+   */
+  dueDateEstimated: boolean
   /** Whether the money has actually left the account, independent of whether the amount is known. */
   paid: boolean
   /**

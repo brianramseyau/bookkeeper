@@ -401,11 +401,12 @@
   // A utility's `dueDate` is a *predicted* payment date - for a non-monthly
   // utility (e.g. quarterly Water, paid in arrears) it's populated as soon
   // as the viewed month is cued up to be the next billing month, even
-  // before that quarter's bill has actually been entered. Only surface it
-  // once this month's actual is known; otherwise there's nothing concrete
-  // due yet and it should read as "-", not a countdown to a guessed date.
+  // before that quarter's bill has actually been entered. Once this
+  // month's actual is known the date is a confirmed fact; until then it's
+  // still shown (see `dueDateEstimated`) but flagged as a guess rather than
+  // suppressed outright.
   function resolveDueDate(line: StandardMonthLine): string | null {
-    if (line.dueDate) return line.actual !== null ? line.dueDate : null
+    if (line.dueDate) return line.dueDate
     if (line.dueDay) {
       const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
       const day = Math.min(line.dueDay, daysInMonth)
@@ -420,7 +421,10 @@
 
   function dueTitle(line: StandardMonthLine): string | undefined {
     const dueDate = resolveDueDate(line)
-    return dueDate ? formatDate(dueDate) : undefined
+    if (!dueDate) return undefined
+    return line.dueDateEstimated
+      ? `${formatDate(dueDate)} (estimated from the average received date of past bills)`
+      : formatDate(dueDate)
   }
 
   // Same red/amber pill as the Bills page's due-soon badge, so the
@@ -433,6 +437,10 @@
   function dueChipClass(line: StandardMonthLine): string | null {
     const dueDate = resolveDueDate(line)
     if (!dueDate) return null
+    // An estimated date isn't a real obligation yet, so it never earns the
+    // red/amber urgency styling - just plain text with an "(est.)" marker
+    // (see the template).
+    if (line.dueDateEstimated) return null
     if (line.paid) {
       return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
     }
@@ -452,6 +460,9 @@
   // to mark paid.
   function canTrackPaid(line: StandardMonthLine): boolean {
     if (line.key.startsWith('expense-')) return line.actual !== null
+    // A guessed due date isn't a real obligation yet - nothing to mark paid
+    // against until the bill actually arrives.
+    if (line.dueDateEstimated) return false
     return resolveDueDate(line) !== null
   }
 
@@ -951,6 +962,13 @@
                 {#if dueChipClass(line)}
                   <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
                     >{dueLabel(line)}</span
+                  >
+                {:else if line.dueDateEstimated}
+                  <span
+                    >{dueLabel(line)}<span
+                      class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
+                      >(est.)</span
+                    ></span
                   >
                 {:else}
                   {dueLabel(line)}

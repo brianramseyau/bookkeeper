@@ -135,6 +135,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           actual: 110,
           dueDay: null,
           dueDate: '2026-03-20T00:00:00.000+00:00',
+          dueDateEstimated: false,
           paid: false,
           editable: true,
           receivedOn: null,
@@ -146,6 +147,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           actual: 620,
           dueDay: 5,
           dueDate: null,
+          dueDateEstimated: false,
           paid: true,
           editable: true,
           receivedOn: null,
@@ -770,6 +772,7 @@ describe('month page', () => {
               actual: null,
               dueDay: 5,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -801,6 +804,7 @@ describe('month page', () => {
               actual: null,
               dueDay: 20,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -838,6 +842,7 @@ describe('month page', () => {
               actual: null,
               dueDay: 5,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -858,13 +863,13 @@ describe('month page', () => {
     expect(dueText.getAttribute('title')).toBe('5 Mar 2026')
   })
 
-  it('hides a utility due date when this month is only a predicted billing month with no actual entered yet', async () => {
+  it('shows a utility due date flagged "(est.)" when this month is only a predicted billing month with no actual entered yet', async () => {
     // A quarterly utility (e.g. Water) gets a predicted dueDate as soon as
     // the viewed month is cued up as its next billing month, even before
-    // that quarter's bill has actually been entered - showing a countdown
-    // to that guessed date reads as a real, imminent due date when nothing
-    // concrete is actually known yet, so it should be hidden until `actual`
-    // is set.
+    // that quarter's bill has actually been entered - `dueDateEstimated`
+    // flags it as a guess (averaged from past received dates) rather than
+    // a confirmed date, so it's shown as plain text with an "(est.)" tag
+    // instead of the colored due-soon chip, and can't be marked paid.
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
@@ -876,6 +881,7 @@ describe('month page', () => {
               actual: null,
               dueDay: null,
               dueDate: '2026-03-28T00:00:00.000+00:00',
+              dueDateEstimated: true,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -892,8 +898,14 @@ describe('month page', () => {
     render(MonthPage)
 
     const dueCell = (await screen.findByText('Water')).closest('tr')!.children[1] as HTMLElement
-    expect(dueCell.textContent).toBe('Due —')
-    expect(dueCell.getAttribute('title')).toBeNull()
+    expect(dueCell.textContent).toBe('Due In 13 days(est.)')
+    expect(dueCell.querySelector('.rounded-full')).toBeNull()
+    expect(dueCell.getAttribute('title')).toBe(
+      '28 Mar 2026 (estimated from the average received date of past bills)'
+    )
+
+    const paidCheckbox = within(dueCell.closest('tr')!).getByLabelText('Paid')
+    expect(paidCheckbox).toBeDisabled()
   })
 
   it('falls back to an em dash with no tooltip when a line has no due date at all', async () => {
@@ -908,6 +920,7 @@ describe('month page', () => {
               actual: 40,
               dueDay: null,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -956,6 +969,7 @@ describe('month page', () => {
               actual: null,
               dueDay: null,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -967,6 +981,7 @@ describe('month page', () => {
               actual: null,
               dueDay: null,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1006,6 +1021,7 @@ describe('month page', () => {
               actual: 300,
               dueDay: null,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1037,6 +1053,7 @@ describe('month page', () => {
               actual: 300,
               dueDay: null,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1105,6 +1122,7 @@ describe('month page', () => {
               actual: 45.99,
               dueDay: 20,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1149,6 +1167,7 @@ describe('month page', () => {
               actual: 22.99,
               dueDay: 10,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1235,6 +1254,7 @@ describe('month page', () => {
               actual: 110,
               dueDay: null,
               dueDate: '2026-03-20T00:00:00.000+00:00',
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: '2026-03-14',
@@ -1440,6 +1460,7 @@ describe('month page', () => {
               actual: 40,
               dueDay: null,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: false,
               receivedOn: null,
@@ -1473,6 +1494,7 @@ describe('month page', () => {
               actual: 110,
               dueDay: null,
               dueDate: '2026-03-20T00:00:00.000+00:00',
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1484,6 +1506,7 @@ describe('month page', () => {
               actual: 620,
               dueDay: 5,
               dueDate: null,
+              dueDateEstimated: false,
               paid: true,
               editable: true,
               receivedOn: null,
@@ -1495,6 +1518,7 @@ describe('month page', () => {
               actual: 90,
               dueDay: 12,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1506,6 +1530,7 @@ describe('month page', () => {
               actual: 20,
               dueDay: 8,
               dueDate: null,
+              dueDateEstimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
