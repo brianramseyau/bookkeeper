@@ -95,6 +95,7 @@
   let editExpenseTargetId = $state<number | null>(null)
   let editActualsExpenseId = $state<number | null>(null)
   let editExpenseAmount = $state<number>(NaN)
+  let editExpenseReceivedOn = $state('')
   let savingExpense = $state(false)
   let savingPaidKey = $state<string | null>(null)
 
@@ -533,6 +534,7 @@
     editExpenseMode = null
     editExpenseTargetId = null
     editActualsExpenseId = null
+    editExpenseReceivedOn = ''
   }
 
   async function startEditExpense(line: StandardMonthLine) {
@@ -543,6 +545,7 @@
       editExpenseTargetId = Number(line.key.slice('utility-'.length))
       editActualsExpenseId = null
       editExpenseAmount = line.actual ?? NaN
+      editExpenseReceivedOn = line.receivedOn?.slice(0, 10) ?? ''
       return
     }
     if (line.key.startsWith('recurring-bill-')) {
@@ -585,7 +588,14 @@
     error = null
     try {
       if (editExpenseMode === 'utility') {
-        await upsertUtilityBill(editExpenseTargetId, year, month, editExpenseAmount)
+        await upsertUtilityBill(
+          editExpenseTargetId,
+          year,
+          month,
+          editExpenseAmount,
+          undefined,
+          editExpenseReceivedOn === '' ? null : editExpenseReceivedOn
+        )
       } else if (editExpenseMode === 'recurring-bill') {
         await upsertRecurringBillPayment(
           editExpenseTargetId,
@@ -815,13 +825,19 @@
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
-                title={dueTitle(line)}
+                title={editExpenseMode === 'utility' ? undefined : dueTitle(line)}
               >
                 <span
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Due</span
+                  >{editExpenseMode === 'utility' ? 'Received' : 'Due'}</span
                 >
-                {#if dueChipClass(line)}
+                {#if editExpenseMode === 'utility'}
+                  <input
+                    type="date"
+                    bind:value={editExpenseReceivedOn}
+                    class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                {:else if dueChipClass(line)}
                   <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
                     >{dueLabel(line)}</span
                   >

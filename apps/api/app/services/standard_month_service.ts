@@ -29,6 +29,8 @@ export interface StandardMonthLine {
   paid: boolean
   /** Whether the amount itself can be edited here (vs. only its paid state). */
   editable: boolean
+  /** Date the bill was actually received (utilities only) - the anchor dueDate is derived from. */
+  receivedOn: string | null
 }
 
 export type StandardMonthIncomeLine = IncomeLine
@@ -155,6 +157,7 @@ export class StandardMonthService {
         dueDate: utilityDueDateFor(utility, bills, year, month)?.toISO() ?? null,
         paid: monthBill?.paid ?? false,
         editable: true,
+        receivedOn: monthBill?.receivedOn?.toISODate() ?? null,
       })
     }
 
@@ -194,6 +197,7 @@ export class StandardMonthService {
         dueDate: null,
         paid: payment?.paid ?? isPastMonth,
         editable: true,
+        receivedOn: null,
       })
     }
 
@@ -227,6 +231,7 @@ export class StandardMonthService {
           dueDate: null,
           paid: subscriptionPaidById.get(sub.id) ?? isPastMonth,
           editable: true,
+          receivedOn: null,
         })
       }
     }
@@ -269,6 +274,7 @@ export class StandardMonthService {
           dueDate: null,
           paid: expensePaidById.get(expense.id) ?? isPastMonth,
           editable: true,
+          receivedOn: null,
         })
         continue
       }
@@ -303,6 +309,7 @@ export class StandardMonthService {
         // since the checkbox itself is hidden while `actual` is null.
         paid: expensePaidById.get(expense.id) ?? isPastMonth,
         editable: true,
+        receivedOn: null,
       })
     }
 

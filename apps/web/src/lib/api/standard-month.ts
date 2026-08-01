@@ -16,6 +16,8 @@ export interface StandardMonthLine {
    * entered elsewhere, not something to edit directly.
    */
   editable: boolean
+  /** Date the bill was actually received (utilities only) - the anchor dueDate is derived from. */
+  receivedOn: string | null
 }
 
 export interface StandardMonthIncomeLine {

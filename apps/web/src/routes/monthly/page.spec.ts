@@ -137,6 +137,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           dueDate: '2026-03-20T00:00:00.000+00:00',
           paid: false,
           editable: true,
+          receivedOn: null,
         },
         {
           key: 'expense-1',
@@ -147,6 +148,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           dueDate: null,
           paid: true,
           editable: true,
+          receivedOn: null,
         },
       ],
       projectedTotal: 700,
@@ -770,6 +772,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 45.99,
@@ -800,6 +803,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 45.99,
@@ -836,6 +840,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 45.99,
@@ -873,6 +878,7 @@ describe('month page', () => {
               dueDate: '2026-03-28T00:00:00.000+00:00',
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 120,
@@ -904,6 +910,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 40,
@@ -951,6 +958,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
             {
               key: 'recurring-bills-avg',
@@ -961,6 +969,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 305.42,
@@ -999,6 +1008,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 300,
@@ -1029,6 +1039,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 300,
@@ -1096,6 +1107,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 45.99,
@@ -1139,6 +1151,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 22.99,
@@ -1204,7 +1217,58 @@ describe('month page', () => {
     await user.type(amountInput, '120')
     await user.click(screen.getByRole('button', { name: 'Save Electricity' }))
 
-    await waitFor(() => expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 120))
+    await waitFor(() =>
+      expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 120, undefined, null)
+    )
+  })
+
+  it('edits a utility expense line received date', async () => {
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'utility-1',
+              label: 'Electricity',
+              projected: 100,
+              actual: 110,
+              dueDay: null,
+              dueDate: '2026-03-20T00:00:00.000+00:00',
+              paid: false,
+              editable: true,
+              receivedOn: '2026-03-14',
+            },
+          ],
+          projectedTotal: 100,
+          actualTotal: 110,
+        },
+      })
+    )
+    vi.mocked(upsertUtilityBill).mockResolvedValue({
+      id: 1,
+      utilityId: 1,
+      year: 2026,
+      month: 3,
+      amount: 110,
+      notes: null,
+      paid: false,
+      receivedOn: '2026-03-21',
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity' }))
+    const receivedInput = screen.getByDisplayValue('2026-03-14')
+    await user.clear(receivedInput)
+    await user.type(receivedInput, '2026-03-21')
+    await user.click(screen.getByRole('button', { name: 'Save Electricity' }))
+
+    await waitFor(() =>
+      expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 110, undefined, '2026-03-21')
+    )
   })
 
   it('adds an expense actual when none is logged yet', async () => {
@@ -1378,6 +1442,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: false,
+              receivedOn: null,
             },
           ],
           projectedTotal: 40,
@@ -1410,6 +1475,7 @@ describe('month page', () => {
               dueDate: '2026-03-20T00:00:00.000+00:00',
               paid: false,
               editable: true,
+              receivedOn: null,
             },
             {
               key: 'expense-1',
@@ -1420,6 +1486,7 @@ describe('month page', () => {
               dueDate: null,
               paid: true,
               editable: true,
+              receivedOn: null,
             },
             {
               key: 'recurring-bill-3',
@@ -1430,6 +1497,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
             {
               key: 'subscription-4',
@@ -1440,6 +1508,7 @@ describe('month page', () => {
               dueDate: null,
               paid: false,
               editable: true,
+              receivedOn: null,
             },
           ],
           projectedTotal: 810,
