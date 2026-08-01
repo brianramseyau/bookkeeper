@@ -102,6 +102,35 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   a migration (`apps/api/database/migrations/`), not an edit to the
   importer, a seeder, or a manual SQL update — see
   [README.md](README.md#making-data-or-schema-changes).
+- **SQLite table-rebuild migrations silently cascade-delete child rows —
+  this has already wiped production data twice.** SQLite can't do several
+  `ALTER TABLE` operations in place — `dropColumn`, adding a column with an
+  inline FK reference, or `dropForeign`/`foreign` — so knex rebuilds the
+  whole table instead (create new table, copy rows, `DROP TABLE` the old
+  one, rename). This app runs with `PRAGMA foreign_keys = ON` by default
+  (`config/database.ts`), so that `DROP TABLE` cascades through every
+  `ON DELETE CASCADE` FK pointing at it, silently deleting child rows (e.g.
+  `expense_payments` when `expenses` gets rebuilt). It doesn't show up
+  against a thin dev/test dataset — only against real data with rows in the
+  child tables, which is exactly why it reached production before being
+  caught. **Any migration whose `up()`/`down()` does `dropColumn`,
+  `dropForeign`/`foreign`, or adds a column with `.references(...)` on a
+  table that has children with `onDelete('CASCADE')` must**:
+  1. Set `static disableTransactions = true` on the migration class
+     (`PRAGMA foreign_keys` only takes effect outside an open transaction).
+  2. Wrap the schema change in `this.schema.raw('PRAGMA foreign_keys = OFF')`
+     … `this.schema.raw('PRAGMA foreign_keys = ON')`.
+  3. Add a comment explaining why, referencing this section.
+
+  See `1785473999630_repoint_utilities_category_id_fk_to_categories.ts`,
+  `1785474006349_alter_expenses_table_add_category_id.ts`,
+  `1785496162716_alter_expenses_table_drop_color.ts`, and
+  `1785400000000_alter_recurring_bills_table_drop_next_due_on.ts` for the
+  pattern (the latter two were fixed after this bit production — the fix
+  wasn't applied consistently to every migration touching an
+  FK-referenced table, so re-check this section any time a migration
+  touches a table's columns or foreign keys, not just when adding a new FK).
+
 - **Auth**: session/cookie-based, exactly two user accounts (household
   members), seeded via `db:seed` from the workbook's "Users" sheet (not
   `.env` — see `database/seeders/user_seeder.ts` and
