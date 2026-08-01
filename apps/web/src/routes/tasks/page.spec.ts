@@ -42,9 +42,17 @@ const defaultSettings: BackupSettings = {
 }
 
 const backupA: Backup = {
-  filename: 'bookkeeper-backup-20260127-030000.sqlite3',
+  filename: 'bookkeeper-backup-auto-20260127-030000.sqlite3',
   sizeBytes: 2048,
   createdAt: '2026-01-27T03:00:00.000+00:00',
+  source: 'automatic',
+}
+
+const backupManual: Backup = {
+  filename: 'bookkeeper-backup-manual-20260127-030000.sqlite3',
+  sizeBytes: 2048,
+  createdAt: '2026-01-27T03:00:00.000+00:00',
+  source: 'manual',
 }
 
 const defaultNotificationSchedule: NotificationSchedule = {
@@ -84,7 +92,7 @@ describe('tasks page', () => {
     expect(screen.getByText('2.0 KB')).toBeInTheDocument()
     const downloadLink = screen.getByRole('link', { name: 'Download' })
     expect(downloadLink.getAttribute('href')).toBe(
-      '/api/backups/bookkeeper-backup-20260127-030000.sqlite3/download'
+      '/api/backups/bookkeeper-backup-auto-20260127-030000.sqlite3/download'
     )
   })
 
@@ -112,7 +120,8 @@ describe('tasks page', () => {
 
     render(TasksPage)
 
-    expect(await screen.findByText('No backups yet')).toBeInTheDocument()
+    expect(await screen.findByText('No automated backups yet')).toBeInTheDocument()
+    expect(await screen.findByText('No manual backups yet')).toBeInTheDocument()
   })
 
   it('saves the backup schedule', async () => {
@@ -153,24 +162,21 @@ describe('tasks page', () => {
     expect(await screen.findByText('Invalid schedule')).toBeInTheDocument()
   })
 
-  it('creates a backup on demand and refreshes the list and schedule', async () => {
+  it('creates a manual backup on demand and refreshes the list', async () => {
     vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
     vi.mocked(listBackups).mockResolvedValue([])
-    vi.mocked(createBackup).mockResolvedValue(backupA)
+    vi.mocked(createBackup).mockResolvedValue(backupManual)
     const user = userEvent.setup()
     render(TasksPage)
 
-    await screen.findByText('No backups yet')
-    vi.mocked(listBackups).mockResolvedValue([backupA])
-    vi.mocked(getBackupSettings).mockResolvedValue({
-      ...defaultSettings,
-      lastRunAt: '2026-01-27T03:00:00.000+00:00',
-    })
+    await screen.findByText('No manual backups yet')
+    vi.mocked(listBackups).mockResolvedValue([backupManual])
 
     await user.click(screen.getByRole('button', { name: 'Backup now' }))
 
     expect(createBackup).toHaveBeenCalled()
     expect(await screen.findByText('2.0 KB')).toBeInTheDocument()
+    expect(getBackupSettings).toHaveBeenCalledTimes(1)
   })
 
   it('shows an error when creating a backup fails', async () => {
@@ -203,7 +209,7 @@ describe('tasks page', () => {
       `Permanently delete "${backupA.filename}"? This cannot be undone.`
     )
     expect(deleteBackup).toHaveBeenCalledWith(backupA.filename)
-    expect(await screen.findByText('No backups yet')).toBeInTheDocument()
+    expect(await screen.findByText('No automated backups yet')).toBeInTheDocument()
   })
 
   it('does not delete a backup when the confirmation is declined', async () => {

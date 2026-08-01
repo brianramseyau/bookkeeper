@@ -249,15 +249,21 @@ automatically the first time the app runs, no setup required. The
 **Tasks** page (`/tasks`) has a **Backup schedule** section where you can
 adjust the interval (every 6/12/24/48 hours, or weekly), the retention
 window in days, or turn it off entirely - backups past the retention
-window are purged automatically. A **Backup now** button next to the
-backup list triggers one on demand at any time, and each row has
-**Download** and **Delete** actions. Backups are written to
+window are purged automatically. Backups are written to
 `/app/data/backups` (a `backups` subfolder next to the database), using
 SQLite's own online backup API for a consistent snapshot even while the
 app is running and writing - so this needs no cron job, sidecar
 container, or stopping the app. The schedule runs in the same Node
 process that serves the app, checked periodically, so it only fires while
 the container is actually running.
+
+Below the schedule, the backup list is split into two sections. **Automated
+backups** are the ones the schedule above produced, and only those count
+against the retention window. **Manual backups** are made with the
+**Backup now** button - a deliberate, one-off snapshot that's exempt from
+retention and kept until you delete it yourself, and doesn't affect when
+the next automated backup runs. Each row has **Download** and **Delete**
+actions.
 
 ### Without the app running
 

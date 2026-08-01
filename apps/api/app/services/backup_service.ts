@@ -4,14 +4,25 @@ import Database from 'better-sqlite3'
 import { DateTime } from 'luxon'
 import config from '@adonisjs/core/services/config'
 
+export type BackupSource = 'automatic' | 'manual'
+
 export interface BackupFileInfo {
   filename: string
   sizeBytes: number
   createdAt: DateTime
+  source: BackupSource
 }
 
 const FILENAME_PREFIX = 'bookkeeper-backup-'
-const FILENAME_PATTERN = /^bookkeeper-backup-\d{8}-\d{6}\.sqlite3$/
+
+/**
+ * The `(auto|manual)-` tag is optional in the pattern so backups written
+ * before this distinction existed (already on disk in production) still
+ * match - see `sourceFromFilename`, which treats an untagged name as
+ * `automatic` since that's what every backup was before "Backup now" got
+ * its own tag.
+ */
+const FILENAME_PATTERN = /^bookkeeper-backup-(?:(auto|manual)-)?(\d{8}-\d{6})\.sqlite3$/
 
 /**
  * Directory backups are written to - a `backups` sibling of the live SQLite
@@ -36,10 +47,17 @@ export function isBackupFilename(filename: string): boolean {
   return FILENAME_PATTERN.test(filename)
 }
 
+/** Callers must have already confirmed `filename` matches `isBackupFilename`. */
+function sourceFromFilename(filename: string): BackupSource {
+  const match = FILENAME_PATTERN.exec(filename)!
+  return match[1] === 'manual' ? 'manual' : 'automatic'
+}
+
 const TIMESTAMP_FORMAT = 'yyyyLLdd-HHmmss'
 
-function timestampedFilename(now: DateTime): string {
-  return `${FILENAME_PREFIX}${now.toFormat(TIMESTAMP_FORMAT)}.sqlite3`
+function timestampedFilename(now: DateTime, source: BackupSource): string {
+  const tag = source === 'manual' ? 'manual' : 'auto'
+  return `${FILENAME_PREFIX}${tag}-${now.toFormat(TIMESTAMP_FORMAT)}.sqlite3`
 }
 
 /**
@@ -49,8 +67,8 @@ function timestampedFilename(now: DateTime): string {
  * actually ran.
  */
 function timestampFromFilename(filename: string): DateTime {
-  const raw = filename.slice(FILENAME_PREFIX.length, filename.length - '.sqlite3'.length)
-  return DateTime.fromFormat(raw, TIMESTAMP_FORMAT, { zone: 'utc' })
+  const match = FILENAME_PATTERN.exec(filename)!
+  return DateTime.fromFormat(match[2]!, TIMESTAMP_FORMAT, { zone: 'utc' })
 }
 
 /**
@@ -61,23 +79,26 @@ function timestampFromFilename(filename: string): DateTime {
  * without going anywhere near whatever transaction that connection may
  * currently be in.
  */
-export async function createBackup(now: DateTime = DateTime.utc()): Promise<BackupFileInfo> {
+export async function createBackup(
+  now: DateTime = DateTime.utc(),
+  source: BackupSource = 'automatic'
+): Promise<BackupFileInfo> {
   const dir = backupDir()
   await fs.mkdir(dir, { recursive: true })
 
-  const filename = timestampedFilename(now)
+  const filename = timestampedFilename(now, source)
   const destination = backupPath(filename)
   const dbFilename = config.get<string>('database.connections.sqlite.connection.filename')
 
-  const source = new Database(dbFilename, { readonly: true })
+  const db = new Database(dbFilename, { readonly: true })
   try {
-    await source.backup(destination)
+    await db.backup(destination)
   } finally {
-    source.close()
+    db.close()
   }
 
   const stat = await fs.stat(destination)
-  return { filename, sizeBytes: stat.size, createdAt: now }
+  return { filename, sizeBytes: stat.size, createdAt: now, source }
 }
 
 /** Existing backups, newest first. Returns an empty list if the directory doesn't exist yet. */
@@ -96,7 +117,12 @@ export async function listBackups(): Promise<BackupFileInfo[]> {
       .filter((name) => isBackupFilename(name))
       .map(async (filename) => {
         const stat = await fs.stat(backupPath(filename))
-        return { filename, sizeBytes: stat.size, createdAt: timestampFromFilename(filename) }
+        return {
+          filename,
+          sizeBytes: stat.size,
+          createdAt: timestampFromFilename(filename),
+          source: sourceFromFilename(filename),
+        }
       })
   )
 
@@ -121,14 +147,21 @@ export function resolveBackupPath(filename: string): string | null {
   return isBackupFilename(filename) ? backupPath(filename) : null
 }
 
-/** Deletes backups older than `retentionDays`. Returns the number removed. */
+/**
+ * Deletes automatic backups older than `retentionDays`. Manual backups are
+ * exempt from retention entirely - someone who clicks "Backup now" is
+ * making a deliberate snapshot, not participating in the rolling schedule,
+ * so it stays until explicitly deleted.
+ */
 export async function purgeExpired(
   retentionDays: number,
   now: DateTime = DateTime.utc()
 ): Promise<number> {
   const cutoff = now.minus({ days: retentionDays })
   const allBackups = await listBackups()
-  const expired = allBackups.filter((backup) => backup.createdAt < cutoff)
+  const expired = allBackups.filter(
+    (backup) => backup.source === 'automatic' && backup.createdAt < cutoff
+  )
   await Promise.all(expired.map((backup) => deleteBackup(backup.filename)))
   return expired.length
 }

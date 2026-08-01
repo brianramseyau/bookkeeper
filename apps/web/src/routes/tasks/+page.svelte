@@ -63,6 +63,9 @@
   let creatingBackup = $state(false)
   let deletingFilename = $state<string | null>(null)
 
+  const automaticBackups = $derived(backups.filter((b) => b.source === 'automatic'))
+  const manualBackups = $derived(backups.filter((b) => b.source === 'manual'))
+
   const SEND_HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
     value: hour,
     label: new Date(2000, 0, 1, hour).toLocaleTimeString([], { hour: 'numeric' }),
@@ -129,9 +132,6 @@
     try {
       await createBackup()
       await loadBackups()
-      // A manual backup also stamps the schedule's lastRunAt server-side -
-      // refresh so that's reflected without a full page reload.
-      settings = await getBackupSettings()
     } catch (err) {
       backupsError = err instanceof ApiError ? err.message : 'Failed to create backup'
     } finally {
@@ -260,15 +260,11 @@
   </PrimaryButton>
 </div>
 
-{#if backupsLoading}
-  <LoadingIndicator class="mt-3" />
-{:else if backups.length === 0}
-  <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">No backups yet</p>
-{:else}
+{#snippet backupTable(list: Backup[])}
   <Card class="mt-3 overflow-x-auto">
     <table class="w-full border-collapse text-sm">
       <tbody>
-        {#each backups as backup (backup.filename)}
+        {#each list as backup (backup.filename)}
           <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
             <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
               {formatDateTime(backup.createdAt)}
@@ -296,6 +292,27 @@
       </tbody>
     </table>
   </Card>
+{/snippet}
+
+{#if backupsLoading}
+  <LoadingIndicator class="mt-3" />
+{:else}
+  <h3 class="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-100">Automated backups</h3>
+  {#if automaticBackups.length === 0}
+    <p class="mt-2 text-sm text-slate-400 dark:text-slate-500">No automated backups yet</p>
+  {:else}
+    {@render backupTable(automaticBackups)}
+  {/if}
+
+  <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-slate-100">Manual backups</h3>
+  <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+    Not subject to the retention window above - kept until you delete them yourself.
+  </p>
+  {#if manualBackups.length === 0}
+    <p class="mt-2 text-sm text-slate-400 dark:text-slate-500">No manual backups yet</p>
+  {:else}
+    {@render backupTable(manualBackups)}
+  {/if}
 {/if}
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Export</h2>

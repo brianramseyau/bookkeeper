@@ -42,18 +42,22 @@ test.group('Backups / store', (group) => {
     await BackupSetting.query().where('id', 1).delete()
   })
 
-  test('creates a new backup on demand', async ({ client, assert }) => {
+  test('creates a new backup on demand, tagged manual', async ({ client, assert }) => {
     const brian = await loginAsBrian()
 
     const response = await client.post('/api/backups').withCsrfToken().loginAs(brian)
 
     response.assertStatus(201)
-    assert.match(response.body().data.filename, /^bookkeeper-backup-.*\.sqlite3$/)
+    assert.match(response.body().data.filename, /^bookkeeper-backup-manual-.*\.sqlite3$/)
+    assert.equal(response.body().data.source, 'manual')
   })
 
-  test('also purges expired backups and stamps lastRunAt', async ({ client, assert }) => {
+  test('does not touch the automatic schedule or purge automatic backups', async ({
+    client,
+    assert,
+  }) => {
     const brian = await loginAsBrian()
-    await createBackup(DateTime.utc().minus({ days: 10 }))
+    const oldAutomatic = await createBackup(DateTime.utc().minus({ days: 10 }))
     await BackupSetting.firstOrCreate(
       { id: 1 },
       { enabled: false, intervalHours: 24, retentionDays: 7 }
@@ -62,14 +66,16 @@ test.group('Backups / store', (group) => {
     const response = await client.post('/api/backups').withCsrfToken().loginAs(brian)
 
     response.assertStatus(201)
-    // retentionDays 7 means the 10-day-old pre-existing backup is expired -
-    // only the fresh one from this request should remain.
+    // The 10-day-old automatic backup is past retentionDays 7, but a manual
+    // "Backup now" click must not purge it or otherwise touch the schedule.
     const listResponse = await client.get('/api/backups').loginAs(brian)
-    assert.lengthOf(listResponse.body().data, 1)
-    assert.equal(listResponse.body().data[0].filename, response.body().data.filename)
+    assert.lengthOf(listResponse.body().data, 2)
+    const filenames = listResponse.body().data.map((b: { filename: string }) => b.filename)
+    assert.include(filenames, oldAutomatic.filename)
+    assert.include(filenames, response.body().data.filename)
 
     const reloaded = await BackupSetting.findOrFail(1)
-    assert.isNotNull(reloaded.lastRunAt)
+    assert.isNull(reloaded.lastRunAt)
   })
 })
 

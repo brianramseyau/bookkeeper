@@ -4,6 +4,7 @@ export interface Backup {
   filename: string
   sizeBytes: number
   createdAt: string
+  source: 'automatic' | 'manual'
 }
 
 export function listBackups() {

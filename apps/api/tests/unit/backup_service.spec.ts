@@ -17,21 +17,36 @@ test.group('BackupService', (group) => {
   })
 
   test('isBackupFilename accepts only names this service could have generated', ({ assert }) => {
+    assert.isTrue(isBackupFilename('bookkeeper-backup-auto-20260728-030000.sqlite3'))
+    assert.isTrue(isBackupFilename('bookkeeper-backup-manual-20260728-030000.sqlite3'))
+    // Untagged names predate the manual/automatic split and are still on disk in production.
     assert.isTrue(isBackupFilename('bookkeeper-backup-20260728-030000.sqlite3'))
     assert.isFalse(isBackupFilename('../../etc/passwd'))
     assert.isFalse(isBackupFilename('bookkeeper.sqlite3'))
     assert.isFalse(isBackupFilename('bookkeeper-backup-20260728-030000.sqlite3.bak'))
   })
 
-  test('createBackup writes a real, readable sqlite file under backupDir()', async ({ assert }) => {
+  test('createBackup writes a real, readable sqlite file under backupDir(), tagged automatic by default', async ({
+    assert,
+  }) => {
     const now = DateTime.utc(2026, 7, 28, 3, 0, 0)
 
     const backup = await createBackup(now)
 
-    assert.equal(backup.filename, 'bookkeeper-backup-20260728-030000.sqlite3')
+    assert.equal(backup.filename, 'bookkeeper-backup-auto-20260728-030000.sqlite3')
+    assert.equal(backup.source, 'automatic')
     assert.isAbove(backup.sizeBytes, 0)
     const stat = await fs.stat(resolveBackupPath(backup.filename)!)
     assert.isTrue(stat.isFile())
+  })
+
+  test('createBackup tags a manual backup and encodes it in the filename', async ({ assert }) => {
+    const now = DateTime.utc(2026, 7, 28, 3, 0, 0)
+
+    const backup = await createBackup(now, 'manual')
+
+    assert.equal(backup.filename, 'bookkeeper-backup-manual-20260728-030000.sqlite3')
+    assert.equal(backup.source, 'manual')
   })
 
   test('listBackups returns an empty array when the directory does not exist yet', async ({
@@ -48,8 +63,18 @@ test.group('BackupService', (group) => {
     const backups = await listBackups()
 
     assert.lengthOf(backups, 2)
-    assert.equal(backups[0]!.filename, 'bookkeeper-backup-20260728-030000.sqlite3')
-    assert.equal(backups[1]!.filename, 'bookkeeper-backup-20260726-030000.sqlite3')
+    assert.equal(backups[0]!.filename, 'bookkeeper-backup-auto-20260728-030000.sqlite3')
+    assert.equal(backups[1]!.filename, 'bookkeeper-backup-auto-20260726-030000.sqlite3')
+  })
+
+  test('listBackups treats an untagged legacy filename as automatic', async ({ assert }) => {
+    await fs.mkdir(backupDir(), { recursive: true })
+    await fs.writeFile(`${backupDir()}/bookkeeper-backup-20260728-030000.sqlite3`, 'x')
+
+    const backups = await listBackups()
+
+    assert.lengthOf(backups, 1)
+    assert.equal(backups[0]!.source, 'automatic')
   })
 
   test('listBackups ignores files that are not backups', async ({ assert }) => {
@@ -71,7 +96,7 @@ test.group('BackupService', (group) => {
   })
 
   test('deleteBackup returns false for a filename that does not exist', async ({ assert }) => {
-    const deleted = await deleteBackup('bookkeeper-backup-20260101-000000.sqlite3')
+    const deleted = await deleteBackup('bookkeeper-backup-auto-20260101-000000.sqlite3')
     assert.isFalse(deleted)
   })
 
@@ -84,7 +109,7 @@ test.group('BackupService', (group) => {
     // A directory (rather than a file) at a would-be backup path fails
     // unlink with EISDIR/EPERM, not ENOENT - the simplest portable way to
     // exercise the "unexpected error" branch without a mocking library.
-    const filename = 'bookkeeper-backup-20260101-000000.sqlite3'
+    const filename = 'bookkeeper-backup-auto-20260101-000000.sqlite3'
     await fs.mkdir(`${backupDir()}/${filename}`, { recursive: true })
 
     await assert.rejects(() => deleteBackup(filename))
@@ -103,7 +128,9 @@ test.group('BackupService', (group) => {
     assert.isNull(resolveBackupPath('../../etc/passwd'))
   })
 
-  test('purgeExpired deletes only backups older than retentionDays', async ({ assert }) => {
+  test('purgeExpired deletes only automatic backups older than retentionDays', async ({
+    assert,
+  }) => {
     const now = DateTime.utc(2026, 7, 28, 12, 0, 0)
     await createBackup(now.minus({ days: 10 }))
     await createBackup(now.minus({ days: 1 }))
@@ -114,5 +141,15 @@ test.group('BackupService', (group) => {
     const remaining = await listBackups()
     assert.lengthOf(remaining, 1)
     assert.isTrue(remaining[0]!.createdAt >= now.minus({ days: 7 }))
+  })
+
+  test('purgeExpired never removes manual backups, however old', async ({ assert }) => {
+    const now = DateTime.utc(2026, 7, 28, 12, 0, 0)
+    await createBackup(now.minus({ days: 10 }), 'manual')
+
+    const removed = await purgeExpired(7, now)
+
+    assert.equal(removed, 0)
+    assert.lengthOf(await listBackups(), 1)
   })
 })
