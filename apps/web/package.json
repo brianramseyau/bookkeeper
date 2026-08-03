@@ -40,6 +40,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@mdi/js": "^7.4.47"
+    "@mdi/js": "^7.4.47",
+    "svelte-dnd-action": "^0.9.77"
   }
 }

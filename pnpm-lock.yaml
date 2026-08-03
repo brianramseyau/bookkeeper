@@ -126,6 +126,9 @@ importers:
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
+      svelte-dnd-action:
+        specifier: ^0.9.77
+        version: 0.9.77(svelte@5.56.7(@typescript-eslint/types@8.65.0))
     devDependencies:
       '@eslint/js':
         specifier: ^9.19.0
@@ -3820,6 +3823,11 @@ packages:
     peerDependencies:
       svelte: ^4.0.0 || ^5.0.0-next.0
       typescript: '>=5.0.0'
+
+  svelte-dnd-action@0.9.77:
+    resolution: {integrity: sha512-HEd4gH1OKKH/MzO5HTGldNpergAU4LyhqLvP4lrcmDpzKAGWbeb0FHB+ie1H+LJ1ZRbbjBHU6T/vYQzM80HSug==}
+    peerDependencies:
+      svelte: '>=3.23.0 || ^5.0.0-next.0'
 
   svelte-eslint-parser@0.43.0:
     resolution: {integrity: sha512-GpU52uPKKcVnh8tKN5P4UZpJ/fUDndmq7wfsvoVXsyP+aY0anol7Yqo01fyrlaWGMFfm4av5DyrjlaXdLRJvGA==}
@@ -7727,6 +7735,10 @@ snapshots:
       typescript: 6.0.3
     transitivePeerDependencies:
       - picomatch
+
+  svelte-dnd-action@0.9.77(svelte@5.56.7(@typescript-eslint/types@8.65.0)):
+    dependencies:
+      svelte: 5.56.7(@typescript-eslint/types@8.65.0)
 
   svelte-eslint-parser@0.43.0(svelte@5.56.7(@typescript-eslint/types@8.65.0)):
     dependencies:

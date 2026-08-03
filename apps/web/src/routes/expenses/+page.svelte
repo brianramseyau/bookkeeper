@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { dragHandleZone, type DndEvent } from 'svelte-dnd-action'
   import {
     listExpenses,
     createExpense,
@@ -10,6 +11,7 @@
   import { getExpenseTrend, type ExpenseTrend } from '$lib/api/expense-actuals'
   import { listCategories, type Category } from '$lib/api/categories'
   import { formatCurrency } from '$lib/format'
+  import { reorderedSortOrders } from '$lib/dnd'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -20,6 +22,7 @@
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
   import CategorySelect from '$lib/components/CategorySelect.svelte'
+  import DragHandle from '$lib/components/DragHandle.svelte'
   import {
     mdiPencil,
     mdiCloseThick,
@@ -35,6 +38,12 @@
   interface Row {
     expense: Expense
     trend: ExpenseTrend | null
+  }
+
+  // svelte-dnd-action identifies items by an `id` field on the item itself -
+  // add one on top of Row (whose real identity is nested at `expense.id`).
+  interface DndRow extends Row {
+    id: number
   }
 
   let rows = $state<Row[]>([])
@@ -62,6 +71,14 @@
   )
   const archivedRows = $derived(rows.filter((r) => r.expense.isActive && r.expense.isArchived))
   const removedRows = $derived(rows.filter((r) => !r.expense.isActive))
+
+  // Local, drag-reorderable copy of the active rows - synced from the
+  // derived list above, then temporarily diverges during a drag so the
+  // dndzone can preview the new order before it's persisted.
+  let orderedActive = $state<DndRow[]>([])
+  $effect(() => {
+    orderedActive = activeRows.map((row) => ({ ...row, id: row.expense.id }))
+  })
 
   onMount(load)
 
@@ -218,19 +235,20 @@
     }
   }
 
-  async function moveExpense(index: number, direction: -1 | 1) {
-    const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= activeRows.length) return
+  function considerActive(e: CustomEvent<DndEvent<DndRow>>) {
+    orderedActive = e.detail.items
+  }
+
+  async function finalizeActive(e: CustomEvent<DndEvent<DndRow>>) {
+    orderedActive = e.detail.items
+
+    const updates = reorderedSortOrders(e.detail.items.map((row) => row.expense))
+    if (updates.length === 0) return
 
     reordering = true
     error = null
     try {
-      const current = activeRows[index]!.expense
-      const target = activeRows[targetIndex]!.expense
-      await Promise.all([
-        updateExpense(current.id, { sortOrder: target.sortOrder }),
-        updateExpense(target.id, { sortOrder: current.sortOrder }),
-      ])
+      await Promise.all(updates.map((u) => updateExpense(u.id, { sortOrder: u.sortOrder })))
       await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to reorder'
@@ -244,6 +262,7 @@
   <tr
     class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
   >
+    <td class="hidden px-3 py-2 sm:table-cell"></td>
     <td class="px-3 py-2 sm:table-cell">
       <input
         type="text"
@@ -344,7 +363,6 @@
         onclick={cancelEdit}
       />
     </td>
-    <td class="hidden px-3 py-2 sm:table-cell"></td>
   </tr>
 {/snippet}
 
@@ -372,6 +390,7 @@
     <table class="block w-full border-collapse text-sm sm:table">
       <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
+          <th class="px-3 py-2"></th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Name</th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
             >Category</th
@@ -398,26 +417,38 @@
             >Ignore budget</th
           >
           <th class="px-3 py-2"></th>
-          <th class="px-3 py-2"></th>
         </tr>
       </thead>
-      <tbody class="block sm:table-row-group">
-        {#each activeRows as row, index (row.expense.id)}
+      <tbody
+        class="block sm:table-row-group"
+        use:dragHandleZone={{ items: orderedActive, flipDurationMs: 150, dragDisabled: reordering }}
+        onconsider={considerActive}
+        onfinalize={finalizeActive}
+      >
+        {#each orderedActive as row (row.id)}
           {#if editingId === row.expense.id}
             {@render editRow(row.expense)}
           {:else}
             <tr
               class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
             >
+              <td class="hidden px-3 py-2 text-center sm:table-cell">
+                <DragHandle label="Move {row.expense.name}" />
+              </td>
               <td
                 class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
               >
-                <a
-                  href={`/expenses/${row.expense.id}`}
-                  class="min-w-0 truncate hover:text-indigo-600 dark:hover:text-indigo-400"
-                >
-                  {row.expense.name}
-                </a>
+                <span class="flex min-w-0 items-center gap-2">
+                  <span class="shrink-0 sm:hidden">
+                    <DragHandle label="Move {row.expense.name}" />
+                  </span>
+                  <a
+                    href={`/expenses/${row.expense.id}`}
+                    class="min-w-0 truncate hover:text-indigo-600 dark:hover:text-indigo-400"
+                  >
+                    {row.expense.name}
+                  </a>
+                </span>
                 <span class="flex shrink-0 items-center gap-1 sm:hidden">
                   <IconActionButton
                     variant="neutral"
@@ -437,24 +468,6 @@
                     path={mdiArchive}
                     onclick={() => handleArchive(row.expense)}
                   />
-                  <button
-                    type="button"
-                    onclick={() => moveExpense(index, -1)}
-                    disabled={index === 0 || reordering}
-                    aria-label="Move {row.expense.name} up"
-                    class="p-2 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
-                    ▲
-                  </button>
-                  <button
-                    type="button"
-                    onclick={() => moveExpense(index, 1)}
-                    disabled={index === activeRows.length - 1 || reordering}
-                    aria-label="Move {row.expense.name} down"
-                    class="p-2 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
-                    ▼
-                  </button>
                 </span>
               </td>
               <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
@@ -563,26 +576,6 @@
                   onclick={() => handleArchive(row.expense)}
                 />
               </td>
-              <td class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell">
-                <button
-                  type="button"
-                  onclick={() => moveExpense(index, -1)}
-                  disabled={index === 0 || reordering}
-                  aria-label="Move {row.expense.name} up"
-                  class="text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onclick={() => moveExpense(index, 1)}
-                  disabled={index === activeRows.length - 1 || reordering}
-                  aria-label="Move {row.expense.name} down"
-                  class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  ▼
-                </button>
-              </td>
             </tr>
           {/if}
         {/each}
@@ -606,6 +599,7 @@
                 <tr
                   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                   <td
                     class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
@@ -721,7 +715,6 @@
                       onclick={() => handleArchive(row.expense)}
                     />
                   </td>
-                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                 </tr>
               {/if}
             {/each}
@@ -745,6 +738,7 @@
                 <tr
                   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
+                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                   <td
                     class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
@@ -860,7 +854,6 @@
                       onclick={() => handleRemove(row.expense)}
                     />
                   </td>
-                  <td class="hidden px-3 py-2 sm:table-cell"></td>
                 </tr>
               {/if}
             {/each}
@@ -881,6 +874,7 @@
               <tr
                 class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
+                <td class="hidden px-3 py-2 sm:table-cell"></td>
                 <td
                   class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                 >
@@ -962,7 +956,6 @@
                     onclick={() => handleRestore(row.expense)}
                   />
                 </td>
-                <td class="hidden px-3 py-2 sm:table-cell"></td>
               </tr>
             {/each}
           {/if}

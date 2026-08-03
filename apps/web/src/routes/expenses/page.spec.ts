@@ -507,21 +507,25 @@ describe('expenses page', () => {
     expect(updateExpense).toHaveBeenCalledWith(1, { isActive: true })
   })
 
-  it('moves an expense down and up, swapping sort order', async () => {
+  it('drags an expense to a new position, swapping sort order', async () => {
     vi.mocked(listExpenses).mockResolvedValue([groceries, rent])
     vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
     vi.mocked(updateExpense).mockResolvedValue(groceries)
-    const user = userEvent.setup()
-    render(ExpensesPage)
+    const { container } = render(ExpensesPage)
 
     await screen.findByText('Groceries')
-    const upButtons = screen.getAllByRole('button', { name: /Move .* up/ })
-    const downButtons = screen.getAllByRole('button', { name: /Move .* down/ })
-
-    expect(upButtons[0]).toBeDisabled()
-    expect(downButtons.at(-1)).toBeDisabled()
-
-    await user.click(downButtons[0]!)
+    const tbody = container.querySelector('tbody')!
+    tbody.dispatchEvent(
+      new CustomEvent('finalize', {
+        detail: {
+          items: [
+            { id: 2, expense: rent, trend: noTrend },
+            { id: 1, expense: groceries, trend: noTrend },
+          ],
+          info: { trigger: 'droppedIntoZone', id: '2', source: 'pointer' },
+        },
+      })
+    )
 
     expect(updateExpense).toHaveBeenCalledWith(1, { sortOrder: 2 })
     expect(updateExpense).toHaveBeenCalledWith(2, { sortOrder: 1 })
@@ -531,11 +535,21 @@ describe('expenses page', () => {
     vi.mocked(listExpenses).mockResolvedValue([groceries, rent])
     vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
     vi.mocked(updateExpense).mockRejectedValue(new ApiError(500, 'Failed to reorder'))
-    const user = userEvent.setup()
-    render(ExpensesPage)
+    const { container } = render(ExpensesPage)
 
-    const downButtons = await screen.findAllByRole('button', { name: /Move .* down/ })
-    await user.click(downButtons[0]!)
+    await screen.findByText('Groceries')
+    const tbody = container.querySelector('tbody')!
+    tbody.dispatchEvent(
+      new CustomEvent('finalize', {
+        detail: {
+          items: [
+            { id: 2, expense: rent, trend: noTrend },
+            { id: 1, expense: groceries, trend: noTrend },
+          ],
+          info: { trigger: 'droppedIntoZone', id: '2', source: 'pointer' },
+        },
+      })
+    )
 
     expect(await screen.findByText('Failed to reorder')).toBeInTheDocument()
   })

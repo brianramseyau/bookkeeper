@@ -268,9 +268,9 @@ Every data table follows the same recipe — see
     </thead>
     <tbody class="block sm:table-row-group">
       <tr
-        class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 dark:divide-slate-700/60 dark:border-slate-700 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 sm:dark:border-slate-700/60"
+        class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
       >
-        <td class="px-3 py-2 ... sm:table-cell">...</td>
+        <td class="px-3 py-2 sm:table-cell ...">...</td>
         <!-- see "Responsive tables (mobile)" below for cell-level rules -->
       </tr>
     </tbody>
@@ -336,7 +336,7 @@ Every data table follows the same recipe — see
 Every table in the app reflows into stacked cards below `sm` (640px) instead
 of horizontally scrolling — the app is mobile-first, and a table wider than
 a phone screen is a poor mobile UX. This is done with responsive `display`
-utilities on the *same* markup, not a second parallel "mobile" template: one
+utilities on the _same_ markup, not a second parallel "mobile" template: one
 `{#each}`, one set of `<tr>`/`<td>` elements, restyled per breakpoint. See
 `apps/web/src/routes/monthly/+page.svelte` for the fullest worked example
 (due chip, Paid checkbox, multiple edit-mode variants), or
@@ -395,6 +395,56 @@ utilities on the *same* markup, not a second parallel "mobile" template: one
   props purely about padding — a caller's `leading` snippet (whatever goes in
   the first cell) follows the same primary-cell-or-labeled-cell rules as any
   other table.
+
+### Reorderable rows (drag-and-drop)
+
+Manually-orderable lists (Categories' non-system and System groups, Expenses'
+active group — each backed by a `sortOrder` column) are reordered by
+click/touch-and-drag, not up/down arrow buttons (the old pattern, removed
+app-wide — a pair of tap targets per row doesn't scale to touch as well as
+grabbing and dragging the row itself, and arrows also add a click per
+position moved instead of one drag). See
+`apps/web/src/routes/categories/+page.svelte` and
+`apps/web/src/routes/expenses/+page.svelte` for the reference
+implementation.
+
+- **Library**: `svelte-dnd-action`'s `dragHandleZone` action on the `<tbody>`
+  wrapping the reorderable group (`use:dragHandleZone={{ items, flipDurationMs:
+150, dragDisabled }}`, `onconsider`/`onfinalize` props update a local
+  `$state` copy of the list). Only the rows meant to be reorderable belong to
+  that `<tbody>` — a table with a mix of reorderable and non-reorderable rows
+  (e.g. Categories' active vs. Archived/Removed groups) splits them into
+  separate `<tbody>` elements (multiple `<tbody>` per `<table>` is valid
+  HTML and doesn't change rendering) so the dnd zone's items always match its
+  actual DOM children.
+- **Handle** — `$lib/components/DragHandle.svelte`, a `use:dragHandle`
+  (`svelte-dnd-action`) span rendering the six-dot `mdiDrag` icon
+  (`@mdi/js`), `cursor: grab`/`grabbing`. Not `IconActionButton` — a drag
+  handle isn't a click action, and needs the library's own action attached
+  directly to it.
+- **Placement — left side of the row**: a dedicated first table column
+  (`hidden ... sm:table-cell`, desktop only) so the handle is the leftmost
+  thing in the row above `sm`; inlined as the first child of the title
+  cell's flex row (`sm:hidden`) below `sm`, ahead of the name/link, so it's
+  still the leftmost element of the card on mobile. This is the same
+  duplicate-markup-per-breakpoint technique the title cell's action icons
+  already use (see "Responsive tables" above) — reuse it rather than trying
+  to make one element serve both layouts.
+- **Persisting the reorder** — `$lib/dnd.ts`'s `reorderedSortOrders(items)`:
+  given the list in its new (already client-reordered) positions, it
+  reassigns the same pool of `sortOrder` values the group already held
+  (sorted ascending) to the new positions, returning only the `{id,
+sortOrder}` pairs that actually changed. This generalizes the old
+  two-item-swap logic to an arbitrary drag without ever introducing a gap or
+  duplicate into a shared/global `sortOrder` column (categories/expenses
+  share one `sortOrder` sequence across every group, not one sequence per
+  group). The `onfinalize` handler `Promise.all`s an `updateCategory`/
+  `updateExpense` call per changed row, then refreshes.
+- **Keyboard**: no separate keyboard fallback was built — `dragHandleZone`/
+  `dragHandle` already support keyboard reordering natively (Tab to the
+  handle, Space/Enter to pick up, arrow keys to move, Space/Enter or
+  `Escape` to drop), so a keyboard-only user isn't locked out despite there
+  being no visible up/down button.
 
 ## Badges / status pills
 

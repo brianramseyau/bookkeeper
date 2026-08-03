@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { dragHandleZone, type DndEvent } from 'svelte-dnd-action'
   import {
     listCategories,
     createCategory,
@@ -7,6 +8,7 @@
     deleteCategory,
     type Category,
   } from '$lib/api/categories'
+  import { reorderedSortOrders } from '$lib/dnd'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -15,6 +17,7 @@
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import DragHandle from '$lib/components/DragHandle.svelte'
   import {
     mdiPencil,
     mdiCloseThick,
@@ -44,6 +47,18 @@
   const systemCategories = $derived(activeCategories.filter((c) => c.isSystem))
   const archivedCategories = $derived(categories.filter((c) => c.isActive && c.isArchived))
   const removedCategories = $derived(categories.filter((c) => !c.isActive))
+
+  // Local, drag-reorderable copies of the two movable groups - synced from
+  // the derived lists above, then temporarily diverge during a drag so the
+  // dndzone can preview the new order before it's persisted.
+  let orderedNonSystem = $state<Category[]>([])
+  let orderedSystem = $state<Category[]>([])
+  $effect(() => {
+    orderedNonSystem = nonSystemActiveCategories
+  })
+  $effect(() => {
+    orderedSystem = systemCategories
+  })
 
   onMount(load)
 
@@ -157,19 +172,32 @@
     }
   }
 
-  async function moveCategory(list: Category[], index: number, direction: -1 | 1) {
-    const targetIndex = index + direction
-    if (targetIndex < 0 || targetIndex >= list.length) return
+  function considerNonSystem(e: CustomEvent<DndEvent<Category>>) {
+    orderedNonSystem = e.detail.items
+  }
+
+  async function finalizeNonSystem(e: CustomEvent<DndEvent<Category>>) {
+    orderedNonSystem = e.detail.items
+    await persistReorder(e.detail.items)
+  }
+
+  function considerSystem(e: CustomEvent<DndEvent<Category>>) {
+    orderedSystem = e.detail.items
+  }
+
+  async function finalizeSystem(e: CustomEvent<DndEvent<Category>>) {
+    orderedSystem = e.detail.items
+    await persistReorder(e.detail.items)
+  }
+
+  async function persistReorder(items: Category[]) {
+    const updates = reorderedSortOrders(items)
+    if (updates.length === 0) return
 
     reordering = true
     error = null
     try {
-      const current = list[index]!
-      const target = list[targetIndex]!
-      await Promise.all([
-        updateCategory(current.id, { sortOrder: target.sortOrder }),
-        updateCategory(target.id, { sortOrder: current.sortOrder }),
-      ])
+      await Promise.all(updates.map((u) => updateCategory(u.id, { sortOrder: u.sortOrder })))
       await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to reorder'
@@ -183,7 +211,8 @@
   <tr
     class="border-b border-slate-100 bg-indigo-50/40 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
   >
-    <td class="px-3 py-2">
+    <td class="w-px px-3 py-1.5"></td>
+    <td class="px-3 py-1.5">
       <div class="flex items-center gap-2">
         <input
           type="color"
@@ -201,7 +230,7 @@
         {/if}
       </div>
     </td>
-    <td class="px-3 py-2 text-right whitespace-nowrap">
+    <td class="px-3 py-1.5 text-right whitespace-nowrap">
       <IconActionButton
         variant="primary"
         disabled={savingEdit}
@@ -216,7 +245,6 @@
         onclick={cancelEdit}
       />
     </td>
-    <td class="px-3 py-2"></td>
   </tr>
 {/snippet}
 
@@ -253,18 +281,31 @@
     <table class="w-full border-collapse text-sm">
       <thead>
         <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Name</th>
-          <th class="px-3 py-2"></th>
-          <th class="px-3 py-2"></th>
+          <th class="w-px px-3 py-1.5"></th>
+          <th class="px-3 py-1.5 text-left font-semibold text-slate-500 dark:text-slate-400"
+            >Name</th
+          >
+          <th class="w-px px-3 py-1.5"></th>
         </tr>
       </thead>
-      <tbody>
-        {#each nonSystemActiveCategories as category, index (category.id)}
+      <tbody
+        use:dragHandleZone={{
+          items: orderedNonSystem,
+          flipDurationMs: 150,
+          dragDisabled: reordering,
+        }}
+        onconsider={considerNonSystem}
+        onfinalize={finalizeNonSystem}
+      >
+        {#each orderedNonSystem as category (category.id)}
           {#if editingId === category.id}
             {@render editRow(category)}
           {:else}
             <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-              <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+              <td class="w-px px-3 py-1.5">
+                <DragHandle label="Move {category.name}" compact />
+              </td>
+              <td class="px-3 py-1.5 font-medium text-slate-900 dark:text-slate-100">
                 <span class="flex items-center gap-2">
                   <span
                     class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
@@ -273,7 +314,7 @@
                   {category.name}
                 </span>
               </td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">
+              <td class="px-3 py-1.5 text-right whitespace-nowrap">
                 <IconActionButton
                   variant="neutral"
                   label="Edit {category.name}"
@@ -287,38 +328,20 @@
                   onclick={() => handleArchive(category)}
                 />
               </td>
-              <td class="px-3 py-2 whitespace-nowrap">
-                <button
-                  type="button"
-                  onclick={() => moveCategory(nonSystemActiveCategories, index, -1)}
-                  disabled={index === 0 || reordering}
-                  aria-label="Move {category.name} up"
-                  class="text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  onclick={() => moveCategory(nonSystemActiveCategories, index, 1)}
-                  disabled={index === nonSystemActiveCategories.length - 1 || reordering}
-                  aria-label="Move {category.name} down"
-                  class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                >
-                  ▼
-                </button>
-              </td>
             </tr>
           {/if}
         {/each}
+      </tbody>
 
-        {#if showHidden}
+      {#if showHidden}
+        <tbody>
           {#if archivedCategories.length > 0}
             <tr
               class="border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
                 colspan="3"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
               >
                 Archived
               </td>
@@ -330,7 +353,8 @@
                 <tr
                   class="border-b border-slate-100 opacity-70 last:border-0 dark:border-slate-700/60"
                 >
-                  <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                  <td class="w-px px-3 py-1.5"></td>
+                  <td class="px-3 py-1.5 font-medium text-slate-700 dark:text-slate-300">
                     <span class="flex items-center">
                       <span
                         class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
@@ -340,7 +364,7 @@
                       <StatusBadge label="Archived" tone="slate" />
                     </span>
                   </td>
-                  <td class="px-3 py-2 text-right whitespace-nowrap">
+                  <td class="px-3 py-1.5 text-right whitespace-nowrap">
                     <IconActionButton
                       variant="neutral"
                       label="Edit {category.name}"
@@ -360,7 +384,6 @@
                       onclick={() => handleRemove(category)}
                     />
                   </td>
-                  <td class="px-3 py-2"></td>
                 </tr>
               {/if}
             {/each}
@@ -372,7 +395,7 @@
             >
               <td
                 colspan="3"
-                class="px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+                class="px-3 py-1 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
               >
                 Removed
               </td>
@@ -381,7 +404,8 @@
               <tr
                 class="border-b border-slate-100 opacity-60 last:border-0 dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-700 dark:text-slate-300">
+                <td class="w-px px-3 py-1.5"></td>
+                <td class="px-3 py-1.5 font-medium text-slate-700 dark:text-slate-300">
                   <span class="flex items-center">
                     <span
                       class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
@@ -391,7 +415,7 @@
                     <StatusBadge label="Removed" tone="slate" />
                   </span>
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td class="px-3 py-1.5 text-right whitespace-nowrap">
                   <IconActionButton
                     variant="success"
                     label="Restore {category.name}"
@@ -399,30 +423,40 @@
                     onclick={() => handleRestore(category)}
                   />
                 </td>
-                <td class="px-3 py-2"></td>
               </tr>
             {/each}
           {/if}
-        {/if}
-      </tbody>
+        </tbody>
+      {/if}
       {#if systemCategories.length > 0}
         <thead>
           <tr class="border-b border-slate-200 dark:border-slate-700">
             <th
               colspan="3"
-              class="px-3 py-1.5 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+              class="px-3 py-1 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
             >
               System categories
             </th>
           </tr>
         </thead>
-        <tbody>
-          {#each systemCategories as category, index (category.id)}
+        <tbody
+          use:dragHandleZone={{
+            items: orderedSystem,
+            flipDurationMs: 150,
+            dragDisabled: reordering,
+          }}
+          onconsider={considerSystem}
+          onfinalize={finalizeSystem}
+        >
+          {#each orderedSystem as category (category.id)}
             {#if editingId === category.id}
               {@render editRow(category)}
             {:else}
               <tr class="border-b border-slate-100 last:border-0 dark:border-slate-700/60">
-                <td class="px-3 py-2 font-medium text-slate-900 dark:text-slate-100">
+                <td class="w-px px-3 py-1.5">
+                  <DragHandle label="Move {category.name}" compact />
+                </td>
+                <td class="px-3 py-1.5 font-medium text-slate-900 dark:text-slate-100">
                   <span class="flex items-center gap-2">
                     <span
                       class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
@@ -432,33 +466,13 @@
                     <StatusBadge label="System" tone="slate" />
                   </span>
                 </td>
-                <td class="px-3 py-2 text-right whitespace-nowrap">
+                <td class="px-3 py-1.5 text-right whitespace-nowrap">
                   <IconActionButton
                     variant="neutral"
                     label="Edit {category.name}"
                     path={mdiPencil}
                     onclick={() => startEdit(category)}
                   />
-                </td>
-                <td class="px-3 py-2 whitespace-nowrap">
-                  <button
-                    type="button"
-                    onclick={() => moveCategory(systemCategories, index, -1)}
-                    disabled={index === 0 || reordering}
-                    aria-label="Move {category.name} up"
-                    class="text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
-                    ▲
-                  </button>
-                  <button
-                    type="button"
-                    onclick={() => moveCategory(systemCategories, index, 1)}
-                    disabled={index === systemCategories.length - 1 || reordering}
-                    aria-label="Move {category.name} down"
-                    class="ml-1 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
-                  >
-                    ▼
-                  </button>
                 </td>
               </tr>
             {/if}
@@ -473,7 +487,7 @@
       type="text"
       placeholder="Add a category (e.g. Household)"
       bind:value={newName}
-      class="max-w-xs flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+      class="max-w-xs flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
     />
     <PrimaryButton type="submit" size="lg" disabled={creating}>
       {creating ? 'Adding…' : 'Add category'}

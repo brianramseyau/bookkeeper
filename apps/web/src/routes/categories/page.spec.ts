@@ -311,20 +311,21 @@ describe('categories page', () => {
     expect(updateCategory).toHaveBeenCalledWith(1, { isActive: true })
   })
 
-  it('moves a category down and up, swapping sort order', async () => {
+  it('drags a category to a new position, swapping sort order', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, rent])
     vi.mocked(updateCategory).mockResolvedValue(groceries)
-    const user = userEvent.setup()
-    render(CategoriesPage)
+    const { container } = render(CategoriesPage)
 
     await screen.findByText('Groceries')
-    const upButtons = screen.getAllByRole('button', { name: /Move .* up/ })
-    const downButtons = screen.getAllByRole('button', { name: /Move .* down/ })
-
-    expect(upButtons[0]).toBeDisabled()
-    expect(downButtons[1]).toBeDisabled()
-
-    await user.click(downButtons[0]!)
+    const tbody = container.querySelector('tbody')!
+    tbody.dispatchEvent(
+      new CustomEvent('finalize', {
+        detail: {
+          items: [rent, groceries],
+          info: { trigger: 'droppedIntoZone', id: '2', source: 'pointer' },
+        },
+      })
+    )
 
     expect(updateCategory).toHaveBeenCalledWith(1, { sortOrder: 2 })
     expect(updateCategory).toHaveBeenCalledWith(2, { sortOrder: 1 })
@@ -333,11 +334,18 @@ describe('categories page', () => {
   it('shows an error when reordering fails', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, rent])
     vi.mocked(updateCategory).mockRejectedValue(new ApiError(500, 'Failed to reorder'))
-    const user = userEvent.setup()
-    render(CategoriesPage)
+    const { container } = render(CategoriesPage)
 
-    const downButtons = await screen.findAllByRole('button', { name: /Move .* down/ })
-    await user.click(downButtons[0]!)
+    await screen.findByText('Groceries')
+    const tbody = container.querySelector('tbody')!
+    tbody.dispatchEvent(
+      new CustomEvent('finalize', {
+        detail: {
+          items: [rent, groceries],
+          info: { trigger: 'droppedIntoZone', id: '2', source: 'pointer' },
+        },
+      })
+    )
 
     expect(await screen.findByText('Failed to reorder')).toBeInTheDocument()
   })
