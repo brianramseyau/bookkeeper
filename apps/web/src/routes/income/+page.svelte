@@ -26,6 +26,7 @@
     formatCurrency,
     formatDate,
     monthYearLabel,
+    round2,
   } from '$lib/format'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
@@ -88,6 +89,7 @@
 
   let nonPaygItems = $state<IncomeEntry[]>([])
   let nonPaygLoading = $state(false)
+  let nonPaygLoaded = $state(false)
   let savedMarginalRate = $state<number | null>(null)
   let marginalRatePercent = $state<number>(NaN)
   let savingMarginalRate = $state(false)
@@ -114,26 +116,22 @@
     for (const item of nonPaygItems) {
       sale += item.amount
       if (!item.taxWithheld && savedMarginalRate !== null) {
-        const itemTax = round(item.amount * savedMarginalRate)
+        const itemTax = round2(item.amount * savedMarginalRate)
         tax += itemTax
-        gain += round(item.amount - itemTax)
+        gain += round2(item.amount - itemTax)
       }
     }
-    return { sale: round(sale), tax: round(tax), gain: round(gain) }
+    return { sale: round2(sale), tax: round2(tax), gain: round2(gain) }
   })
-
-  function round(value: number): number {
-    return Math.round(value * 100) / 100
-  }
 
   function computeItemTax(item: IncomeEntry): number | null {
     if (item.taxWithheld || savedMarginalRate === null) return null
-    return round(item.amount * savedMarginalRate)
+    return round2(item.amount * savedMarginalRate)
   }
 
   function computeItemGain(item: IncomeEntry): number | null {
     const tax = computeItemTax(item)
-    return tax === null ? null : round(item.amount - tax)
+    return tax === null ? null : round2(item.amount - tax)
   }
 
   onMount(load)
@@ -170,9 +168,13 @@
     }
   }
 
+  // Only shows the section's loading state the first time it loads for a
+  // given user - once there's data on screen, switching year should
+  // re-fetch quietly rather than tearing the table down to a spinner and
+  // back on every Prev/Next click.
   async function loadYtd() {
     if (selectedUserId === null) return
-    ytdLoading = true
+    if (!ytd) ytdLoading = true
     try {
       ytd = await getIncomeYtd(selectedUserId, selectedFinancialYear)
     } catch (err) {
@@ -184,7 +186,7 @@
 
   async function loadNonPaygSection() {
     if (selectedUserId === null) return
-    nonPaygLoading = true
+    if (!nonPaygLoaded) nonPaygLoading = true
     try {
       const [entries, setting] = await Promise.all([
         listIncomeEntriesForFinancialYear(selectedUserId, selectedFinancialYear),
@@ -194,7 +196,8 @@
         .filter((entry) => entry.incomeSourceId === null)
         .sort((a, b) => (a.receivedOn ?? '').localeCompare(b.receivedOn ?? ''))
       savedMarginalRate = setting.marginalRate
-      marginalRatePercent = setting.marginalRate === null ? NaN : round(setting.marginalRate * 100)
+      marginalRatePercent = setting.marginalRate === null ? NaN : round2(setting.marginalRate * 100)
+      nonPaygLoaded = true
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load non-PAYG income'
     } finally {
@@ -455,7 +458,7 @@
       const setting = await setIncomeTaxSetting(
         selectedUserId,
         selectedFinancialYear,
-        round(marginalRatePercent / 100)
+        round2(marginalRatePercent / 100)
       )
       savedMarginalRate = setting.marginalRate
     } catch (err) {

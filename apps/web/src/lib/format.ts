@@ -92,6 +92,11 @@ export function formatDateTime(isoDate: string | null): string {
 
 const FILE_SIZE_UNITS = ['B', 'KB', 'MB', 'GB'] as const
 
+/** Rounds to 2 decimal places - avoids float noise (e.g. 0.1 + 0.2) in money math. */
+export function round2(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
 export function formatFileSize(bytes: number): string {
   let value = bytes
   let unitIndex = 0

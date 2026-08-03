@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { goto, replaceState } from '$app/navigation'
-  import { page } from '$app/state'
+  import { goto } from '$app/navigation'
   import { authState } from '$lib/stores/auth.svelte'
   import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
   import { formatCurrency, formatDaysUntilDue, monthName } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import { MonthNav } from '$lib/month-nav.svelte'
+  import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
   import CategoryBreakdownList from '$lib/components/CategoryBreakdownList.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -13,64 +14,23 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
 
-  const today = new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1
-
-  const yearParam = Number(page.url.searchParams.get('year'))
-  const monthParam = Number(page.url.searchParams.get('month'))
-  const hasValidMonthParam = Number.isInteger(monthParam) && monthParam >= 1 && monthParam <= 12
-
-  let year = $state(Number.isInteger(yearParam) && yearParam > 0 ? yearParam : currentYear)
-  let month = $state(hasValidMonthParam ? monthParam : currentMonth)
+  const nav = new MonthNav('/', () => void load())
   let data = $state<DashboardSummary | null>(null)
   let loading = $state(true)
   let error = $state<string | null>(null)
 
-  const isCurrentMonth = $derived(year === currentYear && month === currentMonth)
-
+  // Only shows the full-page loading state on the very first load - once
+  // there's data on screen, changing month should re-fetch quietly rather
+  // than tearing the whole dashboard down to a spinner and back.
   async function load() {
-    loading = true
+    if (!data) loading = true
     try {
-      data = await getDashboardSummary(year, month)
+      data = await getDashboardSummary(nav.year, nav.month)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load dashboard'
     } finally {
       loading = false
     }
-  }
-
-  function setUrlParams(y: number, m: number) {
-    replaceState(`/?year=${y}&month=${m}`, {})
-  }
-
-  function clearUrlParams() {
-    if (page.url.search) {
-      replaceState('/', {})
-    }
-  }
-
-  function changeMonth(delta: number) {
-    let newMonth = month + delta
-    let newYear = year
-    if (newMonth < 1) {
-      newMonth = 12
-      newYear -= 1
-    } else if (newMonth > 12) {
-      newMonth = 1
-      newYear += 1
-    }
-    month = newMonth
-    year = newYear
-    setUrlParams(year, month)
-    void load()
-  }
-
-  function goToCurrentMonth() {
-    year = currentYear
-    month = currentMonth
-    clearUrlParams()
-    void load()
   }
 
   onMount(load)
@@ -82,39 +42,7 @@
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">
     Welcome, {authState.user?.fullName ?? authState.user?.email}
   </h1>
-  <div class="flex items-center gap-3">
-    <button
-      type="button"
-      onclick={goToCurrentMonth}
-      disabled={isCurrentMonth}
-      aria-hidden={isCurrentMonth}
-      tabindex={isCurrentMonth ? -1 : 0}
-      class={[
-        'rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1 text-sm font-medium text-indigo-600 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50',
-        isCurrentMonth && 'invisible',
-      ]}
-    >
-      This Month
-    </button>
-    <button
-      type="button"
-      onclick={() => changeMonth(-1)}
-      class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-    >
-      ← Prev
-    </button>
-    <span class="w-36 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
-      {monthName(month)}
-      {year}
-    </span>
-    <button
-      type="button"
-      onclick={() => changeMonth(1)}
-      class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-    >
-      Next →
-    </button>
-  </div>
+  <MonthNavHeader {nav} />
 </div>
 
 {#if error}
@@ -178,8 +106,8 @@
   <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
     <Card class="p-4 lg:col-span-2">
       <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        Monthly expenses (12 months through {monthName(month)}
-        {year})
+        Monthly expenses (12 months through {monthName(nav.month)}
+        {nav.year})
       </h2>
       <div class="mt-3">
         <MonthlyExpenseChart

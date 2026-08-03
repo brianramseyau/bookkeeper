@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { page } from '$app/state'
-  import { replaceState } from '$app/navigation'
+  import { MonthNav } from '$lib/month-nav.svelte'
+  import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
+  import { EditState } from '$lib/edit-state.svelte'
   import {
     getStandardMonth,
     type StandardMonthResult,
@@ -29,8 +30,20 @@
   import { upsertRecurringBillPayment } from '$lib/api/recurring-bills'
   import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
   import { listUsers, type UserSummary } from '$lib/api/users'
-  import { formatCurrency, formatDate, formatRelativeDate, daysUntil, monthName } from '$lib/format'
+  import { formatCurrency, formatDate } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import {
+    lastDayOfMonthIso,
+    resolveDueDate,
+    dueLabel,
+    dueTitle,
+    dueChipClass,
+    canTrackPaid,
+    actualIsAssumed,
+    paidTooltip,
+    viewHref,
+  } from '$lib/standard-month-line'
+  import { type IncomeRow, incomeRowsForLine, entryRowLabel } from '$lib/income-rows'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
@@ -42,21 +55,9 @@
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
 
-  // Mirrors the API's DUE_SOON_WINDOW_DAYS (recurring_bills_controller.ts) so
-  // the Due chip here matches the Bills page: colored (and always
-  // shown) once a line is overdue or due within 30 days, plain text otherwise.
-  const DUE_SOON_WINDOW_DAYS = 30
-
-  const today = new Date()
-  const currentYear = today.getFullYear()
-  const currentMonth = today.getMonth() + 1
-
-  const yearParam = Number(page.url.searchParams.get('year'))
-  const monthParam = Number(page.url.searchParams.get('month'))
-  const hasValidMonthParam = Number.isInteger(monthParam) && monthParam >= 1 && monthParam <= 12
-
-  let year = $state(Number.isInteger(yearParam) && yearParam > 0 ? yearParam : currentYear)
-  let month = $state(hasValidMonthParam ? monthParam : currentMonth)
+  const nav = new MonthNav('/monthly', () => void load())
+  const year = $derived(nav.year)
+  const month = $derived(nav.month)
   let data = $state<StandardMonthResult | null>(null)
   let sources = $state<IncomeSource[]>([])
   let entries = $state<IncomeEntry[]>([])
@@ -64,9 +65,7 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
 
-  let editingCarryover = $state(false)
-  let editCarryoverAmount = $state<number>(NaN)
-  let savingCarryover = $state(false)
+  const carryoverEdit = new EditState<true, { amount: number }>()
 
   let loggingEntry = $state(false)
 
@@ -107,8 +106,14 @@
 
   onMount(load)
 
+  // Only shows the full-page loading state on the very first load - once
+  // there's data on screen, changing month/year should re-fetch quietly
+  // (see refreshMonth/refreshIncome below) rather than tearing the whole
+  // page down to a spinner and back, which used to cause a jarring flash
+  // (the page collapsing to nothing, then the bottom-of-page entry form
+  // reappearing) on every Prev/Next/This Month click.
   async function load() {
-    loading = true
+    if (!data) loading = true
     error = null
     try {
       const [monthResult, sourceList, entryList, userList] = await Promise.all([
@@ -128,65 +133,23 @@
     }
   }
 
-  const isCurrentMonth = $derived(year === currentYear && month === currentMonth)
-
-  function clearUrlParams() {
-    if (page.url.search) {
-      replaceState('/monthly', {})
-    }
-  }
-
-  // Mirrors the format the Dashboard's graph links use (see onSelectMonth in
-  // routes/+page.svelte) so the URL can be copy/pasted or reloaded to return
-  // to the same month.
-  function setUrlParams(y: number, m: number) {
-    replaceState(`/monthly?year=${y}&month=${m}`, {})
-  }
-
-  function changeMonth(delta: number) {
-    let newMonth = month + delta
-    let newYear = year
-    if (newMonth < 1) {
-      newMonth = 12
-      newYear -= 1
-    } else if (newMonth > 12) {
-      newMonth = 1
-      newYear += 1
-    }
-    month = newMonth
-    year = newYear
-    setUrlParams(year, month)
-    void load()
-  }
-
-  function goToCurrentMonth() {
-    year = currentYear
-    month = currentMonth
-    clearUrlParams()
-    void load()
-  }
-
   function startEditCarryover() {
-    editingCarryover = true
-    editCarryoverAmount = data?.carryover ?? NaN
-  }
-
-  function cancelEditCarryover() {
-    editingCarryover = false
+    carryoverEdit.start(true, { amount: data?.carryover ?? NaN })
   }
 
   async function saveCarryover() {
-    if (Number.isNaN(editCarryoverAmount) || editCarryoverAmount === null) return
-    savingCarryover = true
+    const amount = carryoverEdit.form?.amount
+    if (amount === undefined || Number.isNaN(amount) || amount === null) return
+    carryoverEdit.saving = true
     error = null
     try {
-      await setMonthCarryover(year, month, editCarryoverAmount)
-      editingCarryover = false
+      await setMonthCarryover(year, month, amount)
+      carryoverEdit.cancel()
       await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
     } finally {
-      savingCarryover = false
+      carryoverEdit.saving = false
     }
   }
 
@@ -273,54 +236,6 @@
     }
   }
 
-  // Sourced lines with the projected 1-2 (occasionally 3) pay dates for the
-  // month pair each already-logged entry with a pay date positionally, in
-  // chronological order - the common case where entries are logged roughly
-  // in the order they're paid. Any pay date left over becomes a placeholder
-  // row; any entry left over (more entries than known pay dates) just
-  // renders as a normal extra row with no aligned projected figure.
-  // Unattributed ("Other income") lines always have no pay dates, so they
-  // only ever produce 'actual' rows here, unchanged from before.
-  type IncomeRow =
-    | { type: 'actual'; key: string; entry: IncomeEntry; projected: number | null }
-    | { type: 'placeholder'; key: string; date: string; projected: number }
-
-  function round2(value: number): number {
-    return Math.round(value * 100) / 100
-  }
-
-  function incomeRowsForLine(line: StandardMonthIncomeLine): IncomeRow[] {
-    const lineEntries = entriesForLine(line)
-    const perPeriod =
-      line.payDates.length > 0 ? round2(line.projected / line.payDates.length) : null
-    const rows: IncomeRow[] = []
-    const count = Math.max(lineEntries.length, line.payDates.length)
-    for (let i = 0; i < count; i++) {
-      const date = line.payDates[i]
-      if (i < lineEntries.length) {
-        const entry = lineEntries[i]!
-        rows.push({
-          type: 'actual',
-          key: `entry-${entry.id}`,
-          entry,
-          projected: date !== undefined ? perPeriod : null,
-        })
-      } else if (date !== undefined) {
-        rows.push({
-          type: 'placeholder',
-          key: `placeholder-${line.key}-${date}`,
-          date,
-          projected: perPeriod!,
-        })
-      }
-    }
-    return rows
-  }
-
-  function entryRowLabel(entry: IncomeEntry): string {
-    return entry.receivedOn ? `entry from ${formatDate(entry.receivedOn)}` : 'entry'
-  }
-
   function startEditPlaceholder(row: Extract<IncomeRow, { type: 'placeholder' }>) {
     editingPlaceholderKey = row.key
     editPlaceholderAmount = row.projected
@@ -382,125 +297,6 @@
     }
   }
 
-  // An unattributed ("Other income") line is now per-person - entries.match
-  // needs the line's userId too, or two people's unattributed lines would
-  // each render every unattributed entry regardless of whose it is.
-  function entriesForLine(line: StandardMonthIncomeLine): IncomeEntry[] {
-    return entries
-      .filter((entry) =>
-        line.sourceId !== null
-          ? entry.incomeSourceId === line.sourceId
-          : entry.incomeSourceId === null && entry.userId === line.userId
-      )
-      .sort((a, b) => (a.receivedOn ?? '').localeCompare(b.receivedOn ?? ''))
-  }
-
-  function lastDayOfMonthIso(y: number, m: number): string {
-    return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10)
-  }
-
-  // `dueDay` is a bare day-of-month (from a monthly recurring bill, which
-  // has no month/year of its own) - resolve it against the month currently
-  // being viewed, clamping to that month's last day (e.g. a due day of 31
-  // in February).
-  //
-  // A utility's `dueDate` is a *predicted* payment date - for a non-monthly
-  // utility (e.g. quarterly Water, paid in arrears) it's populated as soon
-  // as the viewed month is cued up to be the next billing month, even
-  // before that quarter's bill has actually been entered. Once this
-  // month's actual is known the date is a confirmed fact; until then it's
-  // still shown (see `dueDateEstimated`) but flagged as a guess rather than
-  // suppressed outright.
-  function resolveDueDate(line: StandardMonthLine): string | null {
-    if (line.dueDate) return line.dueDate
-    if (line.dueDay) {
-      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
-      const day = Math.min(line.dueDay, daysInMonth)
-      return new Date(Date.UTC(year, month - 1, day)).toISOString()
-    }
-    return null
-  }
-
-  function dueLabel(line: StandardMonthLine): string {
-    return formatRelativeDate(resolveDueDate(line))
-  }
-
-  function dueTitle(line: StandardMonthLine): string | undefined {
-    const dueDate = resolveDueDate(line)
-    if (!dueDate) return undefined
-    return line.dueDateEstimated
-      ? `${formatDate(dueDate)} (estimated from the average received date of past bills)`
-      : formatDate(dueDate)
-  }
-
-  // Same red/amber pill as the Bills page's due-soon badge, so the
-  // two areas read consistently - null means "plain text, no chip" (a due
-  // date more than DUE_SOON_WINDOW_DAYS away, or no due date at all). `paid`
-  // (a real, user-set flag - see the Paid checkbox below) is the sole
-  // authority on green vs red/amber: it's a separate fact from whether the
-  // amount is merely known, which `actual` already covers via
-  // resolveDueDate's own gate above.
-  function dueChipClass(line: StandardMonthLine): string | null {
-    const dueDate = resolveDueDate(line)
-    if (!dueDate) return null
-    // An estimated date isn't a real obligation yet, so it never earns the
-    // red/amber urgency styling - just plain text with an "(est.)" marker
-    // (see the template).
-    if (line.dueDateEstimated) return null
-    if (line.paid) {
-      return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-    }
-    const days = daysUntil(dueDate)
-    if (days > DUE_SOON_WINDOW_DAYS) return null
-    return days < 0
-      ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-      : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-  }
-
-  // Expense lines have no due date (they're not a single billed obligation
-  // like a utility/recurring bill/subscription, just an aggregate of
-  // whatever actuals were logged), so gating the checkbox on resolveDueDate
-  // like the other line types would hide it for every expense, always.
-  // Instead, show it whenever there's an actual to reconcile against - an
-  // expense with nothing logged this month (actual === null) has nothing
-  // to mark paid.
-  function canTrackPaid(line: StandardMonthLine): boolean {
-    if (line.key.startsWith('expense-')) return line.actual !== null
-    // A guessed due date isn't a real obligation yet - nothing to mark paid
-    // against until the bill actually arrives.
-    if (line.dueDateEstimated) return false
-    return resolveDueDate(line) !== null
-  }
-
-  // `estimated` covers both `actual` and `paid` for a recurring bill or
-  // subscription (no payment row this far back means neither is real), but
-  // only `paid` for an expense - its `actual` is always genuinely logged
-  // spending whenever it's non-null (see standard_month_service.ts), so
-  // flagging it here too would mislabel real data as a guess.
-  function actualIsAssumed(line: StandardMonthLine): boolean {
-    return line.estimated && !line.key.startsWith('expense-')
-  }
-
-  // The checkbox itself stays visible even when it can't be tracked yet
-  // (greyed out via `disabled`) rather than disappearing, so the column
-  // reads consistently row to row - this explains why to anyone who hovers.
-  function paidTooltip(line: StandardMonthLine): string | undefined {
-    // Takes priority over the disabled-state tooltips below - an assumed
-    // line is usually still trackable (canTrackPaid true), so without this
-    // check hovering it would show no tooltip at all despite the value on
-    // screen not being a real record.
-    if (line.estimated) {
-      return "No record for this month this far back - assumed paid at today's amount because it's in the past. Confirm or correct it."
-    }
-    if (canTrackPaid(line)) return undefined
-    if (line.key.startsWith('expense-')) {
-      return 'No actual amount logged for this expense this month'
-    }
-    return line.actual === null
-      ? 'No actual amount recorded for this month yet'
-      : 'No due date to reconcile against this month'
-  }
-
   // Re-fetches just the standard-month figures (totals, actuals, paid flags,
   // carryover) without touching `loading` - toggling `loading` swaps the
   // whole page to a "Loading…" placeholder, which unmounts the tables and
@@ -552,8 +348,8 @@
   const sortedExpenseLines = $derived(
     data
       ? [...data.expenses.lines].sort((a, b) => {
-          const aDate = resolveDueDate(a)
-          const bDate = resolveDueDate(b)
+          const aDate = resolveDueDate(a, year, month)
+          const bDate = resolveDueDate(b, year, month)
           if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime()
           if (aDate) return -1
           if (bDate) return 1
@@ -681,61 +477,13 @@
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }
   }
-
-  // Maps an expense line back to the page where it's actually managed, so
-  // its label can link there - a recurring bill's row on that page carries
-  // a matching `bill-{id}` anchor (see bills/+page.svelte). Subscriptions
-  // have no per-item detail view and are filtered by a person
-  // tab with no owner on this line to pre-select, so they link to the list
-  // page only.
-  function viewHref(line: StandardMonthLine): string | null {
-    if (line.key.startsWith('utility-')) return `/utilities/${line.key.slice('utility-'.length)}`
-    if (line.key.startsWith('recurring-bill-')) {
-      return `/bills#bill-${line.key.slice('recurring-bill-'.length)}`
-    }
-    if (line.key.startsWith('subscription-')) return '/subscriptions'
-    if (line.key.startsWith('expense-')) return `/expenses/${line.key.slice('expense-'.length)}`
-    return null
-  }
 </script>
 
 <PageHead title="Monthly" />
 
 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Monthly</h1>
-  <div class="flex items-center gap-3">
-    <button
-      type="button"
-      onclick={goToCurrentMonth}
-      disabled={isCurrentMonth}
-      aria-hidden={isCurrentMonth}
-      tabindex={isCurrentMonth ? -1 : 0}
-      class={[
-        'rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1 text-sm font-medium text-indigo-600 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50',
-        isCurrentMonth && 'invisible',
-      ]}
-    >
-      This Month
-    </button>
-    <button
-      type="button"
-      onclick={() => changeMonth(-1)}
-      class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-    >
-      ← Prev
-    </button>
-    <span class="w-36 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
-      {monthName(month)}
-      {year}
-    </span>
-    <button
-      type="button"
-      onclick={() => changeMonth(1)}
-      class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-    >
-      Next →
-    </button>
-  </div>
+  <MonthNavHeader {nav} />
 </div>
 
 {#if error}
@@ -851,7 +599,7 @@
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
-                title={editExpenseMode === 'utility' ? undefined : dueTitle(line)}
+                title={editExpenseMode === 'utility' ? undefined : dueTitle(line, year, month)}
               >
                 <span
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
@@ -863,12 +611,15 @@
                     bind:value={editExpenseReceivedOn}
                     class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
-                {:else if dueChipClass(line)}
-                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
-                    >{dueLabel(line)}</span
+                {:else if dueChipClass(line, year, month)}
+                  <span
+                    class={[
+                      'rounded-full px-2 py-0.5 text-xs font-medium',
+                      dueChipClass(line, year, month),
+                    ]}>{dueLabel(line, year, month)}</span
                   >
                 {:else}
-                  {dueLabel(line)}
+                  {dueLabel(line, year, month)}
                 {/if}
               </td>
               <td
@@ -908,10 +659,10 @@
                 <input
                   type="checkbox"
                   checked={line.paid}
-                  disabled={savingPaidKey === line.key || !canTrackPaid(line)}
+                  disabled={savingPaidKey === line.key || !canTrackPaid(line, year, month)}
                   onchange={(e) => togglePaid(line, e.currentTarget.checked)}
                   aria-label="Paid"
-                  title={paidTooltip(line)}
+                  title={paidTooltip(line, year, month)}
                   class={[
                     'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
                     line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
@@ -985,25 +736,28 @@
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
-                title={dueTitle(line)}
+                title={dueTitle(line, year, month)}
               >
                 <span
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                   >Due</span
                 >
-                {#if dueChipClass(line)}
-                  <span class={['rounded-full px-2 py-0.5 text-xs font-medium', dueChipClass(line)]}
-                    >{dueLabel(line)}</span
+                {#if dueChipClass(line, year, month)}
+                  <span
+                    class={[
+                      'rounded-full px-2 py-0.5 text-xs font-medium',
+                      dueChipClass(line, year, month),
+                    ]}>{dueLabel(line, year, month)}</span
                   >
                 {:else if line.dueDateEstimated}
                   <span
-                    >{dueLabel(line)}<span
+                    >{dueLabel(line, year, month)}<span
                       class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
                       >(est.)</span
                     ></span
                   >
                 {:else}
-                  {dueLabel(line)}
+                  {dueLabel(line, year, month)}
                 {/if}
               </td>
               <td
@@ -1049,10 +803,10 @@
                 <input
                   type="checkbox"
                   checked={line.paid}
-                  disabled={savingPaidKey === line.key || !canTrackPaid(line)}
+                  disabled={savingPaidKey === line.key || !canTrackPaid(line, year, month)}
                   onchange={(e) => togglePaid(line, e.currentTarget.checked)}
                   aria-label="Paid"
-                  title={paidTooltip(line)}
+                  title={paidTooltip(line, year, month)}
                   class={[
                     'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
                     line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
@@ -1137,7 +891,7 @@
             colspan="3"
           >
             <span class="min-w-0 truncate">Carried over from last month</span>
-            {#if !editingCarryover}
+            {#if !carryoverEdit.isEditing}
               <span class="flex shrink-0 items-center gap-1 sm:hidden">
                 <IconActionButton
                   variant="neutral"
@@ -1148,7 +902,7 @@
               </span>
             {/if}
           </td>
-          {#if editingCarryover}
+          {#if carryoverEdit.isEditing && carryoverEdit.form}
             <td class="hidden px-3 py-2 sm:table-cell"></td>
             <td
               class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
@@ -1160,7 +914,7 @@
               <input
                 type="number"
                 step="0.01"
-                bind:value={editCarryoverAmount}
+                bind:value={carryoverEdit.form.amount}
                 class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               />
             </td>
@@ -1170,7 +924,7 @@
             >
               <IconActionButton
                 variant="primary"
-                disabled={savingCarryover}
+                disabled={carryoverEdit.saving}
                 label="Save carried over balance"
                 path={mdiContentSave}
                 onclick={saveCarryover}
@@ -1179,7 +933,7 @@
                 variant="cancel"
                 label="Cancel editing carried over balance"
                 path={mdiCloseThick}
-                onclick={cancelEditCarryover}
+                onclick={() => carryoverEdit.cancel()}
               />
             </td>
           {:else}
@@ -1289,7 +1043,7 @@
             </td>
             <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
           </tr>
-          {#each incomeRowsForLine(line) as row (row.key)}
+          {#each incomeRowsForLine(entries, line) as row (row.key)}
             {#if row.type === 'actual'}
               {@const entry = row.entry}
               {#if editingEntryId === entry.id}

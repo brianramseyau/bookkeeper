@@ -12,6 +12,7 @@ import {
   monthName,
   monthShortName,
   monthYearLabel,
+  round2,
 } from './format'
 
 describe('formatCurrency', () => {
@@ -29,6 +30,17 @@ describe('formatCurrency', () => {
 
   it('renders an em dash for null', () => {
     expect(formatCurrency(null)).toBe('—')
+  })
+})
+
+describe('round2', () => {
+  it('rounds to 2 decimal places', () => {
+    expect(round2(1.239)).toBe(1.24)
+    expect(round2(0.1 + 0.2)).toBe(0.3)
+  })
+
+  it('leaves an already-2dp value unchanged', () => {
+    expect(round2(42.5)).toBe(42.5)
   })
 })
 

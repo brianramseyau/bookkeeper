@@ -258,7 +258,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
+    )
     const input = screen.getByDisplayValue('500')
     await user.clear(input)
     await user.type(input, '750')
@@ -273,7 +275,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
+    )
     await user.click(screen.getByRole('button', { name: 'Cancel editing carried over balance' }))
 
     expect(screen.queryByDisplayValue('500')).toBeNull()
@@ -286,7 +290,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
+    )
     await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
 
     expect(await screen.findByText('Could not save carryover')).toBeInTheDocument()
@@ -505,7 +511,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
+    )
     await user.click(screen.getByRole('button', { name: 'Save income entry' }))
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
@@ -515,7 +523,9 @@ describe('month page', () => {
       })
     )
 
-    await user.click((await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
+    )
     await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
   })
 
@@ -528,7 +538,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
+    )
     const amountInput = screen.getByDisplayValue('5000')
     await user.clear(amountInput)
     await user.click(screen.getByRole('button', { name: 'Save income entry' }))
@@ -543,7 +555,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
+    )
     await user.click(screen.getByRole('button', { name: 'Save income entry' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
@@ -554,7 +568,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
+    )
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cancel editing income entry' }))
 
@@ -568,7 +584,9 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
+    )
 
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
   })

@@ -187,6 +187,46 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   patterns — check it before introducing new UI patterns.
 - Favour building reusable, unit testable components over large in-line
   pages with sprawling sections, this will make re-use trivial.
+- **Reuse and DRY are a priority, not an afterthought** — `routes/monthly`
+  and `routes/income` grew past 1500 lines each by re-deriving the same
+  logic inline instead of sharing it, which makes them slow to navigate and
+  expensive to hold in context. Before adding to either page (or any
+  route), check whether the logic already exists in `$lib`:
+  - **Month/year navigation** (current-period check, prev/next, "This
+    Month"/"This Year" reset, syncing the choice to URL query params) lives
+    in `src/lib/month-nav.svelte.ts` (`createMonthNav`) and
+    `$lib/components/MonthNavHeader.svelte` — do not re-declare
+    `isCurrentMonth`/`changeMonth`/`setUrlParams`/`clearUrlParams` locally,
+    every route needing this pattern should use these.
+  - **Pure display/derivation logic** (due-date resolution, status chips,
+    row-shaping, rounding, anything that maps API data to what a template
+    renders and has no side effects) belongs in a `$lib` module, not inline
+    in the component `<script>` — see `src/lib/standard-month-line.ts` and
+    `src/lib/income-rows.ts` for the pattern used on the Monthly page. This
+    keeps the page script short, makes the logic unit-testable on its own,
+    and is exactly the kind of function that's easy to accidentally
+    duplicate across routes if it stays inline (e.g. `round`/`round2` used
+    to exist separately in both `monthly` and `income` — now
+    `formatCurrency`'s neighbour `round2` in `$lib/format.ts`).
+  - **Repeated "start editing this row / cancel / track its draft state"
+    logic** — the same start/cancel-edit pair recurs for every editable
+    entity (carryover, income entries, placeholders, expenses, income
+    sources, non-PAYG items, …). Use the generic helper in
+    `src/lib/edit-state.svelte.ts` (`createEditState`) rather than adding
+    another bespoke `editingXId`/`startEditX`/`cancelEditX` trio — it's
+    applied to the Monthly page's carryover editor as the reference
+    example; extend it to the other edit flows on `monthly`/`income` as you
+    touch them, rather than copying the old pattern to new code.
+  - **Markup shared between Monthly and Income** (e.g. an income-entry
+    display/edit row) should be a component in `$lib/components/`, as
+    `IncomeEntryDisplayRow.svelte`/`IncomeEntryEditRow.svelte` already are
+    for the Income page — Monthly's own hand-rolled entry rows are a known
+    gap to close (see `IncomeEntryDisplayRow`'s `leading` snippet prop,
+    designed so a caller can slot in whatever extra leading columns it
+    needs, e.g. Monthly's Owner/Projected columns).
+  - When you find near-duplicate code while working nearby, extracting it
+    is in scope for that change even if it wasn't the original ask — leave
+    the file more DRY than you found it rather than adding a third copy.
 
 ## Testing
 
