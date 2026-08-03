@@ -2,8 +2,8 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import NotificationSchedule from '#models/notification_schedule'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('NotificationSchedule / show', () => {
@@ -11,9 +11,9 @@ test.group('NotificationSchedule / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/notification-schedule').loginAs(brian)
+    const response = await client.get('/api/notification-schedule').loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().data.sendHour, 8)
@@ -21,10 +21,10 @@ test.group('NotificationSchedule / show', () => {
   })
 
   test('returns the existing schedule rather than resetting it', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await NotificationSchedule.create({ id: 1, sendHour: 18 })
 
-    const response = await client.get('/api/notification-schedule').loginAs(brian)
+    const response = await client.get('/api/notification-schedule').loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().data.sendHour, 18)
@@ -33,12 +33,12 @@ test.group('NotificationSchedule / show', () => {
 
 test.group('NotificationSchedule / update', () => {
   test('updates the send hour', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/notification-schedule')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ sendHour: 20 })
 
     response.assertStatus(200)
@@ -49,12 +49,12 @@ test.group('NotificationSchedule / update', () => {
   })
 
   test('rejects an out-of-range sendHour', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/notification-schedule')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ sendHour: 24 })
 
     response.assertStatus(422)

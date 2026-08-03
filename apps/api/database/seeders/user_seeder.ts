@@ -5,8 +5,15 @@ import User from '#models/user'
 import { parseUsersSheet } from '#services/import/parse_users_sheet'
 
 export default class extends BaseSeeder {
+  // Reads a real xlsx workbook - only meaningful outside tests, which use
+  // test_user_seeder.ts's hardcoded Adam/Eve instead.
+  static environment = ['development', 'production']
+
   async run() {
     const workbookPath = env.get('SEED_WORKBOOK_PATH')
+    if (!workbookPath) {
+      throw new Error('SEED_WORKBOOK_PATH must be set to run this seeder')
+    }
 
     const workbook = new ExcelJS.Workbook()
     await workbook.xlsx.readFile(workbookPath)

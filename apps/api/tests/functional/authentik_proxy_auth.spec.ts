@@ -11,7 +11,7 @@ test.group('Authentik proxy auto-login', () => {
     client,
     assert,
   }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client
       .get('/api/me')
@@ -23,7 +23,7 @@ test.group('Authentik proxy auto-login', () => {
   })
 
   test('does nothing when the feature is disabled', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     env.set('AUTHENTIK_PROXY_AUTH_ENABLED', false)
     try {
@@ -39,21 +39,21 @@ test.group('Authentik proxy auto-login', () => {
   })
 
   test('does not override an existing session', async ({ client, assert }) => {
-    const brian = await User.findByOrFail('fullName', 'Brian')
-    const other = await User.query().whereNot('id', brian.id).firstOrFail()
+    const adam = await User.findByOrFail('fullName', 'Adam')
+    const other = await User.query().whereNot('id', adam.id).firstOrFail()
 
     const response = await client
       .get('/api/me')
       .loginAs(other)
       .header(SECRET_HEADER, VALID_SECRET)
-      .header(EMAIL_HEADER, brian.email)
+      .header(EMAIL_HEADER, adam.email)
 
     response.assertStatus(200)
     assert.equal(response.body().data.email, other.email)
   })
 
   test('rejects a missing shared secret', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client.get('/api/me').header(EMAIL_HEADER, user.email)
 
@@ -61,7 +61,7 @@ test.group('Authentik proxy auto-login', () => {
   })
 
   test('rejects an incorrect shared secret', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client
       .get('/api/me')
@@ -72,7 +72,7 @@ test.group('Authentik proxy auto-login', () => {
   })
 
   test('rejects a shared secret of a different length', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client
       .get('/api/me')
@@ -98,7 +98,7 @@ test.group('Authentik proxy auto-login', () => {
   })
 
   test('warns and skips when no shared secret is configured', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     env.set('AUTHENTIK_SHARED_SECRET', '')
     try {

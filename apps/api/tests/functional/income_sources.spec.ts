@@ -5,29 +5,29 @@ import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import { currentFinancialYear, financialYearMonths } from '#services/financial_year'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('IncomeSources / index', () => {
   test('lists income sources ordered by name', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
       payDayOfMonth: 14,
     })
     await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Freelance',
       expectedAmount: 500,
       frequency: 'monthly',
       payDayOfMonth: 1,
     })
 
-    const response = await client.get('/api/income-sources').loginAs(brian)
+    const response = await client.get('/api/income-sources').loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(
@@ -37,27 +37,27 @@ test.group('IncomeSources / index', () => {
   })
 
   test('filters by userId when given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-    const ariel = await User.findByOrFail('fullName', 'Ariel')
+    const adam = await loginAsAdam()
+    const eve = await User.findByOrFail('fullName', 'Eve')
     await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
       payDayOfMonth: 14,
     })
     await IncomeSource.create({
-      userId: ariel.id,
-      name: 'Salary (Ariel)',
+      userId: eve.id,
+      name: 'Salary (Eve)',
       expectedAmount: 4000,
       frequency: 'fortnightly',
       anchorDate: DateTime.fromISO('2026-07-22'),
     })
 
-    const response = await client.get('/api/income-sources').qs({ userId: ariel.id }).loginAs(brian)
+    const response = await client.get('/api/income-sources').qs({ userId: eve.id }).loginAs(adam)
 
     assert.lengthOf(response.body().data, 1)
-    assert.equal(response.body().data[0].name, 'Salary (Ariel)')
+    assert.equal(response.body().data[0].name, 'Salary (Eve)')
   })
 })
 
@@ -66,10 +66,10 @@ test.group('IncomeSources / store', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.post('/api/income-sources').withCsrfToken().loginAs(brian).json({
-      userId: brian.id,
+    const response = await client.post('/api/income-sources').withCsrfToken().loginAs(adam).json({
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -90,10 +90,10 @@ test.group('IncomeSources / store', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.post('/api/income-sources').withCsrfToken().loginAs(brian).json({
-      userId: brian.id,
+    const response = await client.post('/api/income-sources').withCsrfToken().loginAs(adam).json({
+      userId: adam.id,
       name: 'Wages',
       expectedAmount: 2600,
       frequency: 'fortnightly',
@@ -109,13 +109,13 @@ test.group('IncomeSources / store', () => {
   })
 
   test('rejects a monthly source missing a pay day', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/income-sources')
       .withCsrfToken()
-      .loginAs(brian)
-      .json({ userId: brian.id, name: 'Salary', expectedAmount: 5000, frequency: 'monthly' })
+      .loginAs(adam)
+      .json({ userId: adam.id, name: 'Salary', expectedAmount: 5000, frequency: 'monthly' })
 
     response.assertStatus(422)
   })
@@ -123,9 +123,9 @@ test.group('IncomeSources / store', () => {
 
 test.group('IncomeSources / update', () => {
   test('updates an income source', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const source = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -135,7 +135,7 @@ test.group('IncomeSources / update', () => {
     const response = await client
       .patch(`/api/income-sources/${source.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ expectedAmount: 5500 })
 
     response.assertStatus(200)
@@ -143,9 +143,9 @@ test.group('IncomeSources / update', () => {
   })
 
   test('switches a source from monthly to fortnightly', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const source = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -155,7 +155,7 @@ test.group('IncomeSources / update', () => {
     const response = await client
       .patch(`/api/income-sources/${source.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ frequency: 'fortnightly', anchorDate: '2026-07-22', payDayOfMonth: null })
 
     response.assertStatus(200)
@@ -166,9 +166,9 @@ test.group('IncomeSources / update', () => {
 
 test.group('IncomeSources / destroy', () => {
   test('soft-deletes an income source', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const source = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -178,7 +178,7 @@ test.group('IncomeSources / destroy', () => {
     const response = await client
       .delete(`/api/income-sources/${source.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     const reloaded = await IncomeSource.findOrFail(source.id)
@@ -191,38 +191,38 @@ test.group('IncomeSources / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    const ariel = await User.findByOrFail('fullName', 'Ariel')
+    const adam = await loginAsAdam()
+    const eve = await User.findByOrFail('fullName', 'Eve')
     await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
       payDayOfMonth: 14,
     })
     await IncomeSource.create({
-      userId: ariel.id,
+      userId: eve.id,
       name: 'Wages',
       expectedAmount: 2000,
       frequency: 'fortnightly',
       anchorDate: DateTime.fromISO('2026-01-07'),
     })
 
-    const response = await client.get('/api/income-sources/summary').loginAs(brian)
+    const response = await client.get('/api/income-sources/summary').loginAs(adam)
 
     response.assertStatus(200)
-    const brianSummary = response.body().data.find((s: { userId: number }) => s.userId === brian.id)
-    const arielSummary = response.body().data.find((s: { userId: number }) => s.userId === ariel.id)
-    assert.equal(brianSummary.total, 5000)
-    assert.equal(brianSummary.count, 1)
-    assert.equal(arielSummary.total, Math.round(((2000 * 26) / 12) * 100) / 100)
-    assert.equal(arielSummary.count, 1)
+    const adamSummary = response.body().data.find((s: { userId: number }) => s.userId === adam.id)
+    const eveSummary = response.body().data.find((s: { userId: number }) => s.userId === eve.id)
+    assert.equal(adamSummary.total, 5000)
+    assert.equal(adamSummary.count, 1)
+    assert.equal(eveSummary.total, Math.round(((2000 * 26) / 12) * 100) / 100)
+    assert.equal(eveSummary.count, 1)
   })
 
   test('excludes inactive sources from the total and count', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Old Job',
       expectedAmount: 1000,
       frequency: 'monthly',
@@ -230,11 +230,11 @@ test.group('IncomeSources / summary', () => {
       isActive: false,
     })
 
-    const response = await client.get('/api/income-sources/summary').loginAs(brian)
+    const response = await client.get('/api/income-sources/summary').loginAs(adam)
 
-    const brianSummary = response.body().data.find((s: { userId: number }) => s.userId === brian.id)
-    assert.equal(brianSummary.total, 0)
-    assert.equal(brianSummary.count, 0)
+    const adamSummary = response.body().data.find((s: { userId: number }) => s.userId === adam.id)
+    assert.equal(adamSummary.total, 0)
+    assert.equal(adamSummary.count, 0)
   })
 })
 
@@ -243,7 +243,7 @@ test.group('IncomeSources / ytd', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const financialYear = currentFinancialYear() - 1
     const months = financialYearMonths(financialYear)
     const [firstMonth, secondMonth] = months as [
@@ -251,7 +251,7 @@ test.group('IncomeSources / ytd', () => {
       { year: number; month: number },
     ]
     const source = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -272,8 +272,8 @@ test.group('IncomeSources / ytd', () => {
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, financialYear })
-      .loginAs(brian)
+      .qs({ userId: adam.id, financialYear })
+      .loginAs(adam)
 
     response.assertStatus(200)
     const body = response.body()
@@ -293,7 +293,7 @@ test.group('IncomeSources / ytd', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const financialYear = currentFinancialYear()
     const now = DateTime.local()
     const expectedCount =
@@ -301,7 +301,7 @@ test.group('IncomeSources / ytd', () => {
         (m) => m.year === now.year && m.month === now.month
       ) + 1
     await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -310,21 +310,21 @@ test.group('IncomeSources / ytd', () => {
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, financialYear })
-      .loginAs(brian)
+      .qs({ userId: adam.id, financialYear })
+      .loginAs(adam)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().months, expectedCount)
   })
 
   test('returns no months for a future financial year', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const financialYear = currentFinancialYear() + 1
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, financialYear })
-      .loginAs(brian)
+      .qs({ userId: adam.id, financialYear })
+      .loginAs(adam)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().months, 0)
@@ -335,12 +335,12 @@ test.group('IncomeSources / ytd', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    const ariel = await User.findByOrFail('fullName', 'Ariel')
+    const adam = await loginAsAdam()
+    const eve = await User.findByOrFail('fullName', 'Eve')
     const financialYear = currentFinancialYear() - 1
     const firstMonth = financialYearMonths(financialYear)[0]!
     await IncomeEntry.create({
-      userId: brian.id,
+      userId: adam.id,
       year: firstMonth.year,
       month: firstMonth.month,
       amount: 700,
@@ -348,7 +348,7 @@ test.group('IncomeSources / ytd', () => {
       taxWithheld: false,
     })
     await IncomeEntry.create({
-      userId: ariel.id,
+      userId: eve.id,
       year: firstMonth.year,
       month: firstMonth.month,
       amount: 300,
@@ -356,28 +356,28 @@ test.group('IncomeSources / ytd', () => {
       taxWithheld: true,
     })
 
-    const brianResponse = await client
+    const adamResponse = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, financialYear })
-      .loginAs(brian)
-    const arielResponse = await client
+      .qs({ userId: adam.id, financialYear })
+      .loginAs(adam)
+    const eveResponse = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: ariel.id, financialYear })
-      .loginAs(brian)
+      .qs({ userId: eve.id, financialYear })
+      .loginAs(adam)
 
-    assert.equal(brianResponse.body().months[0].total, 700)
-    assert.equal(arielResponse.body().months[0].total, 300)
+    assert.equal(adamResponse.body().months[0].total, 700)
+    assert.equal(eveResponse.body().months[0].total, 300)
   })
 
   test('does not add an "Other income" line for a zero-amount unattributed entry', async ({
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const financialYear = currentFinancialYear() - 1
     const firstMonth = financialYearMonths(financialYear)[0]!
     await IncomeEntry.create({
-      userId: brian.id,
+      userId: adam.id,
       year: firstMonth.year,
       month: firstMonth.month,
       amount: 0,
@@ -385,8 +385,8 @@ test.group('IncomeSources / ytd', () => {
 
     const response = await client
       .get('/api/income-sources/ytd')
-      .qs({ userId: brian.id, financialYear })
-      .loginAs(brian)
+      .qs({ userId: adam.id, financialYear })
+      .loginAs(adam)
 
     assert.equal(response.body().months[0].total, 0)
   })

@@ -2,27 +2,27 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import MonthCarryover from '#models/month_carryover'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('MonthCarryovers / show', () => {
   test('returns an empty (204) response when no carryover is set for that month', async ({
     client,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/month-carryovers/2026/2').loginAs(brian)
+    const response = await client.get('/api/month-carryovers/2026/2').loginAs(adam)
 
     // A JSON `null` body has nothing to send, so the framework collapses it to 204.
     response.assertStatus(204)
   })
 
   test('returns the carryover when one exists', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await MonthCarryover.create({ year: 2026, month: 2, amount: 1500.25 })
 
-    const response = await client.get('/api/month-carryovers/2026/2').loginAs(brian)
+    const response = await client.get('/api/month-carryovers/2026/2').loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().data.amount, 1500.25)
@@ -31,12 +31,12 @@ test.group('MonthCarryovers / show', () => {
 
 test.group('MonthCarryovers / upsert', () => {
   test('creates a carryover for a month with none yet', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/month-carryovers/2026/2')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 1500.25 })
 
     response.assertStatus(200)
@@ -44,13 +44,13 @@ test.group('MonthCarryovers / upsert', () => {
   })
 
   test('updates the existing carryover rather than duplicating it', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await MonthCarryover.create({ year: 2026, month: 2, amount: 1000 })
 
     const response = await client
       .put('/api/month-carryovers/2026/2')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 1500.25 })
 
     response.assertStatus(200)

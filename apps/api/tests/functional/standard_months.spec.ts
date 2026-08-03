@@ -14,15 +14,15 @@ import UtilityBill from '#models/utility_bill'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('StandardMonths / show', () => {
   test('defaults to the current calendar month when no year/month is given', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/standard-month').loginAs(brian)
+    const response = await client.get('/api/standard-month').loginAs(adam)
 
     response.assertStatus(200)
     const today = DateTime.local()
@@ -33,12 +33,12 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     await MonthCarryover.create({ year: 2026, month: 2, amount: 1000 })
 
     const salary = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -78,7 +78,7 @@ test.group('StandardMonths / show', () => {
     })
 
     const netflix = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
       dayOfMonth: 10,
@@ -94,7 +94,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const body = response.body()
@@ -143,7 +143,7 @@ test.group('StandardMonths / show', () => {
       (l: { key: string }) => l.key === `subscription-${netflix.id}`
     )
     assert.equal(subscriptionLine.projected, 22.99)
-    assert.equal(subscriptionLine.label, 'Netflix (Brian)')
+    assert.equal(subscriptionLine.label, 'Netflix (Adam)')
     assert.equal(subscriptionLine.dueDay, 10)
     // Same past-month default as Kayo above.
     assert.equal(subscriptionLine.paid, true)
@@ -168,13 +168,13 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await Expense.create({ name: 'Household' })
 
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const labels = response.body().expenses.lines.map((l: { label: string }) => l.label)
@@ -185,7 +185,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const flights = await Expense.create({ name: 'Flights', isRecurring: false })
     await ExpenseMonthlyActual.create({
       expenseId: flights.id,
@@ -196,7 +196,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const body = response.body()
@@ -214,7 +214,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const flights = await Expense.create({
       name: 'Flights',
       isRecurring: false,
@@ -229,7 +229,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const labels = response.body().expenses.lines.map((l: { label: string }) => l.label)
@@ -240,7 +240,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const creditCard = await Expense.create({
       name: 'Credit Card',
       excludeFromBudget: true,
@@ -254,7 +254,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const body = response.body()
@@ -267,7 +267,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const pausedBill = await RecurringBill.create({
       name: 'Kayo',
@@ -285,7 +285,7 @@ test.group('StandardMonths / show', () => {
     await archivedBill.save()
 
     const pausedSub = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Paused Sub',
       amount: 9.99,
     })
@@ -299,13 +299,13 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const labels = response.body().expenses.lines.map((l: { label: string }) => l.label)
     assert.notInclude(labels, 'Kayo')
     assert.notInclude(labels, 'Nintendo')
-    assert.notInclude(labels, 'Paused Sub (Brian)')
+    assert.notInclude(labels, 'Paused Sub (Adam)')
     assert.notInclude(labels, 'Bike Insurance')
   })
 
@@ -313,7 +313,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const cleaner = await RecurringBill.create({
       name: 'Cleaner',
@@ -326,7 +326,7 @@ test.group('StandardMonths / show', () => {
     const dueMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
     const dueLine = dueMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
@@ -339,7 +339,7 @@ test.group('StandardMonths / show', () => {
     const notDueMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
     const notDueLine = notDueMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
@@ -350,7 +350,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const councilRates = await RecurringBill.create({
       name: 'Council Rates',
       amount: 2689.3,
@@ -362,7 +362,7 @@ test.group('StandardMonths / show', () => {
     const withoutOverride = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 9 })
-      .loginAs(brian)
+      .loginAs(adam)
     const lineWithoutOverride = withoutOverride
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${councilRates.id}`)
@@ -379,7 +379,7 @@ test.group('StandardMonths / show', () => {
     const withOverride = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 9 })
-      .loginAs(brian)
+      .loginAs(adam)
     const lineWithOverride = withOverride
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${councilRates.id}`)
@@ -390,9 +390,9 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const netflix = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
       dayOfMonth: 10,
@@ -401,7 +401,7 @@ test.group('StandardMonths / show', () => {
     const withoutOverride = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
     const lineWithoutOverride = withoutOverride
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `subscription-${netflix.id}`)
@@ -421,7 +421,7 @@ test.group('StandardMonths / show', () => {
     const withOverride = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
     const lineWithOverride = withOverride
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `subscription-${netflix.id}`)
@@ -433,13 +433,13 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const household = await Expense.create({ name: 'Household', budgetAmount: 200 })
 
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const householdLine = response
       .body()
@@ -452,11 +452,11 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     // Income source defined, but no entry was ever logged for it this month.
     const salary = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -485,7 +485,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const body = response.body()
@@ -513,7 +513,7 @@ test.group('StandardMonths / show', () => {
     const currentMonthResponse = await client
       .get('/api/standard-month')
       .qs({ year: today.year, month: today.month })
-      .loginAs(brian)
+      .loginAs(adam)
     const currentMonthBody = currentMonthResponse.body()
 
     const broadbandLine = currentMonthBody.expenses.lines.find(
@@ -538,7 +538,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const water = await Utility.create({ name: 'Sewage', dueOffsetDays: 14 })
     const today = DateTime.utc()
@@ -557,7 +557,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: today.year, month: today.month })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     const body = response.body()
@@ -574,7 +574,7 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const water = await Utility.create({ name: 'Water', frequency: 'quarterly' })
     // Covers Feb-Apr 2026, billed in April.
@@ -589,7 +589,7 @@ test.group('StandardMonths / show', () => {
     const billingMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 4 })
-      .loginAs(brian)
+      .loginAs(adam)
     const billingLine = billingMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
@@ -604,7 +604,7 @@ test.group('StandardMonths / show', () => {
     const coveredMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
     const coveredLine = coveredMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
@@ -616,7 +616,7 @@ test.group('StandardMonths / show', () => {
     const uncoveredMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 12 })
-      .loginAs(brian)
+      .loginAs(adam)
     const uncoveredLine = uncoveredMonth
       .body()
       .expenses.lines.find((l: { key: string }) => l.key === `utility-${water.id}`)
@@ -631,10 +631,10 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const wages = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Wages',
       expectedAmount: 1300,
       frequency: 'fortnightly',
@@ -644,7 +644,7 @@ test.group('StandardMonths / show', () => {
     const twoPeriodMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
     const twoPeriodLine = twoPeriodMonth
       .body()
       .income.lines.find((l: { key: string }) => l.key === `income-source-${wages.id}`)
@@ -654,7 +654,7 @@ test.group('StandardMonths / show', () => {
     const threePeriodMonth = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 4 })
-      .loginAs(brian)
+      .loginAs(adam)
     const threePeriodLine = threePeriodMonth
       .body()
       .income.lines.find((l: { key: string }) => l.key === `income-source-${wages.id}`)
@@ -666,11 +666,11 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
 
     const salary = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 5000,
       frequency: 'monthly',
@@ -680,7 +680,7 @@ test.group('StandardMonths / show', () => {
     const currentMonthResponse = await client
       .get('/api/standard-month')
       .qs({ year: today.year, month: today.month })
-      .loginAs(brian)
+      .loginAs(adam)
     const currentLine = currentMonthResponse
       .body()
       .income.lines.find((l: { key: string }) => l.key === `income-source-${salary.id}`)
@@ -691,7 +691,7 @@ test.group('StandardMonths / show', () => {
     const futureResponse = await client
       .get('/api/standard-month')
       .qs({ year: future.year, month: future.month })
-      .loginAs(brian)
+      .loginAs(adam)
     const futureLine = futureResponse
       .body()
       .income.lines.find((l: { key: string }) => l.key === `income-source-${salary.id}`)
@@ -703,12 +703,12 @@ test.group('StandardMonths / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     // 2026-08-14 is a Friday, so pick a month where the 14th falls on a
     // Saturday/Sunday - 2026-11-14 is a Saturday.
     const salary = await IncomeSource.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Salary',
       expectedAmount: 3885.72,
       frequency: 'monthly',
@@ -719,7 +719,7 @@ test.group('StandardMonths / show', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 11 })
-      .loginAs(brian)
+      .loginAs(adam)
     const line = response
       .body()
       .income.lines.find((l: { key: string }) => l.key === `income-source-${salary.id}`)
@@ -734,7 +734,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const kayo = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -751,7 +751,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const kayoLine = response
       .body()
@@ -763,7 +763,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const kayo = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -784,7 +784,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const kayoLine = response
       .body()
@@ -796,9 +796,9 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const netflix = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -812,7 +812,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const netflixLine = response
       .body()
@@ -824,7 +824,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc()
     const kayo = await RecurringBill.create({
       name: 'Kayo',
@@ -833,7 +833,7 @@ test.group('StandardMonths / paid tracking', () => {
       dueDay: 5,
     })
     const netflix = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -841,7 +841,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: today.year, month: today.month })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const body = response.body()
     const kayoLine = body.expenses.lines.find(
@@ -862,7 +862,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const lastMonth = DateTime.utc().minus({ months: 1 })
     const kayo = await RecurringBill.create({
       name: 'Kayo',
@@ -871,7 +871,7 @@ test.group('StandardMonths / paid tracking', () => {
       dueDay: 5,
     })
     const netflix = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -879,7 +879,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: lastMonth.year, month: lastMonth.month })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const body = response.body()
     const kayoLine = body.expenses.lines.find(
@@ -901,7 +901,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const lastMonth = DateTime.utc().minus({ months: 1 })
     const kayo = await RecurringBill.create({
       name: 'Kayo',
@@ -910,7 +910,7 @@ test.group('StandardMonths / paid tracking', () => {
       dueDay: 5,
     })
     const netflix = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -930,7 +930,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: lastMonth.year, month: lastMonth.month })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const body = response.body()
     const kayoLine = body.expenses.lines.find(
@@ -949,7 +949,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const lastMonth = DateTime.utc().minus({ months: 1 })
     const groceries = await Expense.create({ name: 'Groceries' })
     await ExpenseMonthlyActual.create({
@@ -961,7 +961,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: lastMonth.year, month: lastMonth.month })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const groceriesLine = response
       .body()
@@ -977,7 +977,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const groceries = await Expense.create({ name: 'Groceries' })
     await ExpenseMonthlyActual.create({
       expenseId: groceries.id,
@@ -989,7 +989,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const groceriesLine = response
       .body()
@@ -1001,7 +1001,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const groceries = await Expense.create({ name: 'Groceries' })
     await ExpenseMonthlyActual.create({
       expenseId: groceries.id,
@@ -1017,7 +1017,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const groceriesLine = response
       .body()
@@ -1029,7 +1029,7 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc()
     const groceries = await Expense.create({ name: 'Groceries' })
     await ExpenseMonthlyActual.create({
@@ -1041,7 +1041,7 @@ test.group('StandardMonths / paid tracking', () => {
     const response = await client
       .get('/api/standard-month')
       .qs({ year: today.year, month: today.month })
-      .loginAs(brian)
+      .loginAs(adam)
 
     const groceriesLine = response
       .body()
@@ -1053,13 +1053,13 @@ test.group('StandardMonths / paid tracking', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await Expense.query().delete()
 
     const response = await client
       .get('/api/standard-month')
       .qs({ year: 2026, month: 3 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     assert.isEmpty(

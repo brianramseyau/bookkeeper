@@ -4,13 +4,13 @@ import User from '#models/user'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('ExpenseActuals / index', () => {
   test('lists all actuals for an expense ordered by date', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
     await ExpenseMonthlyActual.create({
       expenseId: expense.id,
@@ -23,7 +23,7 @@ test.group('ExpenseActuals / index', () => {
       amount: 50,
     })
 
-    const response = await client.get(`/api/expenses/${expense.id}/actuals`).loginAs(brian)
+    const response = await client.get(`/api/expenses/${expense.id}/actuals`).loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(
@@ -33,7 +33,7 @@ test.group('ExpenseActuals / index', () => {
   })
 
   test('filters by year and month when given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
     await ExpenseMonthlyActual.create({
       expenseId: expense.id,
@@ -49,7 +49,7 @@ test.group('ExpenseActuals / index', () => {
     const response = await client
       .get(`/api/expenses/${expense.id}/actuals`)
       .qs({ year: 2026, month: 2 })
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().data, 1)
@@ -59,13 +59,13 @@ test.group('ExpenseActuals / index', () => {
 
 test.group('ExpenseActuals / store', () => {
   test('creates an actual entry', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
 
     const response = await client
       .post(`/api/expenses/${expense.id}/actuals`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ occurredOn: '2026-02-01', amount: 120.5, notes: 'Fuel' })
 
     response.assertStatus(201)
@@ -73,13 +73,13 @@ test.group('ExpenseActuals / store', () => {
   })
 
   test('defaults notes to null when not given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
 
     const response = await client
       .post(`/api/expenses/${expense.id}/actuals`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ occurredOn: '2026-02-01', amount: 120.5 })
 
     response.assertStatus(201)
@@ -89,7 +89,7 @@ test.group('ExpenseActuals / store', () => {
 
 test.group('ExpenseActuals / update', () => {
   test('updates an actual entry', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
     const actual = await ExpenseMonthlyActual.create({
       expenseId: expense.id,
@@ -100,7 +100,7 @@ test.group('ExpenseActuals / update', () => {
     const response = await client
       .patch(`/api/expense-actuals/${actual.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 150 })
 
     response.assertStatus(200)
@@ -110,7 +110,7 @@ test.group('ExpenseActuals / update', () => {
 
 test.group('ExpenseActuals / destroy', () => {
   test('deletes an actual entry', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
     const actual = await ExpenseMonthlyActual.create({
       expenseId: expense.id,
@@ -121,7 +121,7 @@ test.group('ExpenseActuals / destroy', () => {
     const response = await client
       .delete(`/api/expense-actuals/${actual.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     const remaining = await ExpenseMonthlyActual.query().where('expenseId', expense.id)
@@ -131,7 +131,7 @@ test.group('ExpenseActuals / destroy', () => {
 
 test.group('ExpenseActuals / trend', () => {
   test('returns a rolling-average trend for the expense', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Test Transport' })
     await ExpenseMonthlyActual.create({
       expenseId: expense.id,
@@ -144,7 +144,7 @@ test.group('ExpenseActuals / trend', () => {
       amount: 200,
     })
 
-    const response = await client.get(`/api/expenses/${expense.id}/trend`).loginAs(brian)
+    const response = await client.get(`/api/expenses/${expense.id}/trend`).loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().average, 150)

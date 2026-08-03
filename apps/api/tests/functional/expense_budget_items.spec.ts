@@ -3,18 +3,18 @@ import User from '#models/user'
 import Expense from '#models/expense'
 import ExpenseBudgetItem from '#models/expense_budget_item'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('ExpenseBudgetItems / index', () => {
   test("lists an expense's budget items ordered by name", async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Dog' })
     await ExpenseBudgetItem.create({ expenseId: expense.id, name: 'Food', amount: 50 })
     await ExpenseBudgetItem.create({ expenseId: expense.id, name: 'Vet', amount: 100 })
 
-    const response = await client.get(`/api/expenses/${expense.id}/budget-items`).loginAs(brian)
+    const response = await client.get(`/api/expenses/${expense.id}/budget-items`).loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(
@@ -24,9 +24,9 @@ test.group('ExpenseBudgetItems / index', () => {
   })
 
   test('returns 404 for a non-existent expense', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/expenses/999999/budget-items').loginAs(brian)
+    const response = await client.get('/api/expenses/999999/budget-items').loginAs(adam)
 
     response.assertStatus(404)
   })
@@ -37,18 +37,18 @@ test.group('ExpenseBudgetItems / store', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Dog' })
 
     await client
       .post(`/api/expenses/${expense.id}/budget-items`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Food', amount: 50 })
     const response = await client
       .post(`/api/expenses/${expense.id}/budget-items`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Vet', amount: 100 })
 
     response.assertStatus(201)
@@ -59,7 +59,7 @@ test.group('ExpenseBudgetItems / store', () => {
 
 test.group('ExpenseBudgetItems / update', () => {
   test('updating an item amount re-syncs the expense budgetAmount', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Dog' })
     const item = await ExpenseBudgetItem.create({
       expenseId: expense.id,
@@ -70,7 +70,7 @@ test.group('ExpenseBudgetItems / update', () => {
     const response = await client
       .patch(`/api/expense-budget-items/${item.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 75 })
 
     response.assertStatus(200)
@@ -84,7 +84,7 @@ test.group('ExpenseBudgetItems / destroy', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Dog' })
     const item = await ExpenseBudgetItem.create({
       expenseId: expense.id,
@@ -95,7 +95,7 @@ test.group('ExpenseBudgetItems / destroy', () => {
     const response = await client
       .delete(`/api/expense-budget-items/${item.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     const reloaded = await Expense.findOrFail(expense.id)
@@ -106,7 +106,7 @@ test.group('ExpenseBudgetItems / destroy', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Dog' })
     const food = await ExpenseBudgetItem.create({
       expenseId: expense.id,
@@ -115,7 +115,7 @@ test.group('ExpenseBudgetItems / destroy', () => {
     })
     await ExpenseBudgetItem.create({ expenseId: expense.id, name: 'Vet', amount: 100 })
 
-    await client.delete(`/api/expense-budget-items/${food.id}`).withCsrfToken().loginAs(brian)
+    await client.delete(`/api/expense-budget-items/${food.id}`).withCsrfToken().loginAs(adam)
 
     const reloaded = await Expense.findOrFail(expense.id)
     assert.equal(reloaded.budgetAmount, 100)

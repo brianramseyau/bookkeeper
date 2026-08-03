@@ -10,16 +10,16 @@ import UserSubscription from '#models/user_subscription'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('Dashboard / summary', () => {
   test("includes the current month's projected/actual net", async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     response.assertStatus(200)
     response.assertBodyContains({
@@ -31,7 +31,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     const utility = await Utility.create({ name: 'Water', frequency: 'quarterly' })
     await UtilityBill.create({
@@ -41,7 +41,7 @@ test.group('Dashboard / summary', () => {
       amount: 369.49,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const twoMonthsAgo = today.minus({ months: 2 })
     const shareEntry = response
@@ -56,7 +56,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc().startOf('day')
 
     for (let i = 0; i < 6; i++) {
@@ -76,7 +76,7 @@ test.group('Dashboard / summary', () => {
       dueDay: null,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     assert.lengthOf(response.body().upcomingBills, 5)
     assert.equal(response.body().upcomingBills[0].name, 'Bill 5')
@@ -86,7 +86,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc().startOf('day')
 
     // A month that's already passed this year - without rolling forward to
@@ -107,7 +107,7 @@ test.group('Dashboard / summary', () => {
       dueDay: in3Days.day,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const bills = response.body().upcomingBills as { name: string; daysUntilDue: number }[]
     assert.equal(bills[0].name, 'Rent')
@@ -119,7 +119,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
@@ -135,7 +135,7 @@ test.group('Dashboard / summary', () => {
       amount: 300,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const currentMonthEntry = response
       .body()
@@ -150,7 +150,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     const groceries = await Expense.create({ name: 'Groceries' })
     await ExpenseMonthlyActual.create({
@@ -165,7 +165,7 @@ test.group('Dashboard / summary', () => {
       amount: 900,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const currentMonthEntry = response
       .body()
@@ -181,7 +181,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     const groceriesCategory = await Category.findByOrFail('name', 'Groceries')
     const groceries = await Expense.create({ name: 'Groceries', categoryId: groceriesCategory.id })
@@ -197,7 +197,7 @@ test.group('Dashboard / summary', () => {
       amount: 999,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const entry = response
       .body()
@@ -209,7 +209,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     const utilitiesCategory = await Category.findByOrFail('name', 'Utilities')
     const utility = await Utility.create({ name: 'Electricity', categoryId: utilitiesCategory.id })
@@ -220,7 +220,7 @@ test.group('Dashboard / summary', () => {
       amount: 400,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const entry = response
       .body()
@@ -232,16 +232,16 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const householdCategory = await Category.findByOrFail('name', 'Household')
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Streaming',
       categoryId: householdCategory.id,
       amount: 15.99,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const entry = response
       .body()
@@ -253,24 +253,24 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const householdCategory = await Category.findByOrFail('name', 'Household')
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Paused Sub',
       categoryId: householdCategory.id,
       amount: 9.99,
       isPaused: true,
     })
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Archived Sub',
       categoryId: householdCategory.id,
       amount: 7.99,
       isArchived: true,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const entry = response
       .body()
@@ -282,7 +282,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     const householdCategory = await Category.findByOrFail('name', 'Household')
     const bill = await RecurringBill.create({
@@ -300,7 +300,7 @@ test.group('Dashboard / summary', () => {
       paid: true,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const entry = response
       .body()
@@ -312,7 +312,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.local()
     // 6 months offset from the current month, wrapped into 1-12 - always
     // different from today.month regardless of what today.month is.
@@ -326,7 +326,7 @@ test.group('Dashboard / summary', () => {
       dueMonth: notDueMonth,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
 
     const entry = response
       .body()
@@ -338,7 +338,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const groceriesCategory = await Category.findByOrFail('name', 'Groceries')
     const groceries = await Expense.create({ name: 'Groceries', categoryId: groceriesCategory.id })
     await ExpenseMonthlyActual.create({
@@ -347,7 +347,7 @@ test.group('Dashboard / summary', () => {
       amount: 250,
     })
 
-    const response = await client.get('/api/dashboard/summary?year=2025&month=6').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary?year=2025&month=6').loginAs(adam)
 
     response.assertBodyContains({ currentMonth: { year: 2025, month: 6 } })
     const body = response.body()
@@ -362,7 +362,7 @@ test.group('Dashboard / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc().startOf('day')
     const in3Days = today.plus({ days: 3 })
     await RecurringBill.create({
@@ -372,7 +372,7 @@ test.group('Dashboard / summary', () => {
       dueDay: in3Days.day,
     })
 
-    const response = await client.get('/api/dashboard/summary?year=2020&month=1').loginAs(brian)
+    const response = await client.get('/api/dashboard/summary?year=2020&month=1').loginAs(adam)
 
     const bill = response.body().upcomingBills.find((b: { name: string }) => b.name === 'Rent')
     assert.equal(bill.daysUntilDue, 3)

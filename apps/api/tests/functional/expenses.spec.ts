@@ -6,8 +6,8 @@ import ExpenseBudgetItem from '#models/expense_budget_item'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 import ExpensePayment from '#models/expense_payment'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('Expenses / index', () => {
@@ -15,14 +15,14 @@ test.group('Expenses / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const archived = await Expense.create({ name: 'Archived', sortOrder: 999 })
     archived.isActive = false
     await archived.save()
     const dog = await Expense.create({ name: 'Dog' })
     await ExpenseBudgetItem.create({ expenseId: dog.id, name: 'Food', amount: 50 })
 
-    const response = await client.get('/api/expenses').loginAs(brian)
+    const response = await client.get('/api/expenses').loginAs(adam)
 
     response.assertStatus(200)
     const names = response.body().data.map((c: { name: string }) => c.name)
@@ -35,7 +35,7 @@ test.group('Expenses / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const paused = await Expense.create({ name: 'Paused Exp' })
     paused.isPaused = true
     await paused.save()
@@ -43,7 +43,7 @@ test.group('Expenses / index', () => {
     archived.isArchived = true
     await archived.save()
 
-    const defaultResponse = await client.get('/api/expenses').loginAs(brian)
+    const defaultResponse = await client.get('/api/expenses').loginAs(adam)
     const defaultNames = defaultResponse.body().data.map((c: { name: string }) => c.name)
     assert.notInclude(defaultNames, 'Paused Exp')
     assert.notInclude(defaultNames, 'Archived Exp')
@@ -51,7 +51,7 @@ test.group('Expenses / index', () => {
     const hiddenResponse = await client
       .get('/api/expenses')
       .qs({ includeHidden: true })
-      .loginAs(brian)
+      .loginAs(adam)
     const hiddenNames = hiddenResponse.body().data.map((c: { name: string }) => c.name)
     assert.include(hiddenNames, 'Paused Exp')
     assert.include(hiddenNames, 'Archived Exp')
@@ -60,12 +60,12 @@ test.group('Expenses / index', () => {
 
 test.group('Expenses / store', () => {
   test('creates an expense', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/expenses')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Entertainment' })
 
     response.assertStatus(201)
@@ -73,14 +73,14 @@ test.group('Expenses / store', () => {
   })
 
   test('auto-assigns the next sortOrder when none is given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await Expense.create({ name: 'Existing', sortOrder: 5 })
     const last = await Expense.query().orderBy('sortOrder', 'desc').firstOrFail()
 
     const response = await client
       .post('/api/expenses')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Entertainment' })
 
     assert.equal(response.body().data.sortOrder, last.sortOrder + 1)
@@ -95,12 +95,12 @@ test.group('Expenses / store', () => {
   })
 
   test('rejects an invalid payload', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/expenses')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: '' })
 
     response.assertStatus(422)
@@ -109,13 +109,13 @@ test.group('Expenses / store', () => {
 
 test.group('Expenses / update', () => {
   test('updates an expense', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Groceries2' })
 
     const response = await client
       .patch(`/api/expenses/${expense.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Groceries3' })
 
     response.assertStatus(200)
@@ -123,19 +123,19 @@ test.group('Expenses / update', () => {
   })
 
   test('returns 404 for a non-existent expense', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .patch('/api/expenses/999999')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Groceries3' })
 
     response.assertStatus(404)
   })
 
   test('archiving an expense clears an existing pause', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Kayo-like' })
     expense.isPaused = true
     await expense.save()
@@ -143,7 +143,7 @@ test.group('Expenses / update', () => {
     const response = await client
       .patch(`/api/expenses/${expense.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ isArchived: true })
 
     response.assertStatus(200)
@@ -154,20 +154,20 @@ test.group('Expenses / update', () => {
 
 test.group('Expenses / destroy', () => {
   test('rejects removing an expense that is not archived', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Temp' })
 
     const response = await client
       .delete(`/api/expenses/${expense.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(409)
     assert.isNotNull(await Expense.find(expense.id))
   })
 
   test('permanently deletes an archived expense and its dependents', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Temp' })
     expense.isArchived = true
     await expense.save()
@@ -182,7 +182,7 @@ test.group('Expenses / destroy', () => {
     const response = await client
       .delete(`/api/expenses/${expense.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     assert.isNull(await Expense.find(expense.id))
@@ -194,13 +194,13 @@ test.group('Expenses / destroy', () => {
 
 test.group('Expenses / upsertPayment', () => {
   test('creates a payment row marking the month paid', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Groceries3' })
 
     const response = await client
       .put(`/api/expenses/${expense.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(200)
@@ -212,18 +212,18 @@ test.group('Expenses / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Groceries3' })
     await client
       .put(`/api/expenses/${expense.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     const response = await client
       .put(`/api/expenses/${expense.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: false })
 
     response.assertStatus(200)
@@ -233,25 +233,25 @@ test.group('Expenses / upsertPayment', () => {
   })
 
   test('returns 404 for a non-existent expense', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/expenses/999999/payments/2026/3')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(404)
   })
 
   test('rejects a non-boolean paid value', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const expense = await Expense.create({ name: 'Groceries3' })
 
     const response = await client
       .put(`/api/expenses/${expense.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: 'yes' })
 
     response.assertStatus(422)

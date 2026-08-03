@@ -30,8 +30,11 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Seed data (used only by `node ace db:seed`, not read at runtime): path
   // to the .xlsx workbook whose "Users" sheet (Name, Email, Password
-  // columns) supplies the logins to create.
-  SEED_WORKBOOK_PATH: Env.schema.string(),
+  // columns) supplies the logins to create. Optional because user_seeder.ts
+  // only runs in development/production (see its `static environment`) -
+  // tests use test_user_seeder.ts's hardcoded users instead and never read
+  // this var.
+  SEED_WORKBOOK_PATH: Env.schema.string.optional(),
 
   // Authentik reverse-proxy auto-login (opt-in, off by default). When
   // enabled, a request carrying a valid AUTHENTIK_SHARED_SECRET is

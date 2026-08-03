@@ -3,7 +3,7 @@ import User from '#models/user'
 
 test.group('Auth', () => {
   test('logs in with valid credentials and returns the user', async ({ client, assert }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client.post('/api/login').withCsrfToken().json({
       email: user.email,
@@ -15,7 +15,7 @@ test.group('Auth', () => {
   })
 
   test('rejects an invalid password', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client.post('/api/login').withCsrfToken().json({
       email: user.email,
@@ -40,7 +40,7 @@ test.group('Auth', () => {
   })
 
   test('GET /me returns the logged-in user', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client.get('/api/me').loginAs(user)
 
@@ -49,7 +49,7 @@ test.group('Auth', () => {
   })
 
   test('logout clears the session', async ({ client }) => {
-    const user = await User.findByOrFail('fullName', 'Brian')
+    const user = await User.findByOrFail('fullName', 'Adam')
 
     const response = await client.post('/api/logout').withCsrfToken().loginAs(user)
     response.assertStatus(200)

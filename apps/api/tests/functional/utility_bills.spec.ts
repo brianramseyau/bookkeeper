@@ -4,8 +4,8 @@ import User from '#models/user'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('UtilityBills / index', () => {
@@ -13,12 +13,12 @@ test.group('UtilityBills / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 3, amount: 314.86 })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 2, amount: 409.08 })
 
-    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(
@@ -32,11 +32,11 @@ test.group('UtilityBills / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Water', frequency: 'quarterly' })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 4, amount: 369.49 })
 
-    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(adam)
 
     response.assertStatus(200)
     const shares = response.body().monthlyShares
@@ -56,9 +56,9 @@ test.group('UtilityBills / index', () => {
   })
 
   test('returns 404 for a non-existent utility', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/utilities/999999/bills').loginAs(brian)
+    const response = await client.get('/api/utilities/999999/bills').loginAs(adam)
 
     response.assertStatus(404)
   })
@@ -67,7 +67,7 @@ test.group('UtilityBills / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({
       name: 'Phones',
       frequency: 'annual',
@@ -75,7 +75,7 @@ test.group('UtilityBills / index', () => {
     })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 1, amount: 1200 })
 
-    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/bills`).loginAs(adam)
 
     response.assertStatus(200)
     const shares = response.body().monthlyShares
@@ -104,13 +104,13 @@ test.group('UtilityBills / index', () => {
 
 test.group('UtilityBills / upsert', () => {
   test('creates a bill for a month with no existing row', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08 })
 
     response.assertStatus(200)
@@ -121,14 +121,14 @@ test.group('UtilityBills / upsert', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 2, amount: 400 })
 
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08 })
 
     response.assertStatus(200)
@@ -138,13 +138,13 @@ test.group('UtilityBills / upsert', () => {
   })
 
   test('defaults paid to false when not sent', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08 })
 
     response.assertStatus(200)
@@ -152,13 +152,13 @@ test.group('UtilityBills / upsert', () => {
   })
 
   test('persists paid when sent', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08, paid: true })
 
     response.assertStatus(200)
@@ -166,7 +166,7 @@ test.group('UtilityBills / upsert', () => {
   })
 
   test('updates paid on an existing bill when sent', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -179,7 +179,7 @@ test.group('UtilityBills / upsert', () => {
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08, paid: true })
 
     response.assertStatus(200)
@@ -190,7 +190,7 @@ test.group('UtilityBills / upsert', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -203,7 +203,7 @@ test.group('UtilityBills / upsert', () => {
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08 })
 
     response.assertStatus(200)
@@ -215,13 +215,13 @@ test.group('UtilityBills / upsert', () => {
   })
 
   test('defaults received date to null when not sent', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08 })
 
     response.assertStatus(200)
@@ -229,13 +229,13 @@ test.group('UtilityBills / upsert', () => {
   })
 
   test('persists a received date when sent', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08, receivedOn: '2026-02-10' })
 
     response.assertStatus(200)
@@ -243,7 +243,7 @@ test.group('UtilityBills / upsert', () => {
   })
 
   test('updates the received date on an existing bill when sent', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -256,7 +256,7 @@ test.group('UtilityBills / upsert', () => {
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08, receivedOn: '2026-02-11' })
 
     response.assertStatus(200)
@@ -267,7 +267,7 @@ test.group('UtilityBills / upsert', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -280,7 +280,7 @@ test.group('UtilityBills / upsert', () => {
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08 })
 
     response.assertStatus(200)
@@ -291,7 +291,7 @@ test.group('UtilityBills / upsert', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -304,7 +304,7 @@ test.group('UtilityBills / upsert', () => {
     const response = await client
       .put(`/api/utilities/${utility.id}/bills/2026/2`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 409.08, receivedOn: null })
 
     response.assertStatus(200)
@@ -314,7 +314,7 @@ test.group('UtilityBills / upsert', () => {
 
 test.group('UtilityBills / destroy', () => {
   test('deletes a bill', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     const bill = await UtilityBill.create({
       utilityId: utility.id,
@@ -326,7 +326,7 @@ test.group('UtilityBills / destroy', () => {
     const response = await client
       .delete(`/api/utility-bills/${bill.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     const remaining = await UtilityBill.query().where('utilityId', utility.id)
@@ -336,12 +336,12 @@ test.group('UtilityBills / destroy', () => {
 
 test.group('UtilityBills / trend', () => {
   test('returns a rolling-average trend for the utility', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 1, amount: 400 })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 2, amount: 420 })
 
-    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().average, 410)
@@ -352,11 +352,11 @@ test.group('UtilityBills / trend', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Water', frequency: 'quarterly' })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 4, amount: 369.49 })
 
-    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().average, 123.16)
@@ -365,10 +365,10 @@ test.group('UtilityBills / trend', () => {
   })
 
   test('nextDueOn is null when no due-day offset is configured', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
-    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(adam)
 
     response.assertStatus(200)
     assert.isNull(response.body().nextDueOn)
@@ -378,11 +378,11 @@ test.group('UtilityBills / trend', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 15 })
     await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 1, amount: 400 })
 
-    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(adam)
 
     response.assertStatus(200)
     assert.isNull(response.body().nextDueOn)
@@ -392,7 +392,7 @@ test.group('UtilityBills / trend', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 15 })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -402,7 +402,7 @@ test.group('UtilityBills / trend', () => {
       receivedOn: DateTime.utc(2026, 1, 1),
     })
 
-    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(brian)
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(adam)
 
     response.assertStatus(200)
     assert.match(response.body().nextDueOn, /^\d{4}-\d{2}-16T00:00:00/)

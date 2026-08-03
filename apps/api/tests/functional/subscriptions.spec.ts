@@ -3,17 +3,17 @@ import User from '#models/user'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('Subscriptions / index', () => {
   test('lists all subscriptions ordered by name', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-    await UserSubscription.create({ userId: brian.id, name: 'Netflix', amount: 22.99 })
-    await UserSubscription.create({ userId: brian.id, name: 'Adobe', amount: 9.99 })
+    const adam = await loginAsAdam()
+    await UserSubscription.create({ userId: adam.id, name: 'Netflix', amount: 22.99 })
+    await UserSubscription.create({ userId: adam.id, name: 'Adobe', amount: 9.99 })
 
-    const response = await client.get('/api/subscriptions').loginAs(brian)
+    const response = await client.get('/api/subscriptions').loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(
@@ -23,12 +23,12 @@ test.group('Subscriptions / index', () => {
   })
 
   test('filters by userId when given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-    const ariel = await User.findByOrFail('fullName', 'Ariel')
-    await UserSubscription.create({ userId: brian.id, name: 'Netflix', amount: 22.99 })
-    await UserSubscription.create({ userId: ariel.id, name: 'Spotify', amount: 12.99 })
+    const adam = await loginAsAdam()
+    const eve = await User.findByOrFail('fullName', 'Eve')
+    await UserSubscription.create({ userId: adam.id, name: 'Netflix', amount: 22.99 })
+    await UserSubscription.create({ userId: eve.id, name: 'Spotify', amount: 12.99 })
 
-    const response = await client.get('/api/subscriptions').qs({ userId: ariel.id }).loginAs(brian)
+    const response = await client.get('/api/subscriptions').qs({ userId: eve.id }).loginAs(adam)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().data, 1)
@@ -39,26 +39,26 @@ test.group('Subscriptions / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    const paused = await UserSubscription.create({ userId: brian.id, name: 'Kayo', amount: 45.99 })
+    const adam = await loginAsAdam()
+    const paused = await UserSubscription.create({ userId: adam.id, name: 'Kayo', amount: 45.99 })
     paused.isPaused = true
     await paused.save()
     const archived = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Nintendo Online',
       amount: 3.99,
     })
     archived.isArchived = true
     await archived.save()
     const removed = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Cancelled',
       amount: 10,
     })
     removed.isActive = false
     await removed.save()
 
-    const defaultResponse = await client.get('/api/subscriptions').loginAs(brian)
+    const defaultResponse = await client.get('/api/subscriptions').loginAs(adam)
     const defaultNames = defaultResponse.body().data.map((s: { name: string }) => s.name)
     assert.notInclude(defaultNames, 'Kayo')
     assert.notInclude(defaultNames, 'Nintendo Online')
@@ -67,7 +67,7 @@ test.group('Subscriptions / index', () => {
     const hiddenResponse = await client
       .get('/api/subscriptions')
       .qs({ includeHidden: true })
-      .loginAs(brian)
+      .loginAs(adam)
     const hiddenNames = hiddenResponse.body().data.map((s: { name: string }) => s.name)
     assert.include(hiddenNames, 'Kayo')
     assert.include(hiddenNames, 'Nintendo Online')
@@ -77,13 +77,13 @@ test.group('Subscriptions / index', () => {
 
 test.group('Subscriptions / store', () => {
   test('creates a subscription', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/subscriptions')
       .withCsrfToken()
-      .loginAs(brian)
-      .json({ userId: brian.id, name: 'Netflix', amount: 22.99 })
+      .loginAs(adam)
+      .json({ userId: adam.id, name: 'Netflix', amount: 22.99 })
 
     response.assertStatus(201)
     assert.equal(response.body().data.name, 'Netflix')
@@ -92,9 +92,9 @@ test.group('Subscriptions / store', () => {
 
 test.group('Subscriptions / update', () => {
   test('updates a subscription', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -102,7 +102,7 @@ test.group('Subscriptions / update', () => {
     const response = await client
       .patch(`/api/subscriptions/${subscription.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 24.99 })
 
     response.assertStatus(200)
@@ -110,9 +110,9 @@ test.group('Subscriptions / update', () => {
   })
 
   test('archiving a subscription clears an existing pause', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Kayo',
       amount: 45.99,
     })
@@ -122,7 +122,7 @@ test.group('Subscriptions / update', () => {
     const response = await client
       .patch(`/api/subscriptions/${subscription.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ isArchived: true })
 
     response.assertStatus(200)
@@ -133,9 +133,9 @@ test.group('Subscriptions / update', () => {
 
 test.group('Subscriptions / destroy', () => {
   test('rejects removing a subscription that is not archived', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -143,7 +143,7 @@ test.group('Subscriptions / destroy', () => {
     const response = await client
       .delete(`/api/subscriptions/${subscription.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(409)
     assert.isNotNull(await UserSubscription.find(subscription.id))
@@ -153,9 +153,9 @@ test.group('Subscriptions / destroy', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -171,7 +171,7 @@ test.group('Subscriptions / destroy', () => {
     const response = await client
       .delete(`/api/subscriptions/${subscription.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     assert.isNull(await UserSubscription.find(subscription.id))
@@ -184,9 +184,9 @@ test.group('Subscriptions / destroy', () => {
 
 test.group('Subscriptions / upsertPayment', () => {
   test('creates a payment row marking the month paid', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -194,7 +194,7 @@ test.group('Subscriptions / upsertPayment', () => {
     const response = await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(200)
@@ -207,9 +207,9 @@ test.group('Subscriptions / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -217,7 +217,7 @@ test.group('Subscriptions / upsertPayment', () => {
     const response = await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 24.99 })
 
     response.assertStatus(200)
@@ -229,22 +229,22 @@ test.group('Subscriptions / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
     await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 24.99 })
 
     const response = await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(200)
@@ -256,22 +256,22 @@ test.group('Subscriptions / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
     await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     const response = await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 24.99 })
 
     response.assertStatus(200)
@@ -283,22 +283,22 @@ test.group('Subscriptions / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
     await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     const response = await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: false })
 
     response.assertStatus(200)
@@ -308,21 +308,21 @@ test.group('Subscriptions / upsertPayment', () => {
   })
 
   test('returns 404 for a non-existent subscription', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/subscriptions/999999/payments/2026/3')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(404)
   })
 
   test('rejects a non-boolean paid value', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 22.99,
     })
@@ -330,7 +330,7 @@ test.group('Subscriptions / upsertPayment', () => {
     const response = await client
       .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: 'yes' })
 
     response.assertStatus(422)
@@ -342,53 +342,51 @@ test.group('Subscriptions / summary', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    const ariel = await User.findByOrFail('fullName', 'Ariel')
-    await UserSubscription.create({ userId: brian.id, name: 'Netflix', amount: 22.99 })
-    await UserSubscription.create({ userId: brian.id, name: 'Adobe', amount: 15.48 })
-    await UserSubscription.create({ userId: ariel.id, name: 'Spotify', amount: 26.48 })
+    const adam = await loginAsAdam()
+    const eve = await User.findByOrFail('fullName', 'Eve')
+    await UserSubscription.create({ userId: adam.id, name: 'Netflix', amount: 22.99 })
+    await UserSubscription.create({ userId: adam.id, name: 'Adobe', amount: 15.48 })
+    await UserSubscription.create({ userId: eve.id, name: 'Spotify', amount: 26.48 })
     const cancelled = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Old thing',
       amount: 100,
     })
     cancelled.isActive = false
     await cancelled.save()
 
-    const response = await client.get('/api/subscriptions/summary').loginAs(brian)
+    const response = await client.get('/api/subscriptions/summary').loginAs(adam)
 
     response.assertStatus(200)
-    const brianSummary = response
+    const adamSummary = response
       .body()
-      .data.find((s: { fullName: string }) => s.fullName === 'Brian')
-    const arielSummary = response
-      .body()
-      .data.find((s: { fullName: string }) => s.fullName === 'Ariel')
-    assert.equal(brianSummary.total, 38.47)
-    assert.equal(brianSummary.count, 2)
-    assert.equal(arielSummary.total, 26.48)
+      .data.find((s: { fullName: string }) => s.fullName === 'Adam')
+    const eveSummary = response.body().data.find((s: { fullName: string }) => s.fullName === 'Eve')
+    assert.equal(adamSummary.total, 38.47)
+    assert.equal(adamSummary.count, 2)
+    assert.equal(eveSummary.total, 26.48)
   })
 
   test('excludes paused and archived subscriptions from the total', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-    await UserSubscription.create({ userId: brian.id, name: 'Netflix', amount: 22.99 })
-    const paused = await UserSubscription.create({ userId: brian.id, name: 'Kayo', amount: 45.99 })
+    const adam = await loginAsAdam()
+    await UserSubscription.create({ userId: adam.id, name: 'Netflix', amount: 22.99 })
+    const paused = await UserSubscription.create({ userId: adam.id, name: 'Kayo', amount: 45.99 })
     paused.isPaused = true
     await paused.save()
     const archived = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Nintendo Online',
       amount: 3.99,
     })
     archived.isArchived = true
     await archived.save()
 
-    const response = await client.get('/api/subscriptions/summary').loginAs(brian)
+    const response = await client.get('/api/subscriptions/summary').loginAs(adam)
 
-    const brianSummary = response
+    const adamSummary = response
       .body()
-      .data.find((s: { fullName: string }) => s.fullName === 'Brian')
-    assert.equal(brianSummary.total, 22.99)
-    assert.equal(brianSummary.count, 1)
+      .data.find((s: { fullName: string }) => s.fullName === 'Adam')
+    assert.equal(adamSummary.total, 22.99)
+    assert.equal(adamSummary.count, 1)
   })
 })

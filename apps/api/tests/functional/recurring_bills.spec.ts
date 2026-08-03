@@ -4,13 +4,13 @@ import User from '#models/user'
 import RecurringBill from '#models/recurring_bill'
 import RecurringBillPayment from '#models/recurring_bill_payment'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('RecurringBills / index', () => {
   test('lists recurring bills ordered by name', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await RecurringBill.create({
       name: 'VPN',
       amount: 39.99,
@@ -26,7 +26,7 @@ test.group('RecurringBills / index', () => {
       dueMonth: 1,
     })
 
-    const response = await client.get('/api/recurring-bills').loginAs(brian)
+    const response = await client.get('/api/recurring-bills').loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(
@@ -39,7 +39,7 @@ test.group('RecurringBills / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const paused = await RecurringBill.create({ name: 'Kayo', amount: 45.99, frequency: 'monthly' })
     paused.isPaused = true
     await paused.save()
@@ -58,7 +58,7 @@ test.group('RecurringBills / index', () => {
     removed.isActive = false
     await removed.save()
 
-    const defaultResponse = await client.get('/api/recurring-bills').loginAs(brian)
+    const defaultResponse = await client.get('/api/recurring-bills').loginAs(adam)
     const defaultNames = defaultResponse.body().data.map((b: { name: string }) => b.name)
     assert.notInclude(defaultNames, 'Kayo')
     assert.notInclude(defaultNames, 'Nintendo')
@@ -67,7 +67,7 @@ test.group('RecurringBills / index', () => {
     const hiddenResponse = await client
       .get('/api/recurring-bills')
       .qs({ includeHidden: true })
-      .loginAs(brian)
+      .loginAs(adam)
     const hiddenNames = hiddenResponse.body().data.map((b: { name: string }) => b.name)
     assert.include(hiddenNames, 'Kayo')
     assert.include(hiddenNames, 'Nintendo')
@@ -77,9 +77,9 @@ test.group('RecurringBills / index', () => {
 
 test.group('RecurringBills / store', () => {
   test('derives dueDay/dueMonth from nextDueOn', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.post('/api/recurring-bills').withCsrfToken().loginAs(brian).json({
+    const response = await client.post('/api/recurring-bills').withCsrfToken().loginAs(adam).json({
       name: 'Costco Membership',
       amount: 65,
       frequency: 'annual',
@@ -93,12 +93,12 @@ test.group('RecurringBills / store', () => {
   })
 
   test('rejects a "custom" frequency - no longer supported', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/recurring-bills')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Fortnightly thing', amount: 10, frequency: 'custom', nextDueOn: '2026-01-01' })
 
     response.assertStatus(422)
@@ -107,7 +107,7 @@ test.group('RecurringBills / store', () => {
 
 test.group('RecurringBills / update', () => {
   test('re-derives dueDay/dueMonth when nextDueOn changes', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Costco Membership',
       amount: 65,
@@ -119,7 +119,7 @@ test.group('RecurringBills / update', () => {
     const response = await client
       .patch(`/api/recurring-bills/${bill.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ nextDueOn: '2027-02-28' })
 
     response.assertStatus(200)
@@ -131,7 +131,7 @@ test.group('RecurringBills / update', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Costco Membership',
       amount: 65,
@@ -143,7 +143,7 @@ test.group('RecurringBills / update', () => {
     const response = await client
       .patch(`/api/recurring-bills/${bill.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 70 })
 
     response.assertStatus(200)
@@ -152,7 +152,7 @@ test.group('RecurringBills / update', () => {
   })
 
   test('archiving a bill clears an existing pause', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({ name: 'Kayo', amount: 45.99, frequency: 'monthly' })
     bill.isPaused = true
     await bill.save()
@@ -160,7 +160,7 @@ test.group('RecurringBills / update', () => {
     const response = await client
       .patch(`/api/recurring-bills/${bill.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ isArchived: true })
 
     response.assertStatus(200)
@@ -171,7 +171,7 @@ test.group('RecurringBills / update', () => {
 
 test.group('RecurringBills / destroy', () => {
   test('rejects removing a bill that is not archived', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Costco Membership',
       amount: 65,
@@ -183,7 +183,7 @@ test.group('RecurringBills / destroy', () => {
     const response = await client
       .delete(`/api/recurring-bills/${bill.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(409)
     assert.isNotNull(await RecurringBill.find(bill.id))
@@ -193,7 +193,7 @@ test.group('RecurringBills / destroy', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Costco Membership',
       amount: 65,
@@ -213,7 +213,7 @@ test.group('RecurringBills / destroy', () => {
     const response = await client
       .delete(`/api/recurring-bills/${bill.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     assert.isNull(await RecurringBill.find(bill.id))
@@ -223,7 +223,7 @@ test.group('RecurringBills / destroy', () => {
 
 test.group('RecurringBills / upsertPayment', () => {
   test('creates a payment row marking the month paid', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -234,7 +234,7 @@ test.group('RecurringBills / upsertPayment', () => {
     const response = await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(200)
@@ -247,7 +247,7 @@ test.group('RecurringBills / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Council Rates',
       amount: 2689.3,
@@ -259,7 +259,7 @@ test.group('RecurringBills / upsertPayment', () => {
     const response = await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/9`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 2750.15 })
 
     response.assertStatus(200)
@@ -271,7 +271,7 @@ test.group('RecurringBills / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -281,13 +281,13 @@ test.group('RecurringBills / upsertPayment', () => {
     await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     const response = await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: false })
 
     response.assertStatus(200)
@@ -300,7 +300,7 @@ test.group('RecurringBills / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Council Rates',
       amount: 2689.3,
@@ -311,13 +311,13 @@ test.group('RecurringBills / upsertPayment', () => {
     await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/9`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 2750.15 })
 
     const response = await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/9`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(200)
@@ -329,7 +329,7 @@ test.group('RecurringBills / upsertPayment', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -339,13 +339,13 @@ test.group('RecurringBills / upsertPayment', () => {
     await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     const response = await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ amount: 50 })
 
     response.assertStatus(200)
@@ -358,19 +358,19 @@ test.group('RecurringBills / upsertPayment', () => {
   })
 
   test('returns 404 for a non-existent recurring bill', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/recurring-bills/999999/payments/2026/3')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: true })
 
     response.assertStatus(404)
   })
 
   test('rejects a non-boolean paid value', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -381,7 +381,7 @@ test.group('RecurringBills / upsertPayment', () => {
     const response = await client
       .put(`/api/recurring-bills/${bill.id}/payments/2026/3`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paid: 'yes' })
 
     response.assertStatus(422)
@@ -390,7 +390,7 @@ test.group('RecurringBills / upsertPayment', () => {
 
 test.group('RecurringBills / upcoming', () => {
   test('flags bills due within 30 days and sorts soonest-first', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc().startOf('day')
     const in60Days = today.plus({ days: 60 })
     const in10Days = today.plus({ days: 10 })
@@ -421,7 +421,7 @@ test.group('RecurringBills / upcoming', () => {
       dueDay: null,
     })
 
-    const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
 
     response.assertStatus(200)
     const names = response.body().data.map((b: { name: string }) => b.name)
@@ -437,7 +437,7 @@ test.group('RecurringBills / upcoming', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc().startOf('day')
     // A month that has already passed this year rolls to next year, not
     // "overdue forever" - the stored day/month has no year of its own.
@@ -450,7 +450,7 @@ test.group('RecurringBills / upcoming', () => {
       dueMonth: alreadyPassed.month,
     })
 
-    const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
 
     response.assertStatus(200)
     const car = response.body().data[0]
@@ -463,7 +463,7 @@ test.group('RecurringBills / upcoming', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const today = DateTime.utc().startOf('day')
     const yesterday = today.minus({ days: 1 })
     await RecurringBill.create({
@@ -473,7 +473,7 @@ test.group('RecurringBills / upcoming', () => {
       dueDay: yesterday.day,
     })
 
-    const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
 
     response.assertStatus(200)
     const streaming = response.body().data[0]
@@ -483,7 +483,7 @@ test.group('RecurringBills / upcoming', () => {
   })
 
   test('excludes inactive bills', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const bill = await RecurringBill.create({
       name: 'Cancelled thing',
       amount: 10,
@@ -494,7 +494,7 @@ test.group('RecurringBills / upcoming', () => {
     bill.isActive = false
     await bill.save()
 
-    const response = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
 
     assert.lengthOf(response.body().data, 0)
   })
@@ -503,7 +503,7 @@ test.group('RecurringBills / upcoming', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const paused = await RecurringBill.create({
       name: 'Kayo',
       amount: 45.99,
@@ -522,13 +522,13 @@ test.group('RecurringBills / upcoming', () => {
     archived.isArchived = true
     await archived.save()
 
-    const defaultResponse = await client.get('/api/recurring-bills/upcoming').loginAs(brian)
+    const defaultResponse = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
     assert.lengthOf(defaultResponse.body().data, 0)
 
     const hiddenResponse = await client
       .get('/api/recurring-bills/upcoming')
       .qs({ includeHidden: true })
-      .loginAs(brian)
+      .loginAs(adam)
     assert.lengthOf(hiddenResponse.body().data, 2)
   })
 })

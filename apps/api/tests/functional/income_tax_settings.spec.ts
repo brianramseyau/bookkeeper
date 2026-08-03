@@ -2,18 +2,18 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import IncomeTaxSetting from '#models/income_tax_setting'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('IncomeTaxSettings / show', () => {
   test('returns null marginalRate when no setting exists yet', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .get('/api/income-tax-settings')
-      .qs({ userId: brian.id, financialYear: 2026 })
-      .loginAs(brian)
+      .qs({ userId: adam.id, financialYear: 2026 })
+      .loginAs(adam)
 
     response.assertStatus(200)
     assert.isNull(response.body().marginalRate)
@@ -23,13 +23,13 @@ test.group('IncomeTaxSettings / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    await IncomeTaxSetting.create({ userId: brian.id, financialYear: 2026, marginalRate: 0.37 })
+    const adam = await loginAsAdam()
+    await IncomeTaxSetting.create({ userId: adam.id, financialYear: 2026, marginalRate: 0.37 })
 
     const response = await client
       .get('/api/income-tax-settings')
-      .qs({ userId: brian.id, financialYear: 2026 })
-      .loginAs(brian)
+      .qs({ userId: adam.id, financialYear: 2026 })
+      .loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().marginalRate, 0.37)
@@ -38,18 +38,18 @@ test.group('IncomeTaxSettings / show', () => {
 
 test.group('IncomeTaxSettings / upsert', () => {
   test('creates a setting when none exists', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/income-tax-settings')
       .withCsrfToken()
-      .loginAs(brian)
-      .json({ userId: brian.id, financialYear: 2026, marginalRate: 0.37 })
+      .loginAs(adam)
+      .json({ userId: adam.id, financialYear: 2026, marginalRate: 0.37 })
 
     response.assertStatus(200)
     assert.equal(response.body().marginalRate, 0.37)
     const stored = await IncomeTaxSetting.query()
-      .where('userId', brian.id)
+      .where('userId', adam.id)
       .where('financialYear', 2026)
       .firstOrFail()
     assert.equal(stored.marginalRate, 0.37)
@@ -59,31 +59,31 @@ test.group('IncomeTaxSettings / upsert', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    await IncomeTaxSetting.create({ userId: brian.id, financialYear: 2026, marginalRate: 0.32 })
+    const adam = await loginAsAdam()
+    await IncomeTaxSetting.create({ userId: adam.id, financialYear: 2026, marginalRate: 0.32 })
 
     const response = await client
       .put('/api/income-tax-settings')
       .withCsrfToken()
-      .loginAs(brian)
-      .json({ userId: brian.id, financialYear: 2026, marginalRate: 0.37 })
+      .loginAs(adam)
+      .json({ userId: adam.id, financialYear: 2026, marginalRate: 0.37 })
 
     response.assertStatus(200)
     const settings = await IncomeTaxSetting.query()
-      .where('userId', brian.id)
+      .where('userId', adam.id)
       .where('financialYear', 2026)
     assert.lengthOf(settings, 1)
     assert.equal(settings[0]!.marginalRate, 0.37)
   })
 
   test('rejects an invalid payload', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/income-tax-settings')
       .withCsrfToken()
-      .loginAs(brian)
-      .json({ userId: brian.id, financialYear: 2026, marginalRate: 1.5 })
+      .loginAs(adam)
+      .json({ userId: adam.id, financialYear: 2026, marginalRate: 1.5 })
 
     response.assertStatus(422)
   })

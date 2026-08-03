@@ -6,8 +6,8 @@ import RecurringBill from '#models/recurring_bill'
 import UserSubscription from '#models/user_subscription'
 import Utility from '#models/utility'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('Categories / index', () => {
@@ -15,13 +15,13 @@ test.group('Categories / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const archived = await Category.create({ name: 'Archived', sortOrder: 999 })
     archived.isActive = false
     await archived.save()
     await Category.create({ name: 'Dog' })
 
-    const response = await client.get('/api/categories').loginAs(brian)
+    const response = await client.get('/api/categories').loginAs(adam)
 
     response.assertStatus(200)
     const names = response.body().data.map((c: { name: string }) => c.name)
@@ -33,19 +33,19 @@ test.group('Categories / index', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const archived = await Category.create({ name: 'Archived Cat' })
     archived.isArchived = true
     await archived.save()
 
-    const defaultResponse = await client.get('/api/categories').loginAs(brian)
+    const defaultResponse = await client.get('/api/categories').loginAs(adam)
     const defaultNames = defaultResponse.body().data.map((c: { name: string }) => c.name)
     assert.notInclude(defaultNames, 'Archived Cat')
 
     const hiddenResponse = await client
       .get('/api/categories')
       .qs({ includeHidden: true })
-      .loginAs(brian)
+      .loginAs(adam)
     const hiddenNames = hiddenResponse.body().data.map((c: { name: string }) => c.name)
     assert.include(hiddenNames, 'Archived Cat')
   })
@@ -53,12 +53,12 @@ test.group('Categories / index', () => {
 
 test.group('Categories / store', () => {
   test('creates a category', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/categories')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Entertainment' })
 
     response.assertStatus(201)
@@ -66,12 +66,12 @@ test.group('Categories / store', () => {
   })
 
   test('auto-assigns a color when none is given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/categories')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Entertainment' })
 
     assert.isString(response.body().data.color)
@@ -81,25 +81,25 @@ test.group('Categories / store', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/categories')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Entertainment', color: '#123456' })
 
     assert.equal(response.body().data.color, '#123456')
   })
 
   test('auto-assigns the next sortOrder when none is given', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const last = await Category.query().orderBy('sortOrder', 'desc').firstOrFail()
 
     const response = await client
       .post('/api/categories')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Entertainment' })
 
     assert.equal(response.body().data.sortOrder, last.sortOrder + 1)
@@ -114,12 +114,12 @@ test.group('Categories / store', () => {
   })
 
   test('rejects an invalid payload', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/categories')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: '' })
 
     response.assertStatus(422)
@@ -128,13 +128,13 @@ test.group('Categories / store', () => {
 
 test.group('Categories / update', () => {
   test('updates a category', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const category = await Category.create({ name: 'Groceries2' })
 
     const response = await client
       .patch(`/api/categories/${category.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ color: '#123456' })
 
     response.assertStatus(200)
@@ -142,26 +142,26 @@ test.group('Categories / update', () => {
   })
 
   test('returns 404 for a non-existent category', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .patch('/api/categories/999999')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ color: '#123456' })
 
     response.assertStatus(404)
   })
 
   test('rejects renaming the system category', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilities = await Category.findByOrFail('name', 'Utilities')
     assert.equal(utilities.isSystem, true)
 
     const response = await client
       .patch(`/api/categories/${utilities.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Renamed Utilities' })
 
     response.assertStatus(409)
@@ -170,13 +170,13 @@ test.group('Categories / update', () => {
   })
 
   test('rejects archiving the system category', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilities = await Category.findByOrFail('name', 'Utilities')
 
     const response = await client
       .patch(`/api/categories/${utilities.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ isArchived: true })
 
     response.assertStatus(409)
@@ -185,13 +185,13 @@ test.group('Categories / update', () => {
   })
 
   test('allows changing the system category color and sortOrder', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilities = await Category.findByOrFail('name', 'Utilities')
 
     const response = await client
       .patch(`/api/categories/${utilities.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ color: '#abcdef', sortOrder: 42 })
 
     response.assertStatus(200)
@@ -203,13 +203,13 @@ test.group('Categories / update', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilities = await Category.findByOrFail('name', 'Utilities')
 
     const response = await client
       .patch(`/api/categories/${utilities.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Utilities', color: '#abcdef' })
 
     response.assertStatus(200)
@@ -219,26 +219,26 @@ test.group('Categories / update', () => {
 
 test.group('Categories / destroy', () => {
   test('rejects removing a category that is not archived', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const category = await Category.create({ name: 'Temp' })
 
     const response = await client
       .delete(`/api/categories/${category.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(409)
     assert.isNotNull(await Category.find(category.id))
   })
 
   test('rejects removing the system category even when archived', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilities = await Category.findByOrFail('name', 'Utilities')
 
     const response = await client
       .delete(`/api/categories/${utilities.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(409)
     assert.isNotNull(await Category.find(utilities.id))
@@ -248,7 +248,7 @@ test.group('Categories / destroy', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const category = await Category.create({ name: 'Temp' })
     category.isArchived = true
     await category.save()
@@ -260,7 +260,7 @@ test.group('Categories / destroy', () => {
       frequency: 'monthly',
     })
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Linked Sub',
       categoryId: category.id,
       amount: 5,
@@ -271,7 +271,7 @@ test.group('Categories / destroy', () => {
     const response = await client
       .delete(`/api/categories/${category.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     assert.isNull(await Category.find(category.id))

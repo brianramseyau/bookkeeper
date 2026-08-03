@@ -5,8 +5,8 @@ import User from '#models/user'
 import BackupSetting from '#models/backup_setting'
 import { backupDir, createBackup } from '#services/backup_service'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('Backups / index', (group) => {
@@ -15,19 +15,19 @@ test.group('Backups / index', (group) => {
   })
 
   test('returns an empty list when no backups exist yet', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/backups').loginAs(brian)
+    const response = await client.get('/api/backups').loginAs(adam)
 
     response.assertStatus(200)
     assert.deepEqual(response.body().data, [])
   })
 
   test('lists existing backups', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await createBackup()
 
-    const response = await client.get('/api/backups').loginAs(brian)
+    const response = await client.get('/api/backups').loginAs(adam)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().data, 1)
@@ -43,9 +43,9 @@ test.group('Backups / store', (group) => {
   })
 
   test('creates a new backup on demand, tagged manual', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.post('/api/backups').withCsrfToken().loginAs(brian)
+    const response = await client.post('/api/backups').withCsrfToken().loginAs(adam)
 
     response.assertStatus(201)
     assert.match(response.body().data.filename, /^bookkeeper-backup-manual-.*\.sqlite3$/)
@@ -56,19 +56,19 @@ test.group('Backups / store', (group) => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const oldAutomatic = await createBackup(DateTime.utc().minus({ days: 10 }))
     await BackupSetting.firstOrCreate(
       { id: 1 },
       { enabled: false, intervalHours: 24, retentionDays: 7 }
     )
 
-    const response = await client.post('/api/backups').withCsrfToken().loginAs(brian)
+    const response = await client.post('/api/backups').withCsrfToken().loginAs(adam)
 
     response.assertStatus(201)
     // The 10-day-old automatic backup is past retentionDays 7, but a manual
     // "Backup now" click must not purge it or otherwise touch the schedule.
-    const listResponse = await client.get('/api/backups').loginAs(brian)
+    const listResponse = await client.get('/api/backups').loginAs(adam)
     assert.lengthOf(listResponse.body().data, 2)
     const filenames = listResponse.body().data.map((b: { filename: string }) => b.filename)
     assert.include(filenames, oldAutomatic.filename)
@@ -85,37 +85,37 @@ test.group('Backups / destroy', (group) => {
   })
 
   test('deletes an existing backup', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const backup = await createBackup()
 
     const response = await client
       .delete(`/api/backups/${backup.filename}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
-    const listResponse = await client.get('/api/backups').loginAs(brian)
+    const listResponse = await client.get('/api/backups').loginAs(adam)
     assert.deepEqual(listResponse.body().data, [])
   })
 
   test('returns 404 for a filename that does not exist', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .delete('/api/backups/bookkeeper-backup-20200101-000000.sqlite3')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(404)
   })
 
   test('returns 404 rather than deleting an unsafe filename', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .delete('/api/backups/..%2F..%2Fetc%2Fpasswd')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(404)
   })
@@ -127,31 +127,31 @@ test.group('Backups / download', (group) => {
   })
 
   test('streams an existing backup file', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const backup = await createBackup()
 
-    const response = await client.get(`/api/backups/${backup.filename}/download`).loginAs(brian)
+    const response = await client.get(`/api/backups/${backup.filename}/download`).loginAs(adam)
 
     response.assertStatus(200)
     assert.include(response.header('content-length'), String(backup.sizeBytes))
   })
 
   test('returns 404 for a filename that does not exist', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .get('/api/backups/bookkeeper-backup-20200101-000000.sqlite3/download')
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(404)
   })
 
   test('returns 404 rather than streaming an unsafe filename', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .get('/api/backups/not-a-real-backup.sqlite3/download')
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(404)
   })

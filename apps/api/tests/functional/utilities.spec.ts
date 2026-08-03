@@ -3,17 +3,17 @@ import User from '#models/user'
 import Category from '#models/category'
 import Utility from '#models/utility'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('Utilities / index', () => {
   test('lists utilities ordered by name', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await Utility.create({ name: 'Test Water' })
     await Utility.create({ name: 'Test Electricity' })
 
-    const response = await client.get('/api/utilities').loginAs(brian)
+    const response = await client.get('/api/utilities').loginAs(adam)
 
     response.assertStatus(200)
     // Filtered to this test's own rows - the "Internet" utility from
@@ -29,12 +29,12 @@ test.group('Utilities / index', () => {
 
 test.group('Utilities / store', () => {
   test('creates a utility with a default frequency', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/utilities')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Gas' })
 
     response.assertStatus(201)
@@ -43,12 +43,12 @@ test.group('Utilities / store', () => {
   })
 
   test('creates a Water-style quarterly utility with a due offset', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/utilities')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Water', frequency: 'quarterly', dueOffsetDays: 28 })
 
     response.assertStatus(201)
@@ -57,12 +57,12 @@ test.group('Utilities / store', () => {
   })
 
   test('creates a Phones-style annual utility paid in advance', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/utilities')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Phones', frequency: 'annual', paidInAdvance: true })
 
     response.assertStatus(201)
@@ -70,12 +70,12 @@ test.group('Utilities / store', () => {
   })
 
   test('rejects an invalid payload', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/utilities')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: '' })
 
     response.assertStatus(422)
@@ -85,7 +85,7 @@ test.group('Utilities / store', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilitiesCategory = await Category.query()
       .where('name', 'Utilities')
       .andWhere('isSystem', true)
@@ -95,7 +95,7 @@ test.group('Utilities / store', () => {
     const response = await client
       .post('/api/utilities')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ name: 'Gas', categoryId: other.id })
 
     response.assertStatus(201)
@@ -105,13 +105,13 @@ test.group('Utilities / store', () => {
 
 test.group('Utilities / update', () => {
   test('updates a utility', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .patch(`/api/utilities/${utility.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ frequency: 'monthly', dueOffsetDays: 0 })
 
     response.assertStatus(200)
@@ -122,7 +122,7 @@ test.group('Utilities / update', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utilitiesCategory = await Category.query()
       .where('name', 'Utilities')
       .andWhere('isSystem', true)
@@ -133,7 +133,7 @@ test.group('Utilities / update', () => {
     const response = await client
       .patch(`/api/utilities/${utility.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ categoryId: other.id })
 
     response.assertStatus(200)
@@ -141,13 +141,13 @@ test.group('Utilities / update', () => {
   })
 
   test('toggles paidInAdvance', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Phones', frequency: 'annual' })
 
     const response = await client
       .patch(`/api/utilities/${utility.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ paidInAdvance: true })
 
     response.assertStatus(200)
@@ -157,13 +157,13 @@ test.group('Utilities / update', () => {
 
 test.group('Utilities / destroy', () => {
   test('soft-deletes a utility', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
 
     const response = await client
       .delete(`/api/utilities/${utility.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     const reloaded = await Utility.findOrFail(utility.id)

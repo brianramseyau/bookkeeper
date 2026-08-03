@@ -8,12 +8,12 @@ import {
   type FakePushServer,
 } from '#tests/helpers/fake_push_server'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
-async function loginAsAriel() {
-  return User.findByOrFail('fullName', 'Ariel')
+async function loginAsEve() {
+  return User.findByOrFail('fullName', 'Eve')
 }
 
 test.group('PushSubscriptions / publicKey', (group) => {
@@ -22,9 +22,9 @@ test.group('PushSubscriptions / publicKey', (group) => {
   })
 
   test('returns a generated public key', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/push-public-key').loginAs(brian)
+    const response = await client.get('/api/push-public-key').loginAs(adam)
 
     response.assertStatus(200)
     assert.isString(response.body().publicKey)
@@ -38,24 +38,24 @@ test.group('PushSubscriptions / index', (group) => {
   })
 
   test("lists only the current user's own subscriptions", async ({ client, assert }) => {
-    const brian = await loginAsBrian()
-    const ariel = await loginAsAriel()
+    const adam = await loginAsAdam()
+    const eve = await loginAsEve()
     const keys = generateTestSubscriptionKeys()
     await PushSubscription.create({
-      userId: brian.id,
-      endpoint: 'https://example.com/push/brian',
+      userId: adam.id,
+      endpoint: 'https://example.com/push/adam',
       p256Dh: keys.p256dh,
       auth: keys.auth,
       userAgent: 'Test Browser',
     })
     await PushSubscription.create({
-      userId: ariel.id,
-      endpoint: 'https://example.com/push/ariel',
+      userId: eve.id,
+      endpoint: 'https://example.com/push/eve',
       p256Dh: keys.p256dh,
       auth: keys.auth,
     })
 
-    const response = await client.get('/api/push-subscriptions').loginAs(brian)
+    const response = await client.get('/api/push-subscriptions').loginAs(adam)
 
     response.assertStatus(200)
     assert.lengthOf(response.body().data, 1)
@@ -71,19 +71,19 @@ test.group('PushSubscriptions / store', (group) => {
   })
 
   test('registers a new subscription for the current user', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const keys = generateTestSubscriptionKeys()
 
     const response = await client
       .post('/api/push-subscriptions')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .header('user-agent', 'Test Browser')
       .json({ endpoint: 'https://example.com/push/new', keys })
 
     response.assertStatus(200)
     const stored = await PushSubscription.findByOrFail('endpoint', 'https://example.com/push/new')
-    assert.equal(stored.userId, brian.id)
+    assert.equal(stored.userId, adam.id)
     assert.equal(stored.userAgent, 'Test Browser')
   })
 
@@ -91,10 +91,10 @@ test.group('PushSubscriptions / store', (group) => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const keys = generateTestSubscriptionKeys()
     await PushSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       endpoint: 'https://example.com/push/existing',
       p256Dh: 'stale',
       auth: 'stale',
@@ -103,7 +103,7 @@ test.group('PushSubscriptions / store', (group) => {
     const response = await client
       .post('/api/push-subscriptions')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ endpoint: 'https://example.com/push/existing', keys })
 
     response.assertStatus(200)
@@ -116,12 +116,12 @@ test.group('PushSubscriptions / store', (group) => {
   })
 
   test('rejects a payload missing keys', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .post('/api/push-subscriptions')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ endpoint: 'https://example.com/push/incomplete' })
 
     response.assertStatus(422)
@@ -134,10 +134,10 @@ test.group('PushSubscriptions / destroy', (group) => {
   })
 
   test("deletes the current user's own subscription", async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const keys = generateTestSubscriptionKeys()
     const subscription = await PushSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       endpoint: 'https://example.com/push/mine',
       p256Dh: keys.p256dh,
       auth: keys.auth,
@@ -146,7 +146,7 @@ test.group('PushSubscriptions / destroy', (group) => {
     const response = await client
       .delete(`/api/push-subscriptions/${subscription.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(204)
     assert.isNull(await PushSubscription.find(subscription.id))
@@ -156,11 +156,11 @@ test.group('PushSubscriptions / destroy', (group) => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    const ariel = await loginAsAriel()
+    const adam = await loginAsAdam()
+    const eve = await loginAsEve()
     const keys = generateTestSubscriptionKeys()
     const subscription = await PushSubscription.create({
-      userId: ariel.id,
+      userId: eve.id,
       endpoint: 'https://example.com/push/not-mine',
       p256Dh: keys.p256dh,
       auth: keys.auth,
@@ -169,19 +169,19 @@ test.group('PushSubscriptions / destroy', (group) => {
     const response = await client
       .delete(`/api/push-subscriptions/${subscription.id}`)
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(404)
     assert.isNotNull(await PushSubscription.find(subscription.id))
   })
 
   test('returns 404 for a subscription id that does not exist', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .delete('/api/push-subscriptions/999999')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
 
     response.assertStatus(404)
   })
@@ -210,12 +210,9 @@ test.group('PushSubscriptions / test', (group) => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client
-      .post('/api/push-subscriptions/test')
-      .withCsrfToken()
-      .loginAs(brian)
+    const response = await client.post('/api/push-subscriptions/test').withCsrfToken().loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().sent, 0)
@@ -223,19 +220,16 @@ test.group('PushSubscriptions / test', (group) => {
   })
 
   test('sends a real test push to a registered device', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const keys = generateTestSubscriptionKeys()
     await PushSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       endpoint: `${server.url}?test=1`,
       p256Dh: keys.p256dh,
       auth: keys.auth,
     })
 
-    const response = await client
-      .post('/api/push-subscriptions/test')
-      .withCsrfToken()
-      .loginAs(brian)
+    const response = await client.post('/api/push-subscriptions/test').withCsrfToken().loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().sent, 1)
@@ -243,20 +237,17 @@ test.group('PushSubscriptions / test', (group) => {
   })
 
   test('reports a rejected device as failed rather than a 500', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const keys = generateTestSubscriptionKeys()
     await PushSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       endpoint: `${server.url}?test=2`,
       p256Dh: keys.p256dh,
       auth: keys.auth,
     })
     server.setResponseStatus(500)
 
-    const response = await client
-      .post('/api/push-subscriptions/test')
-      .withCsrfToken()
-      .loginAs(brian)
+    const response = await client.post('/api/push-subscriptions/test').withCsrfToken().loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().sent, 0)

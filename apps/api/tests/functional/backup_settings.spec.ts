@@ -2,8 +2,8 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import BackupSetting from '#models/backup_setting'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('BackupSettings / show', () => {
@@ -11,9 +11,9 @@ test.group('BackupSettings / show', () => {
     client,
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
-    const response = await client.get('/api/backup-settings').loginAs(brian)
+    const response = await client.get('/api/backup-settings').loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().data.enabled, true)
@@ -23,10 +23,10 @@ test.group('BackupSettings / show', () => {
   })
 
   test('returns the existing schedule rather than resetting it', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await BackupSetting.create({ id: 1, enabled: true, intervalHours: 12, retentionDays: 14 })
 
-    const response = await client.get('/api/backup-settings').loginAs(brian)
+    const response = await client.get('/api/backup-settings').loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().data.enabled, true)
@@ -37,12 +37,12 @@ test.group('BackupSettings / show', () => {
 
 test.group('BackupSettings / update', () => {
   test('updates the schedule', async ({ client, assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/backup-settings')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ enabled: true, intervalHours: 48, retentionDays: 30 })
 
     response.assertStatus(200)
@@ -55,24 +55,24 @@ test.group('BackupSettings / update', () => {
   })
 
   test('rejects an out-of-range retentionDays', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/backup-settings')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ enabled: true, intervalHours: 24, retentionDays: 0 })
 
     response.assertStatus(422)
   })
 
   test('rejects a missing enabled flag', async ({ client }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/backup-settings')
       .withCsrfToken()
-      .loginAs(brian)
+      .loginAs(adam)
       .json({ intervalHours: 24, retentionDays: 7 })
 
     response.assertStatus(422)

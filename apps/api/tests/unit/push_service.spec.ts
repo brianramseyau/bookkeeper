@@ -14,8 +14,8 @@ import {
   type FakePushServer,
 } from '#tests/helpers/fake_push_server'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
 test.group('getPushConfig', (group) => {
@@ -74,10 +74,10 @@ test.group('sendPushNotification', (group) => {
   })
 
   async function createSubscription(id: number) {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const keys = generateTestSubscriptionKeys()
     return PushSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       endpoint: `${server.url}?sub=${id}`,
       p256Dh: keys.p256dh,
       auth: keys.auth,
@@ -140,11 +140,11 @@ test.group('sendPushNotification', (group) => {
     assert,
   }) => {
     server.setResponseStatus(201)
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await createSubscription(5)
     await createSubscription(6)
 
-    const result = await sendTestNotification(brian.id)
+    const result = await sendTestNotification(adam.id)
 
     assert.equal(result.sent, 2)
     assert.equal(result.pruned, 0)
@@ -154,11 +154,11 @@ test.group('sendPushNotification', (group) => {
   test('sendTestNotification counts a pruned subscription rather than a sent one', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await createSubscription(7)
     server.setResponseStatus(410)
 
-    const result = await sendTestNotification(brian.id)
+    const result = await sendTestNotification(adam.id)
 
     assert.equal(result.sent, 0)
     assert.equal(result.pruned, 1)
@@ -168,13 +168,13 @@ test.group('sendPushNotification', (group) => {
   test('sendTestNotification counts a failure rather than throwing, and keeps trying other devices', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     await createSubscription(8)
     await createSubscription(9)
     server.setResponseStatus(500)
     server.resetRequestCount()
 
-    const result = await sendTestNotification(brian.id)
+    const result = await sendTestNotification(adam.id)
 
     assert.equal(result.sent, 0)
     assert.equal(result.pruned, 0)

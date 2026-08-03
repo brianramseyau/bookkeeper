@@ -22,12 +22,12 @@ import {
   type FakePushServer,
 } from '#tests/helpers/fake_push_server'
 
-async function loginAsBrian() {
-  return User.findByOrFail('fullName', 'Brian')
+async function loginAsAdam() {
+  return User.findByOrFail('fullName', 'Adam')
 }
 
-async function loginAsAriel() {
-  return User.findByOrFail('fullName', 'Ariel')
+async function loginAsEve() {
+  return User.findByOrFail('fullName', 'Eve')
 }
 
 test.group('isNotificationCheckDue', () => {
@@ -75,8 +75,8 @@ test.group('getNotificationSchedule / getUserNotificationPreference', (group) =>
   })
 
   test('creates default (disabled) preference per user on first access', async ({ assert }) => {
-    const brian = await loginAsBrian()
-    const prefs = await getUserNotificationPreference(brian.id)
+    const adam = await loginAsAdam()
+    const prefs = await getUserNotificationPreference(adam.id)
 
     assert.equal(Boolean(prefs.enabled), false)
     assert.equal(prefs.leadDays, 3)
@@ -104,7 +104,7 @@ test.group('findDueBillsForUser', (group) => {
   test('includes a recurring bill due within leadDays and excludes one further out', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const vpnDue = today.plus({ days: 2 })
     const carRegoDue = today.plus({ days: 30 })
     await RecurringBill.create({
@@ -121,7 +121,7 @@ test.group('findDueBillsForUser', (group) => {
       dueMonth: carRegoDue.month,
     })
 
-    const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
 
     assert.lengthOf(dueBills, 1)
     assert.equal(dueBills[0].name, 'VPN')
@@ -129,7 +129,7 @@ test.group('findDueBillsForUser', (group) => {
   })
 
   test('excludes recurring bills when notifyRecurringBills is off', async ({ assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const vpnDue = today.plus({ days: 2 })
     await RecurringBill.create({
       name: 'VPN',
@@ -139,7 +139,7 @@ test.group('findDueBillsForUser', (group) => {
     })
 
     const dueBills = await findDueBillsForUser(
-      brian.id,
+      adam.id,
       { ...allEnabled, notifyRecurringBills: false },
       today
     )
@@ -153,7 +153,7 @@ test.group('findDueBillsForUser', (group) => {
     // nextRecurringBillDueDate (shared with the dashboard) always advances a
     // past due day forward by the bill's frequency until it's not in the
     // past - so this never surfaces as negative daysUntilDue.
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const insuranceDue = today.minus({ days: 5 })
     await RecurringBill.create({
       name: 'Insurance',
@@ -162,7 +162,7 @@ test.group('findDueBillsForUser', (group) => {
       dueDay: insuranceDue.day,
     })
 
-    const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
 
     assert.lengthOf(dueBills, 0)
   })
@@ -170,7 +170,7 @@ test.group('findDueBillsForUser', (group) => {
   test('includes an unpaid current-month utility bill and excludes a paid one', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const unpaidUtility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: unpaidUtility.id,
@@ -188,7 +188,7 @@ test.group('findDueBillsForUser', (group) => {
       paid: true,
     })
 
-    const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
 
     assert.lengthOf(dueBills, 1)
     assert.equal(dueBills[0].name, 'Electricity')
@@ -196,7 +196,7 @@ test.group('findDueBillsForUser', (group) => {
   })
 
   test('excludes utility bills when notifyUtilityBills is off', async ({ assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const utility = await Utility.create({ name: 'Electricity' })
     await UtilityBill.create({
       utilityId: utility.id,
@@ -207,7 +207,7 @@ test.group('findDueBillsForUser', (group) => {
     })
 
     const dueBills = await findDueBillsForUser(
-      brian.id,
+      adam.id,
       { ...allEnabled, notifyUtilityBills: false },
       today
     )
@@ -218,23 +218,23 @@ test.group('findDueBillsForUser', (group) => {
   test("includes only the given user's own subscriptions due within leadDays", async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    const ariel = await loginAsAriel()
+    const adam = await loginAsAdam()
+    const eve = await loginAsEve()
     const dueDay = today.plus({ days: 1 }).day
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 20,
       dayOfMonth: dueDay,
     })
     await UserSubscription.create({
-      userId: ariel.id,
+      userId: eve.id,
       name: 'Spotify',
       amount: 12,
       dayOfMonth: dueDay,
     })
 
-    const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
 
     assert.lengthOf(dueBills, 1)
     assert.equal(dueBills[0].name, 'Netflix')
@@ -247,26 +247,26 @@ test.group('findDueBillsForUser', (group) => {
     // Unlike recurring bills, a subscription's dayOfMonth isn't rolled
     // forward to next month - if this month's day has already passed and
     // it's unpaid, it's genuinely overdue.
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const overdueDay = Math.max(1, today.day - 2)
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Gym',
       amount: 30,
       dayOfMonth: overdueDay,
     })
 
-    const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
 
     assert.lengthOf(dueBills, 1)
     assert.isBelow(dueBills[0].daysUntilDue, 0)
   })
 
   test('excludes a subscription already marked paid for the current month', async ({ assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const dueDay = today.plus({ days: 1 }).day
     const subscription = await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 20,
       dayOfMonth: dueDay,
@@ -278,23 +278,23 @@ test.group('findDueBillsForUser', (group) => {
       paid: true,
     })
 
-    const dueBills = await findDueBillsForUser(brian.id, allEnabled, today)
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
 
     assert.lengthOf(dueBills, 0)
   })
 
   test('excludes subscriptions when notifySubscriptions is off', async ({ assert }) => {
-    const brian = await loginAsBrian()
+    const adam = await loginAsAdam()
     const dueDay = today.plus({ days: 1 }).day
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Netflix',
       amount: 20,
       dayOfMonth: dueDay,
     })
 
     const dueBills = await findDueBillsForUser(
-      brian.id,
+      adam.id,
       { ...allEnabled, notifySubscriptions: false },
       today
     )
@@ -348,9 +348,9 @@ test.group('runDueNotificationCheck', (group) => {
   })
 
   test('does nothing when the check is not due yet', async ({ assert }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: true })
-    await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: true })
+    await subscribe(adam.id)
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
@@ -366,10 +366,10 @@ test.group('runDueNotificationCheck', (group) => {
   })
 
   test('sends a push to every subscribed device when a user has a due bill', async ({ assert }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: true, leadDays: 3 })
-    await subscribe(brian.id)
-    await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: true, leadDays: 3 })
+    await subscribe(adam.id)
+    await subscribe(adam.id)
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
@@ -395,9 +395,9 @@ test.group('runDueNotificationCheck', (group) => {
   test('sends one summary push covering multiple due bills, including an overdue one', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: true, leadDays: 3 })
-    await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: true, leadDays: 3 })
+    await subscribe(adam.id)
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
@@ -405,7 +405,7 @@ test.group('runDueNotificationCheck', (group) => {
       dueDay: 29,
     })
     await UserSubscription.create({
-      userId: brian.id,
+      userId: adam.id,
       name: 'Gym',
       amount: 30,
       // Overdue: earlier in the month than "today" below.
@@ -420,9 +420,9 @@ test.group('runDueNotificationCheck', (group) => {
   test('stamps lastRunAt without sending anything when no user has a due bill', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: true })
-    await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: true })
+    await subscribe(adam.id)
 
     await runDueNotificationCheck(DateTime.local(2026, 7, 28, 9, 0, 0))
 
@@ -432,9 +432,9 @@ test.group('runDueNotificationCheck', (group) => {
   })
 
   test('skips users who have not opted in', async ({ assert }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: false })
-    await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: false })
+    await subscribe(adam.id)
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
@@ -448,9 +448,9 @@ test.group('runDueNotificationCheck', (group) => {
   })
 
   test('prunes a subscription the push service reports gone', async ({ assert }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: true })
-    const subscription = await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: true })
+    const subscription = await subscribe(adam.id)
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
@@ -467,10 +467,10 @@ test.group('runDueNotificationCheck', (group) => {
   test('logs and continues past a genuine send failure rather than crashing the run', async ({
     assert,
   }) => {
-    const brian = await loginAsBrian()
-    await UserNotificationPreference.create({ userId: brian.id, enabled: true })
-    await subscribe(brian.id)
-    await subscribe(brian.id)
+    const adam = await loginAsAdam()
+    await UserNotificationPreference.create({ userId: adam.id, enabled: true })
+    await subscribe(adam.id)
+    await subscribe(adam.id)
     await RecurringBill.create({
       name: 'VPN',
       amount: 10,
