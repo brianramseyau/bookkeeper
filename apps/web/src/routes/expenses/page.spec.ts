@@ -142,18 +142,19 @@ describe('expenses page', () => {
 
     const link = await screen.findByRole('link', { name: /Groceries/ })
     expect(link.getAttribute('href')).toBe('/expenses/1')
-    expect(screen.getByText('▲ up')).toBeInTheDocument()
+    expect(screen.getByTitle('Trending up')).toBeInTheDocument()
+    expect(screen.getByText('▲')).toBeInTheDocument()
     expect(screen.getByText('$380.00')).toBeInTheDocument()
     expect(screen.getByText('$350.00')).toBeInTheDocument()
 
     // Rent is itemized, so its budget shows a derived-value marker.
-    expect(screen.getByTitle('One-off')).toBeInTheDocument()
-    expect(screen.getAllByTitle('Recurring')).toHaveLength(2)
     expect(screen.getByTitle('Derived from 3 itemized budget line(s)')).toBeInTheDocument()
 
-    // Credit Card is flagged to ignore from budget - the other two aren't.
-    expect(screen.getByTitle('Ignored from Monthly and Dashboard totals')).toBeInTheDocument()
-    expect(screen.getAllByTitle('Counted in totals')).toHaveLength(2)
+    // Rent isn't Recurring and Credit Card is flagged to ignore from
+    // budget - both are called out under their name; Groceries (the
+    // all-defaults case) gets no status line at all.
+    expect(screen.getByText('adhoc expense')).toBeInTheDocument()
+    expect(screen.getByText('ignored from budget')).toBeInTheDocument()
   })
 
   it('toggles the ignore-budget checkbox and saves it', async () => {
@@ -181,7 +182,7 @@ describe('expenses page', () => {
     })
   })
 
-  it('shows a flat trend indicator', async () => {
+  it('shows a flat trend caret', async () => {
     vi.mocked(listExpenses).mockResolvedValue([groceries])
     vi.mocked(getExpenseTrend).mockResolvedValue({
       average: 100,
@@ -193,10 +194,10 @@ describe('expenses page', () => {
     })
     render(ExpensesPage)
 
-    expect(await screen.findByText('— flat')).toBeInTheDocument()
+    expect(await screen.findByTitle('Flat')).toBeInTheDocument()
   })
 
-  it('shows a down trend indicator', async () => {
+  it('shows a down trend caret', async () => {
     vi.mocked(listExpenses).mockResolvedValue([groceries])
     vi.mocked(getExpenseTrend).mockResolvedValue({
       average: 100,
@@ -208,10 +209,10 @@ describe('expenses page', () => {
     })
     render(ExpensesPage)
 
-    expect(await screen.findByText('▼ down')).toBeInTheDocument()
+    expect(await screen.findByTitle('Trending down')).toBeInTheDocument()
   })
 
-  it('renders a category tag select and calls updateExpense with the chosen categoryId', async () => {
+  it('renders a category select in edit mode and calls updateExpense with the chosen categoryId', async () => {
     vi.mocked(listExpenses).mockResolvedValue([groceries])
     vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
     vi.mocked(listCategories).mockResolvedValue([foodCategory])
@@ -219,10 +220,23 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    const select = await screen.findByRole('combobox')
+    expect(screen.queryByRole('combobox')).toBeNull()
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+
+    const select = screen.getByRole('combobox')
     await user.selectOptions(select, '10')
 
     expect(updateExpense).toHaveBeenCalledWith(1, { categoryId: 10 })
+  })
+
+  it('shows the category name under the expense name outside edit mode', async () => {
+    vi.mocked(listExpenses).mockResolvedValue([{ ...groceries, categoryId: 10 }])
+    vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
+    vi.mocked(listCategories).mockResolvedValue([foodCategory])
+    render(ExpensesPage)
+
+    expect(await screen.findByText('Food')).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).toBeNull()
   })
 
   it('adds a new expense and reloads the list', async () => {
@@ -505,6 +519,20 @@ describe('expenses page', () => {
     await user.click(screen.getAllByRole('button', { name: 'Restore Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isActive: true })
+  })
+
+  it('archives an expense from the desktop actions menu', async () => {
+    vi.mocked(listExpenses).mockResolvedValue([groceries])
+    vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
+    vi.mocked(updateExpense).mockResolvedValue({ ...groceries, isArchived: true })
+    const user = userEvent.setup()
+    render(ExpensesPage)
+
+    await screen.findByText('Groceries')
+    await user.click(await screen.findByRole('button', { name: 'Actions for Groceries' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Archive' }))
+
+    expect(updateExpense).toHaveBeenCalledWith(1, { isArchived: true })
   })
 
   it('drags an expense to a new position, swapping sort order', async () => {

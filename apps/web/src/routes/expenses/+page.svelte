@@ -20,6 +20,7 @@
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import ActionMenu from '$lib/components/ActionMenu.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
   import CategorySelect from '$lib/components/CategorySelect.svelte'
   import DragHandle from '$lib/components/DragHandle.svelte'
@@ -256,7 +257,29 @@
       reordering = false
     }
   }
+
+  // The under-name status line (view mode only) - category plus any
+  // non-default Recurring/Ignore-budget state. Default states (Recurring on,
+  // Ignore budget off) aren't shown - only deviations from the default are
+  // worth calling out here.
+  function statusLineParts(expense: Expense): string[] {
+    const categoryName = categories.find((c) => c.id === expense.categoryId)?.name
+    return [
+      categoryName,
+      expense.isRecurring ? null : 'adhoc expense',
+      expense.excludeFromBudget ? 'ignored from budget' : null,
+    ].filter((part): part is string => Boolean(part))
+  }
 </script>
+
+{#snippet statusLine(expense: Expense)}
+  {@const parts = statusLineParts(expense)}
+  {#if parts.length > 0}
+    <p class="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">
+      {parts.join(' · ')}
+    </p>
+  {/if}
+{/snippet}
 
 {#snippet editRow(expense: Expense)}
   <tr
@@ -264,23 +287,37 @@
   >
     <td class="hidden px-3 py-2 sm:table-cell"></td>
     <td class="px-3 py-2 sm:table-cell">
-      <input
-        type="text"
-        bind:value={editName}
-        class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-28 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-      />
-    </td>
-    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
-      <span
-        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-        >Category</span
-      >
-      <CategorySelect
-        {categories}
-        value={expense.categoryId}
-        variant="table"
-        onchange={(value) => handleCategoryChange(expense, value)}
-      />
+      <div class="flex flex-col gap-2">
+        <input
+          type="text"
+          bind:value={editName}
+          class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        />
+        <CategorySelect
+          {categories}
+          value={expense.categoryId}
+          variant="table"
+          onchange={(value) => handleCategoryChange(expense, value)}
+        />
+        <div class="flex flex-wrap gap-x-4 gap-y-1">
+          <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <input
+              type="checkbox"
+              bind:checked={editIsRecurring}
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Recurring
+          </label>
+          <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <input
+              type="checkbox"
+              bind:checked={editExcludeFromBudget}
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Ignore budget
+          </label>
+        </div>
+      </div>
     </td>
     <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right">
       <span
@@ -322,31 +359,6 @@
         >12-mo avg</span
       >
       —
-    </td>
-    <td class="hidden px-3 py-2 sm:table-cell"></td>
-    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center">
-      <span
-        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-        >Recurring</span
-      >
-      <input
-        type="checkbox"
-        aria-label="Recurring"
-        bind:checked={editIsRecurring}
-        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-      />
-    </td>
-    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center">
-      <span
-        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-        >Ignore budget</span
-      >
-      <input
-        type="checkbox"
-        aria-label="Ignore budget"
-        bind:checked={editExcludeFromBudget}
-        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-      />
     </td>
     <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
       <IconActionButton
@@ -392,29 +404,16 @@
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2"></th>
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Name</th>
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
-            >Category</th
-          >
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Budget</th
           >
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Latest</th
           >
-          <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+          <th
+            class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
+            title="12-month rolling average, with a caret showing whether that average is trending up or down."
             >12-mo avg</th
-          >
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Trend</th
-          >
-          <th
-            class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
-            title="A recurring item is projected forward on the Monthly page even without an actual logged yet; a one-off only shows up there for a month it actually has an actual."
-            >Recurring</th
-          >
-          <th
-            class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400"
-            title="Hides this expense from the Monthly page and Dashboard trend entirely - for spend already counted under other expenses, e.g. Credit Card."
-            >Ignore budget</th
           >
           <th class="px-3 py-2"></th>
         </tr>
@@ -442,12 +441,15 @@
                   <span class="shrink-0 sm:hidden">
                     <DragHandle label="Move {row.expense.name}" />
                   </span>
-                  <a
-                    href={`/expenses/${row.expense.id}`}
-                    class="min-w-0 truncate hover:text-indigo-600 dark:hover:text-indigo-400"
-                  >
-                    {row.expense.name}
-                  </a>
+                  <span class="min-w-0">
+                    <a
+                      href={`/expenses/${row.expense.id}`}
+                      class="block truncate hover:text-indigo-600 dark:hover:text-indigo-400"
+                    >
+                      {row.expense.name}
+                    </a>
+                    {@render statusLine(row.expense)}
+                  </span>
                 </span>
                 <span class="flex shrink-0 items-center gap-1 sm:hidden">
                   <IconActionButton
@@ -469,18 +471,6 @@
                     onclick={() => handleArchive(row.expense)}
                   />
                 </span>
-              </td>
-              <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
-                <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Category</span
-                >
-                <CategorySelect
-                  {categories}
-                  value={row.expense.categoryId}
-                  variant="table"
-                  onchange={(value) => handleCategoryChange(row.expense, value)}
-                />
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
@@ -515,65 +505,34 @@
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                   >12-mo avg</span
                 >
-                {formatCurrency(row.trend?.average ?? null)}
+                <span class="inline-flex items-center gap-1.5">
+                  <span>{formatCurrency(row.trend?.average ?? null)}</span>
+                  <TrendIndicator trend={row.trend?.trend} caretOnly class="text-sm font-medium" />
+                </span>
               </td>
-              <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
-                <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Trend</span
-                >
-                <TrendIndicator trend={row.trend?.trend} class="text-xs font-medium" />
-              </td>
-              <td
-                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
-              >
-                <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Recurring</span
-                >
-                {#if row.expense.isRecurring}
-                  <span class="text-emerald-600 dark:text-emerald-400" title="Recurring">✓</span>
-                {:else}
-                  <span class="text-slate-300 dark:text-slate-600" title="One-off">—</span>
-                {/if}
-              </td>
-              <td
-                class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
-              >
-                <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Ignore budget</span
-                >
-                {#if row.expense.excludeFromBudget}
-                  <span
-                    class="text-emerald-600 dark:text-emerald-400"
-                    title="Ignored from Monthly and Dashboard totals">✓</span
-                  >
-                {:else}
-                  <span class="text-slate-300 dark:text-slate-600" title="Counted in totals">—</span
-                  >
-                {/if}
-              </td>
-              <td
-                class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
-              >
-                <IconActionButton
-                  variant="neutral"
-                  label="Edit {row.expense.name}"
-                  path={mdiPencil}
-                  onclick={() => startEdit(row.expense)}
-                />
-                <IconActionButton
-                  variant="amber"
-                  label="Pause {row.expense.name}"
-                  path={mdiPause}
-                  onclick={() => handlePause(row.expense)}
-                />
-                <IconActionButton
-                  variant="muted"
-                  label="Archive {row.expense.name}"
-                  path={mdiArchive}
-                  onclick={() => handleArchive(row.expense)}
+              <td class="hidden justify-end px-3 py-2 sm:table-cell sm:text-right">
+                <ActionMenu
+                  label="Actions for {row.expense.name}"
+                  actions={[
+                    {
+                      label: 'Edit',
+                      path: mdiPencil,
+                      variant: 'neutral',
+                      onclick: () => startEdit(row.expense),
+                    },
+                    {
+                      label: 'Pause',
+                      path: mdiPause,
+                      variant: 'amber',
+                      onclick: () => handlePause(row.expense),
+                    },
+                    {
+                      label: 'Archive',
+                      path: mdiArchive,
+                      variant: 'muted',
+                      onclick: () => handleArchive(row.expense),
+                    },
+                  ]}
                 />
               </td>
             </tr>
@@ -586,7 +545,7 @@
               class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
-                colspan="10"
+                colspan="6"
                 class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Paused
@@ -604,8 +563,13 @@
                     class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
                     <span class="flex min-w-0 items-center">
-                      <span class="truncate">{row.expense.name}</span>
-                      <StatusBadge label="Paused" tone="amber" />
+                      <span class="min-w-0">
+                        <span class="flex items-center">
+                          <span class="truncate">{row.expense.name}</span>
+                          <StatusBadge label="Paused" tone="amber" />
+                        </span>
+                        {@render statusLine(row.expense)}
+                      </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-1 sm:hidden">
                       <IconActionButton
@@ -629,15 +593,6 @@
                     </span>
                   </td>
                   <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Category</span
-                    >
-                    {categories.find((c) => c.id === row.expense.categoryId)?.name ?? ''}
-                  </td>
-                  <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
                   >
                     <span
@@ -664,55 +619,29 @@
                     >
                     {formatCurrency(row.trend?.average ?? null)}
                   </td>
-                  <td class="hidden px-3 py-2 sm:table-cell"></td>
-                  <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
-                    title="Hidden from Monthly while paused"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Recurring</span
-                    >
-                    —
-                  </td>
-                  <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Ignore budget</span
-                    >
-                    {#if row.expense.excludeFromBudget}
-                      <span
-                        class="text-emerald-600 dark:text-emerald-400"
-                        title="Ignored from Monthly and Dashboard totals">✓</span
-                      >
-                    {:else}
-                      <span class="text-slate-300 dark:text-slate-600" title="Counted in totals"
-                        >—</span
-                      >
-                    {/if}
-                  </td>
-                  <td
-                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
-                  >
-                    <IconActionButton
-                      variant="neutral"
-                      label="Edit {row.expense.name}"
-                      path={mdiPencil}
-                      onclick={() => startEdit(row.expense)}
-                    />
-                    <IconActionButton
-                      variant="success"
-                      label="Unpause {row.expense.name}"
-                      path={mdiPlay}
-                      onclick={() => handleUnpause(row.expense)}
-                    />
-                    <IconActionButton
-                      variant="muted"
-                      label="Archive {row.expense.name}"
-                      path={mdiArchive}
-                      onclick={() => handleArchive(row.expense)}
+                  <td class="hidden justify-end px-3 py-2 sm:table-cell sm:text-right">
+                    <ActionMenu
+                      label="Actions for {row.expense.name}"
+                      actions={[
+                        {
+                          label: 'Edit',
+                          path: mdiPencil,
+                          variant: 'neutral',
+                          onclick: () => startEdit(row.expense),
+                        },
+                        {
+                          label: 'Unpause',
+                          path: mdiPlay,
+                          variant: 'success',
+                          onclick: () => handleUnpause(row.expense),
+                        },
+                        {
+                          label: 'Archive',
+                          path: mdiArchive,
+                          variant: 'muted',
+                          onclick: () => handleArchive(row.expense),
+                        },
+                      ]}
                     />
                   </td>
                 </tr>
@@ -725,7 +654,7 @@
               class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
-                colspan="10"
+                colspan="6"
                 class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Archived
@@ -743,8 +672,13 @@
                     class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
                     <span class="flex min-w-0 items-center">
-                      <span class="truncate">{row.expense.name}</span>
-                      <StatusBadge label="Archived" tone="slate" />
+                      <span class="min-w-0">
+                        <span class="flex items-center">
+                          <span class="truncate">{row.expense.name}</span>
+                          <StatusBadge label="Archived" tone="slate" />
+                        </span>
+                        {@render statusLine(row.expense)}
+                      </span>
                     </span>
                     <span class="flex shrink-0 items-center gap-1 sm:hidden">
                       <IconActionButton
@@ -768,15 +702,6 @@
                     </span>
                   </td>
                   <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Category</span
-                    >
-                    {categories.find((c) => c.id === row.expense.categoryId)?.name ?? ''}
-                  </td>
-                  <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
                   >
                     <span
@@ -803,55 +728,29 @@
                     >
                     {formatCurrency(row.trend?.average ?? null)}
                   </td>
-                  <td class="hidden px-3 py-2 sm:table-cell"></td>
-                  <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
-                    title="Hidden from Monthly while archived"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Recurring</span
-                    >
-                    —
-                  </td>
-                  <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Ignore budget</span
-                    >
-                    {#if row.expense.excludeFromBudget}
-                      <span
-                        class="text-emerald-600 dark:text-emerald-400"
-                        title="Ignored from Monthly and Dashboard totals">✓</span
-                      >
-                    {:else}
-                      <span class="text-slate-300 dark:text-slate-600" title="Counted in totals"
-                        >—</span
-                      >
-                    {/if}
-                  </td>
-                  <td
-                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
-                  >
-                    <IconActionButton
-                      variant="neutral"
-                      label="Edit {row.expense.name}"
-                      path={mdiPencil}
-                      onclick={() => startEdit(row.expense)}
-                    />
-                    <IconActionButton
-                      variant="success"
-                      label="Unarchive {row.expense.name}"
-                      path={mdiPackageUp}
-                      onclick={() => handleUnarchive(row.expense)}
-                    />
-                    <IconActionButton
-                      variant="danger"
-                      label="Delete {row.expense.name}"
-                      path={mdiDelete}
-                      onclick={() => handleRemove(row.expense)}
+                  <td class="hidden justify-end px-3 py-2 sm:table-cell sm:text-right">
+                    <ActionMenu
+                      label="Actions for {row.expense.name}"
+                      actions={[
+                        {
+                          label: 'Edit',
+                          path: mdiPencil,
+                          variant: 'neutral',
+                          onclick: () => startEdit(row.expense),
+                        },
+                        {
+                          label: 'Unarchive',
+                          path: mdiPackageUp,
+                          variant: 'success',
+                          onclick: () => handleUnarchive(row.expense),
+                        },
+                        {
+                          label: 'Delete',
+                          path: mdiDelete,
+                          variant: 'danger',
+                          onclick: () => handleRemove(row.expense),
+                        },
+                      ]}
                     />
                   </td>
                 </tr>
@@ -864,7 +763,7 @@
               class="block border-b border-slate-100 bg-slate-50 sm:table-row dark:border-slate-700/60 dark:bg-slate-900/40"
             >
               <td
-                colspan="10"
+                colspan="6"
                 class="block px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase sm:table-cell dark:text-slate-400"
               >
                 Removed
@@ -879,8 +778,13 @@
                   class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                 >
                   <span class="flex min-w-0 items-center">
-                    <span class="truncate">{row.expense.name}</span>
-                    <StatusBadge label="Removed" tone="slate" />
+                    <span class="min-w-0">
+                      <span class="flex items-center">
+                        <span class="truncate">{row.expense.name}</span>
+                        <StatusBadge label="Removed" tone="slate" />
+                      </span>
+                      {@render statusLine(row.expense)}
+                    </span>
                   </span>
                   <span class="flex shrink-0 items-center gap-1 sm:hidden">
                     <IconActionButton
@@ -890,15 +794,6 @@
                       onclick={() => handleRestore(row.expense)}
                     />
                   </span>
-                </td>
-                <td
-                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
-                >
-                  <span
-                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                    >Category</span
-                  >
-                  {categories.find((c) => c.id === row.expense.categoryId)?.name ?? ''}
                 </td>
                 <td
                   class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell sm:text-right dark:text-slate-400"
@@ -926,25 +821,6 @@
                     >12-mo avg</span
                   >
                   {formatCurrency(row.trend?.average ?? null)}
-                </td>
-                <td class="hidden px-3 py-2 sm:table-cell"></td>
-                <td
-                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
-                >
-                  <span
-                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                    >Recurring</span
-                  >
-                  —
-                </td>
-                <td
-                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-300 sm:table-cell sm:text-center dark:text-slate-600"
-                >
-                  <span
-                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                    >Ignore budget</span
-                  >
-                  —
                 </td>
                 <td
                   class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"

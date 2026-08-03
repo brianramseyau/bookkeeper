@@ -51,4 +51,20 @@ describe('TrendIndicator', () => {
     const { container } = render(TrendIndicator, { trend: 'up', as: 'p' })
     expect(container.querySelector('p')).not.toBeNull()
   })
+
+  it('renders just the caret with a title tooltip when caretOnly is set', () => {
+    const { getByText } = render(TrendIndicator, { trend: 'up', caretOnly: true })
+    const el = getByText('▲')
+    expect(el.title).toBe('Trending up')
+  })
+
+  it('renders the down caret and title when caretOnly is set', () => {
+    const { getByText } = render(TrendIndicator, { trend: 'down', caretOnly: true })
+    expect(getByText('▼').title).toBe('Trending down')
+  })
+
+  it('renders the flat caret and title when caretOnly is set', () => {
+    const { getByText } = render(TrendIndicator, { trend: 'flat', caretOnly: true })
+    expect(getByText('—').title).toBe('Flat')
+  })
 })

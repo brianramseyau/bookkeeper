@@ -113,6 +113,28 @@ and read the same on desktop and mobile.
   adjacent number input. Don't add this prop out of habit — only when an
   adjacent focused input's blur handler would otherwise fire first.
 
+### Action menus (>2 row actions)
+
+**Any row that has more than two actions must use `$lib/components/ActionMenu.svelte`**,
+not a row of inline `IconActionButton`s — see
+`apps/web/src/routes/expenses/+page.svelte`'s desktop actions column
+(Edit/Pause/Archive, Edit/Unpause/Archive, and Edit/Unarchive/Delete groups)
+for the reference implementation. Two icon buttons side by side (e.g. the
+inline-edit row's Save + Cancel) are still fine inline — this rule only
+kicks in once a row would need a third. `ActionMenu` renders a single
+`mdiDotsVertical` trigger button (same 36px `IconActionButton`-style hit
+target) that opens a `role="menu"` panel anchored to the row, one
+icon+label button per action, closed by re-clicking the trigger, choosing
+an item, or clicking outside (a `fixed inset-0` transparent overlay behind
+the panel). Pass `actions` as `{ label, path, variant, onclick, disabled? }`
+objects — `label` here is the bare verb ("Edit", "Archive"), not a
+row-specific string like `IconActionButton`'s `label` prop, since the
+row's identity is already established by where the menu was opened from.
+This is a desktop-table-column concern only — a mobile card that already
+condenses its actions into the title row (see "Responsive tables (mobile)"
+below) can keep its inline `IconActionButton`s there even past two, since
+there's no shared column width being squeezed.
+
 ### Danger action confirmation
 
 Hard-delete actions (`handleDelete`/`handleRemove` for categories, bills,
@@ -317,6 +339,21 @@ Every data table follows the same recipe — see
   per-row placeholder variant don't fit the shared components' fixed
   amount→date→note cell order — extend the shared pair for a table that
   matches their shape, don't force a divergent one onto them.
+- **Secondary attributes folded under the title cell instead of their own
+  column** (Expenses' Name column — category, "adhoc expense" when not
+  Recurring, "ignored from budget" when excluded): when a table has too
+  many narrow columns to fit without horizontal scroll, prefer collapsing
+  low-cardinality/boolean-ish columns into a single muted line under the
+  row's title rather than giving each one a dedicated column — `<p
+class="mt-0.5 truncate text-xs text-slate-400 dark:text-slate-500">` with
+  the parts joined by `' · '`, only rendering when there's at least one
+  non-default part to show (the default/affirmative state, e.g. Recurring
+  "on", isn't called out — only the deviation is). Any field that's
+  editable stays editable from the row's inline edit form (see "Inline row
+  edit mode" above) even after its standalone column is removed — it just
+  moves into that form's body instead of a `<td>` of its own, e.g.
+  Expenses' Category `<select>` and Recurring/Ignore-budget checkboxes are
+  edit-only now, gone from the always-visible view row.
 - **Not-yet-persisted placeholder row** (Monthly's Incoming table — a
   source's projected pay date with no logged entry yet, `monthly/+page.svelte`):
   same row shape as a normal row, plus `italic` on the `<tr>` and
@@ -463,6 +500,11 @@ sortOrder}` pairs that actually changed. This generalizes the old
   once the line is marked paid.
 - **Trend indicator** — `$lib/components/TrendIndicator.svelte`: `▲ up`
   (red — spending went up is bad), `▼ down` (emerald), `— flat` (slate).
+  Pass `caretOnly` to render just the glyph (with a `title` tooltip instead
+  of the word) merged next to a value in a tight column — see Expenses'
+  "12-mo avg" column, which merges what used to be a separate "Trend"
+  column into `{amount} <TrendIndicator caretOnly .../>` rather than
+  spending a whole column on it.
 
 ## Color usage
 
