@@ -14,9 +14,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm --filter api typecheck && pnpm --filter web check",
-    "test": "pnpm --filter api test && pnpm --filter web test"
+    "test": "pnpm --filter api test && pnpm --filter web test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "prettier": "^3.4.2",
     "prettier-plugin-svelte": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.8.0"

@@ -157,7 +157,9 @@ export default class DemoSeed extends BaseCommand {
       // Lean Category tags - "Utilities" already exists by the time this
       // runs (migrations always create the protected system category), so
       // it's looked up rather than created.
-      const utilitiesCategory = await Category.findByOrFail('name', 'Utilities')
+      const utilitiesCategory = await Category.query({ client: trx })
+        .where('name', 'Utilities')
+        .firstOrFail()
       const subscriptionsCategory = await Category.create(
         { name: 'Subscriptions', color: '#a855f7' },
         { client: trx }

@@ -53,6 +53,7 @@ pnpm lint:fix
 pnpm typecheck           # tsc --noEmit (api) + svelte-check (web)
 pnpm format              # prettier --write .
 pnpm test                # full suite: api (Japa) then web (Vitest)
+pnpm test:e2e             # Playwright e2e — see Testing section below
 pnpm build               # web build -> apps/api/public -> api build
 ```
 
@@ -252,6 +253,31 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
 - Run `pnpm test` (both apps) before considering a change done; run the
   single-app `test:coverage` script if you need to check the number didn't
   regress.
+- **E2E**: Playwright, config at the repo root (`playwright.config.ts`),
+  specs in `e2e/`. Covers the main browser flows — login (valid/invalid
+  credentials, redirect-when-unauthenticated), the dashboard, every nav
+  page loading via a real click through the nav bar with zero console
+  errors, and the not-found error page. Run with `pnpm test:e2e`
+  (`pnpm test:e2e:ui` for the interactive UI runner). It starts its own
+  API (port 3334) and web (port 5174) dev servers against a disposable
+  `apps/api/tmp/e2e.sqlite3`, migrated and seeded fresh on every run with
+  `node ace demo:seed` (`apps/api/commands/demo_seed.ts`, the same
+  ephemeral-showcase seeder used for dev demo instances) — hardcoded
+  fictional login, no workbook fixture needed, and real content on every
+  page. It never touches the real dev server on 3333/5173 or its
+  database, so it's safe to run alongside `pnpm dev:api`/`pnpm dev:web`.
+  Login credentials live in `e2e/credentials.ts` (fictional, safe to
+  commit).
+  Auth is done once via `e2e/auth.setup.ts`, which saves browser storage
+  state to `e2e/.auth/user.json` (gitignored) for the other specs to reuse
+  — `e2e/login.spec.ts` overrides this to start each test logged out.
+  Playwright is also available as a general local dependency for any
+  agent that wants to visually validate a web change in a real browser
+  beyond what Vitest/jsdom can check — e.g. `npx playwright test
+  --headed`, or drive one-off pages with `npx playwright screenshot` /
+  ad-hoc scripts using `@playwright/test`'s `chromium.launch()`, rather
+  than only trusting a jsdom-based unit test for a visual/interaction
+  change.
 
 ## Formatting & linting
 
