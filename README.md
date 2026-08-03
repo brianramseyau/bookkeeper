@@ -460,13 +460,9 @@ before proceeding.
   enforce the *intersection* of a header policy and a meta-tag policy, so
   it silently overrides the real one. Don't add `kit.csp` to
   `svelte.config.js`.
-- **Vulnerable transitive deps under `exceljs` (Informational)** -
-  `pnpm audit --prod` flags `brace-expansion` (2x High) and `uuid`
-  (Moderate) via `exceljs` → `archiver`/`uuid`. `exceljs` is only used by
-  the frozen `apps/api/commands/import_xlsx.ts`,
-  `commands/import_income_actuals.ts`, and
-  `database/seeders/user_seeder.ts` - never reachable from HTTP input -
-  so this is low urgency, but a `pnpm.overrides` pin would clear the
-  audit noise. Re-run `pnpm audit --prod` after pinning to confirm the
-  advisories clear, and confirm `pnpm --filter api test` still passes
-  (the import/seed code paths exercise `exceljs` directly).
+- ~~**Vulnerable transitive deps under `exceljs` (Informational)**~~ -
+  Fixed. `pnpm-workspace.yaml` now pins `brace-expansion@1`/`@2` and
+  `uuid@<11.1.1` to their patched versions via `overrides` (pnpm 10+ reads
+  overrides from `pnpm-workspace.yaml`, not `package.json`'s `pnpm` field).
+  `pnpm audit --prod` reports no known vulnerabilities;
+  `pnpm --filter api test` still passes.
