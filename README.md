@@ -392,3 +392,60 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   row types (carryover, income entries, placeholders, expense lines)
   with inconsistent action-button availability, so it needs its own
   pass rather than a copy-paste of the Bills pattern.
+
+## OWASP Top 10:2025 remediations
+
+Findings from an OWASP Top 10:2025 audit pass (2026-08-03) not fixed at
+the time, kept here as self-contained tickets. Each is written so an
+agent can pick it up cold - context, the fix, and where to stop and ask
+before proceeding.
+
+- **SSRF via unvalidated push-subscription endpoint (Medium)** -
+  `apps/api/app/validators/push_subscription.ts` accepts any string as
+  `endpoint`, and `apps/api/app/services/push_service.ts`
+  (`webpush.sendNotification`) POSTs to it verbatim - an authenticated
+  household account can register a subscription pointing at an internal
+  LAN address and trigger the request via
+  `POST /api/push-subscriptions/test`
+  (`app/controllers/push_subscriptions_controller.ts`). Fix by validating
+  `endpoint` against an allowlist of real push-service origins (e.g.
+  `https://fcm.googleapis.com/*`, `https://updates.push.services.mozilla.com/*`,
+  `https://web.push.apple.com/*`) at the validator layer, rejecting
+  anything else with a clear VineJS error. Add functional test coverage
+  for both an accepted and a rejected endpoint.
+  **Ask first**: confirm the exact set of push origins to allow - this
+  should cover whatever browsers/OSes the two household members actually
+  use (desktop/mobile Chrome, Safari, Firefox), and the list should be
+  cross-checked against the Web Push spec rather than guessed, since an
+  incomplete list breaks legitimate notification delivery.
+- **No login throttling / brute-force protection (Low)** -
+  `apps/api/app/controllers/auth_controller.ts` calls
+  `User.verifyCredentials` with no rate limit or lockout. Add a throttle
+  middleware (e.g. AdonisJS's `@adonisjs/limiter`) on the login route,
+  keyed by IP and/or email, with test coverage for both the allowed and
+  throttled paths.
+  **Ask first**: what limit/window to use, and whether throttling should
+  key on IP, email, or both - this matters more once the app is exposed
+  via the Authentik reverse-proxy path described above, so the answer may
+  depend on whether that's currently in use.
+- **Content-Security-Policy disabled (Low)** -
+  `apps/api/config/shield.ts` has `csp.enabled: false` while HSTS,
+  X-Frame-Options, and nosniff are all on. Enable a CSP restrictive
+  enough for a same-origin SPA with no third-party scripts (start from
+  `default-src 'self'`) and verify the built SPA still loads/functions
+  fully under it (check the network/console tab for blocked resources -
+  fonts, inline styles from Tailwind, etc. are the likely trip points).
+  **Ask first**: none required to start, but treat this as "verify in a
+  real browser against the production build" rather than "assume the
+  policy is correct" before considering it done - there's no automated
+  test coverage today that would catch a CSP regression.
+- **Vulnerable transitive deps under `exceljs` (Informational)** -
+  `pnpm audit --prod` flags `brace-expansion` (2x High) and `uuid`
+  (Moderate) via `exceljs` → `archiver`/`uuid`. `exceljs` is only used by
+  the frozen `apps/api/commands/import_xlsx.ts`,
+  `commands/import_income_actuals.ts`, and
+  `database/seeders/user_seeder.ts` - never reachable from HTTP input -
+  so this is low urgency, but a `pnpm.overrides` pin would clear the
+  audit noise. Re-run `pnpm audit --prod` after pinning to confirm the
+  advisories clear, and confirm `pnpm --filter api test` still passes
+  (the import/seed code paths exercise `exceljs` directly).
