@@ -411,16 +411,20 @@ before proceeding.
   use (desktop/mobile Chrome, Safari, Firefox), and the list should be
   cross-checked against the Web Push spec rather than guessed, since an
   incomplete list breaks legitimate notification delivery.
-- **No login throttling / brute-force protection (Low)** -
-  `apps/api/app/controllers/auth_controller.ts` calls
-  `User.verifyCredentials` with no rate limit or lockout. Add a throttle
-  middleware (e.g. AdonisJS's `@adonisjs/limiter`) on the login route,
-  keyed by IP and/or email, with test coverage for both the allowed and
-  throttled paths.
-  **Ask first**: what limit/window to use, and whether throttling should
-  key on IP, email, or both - this matters more once the app is exposed
-  via the Authentik reverse-proxy path described above, so the answer may
-  depend on whether that's currently in use.
+- ~~**No login throttling / brute-force protection (Low)**~~ - Fixed.
+  `POST /api/login` is throttled via `@adonisjs/limiter`
+  (`apps/api/start/limiter.ts`'s `loginThrottle`, applied in
+  `apps/api/start/routes.ts`): 5 attempts per 15 minutes, keyed by
+  IP+email so neither a single attacker IP nor a single targeted account
+  can be brute-forced without hitting the limit. Uses the `database`
+  store (new `rate_limits` table, see the
+  `create_rate_limits_table` migration) in dev/prod since there's no
+  Redis in this stack; tests use the `memory` store
+  (`LIMITER_STORE=memory` in `.env.test`). Test coverage in
+  `apps/api/tests/functional/auth.spec.ts`. Confirmed with the user that
+  Authentik is already the reverse-proxy front line, so this is
+  defense-in-depth for the AdonisJS login route rather than the primary
+  control.
 - **Content-Security-Policy disabled (Low)** -
   `apps/api/config/shield.ts` has `csp.enabled: false` while HSTS,
   X-Frame-Options, and nosniff are all on. Enable a CSP restrictive

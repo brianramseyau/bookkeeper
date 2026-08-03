@@ -11,10 +11,11 @@ import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import app from '@adonisjs/core/services/app'
 import { controllers } from '#generated/controllers'
+import { loginThrottle } from '#start/limiter'
 
 router
   .group(() => {
-    router.post('login', [controllers.Auth, 'login'])
+    router.post('login', [controllers.Auth, 'login']).use(loginThrottle)
 
     router
       .group(() => {

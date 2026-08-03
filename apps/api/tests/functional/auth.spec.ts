@@ -54,4 +54,30 @@ test.group('Auth', () => {
     const response = await client.post('/api/logout').withCsrfToken().loginAs(user)
     response.assertStatus(200)
   })
+
+  test('allows repeated login attempts up to the throttle limit', async ({ client }) => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await client.post('/api/login').withCsrfToken().json({
+        email: 'throttle-allowed@test.local',
+        password: 'wrong-password',
+      })
+      response.assertStatus(400)
+    }
+  })
+
+  test('throttles login attempts after 5 failures for the same IP+email', async ({ client }) => {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const response = await client.post('/api/login').withCsrfToken().json({
+        email: 'throttle-blocked@test.local',
+        password: 'wrong-password',
+      })
+      response.assertStatus(400)
+    }
+
+    const response = await client.post('/api/login').withCsrfToken().json({
+      email: 'throttle-blocked@test.local',
+      password: 'wrong-password',
+    })
+    response.assertStatus(429)
+  })
 })

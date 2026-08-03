@@ -44,4 +44,11 @@ export default await Env.create(new URL('../', import.meta.url), {
   // on the way in.
   AUTHENTIK_PROXY_AUTH_ENABLED: Env.schema.boolean.optional(),
   AUTHENTIK_SHARED_SECRET: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
+  | Variables for configuring the limiter package
+  |----------------------------------------------------------
+  */
+  LIMITER_STORE: Env.schema.enum(['database', 'memory'] as const),
 })
