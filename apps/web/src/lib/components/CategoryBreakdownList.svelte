@@ -26,8 +26,9 @@
         <div class="mt-1 h-2 rounded-full bg-slate-100 dark:bg-slate-700/60">
           <div
             class="h-2 rounded-full"
-            style="width: {maxTotal > 0 ? (entry.total / maxTotal) * 100 : 0}%; background-color: {entry.color ??
-              '#94a3b8'}"
+            style="width: {maxTotal > 0
+              ? (entry.total / maxTotal) * 100
+              : 0}%; background-color: {entry.color ?? '#94a3b8'}"
           ></div>
         </div>
       </li>

@@ -16,7 +16,7 @@
     saving: boolean
     cellClass?: string
     lastCellClass?: string
-    leading: Snippet
+    leading: Snippet<[actions: Snippet]>
     onSave: (updates: IncomeEntryEditUpdates) => void
     onCancel: () => void
   }
@@ -51,10 +51,12 @@
   }
 </script>
 
+{#snippet noActions()}{/snippet}
+
 <tr
   class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
 >
-  {@render leading()}
+  {@render leading(noActions)}
   <td class={[cellClass, 'flex items-center justify-between gap-3 sm:table-cell sm:text-right']}>
     <span
       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"

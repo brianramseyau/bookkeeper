@@ -178,7 +178,8 @@
   <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
     <Card class="p-4 lg:col-span-2">
       <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
-        Monthly expenses (12 months through {monthName(month)} {year})
+        Monthly expenses (12 months through {monthName(month)}
+        {year})
       </h2>
       <div class="mt-3">
         <MonthlyExpenseChart

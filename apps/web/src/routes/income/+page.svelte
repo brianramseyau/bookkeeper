@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, type Snippet } from 'svelte'
   import {
     listIncomeSources,
     createIncomeSource,
@@ -728,8 +728,24 @@
               <tr
                 class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
-                  {source.name}
+                <td
+                  class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+                >
+                  <span class="min-w-0 truncate">{source.name}</span>
+                  <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {source.name}"
+                      path={mdiPencil}
+                      onclick={() => startEdit(source)}
+                    />
+                    <IconActionButton
+                      variant="danger"
+                      label="Delete {source.name}"
+                      path={mdiDelete}
+                      onclick={() => handleDelete(source)}
+                    />
+                  </span>
                 </td>
                 <td
                   class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
@@ -759,7 +775,7 @@
                   {source.taxWithheld ? 'Yes' : 'No'}
                 </td>
                 <td
-                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                 >
                   <IconActionButton
                     variant="neutral"
@@ -1014,11 +1030,14 @@
                         </thead>
                         <tbody class="block sm:table-row-group">
                           {#each monthEntries as entry (entry.id)}
-                            {#snippet sourceCell()}
+                            {#snippet sourceCell(actions: Snippet)}
                               <td
-                                class="py-1.5 pr-3 text-slate-700 sm:table-cell dark:text-slate-300"
+                                class="flex min-h-9 items-center justify-between gap-3 py-1.5 pr-3 text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                               >
-                                {sourceName(entry.incomeSourceId)}
+                                <span class="min-w-0 truncate"
+                                  >{sourceName(entry.incomeSourceId)}</span
+                                >
+                                {@render actions()}
                               </td>
                             {/snippet}
                             {#if editingEntryId === entry.id}
@@ -1259,13 +1278,23 @@
                     {formatDate(item.receivedOn)}
                   </td>
                   <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100"
+                    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
                   >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Item</span
-                    >
-                    {item.note ?? '—'}
+                    <span class="min-w-0 truncate">{item.note ?? '—'}</span>
+                    <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                      <IconActionButton
+                        variant="neutral"
+                        label="Edit entry from {formatDate(item.receivedOn)}"
+                        path={mdiPencil}
+                        onclick={() => startEditItem(item)}
+                      />
+                      <IconActionButton
+                        variant="danger"
+                        label="Delete entry from {formatDate(item.receivedOn)}"
+                        path={mdiDelete}
+                        onclick={() => handleDeleteItem(item)}
+                      />
+                    </span>
                   </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
@@ -1304,7 +1333,7 @@
                     {formatCurrency(computeItemGain(item))}
                   </td>
                   <td
-                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="neutral"

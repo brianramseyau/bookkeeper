@@ -165,7 +165,7 @@ where there's no hover state to stumble onto it.
   fact, not the same flag twice.
 - **Props**: `label` (accessible name for the trigger button, row-specific
   like `IconActionButton`'s — e.g. `"Why is {line.label}'s actual amount
-  estimated?"`) and `text` (the explanation shown in the panel and set as
+estimated?"`) and `text` (the explanation shown in the panel and set as
   `title`).
 
 ### Danger action confirmation
@@ -279,9 +279,8 @@ rather than re-deriving it.
 at all, so `paid` defaulted rather than reflecting a real entry):
 
 ```html
-class={[
-  'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
-  line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
+class={[ 'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40
+dark:border-slate-600', line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
 ]}
 ```
 

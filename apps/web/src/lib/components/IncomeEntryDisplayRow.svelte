@@ -11,7 +11,7 @@
     cellClass?: string
     lastCellClass?: string
     amountValueClass?: string
-    leading: Snippet
+    leading: Snippet<[actions: Snippet]>
     onEdit: () => void
     onRemove: () => void
   }
@@ -31,10 +31,27 @@
   const entryLabel = $derived(receivedOn ? `entry from ${formatDate(receivedOn)}` : 'entry')
 </script>
 
+{#snippet mobileActions()}
+  <span class="flex shrink-0 items-center gap-1 sm:hidden">
+    <IconActionButton
+      variant="neutral"
+      label="Edit {entryLabel}"
+      path={mdiPencil}
+      onclick={onEdit}
+    />
+    <IconActionButton
+      variant="danger"
+      label="Delete {entryLabel}"
+      path={mdiDelete}
+      onclick={onRemove}
+    />
+  </span>
+{/snippet}
+
 <tr
   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
 >
-  {@render leading()}
+  {@render leading(mobileActions)}
   <td
     class={[
       cellClass,
@@ -72,7 +89,7 @@
     >
     {note ?? '—'}
   </td>
-  <td class={[lastCellClass, 'flex justify-end gap-1 sm:table-cell']}>
+  <td class={[lastCellClass, 'hidden justify-end gap-1 sm:table-cell']}>
     <IconActionButton
       variant="neutral"
       label="Edit {entryLabel}"

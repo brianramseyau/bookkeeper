@@ -14,9 +14,7 @@ describe('HelpTooltip', () => {
     expect(screen.queryByRole('tooltip')).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Why is this estimated?' }))
-    expect(screen.getByRole('tooltip')).toHaveTextContent(
-      'No record for this month this far back.'
-    )
+    expect(screen.getByRole('tooltip')).toHaveTextContent('No record for this month this far back.')
 
     await user.click(screen.getByRole('button', { name: 'Close tooltip' }))
     expect(screen.queryByRole('tooltip')).toBeNull()

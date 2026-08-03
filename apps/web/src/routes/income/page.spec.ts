@@ -290,7 +290,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Delete Brian Income' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Brian Income' }))[0]!)
 
     expect(deleteIncomeSource).toHaveBeenCalledWith(1)
     expect(await screen.findByText('$0.00/mo · 0 sources')).toBeInTheDocument()
@@ -302,7 +302,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Brian Income' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
     const nameInput = screen.getByDisplayValue('Brian Income')
     await user.clear(nameInput)
     await user.type(nameInput, 'Brian Salary')
@@ -327,7 +327,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Brian Income' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
     await user.click(screen.getByRole('button', { name: 'Cancel editing Brian Income' }))
 
     expect(screen.queryByDisplayValue('Brian Income')).toBeNull()
@@ -339,7 +339,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Brian Income' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
     await user.clear(screen.getByDisplayValue('Brian Income'))
     await user.click(screen.getByRole('button', { name: 'Save Brian Income' }))
 
@@ -353,7 +353,7 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Brian Income' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
     await user.click(screen.getByRole('button', { name: 'Save Brian Income' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
