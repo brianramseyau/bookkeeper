@@ -32,6 +32,7 @@ ENV HOST=0.0.0.0
 ENV PORT=3333
 ENV LOG_LEVEL=info
 ENV SESSION_DRIVER=cookie
+ENV LIMITER_STORE=database
 ENV DB_FILENAME=/app/data/bookkeeper.sqlite3
 # Unraid-style: set these to match the host user that should own files under
 # the /app/data volume mount. The container starts as root just long enough
