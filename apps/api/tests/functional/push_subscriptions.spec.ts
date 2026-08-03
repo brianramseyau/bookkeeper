@@ -79,10 +79,13 @@ test.group('PushSubscriptions / store', (group) => {
       .withCsrfToken()
       .loginAs(adam)
       .header('user-agent', 'Test Browser')
-      .json({ endpoint: 'https://example.com/push/new', keys })
+      .json({ endpoint: 'https://fcm.googleapis.com/fcm/send/new', keys })
 
     response.assertStatus(200)
-    const stored = await PushSubscription.findByOrFail('endpoint', 'https://example.com/push/new')
+    const stored = await PushSubscription.findByOrFail(
+      'endpoint',
+      'https://fcm.googleapis.com/fcm/send/new'
+    )
     assert.equal(stored.userId, adam.id)
     assert.equal(stored.userAgent, 'Test Browser')
   })
@@ -95,7 +98,7 @@ test.group('PushSubscriptions / store', (group) => {
     const keys = generateTestSubscriptionKeys()
     await PushSubscription.create({
       userId: adam.id,
-      endpoint: 'https://example.com/push/existing',
+      endpoint: 'https://fcm.googleapis.com/fcm/send/existing',
       p256Dh: 'stale',
       auth: 'stale',
     })
@@ -104,12 +107,12 @@ test.group('PushSubscriptions / store', (group) => {
       .post('/api/push-subscriptions')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ endpoint: 'https://example.com/push/existing', keys })
+      .json({ endpoint: 'https://fcm.googleapis.com/fcm/send/existing', keys })
 
     response.assertStatus(200)
     const all = await PushSubscription.query().where(
       'endpoint',
-      'https://example.com/push/existing'
+      'https://fcm.googleapis.com/fcm/send/existing'
     )
     assert.lengthOf(all, 1)
     assert.equal(all[0].p256Dh, keys.p256dh)
@@ -122,9 +125,39 @@ test.group('PushSubscriptions / store', (group) => {
       .post('/api/push-subscriptions')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ endpoint: 'https://example.com/push/incomplete' })
+      .json({ endpoint: 'https://fcm.googleapis.com/fcm/send/incomplete' })
 
     response.assertStatus(422)
+  })
+
+  test('accepts an endpoint on a real push-service origin', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const keys = generateTestSubscriptionKeys()
+
+    const response = await client
+      .post('/api/push-subscriptions')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ endpoint: 'https://web.push.apple.com/some-token', keys })
+
+    response.assertStatus(200)
+    assert.isNotNull(
+      await PushSubscription.findBy('endpoint', 'https://web.push.apple.com/some-token')
+    )
+  })
+
+  test('rejects an endpoint pointing at an internal address (SSRF)', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const keys = generateTestSubscriptionKeys()
+
+    const response = await client
+      .post('/api/push-subscriptions')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ endpoint: 'http://192.168.1.1/admin', keys })
+
+    response.assertStatus(422)
+    assert.isNull(await PushSubscription.findBy('endpoint', 'http://192.168.1.1/admin'))
   })
 })
 

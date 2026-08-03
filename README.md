@@ -393,24 +393,18 @@ the time, kept here as self-contained tickets. Each is written so an
 agent can pick it up cold - context, the fix, and where to stop and ask
 before proceeding.
 
-- **SSRF via unvalidated push-subscription endpoint (Medium)** -
-  `apps/api/app/validators/push_subscription.ts` accepts any string as
-  `endpoint`, and `apps/api/app/services/push_service.ts`
-  (`webpush.sendNotification`) POSTs to it verbatim - an authenticated
-  household account can register a subscription pointing at an internal
-  LAN address and trigger the request via
-  `POST /api/push-subscriptions/test`
-  (`app/controllers/push_subscriptions_controller.ts`). Fix by validating
-  `endpoint` against an allowlist of real push-service origins (e.g.
-  `https://fcm.googleapis.com/*`, `https://updates.push.services.mozilla.com/*`,
-  `https://web.push.apple.com/*`) at the validator layer, rejecting
-  anything else with a clear VineJS error. Add functional test coverage
-  for both an accepted and a rejected endpoint.
-  **Ask first**: confirm the exact set of push origins to allow - this
-  should cover whatever browsers/OSes the two household members actually
-  use (desktop/mobile Chrome, Safari, Firefox), and the list should be
-  cross-checked against the Web Push spec rather than guessed, since an
-  incomplete list breaks legitimate notification delivery.
+- ~~**SSRF via unvalidated push-subscription endpoint (Medium)**~~ - Fixed.
+  `apps/api/app/validators/push_subscription.ts` now validates `endpoint`
+  against an allowlist of real push-service origins
+  (`https://fcm.googleapis.com/*` and `https://web.push.apple.com/*`) via
+  a regex on the VineJS schema, rejecting anything else with a 422 before
+  `apps/api/app/services/push_service.ts` ever POSTs to it. The allowlist
+  is scoped to the browsers the two household members actually use
+  (Chrome/Edge and Safari on iOS/iPadOS/macOS) - Firefox's
+  `updates.push.services.mozilla.com` was deliberately left out since it's
+  not in use here; add it if that changes. Test coverage for both an
+  accepted (`web.push.apple.com`) and a rejected (internal LAN address)
+  endpoint is in `apps/api/tests/functional/push_subscriptions.spec.ts`.
 - ~~**No login throttling / brute-force protection (Low)**~~ - Fixed.
   `POST /api/login` is throttled via `@adonisjs/limiter`
   (`apps/api/start/limiter.ts`'s `loginThrottle`, applied in
