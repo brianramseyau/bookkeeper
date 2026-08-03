@@ -11,10 +11,41 @@
   let { label, text, class: className = '' }: Props = $props()
 
   let open = $state(false)
+  let triggerEl = $state<HTMLButtonElement | undefined>()
+  let tooltipStyle = $state('')
+
+  const TOOLTIP_WIDTH = 224 // matches w-56
+  const VIEWPORT_MARGIN = 8
+
+  function position() {
+    if (!triggerEl) return
+    const rect = triggerEl.getBoundingClientRect()
+
+    let left = rect.left + rect.width / 2 - TOOLTIP_WIDTH / 2
+    left = Math.max(
+      VIEWPORT_MARGIN,
+      Math.min(left, window.innerWidth - TOOLTIP_WIDTH - VIEWPORT_MARGIN)
+    )
+
+    const top = rect.bottom + 4
+    tooltipStyle = `left: ${left}px; top: ${top}px; width: ${TOOLTIP_WIDTH}px;`
+  }
+
+  $effect(() => {
+    if (!open) return
+    position()
+    window.addEventListener('resize', position)
+    window.addEventListener('scroll', position, true)
+    return () => {
+      window.removeEventListener('resize', position)
+      window.removeEventListener('scroll', position, true)
+    }
+  })
 </script>
 
 <span class="relative inline-flex {className}">
   <button
+    bind:this={triggerEl}
     type="button"
     onclick={() => (open = !open)}
     aria-label={label}
@@ -37,7 +68,8 @@
     ></button>
     <span
       role="tooltip"
-      class="absolute top-full left-1/2 z-20 mt-1 w-56 -translate-x-1/2 rounded-md border border-amber-200 bg-white p-2 text-xs font-normal text-slate-700 shadow-lg dark:border-amber-800 dark:bg-slate-800 dark:text-slate-200"
+      class="fixed z-20 rounded-md border border-amber-200 bg-white p-2 text-xs font-normal text-slate-700 shadow-lg dark:border-amber-800 dark:bg-slate-800 dark:text-slate-200"
+      style={tooltipStyle}
     >
       {text}
     </span>
