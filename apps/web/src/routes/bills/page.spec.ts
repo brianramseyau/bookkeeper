@@ -236,7 +236,7 @@ describe('recurring bills page', () => {
     )
     await screen.findByText('Car Insurance')
     vi.mocked(listUpcomingRecurringBills).mockResolvedValue([pestControl, gym])
-    await user.click(screen.getByRole('button', { name: 'Delete Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Delete Car Insurance' })[0]!)
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Permanently delete "Car Insurance"? This cannot be undone.'
@@ -259,7 +259,7 @@ describe('recurring bills page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Delete Car Insurance' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Car Insurance' }))[0]!)
 
     expect(deleteRecurringBill).not.toHaveBeenCalled()
   })
@@ -279,7 +279,7 @@ describe('recurring bills page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Delete Car Insurance' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Car Insurance' }))[0]!)
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -366,7 +366,7 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
 
     const nameInput = screen.getByDisplayValue('Car Insurance')
     await user.clear(nameInput)
@@ -391,7 +391,7 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
 
     const row = screen.getByDisplayValue('Car Insurance').closest('tr')!
     const frequencySelect = within(row).getAllByRole('combobox')[1]!
@@ -415,7 +415,7 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
     expect(screen.getByDisplayValue('Car Insurance')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Cancel editing Car Insurance' }))
@@ -430,7 +430,7 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
     await user.clear(screen.getByDisplayValue('Car Insurance'))
     await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
@@ -447,7 +447,7 @@ describe('recurring bills page', () => {
     render(RecurringBillsPage)
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
-    await user.click(within(carRow).getByRole('button', { name: 'Edit Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
     await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
@@ -465,7 +465,7 @@ describe('recurring bills page', () => {
       pestControl,
       gym,
     ])
-    await user.click(within(carRow).getByRole('button', { name: 'Pause Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Pause Car Insurance' })[0]!)
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isPaused: true })
     await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
@@ -487,7 +487,7 @@ describe('recurring bills page', () => {
       pestControl,
       gym,
     ])
-    await user.click(within(carRow).getByRole('button', { name: 'Archive Car Insurance' }))
+    await user.click(within(carRow).getAllByRole('button', { name: 'Archive Car Insurance' })[0]!)
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isArchived: true })
     await waitFor(() => expect(screen.queryByText('Car Insurance')).toBeNull())
@@ -497,7 +497,7 @@ describe('recurring bills page', () => {
 
     vi.mocked(updateRecurringBill).mockResolvedValue(carInsurance)
     vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
-    await user.click(screen.getByRole('button', { name: 'Unarchive Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Unarchive Car Insurance' })[0]!)
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isArchived: false })
   })
@@ -519,7 +519,7 @@ describe('recurring bills page', () => {
     await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
 
     vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
-    await user.click(screen.getByRole('button', { name: 'Restore Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Restore Car Insurance' })[0]!)
 
     expect(updateRecurringBill).toHaveBeenCalledWith(1, { isActive: true })
   })

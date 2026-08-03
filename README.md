@@ -380,3 +380,15 @@ Discovered along the way or scoped out of v1, but plausible to add later:
   module - was considered and deliberately deferred: it adds a real
   dependency-currency risk (bracket changes, Medicare levy, etc.) for a
   figure the household is already comfortable entering by hand.
+- **Mobile card header actions on Income and Monthly** - Bills,
+  Subscriptions, and Expenses were reworked so the row's icon action
+  buttons (edit/pause/archive/etc.) sit right-aligned in the mobile
+  card's title row instead of on their own row at the bottom (see
+  `apps/web/src/routes/bills/+page.svelte` for the pattern: the title
+  `<td>` duplicates the button group behind `sm:hidden`, the original
+  trailing actions `<td>` goes `hidden` on mobile via `sm:table-cell`).
+  Income wasn't touched despite reusing similar row/table markup, and
+  Monthly was explicitly scoped out up front - it has several distinct
+  row types (carryover, income entries, placeholders, expense lines)
+  with inconsistent action-button availability, so it needs its own
+  pass rather than a copy-paste of the Bills pattern.

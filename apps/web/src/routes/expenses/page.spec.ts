@@ -163,7 +163,7 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
 
     const ignoreCheckbox = screen.getByRole('checkbox', {
       name: 'Ignore budget',
@@ -276,7 +276,7 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
 
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
@@ -312,7 +312,7 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Rent' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Rent' }))[0]!)
     await user.click(screen.getByRole('button', { name: 'Save Rent' }))
 
     expect(updateExpense).toHaveBeenCalledWith(2, {
@@ -328,7 +328,7 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
     await user.type(nameInput, 'Should not save')
@@ -344,7 +344,7 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
     await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
@@ -360,7 +360,7 @@ describe('expenses page', () => {
     const user = userEvent.setup()
     render(ExpensesPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
 
     expect(await screen.findByText('Could not save changes')).toBeInTheDocument()
@@ -393,7 +393,7 @@ describe('expenses page', () => {
     )
     await screen.findByText('Groceries')
     vi.mocked(listExpenses).mockResolvedValue([rent])
-    await user.click(screen.getByRole('button', { name: 'Delete Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Delete Groceries' })[0]!)
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Permanently delete "Groceries"? This cannot be undone.'
@@ -413,7 +413,7 @@ describe('expenses page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Delete Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Groceries' }))[0]!)
 
     expect(deleteExpense).not.toHaveBeenCalled()
   })
@@ -430,7 +430,7 @@ describe('expenses page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Delete Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Groceries' }))[0]!)
 
     expect(await screen.findByText('Failed to remove')).toBeInTheDocument()
   })
@@ -444,7 +444,7 @@ describe('expenses page', () => {
 
     await screen.findByText('Groceries')
     vi.mocked(listExpenses).mockResolvedValue([{ ...groceries, isPaused: true }])
-    await user.click(screen.getByRole('button', { name: 'Pause Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Pause Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isPaused: true })
     await waitFor(() => expect(screen.queryByText('Groceries')).toBeNull())
@@ -455,7 +455,7 @@ describe('expenses page', () => {
 
     vi.mocked(updateExpense).mockResolvedValue({ ...groceries, isPaused: false })
     vi.mocked(listExpenses).mockResolvedValue([groceries])
-    await user.click(screen.getByRole('button', { name: 'Unpause Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Unpause Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isPaused: false })
   })
@@ -476,7 +476,7 @@ describe('expenses page', () => {
     )
     await screen.findByText('Groceries')
     vi.mocked(listExpenses).mockResolvedValue([{ ...groceries, isPaused: false, isArchived: true }])
-    await user.click(screen.getByRole('button', { name: 'Archive Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Archive Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isArchived: true })
     await waitFor(() => expect(screen.getAllByText('Archived').length).toBeGreaterThan(0))
@@ -484,7 +484,7 @@ describe('expenses page', () => {
 
     vi.mocked(updateExpense).mockResolvedValue({ ...groceries, isArchived: false })
     vi.mocked(listExpenses).mockResolvedValue([groceries])
-    await user.click(screen.getByRole('button', { name: 'Unarchive Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Unarchive Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isArchived: false })
   })
@@ -502,7 +502,7 @@ describe('expenses page', () => {
     )
     await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
     vi.mocked(listExpenses).mockResolvedValue([groceries])
-    await user.click(screen.getByRole('button', { name: 'Restore Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Restore Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isActive: true })
   })
@@ -519,7 +519,7 @@ describe('expenses page', () => {
     const downButtons = screen.getAllByRole('button', { name: /Move .* down/ })
 
     expect(upButtons[0]).toBeDisabled()
-    expect(downButtons[1]).toBeDisabled()
+    expect(downButtons.at(-1)).toBeDisabled()
 
     await user.click(downButtons[0]!)
 

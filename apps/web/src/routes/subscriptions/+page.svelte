@@ -376,8 +376,30 @@
               <tr
                 class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
-                  {sub.name}
+                <td
+                  class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+                >
+                  <span class="min-w-0 truncate">{sub.name}</span>
+                  <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                    <IconActionButton
+                      variant="neutral"
+                      label="Edit {sub.name}"
+                      path={mdiPencil}
+                      onclick={() => startEdit(sub)}
+                    />
+                    <IconActionButton
+                      variant="amber"
+                      label="Pause {sub.name}"
+                      path={mdiPause}
+                      onclick={() => handlePause(sub)}
+                    />
+                    <IconActionButton
+                      variant="muted"
+                      label="Archive {sub.name}"
+                      path={mdiArchive}
+                      onclick={() => handleArchive(sub)}
+                    />
+                  </span>
                 </td>
                 <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
                   <span
@@ -410,7 +432,7 @@
                   {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                 </td>
                 <td
-                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                 >
                   <IconActionButton
                     variant="neutral"
@@ -464,10 +486,32 @@
                     class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                   >
                     <td
-                      class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                      class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                     >
-                      {sub.name}
-                      <StatusBadge label="Paused" tone="amber" />
+                      <span class="flex min-w-0 items-center">
+                        <span class="truncate">{sub.name}</span>
+                        <StatusBadge label="Paused" tone="amber" />
+                      </span>
+                      <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                        <IconActionButton
+                          variant="neutral"
+                          label="Edit {sub.name}"
+                          path={mdiPencil}
+                          onclick={() => startEdit(sub)}
+                        />
+                        <IconActionButton
+                          variant="success"
+                          label="Unpause {sub.name}"
+                          path={mdiPlay}
+                          onclick={() => handleUnpause(sub)}
+                        />
+                        <IconActionButton
+                          variant="muted"
+                          label="Archive {sub.name}"
+                          path={mdiArchive}
+                          onclick={() => handleArchive(sub)}
+                        />
+                      </span>
                     </td>
                     <td
                       class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
@@ -497,7 +541,7 @@
                       {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                     </td>
                     <td
-                      class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                      class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                     >
                       <IconActionButton
                         variant="neutral"
@@ -542,10 +586,32 @@
                     class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                   >
                     <td
-                      class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                      class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                     >
-                      {sub.name}
-                      <StatusBadge label="Archived" tone="slate" />
+                      <span class="flex min-w-0 items-center">
+                        <span class="truncate">{sub.name}</span>
+                        <StatusBadge label="Archived" tone="slate" />
+                      </span>
+                      <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                        <IconActionButton
+                          variant="neutral"
+                          label="Edit {sub.name}"
+                          path={mdiPencil}
+                          onclick={() => startEdit(sub)}
+                        />
+                        <IconActionButton
+                          variant="success"
+                          label="Unarchive {sub.name}"
+                          path={mdiPackageUp}
+                          onclick={() => handleUnarchive(sub)}
+                        />
+                        <IconActionButton
+                          variant="danger"
+                          label="Delete {sub.name}"
+                          path={mdiDelete}
+                          onclick={() => handleDelete(sub)}
+                        />
+                      </span>
                     </td>
                     <td
                       class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
@@ -575,7 +641,7 @@
                       {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                     </td>
                     <td
-                      class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                      class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                     >
                       <IconActionButton
                         variant="neutral"
@@ -617,10 +683,20 @@
                   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
                   <td
-                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
-                    {sub.name}
-                    <StatusBadge label="Removed" tone="slate" />
+                    <span class="flex min-w-0 items-center">
+                      <span class="truncate">{sub.name}</span>
+                      <StatusBadge label="Removed" tone="slate" />
+                    </span>
+                    <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                      <IconActionButton
+                        variant="success"
+                        label="Restore {sub.name}"
+                        path={mdiRestore}
+                        onclick={() => handleRestore(sub)}
+                      />
+                    </span>
                   </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
@@ -650,7 +726,7 @@
                     {sub.dayOfMonth ? `Day ${sub.dayOfMonth}` : '—'}
                   </td>
                   <td
-                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="success"

@@ -409,13 +409,53 @@
             <tr
               class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
             >
-              <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
+              <td
+                class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+              >
                 <a
                   href={`/expenses/${row.expense.id}`}
-                  class="hover:text-indigo-600 dark:hover:text-indigo-400"
+                  class="min-w-0 truncate hover:text-indigo-600 dark:hover:text-indigo-400"
                 >
                   {row.expense.name}
                 </a>
+                <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                  <IconActionButton
+                    variant="neutral"
+                    label="Edit {row.expense.name}"
+                    path={mdiPencil}
+                    onclick={() => startEdit(row.expense)}
+                  />
+                  <IconActionButton
+                    variant="amber"
+                    label="Pause {row.expense.name}"
+                    path={mdiPause}
+                    onclick={() => handlePause(row.expense)}
+                  />
+                  <IconActionButton
+                    variant="muted"
+                    label="Archive {row.expense.name}"
+                    path={mdiArchive}
+                    onclick={() => handleArchive(row.expense)}
+                  />
+                  <button
+                    type="button"
+                    onclick={() => moveExpense(index, -1)}
+                    disabled={index === 0 || reordering}
+                    aria-label="Move {row.expense.name} up"
+                    class="p-2 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onclick={() => moveExpense(index, 1)}
+                    disabled={index === activeRows.length - 1 || reordering}
+                    aria-label="Move {row.expense.name} down"
+                    class="p-2 text-slate-400 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-500 dark:hover:text-indigo-400"
+                  >
+                    ▼
+                  </button>
+                </span>
               </td>
               <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
                 <span
@@ -502,7 +542,7 @@
                 {/if}
               </td>
               <td
-                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
               >
                 <IconActionButton
                   variant="neutral"
@@ -523,7 +563,7 @@
                   onclick={() => handleArchive(row.expense)}
                 />
               </td>
-              <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell">
+              <td class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell">
                 <button
                   type="button"
                   onclick={() => moveExpense(index, -1)}
@@ -567,11 +607,31 @@
                   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
                   <td
-                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
-                    <span class="flex items-center">
-                      <span>{row.expense.name}</span>
+                    <span class="flex min-w-0 items-center">
+                      <span class="truncate">{row.expense.name}</span>
                       <StatusBadge label="Paused" tone="amber" />
+                    </span>
+                    <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                      <IconActionButton
+                        variant="neutral"
+                        label="Edit {row.expense.name}"
+                        path={mdiPencil}
+                        onclick={() => startEdit(row.expense)}
+                      />
+                      <IconActionButton
+                        variant="success"
+                        label="Unpause {row.expense.name}"
+                        path={mdiPlay}
+                        onclick={() => handleUnpause(row.expense)}
+                      />
+                      <IconActionButton
+                        variant="muted"
+                        label="Archive {row.expense.name}"
+                        path={mdiArchive}
+                        onclick={() => handleArchive(row.expense)}
+                      />
                     </span>
                   </td>
                   <td
@@ -640,7 +700,7 @@
                     {/if}
                   </td>
                   <td
-                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="neutral"
@@ -686,11 +746,31 @@
                   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
                 >
                   <td
-                    class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300"
+                    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
                   >
-                    <span class="flex items-center">
-                      <span>{row.expense.name}</span>
+                    <span class="flex min-w-0 items-center">
+                      <span class="truncate">{row.expense.name}</span>
                       <StatusBadge label="Archived" tone="slate" />
+                    </span>
+                    <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                      <IconActionButton
+                        variant="neutral"
+                        label="Edit {row.expense.name}"
+                        path={mdiPencil}
+                        onclick={() => startEdit(row.expense)}
+                      />
+                      <IconActionButton
+                        variant="success"
+                        label="Unarchive {row.expense.name}"
+                        path={mdiPackageUp}
+                        onclick={() => handleUnarchive(row.expense)}
+                      />
+                      <IconActionButton
+                        variant="danger"
+                        label="Delete {row.expense.name}"
+                        path={mdiDelete}
+                        onclick={() => handleRemove(row.expense)}
+                      />
                     </span>
                   </td>
                   <td
@@ -759,7 +839,7 @@
                     {/if}
                   </td>
                   <td
-                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="neutral"
@@ -801,10 +881,20 @@
               <tr
                 class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 font-medium text-slate-700 sm:table-cell dark:text-slate-300">
-                  <span class="flex items-center">
-                    <span>{row.expense.name}</span>
+                <td
+                  class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
+                >
+                  <span class="flex min-w-0 items-center">
+                    <span class="truncate">{row.expense.name}</span>
                     <StatusBadge label="Removed" tone="slate" />
+                  </span>
+                  <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                    <IconActionButton
+                      variant="success"
+                      label="Restore {row.expense.name}"
+                      path={mdiRestore}
+                      onclick={() => handleRestore(row.expense)}
+                    />
                   </span>
                 </td>
                 <td
@@ -863,7 +953,7 @@
                   —
                 </td>
                 <td
-                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                 >
                   <IconActionButton
                     variant="success"

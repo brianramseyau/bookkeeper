@@ -229,7 +229,7 @@ describe('subscriptions page', () => {
       { userId: 1, fullName: 'Brian', total: 9.99, count: 1 },
       { userId: 2, fullName: 'Ariel', total: 0, count: 0 },
     ])
-    await user.click(screen.getByRole('button', { name: 'Delete Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Delete Netflix' })[0]!)
 
     expect(window.confirm).toHaveBeenCalledWith(
       'Permanently delete "Netflix"? This cannot be undone.'
@@ -251,7 +251,7 @@ describe('subscriptions page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Delete Netflix' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Netflix' }))[0]!)
 
     expect(deleteSubscription).not.toHaveBeenCalled()
   })
@@ -269,7 +269,7 @@ describe('subscriptions page', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Show paused / archived / removed' })
     )
-    await user.click(await screen.findByRole('button', { name: 'Delete Netflix' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Netflix' }))[0]!)
 
     expect(await screen.findByText('Could not delete')).toBeInTheDocument()
   })
@@ -396,7 +396,7 @@ describe('subscriptions page', () => {
 
     const row = (await screen.findByText('Netflix')).closest('tr')!
     vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isPaused: true }, spotify])
-    await user.click(within(row).getByRole('button', { name: 'Pause Netflix' }))
+    await user.click(within(row).getAllByRole('button', { name: 'Pause Netflix' })[0]!)
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isPaused: true })
     await waitFor(() => expect(screen.queryByText('Netflix')).toBeNull())
@@ -414,7 +414,7 @@ describe('subscriptions page', () => {
 
     const row = (await screen.findByText('Netflix')).closest('tr')!
     vi.mocked(listSubscriptions).mockResolvedValue([{ ...netflix, isArchived: true }, spotify])
-    await user.click(within(row).getByRole('button', { name: 'Archive Netflix' }))
+    await user.click(within(row).getAllByRole('button', { name: 'Archive Netflix' })[0]!)
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isArchived: true })
     await waitFor(() => expect(screen.queryByText('Netflix')).toBeNull())
@@ -424,7 +424,7 @@ describe('subscriptions page', () => {
 
     vi.mocked(updateSubscription).mockResolvedValue(netflix)
     vi.mocked(listSubscriptions).mockResolvedValue([netflix, spotify])
-    await user.click(screen.getByRole('button', { name: 'Unarchive Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Unarchive Netflix' })[0]!)
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isArchived: false })
   })
@@ -444,7 +444,7 @@ describe('subscriptions page', () => {
     await waitFor(() => expect(screen.getAllByText('Removed').length).toBeGreaterThan(0))
 
     vi.mocked(listSubscriptions).mockResolvedValue([netflix, spotify])
-    await user.click(screen.getByRole('button', { name: 'Restore Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Restore Netflix' })[0]!)
 
     expect(updateSubscription).toHaveBeenCalledWith(1, { isActive: true })
   })
