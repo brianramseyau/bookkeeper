@@ -8,6 +8,7 @@
   "scripts": {
     "dev:api": "pnpm --filter api dev",
     "dev:web": "pnpm --filter web dev",
+    "dev:down": "bash scripts/dev-down.sh",
     "build": "pnpm --filter web build && rm -rf apps/api/public/* && cp -r apps/web/build/. apps/api/public/ && pnpm --filter api build",
     "lint": "pnpm --filter api lint && pnpm --filter web lint",
     "lint:fix": "pnpm --filter api exec eslint . --fix && pnpm --filter web exec eslint . --fix",
@@ -16,7 +17,9 @@
     "typecheck": "pnpm --filter api typecheck && pnpm --filter web check",
     "test": "pnpm --filter api test && pnpm --filter web test",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "demo:up": "bash scripts/demo-up.sh",
+    "demo:down": "bash scripts/demo-down.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
