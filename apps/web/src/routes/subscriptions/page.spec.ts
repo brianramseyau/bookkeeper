@@ -334,7 +334,7 @@ describe('subscriptions page', () => {
     const nameInput = screen.getByDisplayValue('Netflix')
     await user.clear(nameInput)
     await user.type(nameInput, 'Netflix Premium')
-    await user.click(screen.getByRole('button', { name: 'Save Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Netflix' })[0]!)
 
     await waitFor(() =>
       expect(updateSubscription).toHaveBeenCalledWith(1, {
@@ -355,7 +355,7 @@ describe('subscriptions page', () => {
     await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
     expect(screen.getByDisplayValue('Netflix')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Cancel editing Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing Netflix' })[0]!)
 
     expect(screen.queryByDisplayValue('Netflix')).toBeNull()
     expect(updateSubscription).not.toHaveBeenCalled()
@@ -369,7 +369,7 @@ describe('subscriptions page', () => {
     await screen.findByText('Netflix')
     await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
     await user.clear(screen.getByDisplayValue('Netflix'))
-    await user.click(screen.getByRole('button', { name: 'Save Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Netflix' })[0]!)
 
     expect(await screen.findByText('Name and amount are required')).toBeInTheDocument()
     expect(updateSubscription).not.toHaveBeenCalled()
@@ -383,7 +383,7 @@ describe('subscriptions page', () => {
 
     await screen.findByText('Netflix')
     await user.click(screen.getAllByRole('button', { name: 'Edit Netflix' })[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save Netflix' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Netflix' })[0]!)
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })

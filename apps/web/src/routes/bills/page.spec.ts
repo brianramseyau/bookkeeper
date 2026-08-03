@@ -371,7 +371,7 @@ describe('recurring bills page', () => {
     const nameInput = screen.getByDisplayValue('Car Insurance')
     await user.clear(nameInput)
     await user.type(nameInput, 'Car Insurance 2')
-    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Car Insurance' })[0]!)
 
     await waitFor(() =>
       expect(updateRecurringBill).toHaveBeenCalledWith(1, {
@@ -397,7 +397,7 @@ describe('recurring bills page', () => {
     const frequencySelect = within(row).getAllByRole('combobox')[1]!
     await user.selectOptions(frequencySelect, 'quarterly')
 
-    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Car Insurance' })[0]!)
 
     await waitFor(() =>
       expect(updateRecurringBill).toHaveBeenCalledWith(1, {
@@ -418,7 +418,7 @@ describe('recurring bills page', () => {
     await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
     expect(screen.getByDisplayValue('Car Insurance')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Cancel editing Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing Car Insurance' })[0]!)
 
     expect(screen.queryByDisplayValue('Car Insurance')).toBeNull()
     expect(updateRecurringBill).not.toHaveBeenCalled()
@@ -432,7 +432,7 @@ describe('recurring bills page', () => {
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
     await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
     await user.clear(screen.getByDisplayValue('Car Insurance'))
-    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Car Insurance' })[0]!)
 
     expect(
       await screen.findByText('Name, amount, and next due date are required')
@@ -448,7 +448,7 @@ describe('recurring bills page', () => {
 
     const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
     await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save Car Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Car Insurance' })[0]!)
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })

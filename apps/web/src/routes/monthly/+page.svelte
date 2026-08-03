@@ -585,17 +585,53 @@
             <tr
               class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
             >
-              <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
-                {#if viewHref(line)}
-                  <a
-                    href={viewHref(line)}
-                    class="hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
-                  >
+              <td
+                class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+              >
+                <span class="min-w-0 truncate">
+                  {#if viewHref(line)}
+                    <a
+                      href={viewHref(line)}
+                      class="hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
+                    >
+                      {line.label}
+                    </a>
+                  {:else}
                     {line.label}
-                  </a>
-                {:else}
-                  {line.label}
-                {/if}
+                  {/if}
+                </span>
+                <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                  {#if editExpenseMode === 'expense-multiple'}
+                    <a
+                      href="/expenses/{editActualsExpenseId}"
+                      class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                    >
+                      View all →
+                    </a>
+                  {:else}
+                    <IconActionButton
+                      variant="primary"
+                      disabled={savingExpense}
+                      label="Save {line.label}"
+                      path={mdiContentSave}
+                      onclick={saveExpenseEdit}
+                    />
+                    {#if editExpenseMode === 'expense-edit'}
+                      <IconActionButton
+                        variant="danger"
+                        label="Delete {line.label} entry"
+                        path={mdiDelete}
+                        onclick={removeExpenseActual}
+                      />
+                    {/if}
+                  {/if}
+                  <IconActionButton
+                    variant="cancel"
+                    label="Cancel editing {line.label}"
+                    path={mdiCloseThick}
+                    onclick={cancelEditExpense}
+                  />
+                </span>
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
@@ -670,7 +706,7 @@
                 />
               </td>
               <td
-                class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
               >
                 {#if editExpenseMode === 'expense-multiple'}
                   <a
@@ -891,16 +927,30 @@
             colspan="3"
           >
             <span class="min-w-0 truncate">Carried over from last month</span>
-            {#if !carryoverEdit.isEditing}
-              <span class="flex shrink-0 items-center gap-1 sm:hidden">
+            <span class="flex shrink-0 items-center gap-1 sm:hidden">
+              {#if !carryoverEdit.isEditing}
                 <IconActionButton
                   variant="neutral"
                   label="Edit carried over balance"
                   path={mdiPencil}
                   onclick={startEditCarryover}
                 />
-              </span>
-            {/if}
+              {:else}
+                <IconActionButton
+                  variant="primary"
+                  disabled={carryoverEdit.saving}
+                  label="Save carried over balance"
+                  path={mdiContentSave}
+                  onclick={saveCarryover}
+                />
+                <IconActionButton
+                  variant="cancel"
+                  label="Cancel editing carried over balance"
+                  path={mdiCloseThick}
+                  onclick={() => carryoverEdit.cancel()}
+                />
+              {/if}
+            </span>
           </td>
           {#if carryoverEdit.isEditing && carryoverEdit.form}
             <td class="hidden px-3 py-2 sm:table-cell"></td>
@@ -919,7 +969,7 @@
               />
             </td>
             <td
-              class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
               colspan="2"
             >
               <IconActionButton
@@ -1081,11 +1131,27 @@
                   {:else}
                     <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
                   {/if}
-                  <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Date</span
-                    >
+                  <td class="block px-3 py-2 sm:table-cell">
+                    <div class="mb-1 flex items-center justify-between gap-3 sm:hidden">
+                      <span class="text-xs font-medium text-slate-400 uppercase dark:text-slate-500"
+                        >Date</span
+                      >
+                      <span class="flex shrink-0 items-center gap-1">
+                        <IconActionButton
+                          variant="primary"
+                          disabled={savingEntryEdit}
+                          label="Save income entry"
+                          path={mdiContentSave}
+                          onclick={() => saveEntryEdit(entry)}
+                        />
+                        <IconActionButton
+                          variant="cancel"
+                          label="Cancel editing income entry"
+                          path={mdiCloseThick}
+                          onclick={cancelEditEntry}
+                        />
+                      </span>
+                    </div>
                     <input
                       type="date"
                       bind:value={editEntryReceivedOn}
@@ -1128,7 +1194,7 @@
                     />
                   </td>
                   <td
-                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="primary"
@@ -1232,11 +1298,27 @@
                 class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
               >
                 <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
-                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
-                  <span
-                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                    >Date</span
-                  >
+                <td class="block px-3 py-2 sm:table-cell">
+                  <div class="mb-1 flex items-center justify-between gap-3 sm:hidden">
+                    <span class="text-xs font-medium text-slate-400 uppercase dark:text-slate-500"
+                      >Date</span
+                    >
+                    <span class="flex shrink-0 items-center gap-1">
+                      <IconActionButton
+                        variant="primary"
+                        disabled={savingPlaceholderEdit}
+                        label="Save income entry"
+                        path={mdiContentSave}
+                        onclick={() => saveNewEntryFromPlaceholder(line)}
+                      />
+                      <IconActionButton
+                        variant="cancel"
+                        label="Cancel editing income entry"
+                        path={mdiCloseThick}
+                        onclick={cancelEditPlaceholder}
+                      />
+                    </span>
+                  </div>
                   <input
                     type="date"
                     bind:value={editPlaceholderReceivedOn}
@@ -1279,7 +1361,7 @@
                   />
                 </td>
                 <td
-                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                 >
                   <IconActionButton
                     variant="primary"

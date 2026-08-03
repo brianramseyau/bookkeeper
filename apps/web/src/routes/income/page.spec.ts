@@ -306,7 +306,7 @@ describe('income page', () => {
     const nameInput = screen.getByDisplayValue('Brian Income')
     await user.clear(nameInput)
     await user.type(nameInput, 'Brian Salary')
-    await user.click(screen.getByRole('button', { name: 'Save Brian Income' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Brian Income' })[0]!)
 
     await waitFor(() =>
       expect(updateIncomeSource).toHaveBeenCalledWith(1, {
@@ -328,7 +328,7 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
-    await user.click(screen.getByRole('button', { name: 'Cancel editing Brian Income' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing Brian Income' })[0]!)
 
     expect(screen.queryByDisplayValue('Brian Income')).toBeNull()
     expect(updateIncomeSource).not.toHaveBeenCalled()
@@ -341,7 +341,7 @@ describe('income page', () => {
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
     await user.clear(screen.getByDisplayValue('Brian Income'))
-    await user.click(screen.getByRole('button', { name: 'Save Brian Income' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Brian Income' })[0]!)
 
     expect(await screen.findByText('Name and expected amount are required')).toBeInTheDocument()
     expect(updateIncomeSource).not.toHaveBeenCalled()
@@ -354,7 +354,7 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save Brian Income' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Brian Income' })[0]!)
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })
@@ -547,7 +547,7 @@ describe('income page', () => {
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cancel editing income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing income entry' })[0]!)
 
     expect(screen.queryByDisplayValue('5000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -567,7 +567,7 @@ describe('income page', () => {
     const amountInput = screen.getByDisplayValue('5000')
     await user.clear(amountInput)
     await user.type(amountInput, '5200')
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
@@ -590,7 +590,7 @@ describe('income page', () => {
     await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
@@ -606,7 +606,7 @@ describe('income page', () => {
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
     await user.clear(screen.getByDisplayValue('5000'))
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     expect(await screen.findByText('Amount is required')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -741,7 +741,7 @@ describe('income page / non-PAYG income tax section', () => {
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
     expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cancel editing entry from 13 Aug 2025' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing entry from 13 Aug 2025' })[0]!)
 
     expect(screen.queryByDisplayValue('1000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -759,7 +759,7 @@ describe('income page / non-PAYG income tax section', () => {
     const amountInput = screen.getByDisplayValue('1000')
     await user.clear(amountInput)
     await user.type(amountInput, '1200')
-    await user.click(screen.getByRole('button', { name: 'Save entry from 13 Aug 2025' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save entry from 13 Aug 2025' })[0]!)
 
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(20, {
@@ -783,7 +783,7 @@ describe('income page / non-PAYG income tax section', () => {
 
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
-    await user.click(screen.getByRole('button', { name: 'Save entry from 13 Aug 2025' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save entry from 13 Aug 2025' })[0]!)
 
     expect(await screen.findByText('Could not save item')).toBeInTheDocument()
   })
@@ -797,7 +797,7 @@ describe('income page / non-PAYG income tax section', () => {
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
     await user.clear(screen.getByDisplayValue('Share sale'))
-    await user.click(screen.getByRole('button', { name: 'Save entry from 13 Aug 2025' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save entry from 13 Aug 2025' })[0]!)
 
     expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()

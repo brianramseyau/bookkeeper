@@ -264,7 +264,7 @@ describe('month page', () => {
     const input = screen.getByDisplayValue('500')
     await user.clear(input)
     await user.type(input, '750')
-    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save carried over balance' })[0]!)
 
     await waitFor(() => expect(setMonthCarryover).toHaveBeenCalledWith(2026, 3, 750))
     expect(getStandardMonth).toHaveBeenCalledTimes(2)
@@ -278,7 +278,7 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
     )
-    await user.click(screen.getByRole('button', { name: 'Cancel editing carried over balance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing carried over balance' })[0]!)
 
     expect(screen.queryByDisplayValue('500')).toBeNull()
     expect(setMonthCarryover).not.toHaveBeenCalled()
@@ -293,7 +293,7 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
     )
-    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save carried over balance' })[0]!)
 
     expect(await screen.findByText('Could not save carryover')).toBeInTheDocument()
   })
@@ -461,7 +461,7 @@ describe('month page', () => {
     const amountInput = screen.getByDisplayValue('5000')
     await user.clear(amountInput)
     await user.type(amountInput, '5100')
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
@@ -514,7 +514,7 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
         amount: 5000,
@@ -543,7 +543,7 @@ describe('month page', () => {
     )
     const amountInput = screen.getByDisplayValue('5000')
     await user.clear(amountInput)
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     expect(await screen.findByText('Amount is required')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -558,7 +558,7 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
@@ -572,7 +572,7 @@ describe('month page', () => {
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Cancel editing income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing income entry' })[0]!)
 
     expect(screen.queryByDisplayValue('5000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -742,7 +742,7 @@ describe('month page', () => {
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit entry' }))[0]!)
     await user.click(screen.getByLabelText('Withheld'))
-    await user.click(screen.getByRole('button', { name: 'Save income entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
 
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(11, {
@@ -1275,7 +1275,7 @@ describe('month page', () => {
     const amountInput = screen.getByDisplayValue('22.99')
     await user.clear(amountInput)
     await user.type(amountInput, '24.99')
-    await user.click(screen.getByRole('button', { name: 'Save Netflix (Brian)' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Netflix (Brian)' })[0]!)
 
     await waitFor(() =>
       expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, undefined, 24.99)
@@ -1370,7 +1370,7 @@ describe('month page', () => {
     const amountInput = screen.getByDisplayValue('110')
     await user.clear(amountInput)
     await user.type(amountInput, '120')
-    await user.click(screen.getByRole('button', { name: 'Save Electricity' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Electricity' })[0]!)
 
     await waitFor(() =>
       expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 120, undefined, null)
@@ -1421,7 +1421,7 @@ describe('month page', () => {
     const receivedInput = screen.getByDisplayValue('2026-03-14')
     await user.clear(receivedInput)
     await user.type(receivedInput, '2026-03-21')
-    await user.click(screen.getByRole('button', { name: 'Save Electricity' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Electricity' })[0]!)
 
     await waitFor(() =>
       expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 110, undefined, '2026-03-21')
@@ -1436,13 +1436,13 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    expect(await screen.findByRole('button', { name: 'Save Groceries' })).toBeInTheDocument()
+    expect((await screen.findAllByRole('button', { name: 'Save Groceries' }))[0]!).toBeInTheDocument()
     // The expense row's amount input is now the first spinbutton on the
     // page (Expenses renders above the Income section's "Log income" form,
     // whose Amount field is the other spinbutton).
     const amountInputs = screen.getAllByRole('spinbutton')
     await user.type(amountInputs[0]!, '650')
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Groceries' })[0]!)
 
     await waitFor(() =>
       expect(createExpenseActual).toHaveBeenCalledWith(1, {
@@ -1471,12 +1471,12 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    await user.click(await screen.findByRole('button', { name: 'Save Groceries' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Save Groceries' }))[0]!)
     await waitFor(() => expect(updateExpenseActual).toHaveBeenCalledWith(5, { amount: 620 }))
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const expensesTable = (await screen.findAllByRole('table'))[0]!
-    await user.click(within(expensesTable).getByRole('button', { name: 'Delete Groceries entry' }))
+    await user.click(within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!)
     await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
   })
 
@@ -1508,7 +1508,7 @@ describe('month page', () => {
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
 
     expect(await screen.findByText('Multiple entries')).toBeInTheDocument()
-    const viewAll = screen.getByRole('link', { name: 'View all →' })
+    const viewAll = screen.getAllByRole('link', { name: 'View all →' })[0]!
     expect(viewAll.getAttribute('href')).toBe('/expenses/1')
     expect(screen.queryByRole('button', { name: 'Save Groceries' })).toBeNull()
   })
@@ -1520,7 +1520,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    await user.click(await screen.findByRole('button', { name: 'Cancel editing Electricity' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Cancel editing Electricity' }))[0]!)
 
     expect(upsertUtilityBill).not.toHaveBeenCalled()
   })
@@ -1543,7 +1543,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save Electricity' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Electricity' })[0]!)
 
     expect(await screen.findByText('Could not save actual')).toBeInTheDocument()
   })
@@ -1567,7 +1567,7 @@ describe('month page', () => {
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const expensesTable = (await screen.findAllByRole('table'))[0]!
-    await user.click(within(expensesTable).getByRole('button', { name: 'Delete Groceries entry' }))
+    await user.click(within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!)
 
     expect(await screen.findByText('Could not remove actual')).toBeInTheDocument()
   })

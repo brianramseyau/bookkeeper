@@ -632,12 +632,27 @@
               <tr
                 class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
               >
-                <td class="px-3 py-2 sm:table-cell">
+                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
                   <input
                     type="text"
                     bind:value={editName}
                     class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                   />
+                  <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                    <IconActionButton
+                      variant="primary"
+                      disabled={savingEdit}
+                      label="Save {source.name}"
+                      path={mdiContentSave}
+                      onclick={() => saveEdit(source)}
+                    />
+                    <IconActionButton
+                      variant="cancel"
+                      label="Cancel editing {source.name}"
+                      path={mdiCloseThick}
+                      onclick={cancelEdit}
+                    />
+                  </span>
                 </td>
                 <td
                   class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
@@ -710,7 +725,7 @@
                   />
                 </td>
                 <td
-                  class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                  class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                 >
                   <IconActionButton
                     variant="primary"
@@ -1200,11 +1215,27 @@
                       class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Item</span
-                    >
+                  <td class="block px-3 py-2 sm:table-cell">
+                    <div class="mb-1 flex items-center justify-between gap-3 sm:hidden">
+                      <span class="text-xs font-medium text-slate-400 uppercase dark:text-slate-500"
+                        >Item</span
+                      >
+                      <span class="flex shrink-0 items-center gap-1">
+                        <IconActionButton
+                          variant="primary"
+                          disabled={savingItemEdit}
+                          label="Save entry from {formatDate(item.receivedOn)}"
+                          path={mdiContentSave}
+                          onclick={() => saveItemEdit(item)}
+                        />
+                        <IconActionButton
+                          variant="cancel"
+                          label="Cancel editing entry from {formatDate(item.receivedOn)}"
+                          path={mdiCloseThick}
+                          onclick={cancelEditItem}
+                        />
+                      </span>
+                    </div>
                     <input
                       type="text"
                       bind:value={editItemName}
@@ -1256,7 +1287,7 @@
                     —
                   </td>
                   <td
-                    class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="primary"

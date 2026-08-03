@@ -238,12 +238,27 @@
   <tr
     class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
   >
-    <td class="px-3 py-2 sm:table-cell">
+    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
       <input
         type="text"
         bind:value={editName}
         class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
       />
+      <span class="flex shrink-0 items-center gap-1 sm:hidden">
+        <IconActionButton
+          variant="primary"
+          disabled={savingEdit}
+          label="Save {sub.name}"
+          path={mdiContentSave}
+          onclick={() => saveEdit(sub)}
+        />
+        <IconActionButton
+          variant="cancel"
+          label="Cancel editing {sub.name}"
+          path={mdiCloseThick}
+          onclick={cancelEdit}
+        />
+      </span>
     </td>
     <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
       <span
@@ -284,7 +299,7 @@
         class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-16 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
       />
     </td>
-    <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
+    <td class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
       <IconActionButton
         variant="primary"
         disabled={savingEdit}

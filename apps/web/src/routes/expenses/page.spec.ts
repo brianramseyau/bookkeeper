@@ -172,7 +172,7 @@ describe('expenses page', () => {
     expect(ignoreCheckbox.checked).toBe(false)
     await user.click(ignoreCheckbox)
 
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, {
       name: 'Groceries',
@@ -308,7 +308,7 @@ describe('expenses page', () => {
 
     vi.mocked(listExpenses).mockResolvedValue([{ ...groceries, name: 'Food' }])
 
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Groceries' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(1, {
       name: 'Food',
@@ -327,7 +327,7 @@ describe('expenses page', () => {
     render(ExpensesPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Rent' }))[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save Rent' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Rent' })[0]!)
 
     expect(updateExpense).toHaveBeenCalledWith(2, {
       name: 'Rent',
@@ -346,7 +346,7 @@ describe('expenses page', () => {
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
     await user.type(nameInput, 'Should not save')
-    await user.click(screen.getByRole('button', { name: 'Cancel editing Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Cancel editing Groceries' })[0]!)
 
     expect(updateExpense).not.toHaveBeenCalled()
     expect(await screen.findByText('Groceries')).toBeInTheDocument()
@@ -361,7 +361,7 @@ describe('expenses page', () => {
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const nameInput = screen.getByDisplayValue('Groceries')
     await user.clear(nameInput)
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Groceries' })[0]!)
 
     expect(await screen.findByText('Name is required')).toBeInTheDocument()
     expect(updateExpense).not.toHaveBeenCalled()
@@ -375,7 +375,7 @@ describe('expenses page', () => {
     render(ExpensesPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    await user.click(screen.getAllByRole('button', { name: 'Save Groceries' })[0]!)
 
     expect(await screen.findByText('Could not save changes')).toBeInTheDocument()
   })

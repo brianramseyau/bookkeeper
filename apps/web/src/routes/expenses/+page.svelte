@@ -287,36 +287,53 @@
   >
     <td class="hidden px-3 py-2 sm:table-cell"></td>
     <td class="px-3 py-2 sm:table-cell">
-      <div class="flex flex-col gap-2">
-        <input
-          type="text"
-          bind:value={editName}
-          class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-        />
-        <CategorySelect
-          {categories}
-          value={expense.categoryId}
-          variant="table"
-          onchange={(value) => handleCategoryChange(expense, value)}
-        />
-        <div class="flex flex-wrap gap-x-4 gap-y-1">
-          <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <input
-              type="checkbox"
-              bind:checked={editIsRecurring}
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-            />
-            Recurring
-          </label>
-          <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-            <input
-              type="checkbox"
-              bind:checked={editExcludeFromBudget}
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-            />
-            Ignore budget
-          </label>
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex min-w-0 flex-1 flex-col gap-2">
+          <input
+            type="text"
+            bind:value={editName}
+            class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <CategorySelect
+            {categories}
+            value={expense.categoryId}
+            variant="table"
+            onchange={(value) => handleCategoryChange(expense, value)}
+          />
+          <div class="flex flex-wrap gap-x-4 gap-y-1">
+            <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <input
+                type="checkbox"
+                bind:checked={editIsRecurring}
+                class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+              />
+              Recurring
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <input
+                type="checkbox"
+                bind:checked={editExcludeFromBudget}
+                class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+              />
+              Ignore budget
+            </label>
+          </div>
         </div>
+        <span class="flex shrink-0 items-center gap-1 sm:hidden">
+          <IconActionButton
+            variant="primary"
+            disabled={savingEdit}
+            label="Save {expense.name}"
+            path={mdiContentSave}
+            onclick={() => saveEdit(expense)}
+          />
+          <IconActionButton
+            variant="cancel"
+            label="Cancel editing {expense.name}"
+            path={mdiCloseThick}
+            onclick={cancelEdit}
+          />
+        </span>
       </div>
     </td>
     <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right">
@@ -360,7 +377,7 @@
       >
       —
     </td>
-    <td class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
+    <td class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
       <IconActionButton
         variant="primary"
         disabled={savingEdit}

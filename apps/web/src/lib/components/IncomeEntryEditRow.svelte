@@ -51,12 +51,28 @@
   }
 </script>
 
-{#snippet noActions()}{/snippet}
+{#snippet mobileActions()}
+  <span class="flex shrink-0 items-center gap-1 sm:hidden">
+    <IconActionButton
+      variant="primary"
+      disabled={saving}
+      label="Save income entry"
+      path={mdiContentSave}
+      onclick={handleSave}
+    />
+    <IconActionButton
+      variant="cancel"
+      label="Cancel editing income entry"
+      path={mdiCloseThick}
+      onclick={onCancel}
+    />
+  </span>
+{/snippet}
 
 <tr
   class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
 >
-  {@render leading(noActions)}
+  {@render leading(mobileActions)}
   <td class={[cellClass, 'flex items-center justify-between gap-3 sm:table-cell sm:text-right']}>
     <span
       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
@@ -92,7 +108,7 @@
       class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-32 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
     />
   </td>
-  <td class={[lastCellClass, 'flex justify-end gap-1 sm:table-cell']}>
+  <td class={[lastCellClass, 'hidden justify-end gap-1 sm:table-cell']}>
     <IconActionButton
       variant="primary"
       disabled={saving}
