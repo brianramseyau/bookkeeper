@@ -34,6 +34,18 @@ export interface StandardMonthLine {
   dueDateEstimated: boolean
   /** Whether the money has actually left the account, independent of whether the amount is known. */
   paid: boolean
+  /**
+   * True when this is a recurring bill, subscription, or expense in a past
+   * month with no payment record at all - `paid` has fallen back to the
+   * blanket "past months default to paid" rule (see computeExpenseLines)
+   * rather than reflecting anything anyone actually confirmed, and for
+   * recurring bills/subscriptions `actual` has similarly fallen back to
+   * today's live configured amount rather than a genuine historical
+   * figure. Same concept as `IncomeLine.estimated` - a placeholder
+   * standing in for missing history, not a confirmed fact, and the caller
+   * should make that visually obvious rather than presenting it as one.
+   */
+  estimated: boolean
   /** Whether the amount itself can be edited here (vs. only its paid state). */
   editable: boolean
   /** Date the bill was actually received (utilities only) - the anchor dueDate is derived from. */
@@ -168,6 +180,11 @@ export class StandardMonthService {
         // rather than a real received date - a projection, not a fact.
         dueDateEstimated: dueDate !== null && !monthBill,
         paid: monthBill?.paid ?? false,
+        // Utilities never fall back to a blanket "assume paid" default (see
+        // `paid` above) and a past month with no bill on record is excluded
+        // above rather than shown with a guessed amount, so there's nothing
+        // here that's ever standing in for missing history.
+        estimated: false,
         editable: true,
         receivedOn: monthBill?.receivedOn?.toISODate() ?? null,
       })
@@ -209,6 +226,11 @@ export class StandardMonthService {
         dueDate: null,
         dueDateEstimated: false,
         paid: payment?.paid ?? isPastMonth,
+        // No payment row at all for a past month means nobody ever
+        // confirmed this one - both `paid` and `actual` above are guesses
+        // (today's configured amount, defaulted-to-paid) rather than
+        // anything recorded for that specific month.
+        estimated: isPastMonth && payment === undefined,
         editable: true,
         receivedOn: null,
       })
@@ -228,22 +250,26 @@ export class StandardMonthService {
           .where('year', year)
           .where('month', month)
       : []
-    const subscriptionPaidById = new Map(
-      subscriptionPayments.map((payment) => [payment.userSubscriptionId, payment.paid])
+    const subscriptionPaymentById = new Map(
+      subscriptionPayments.map((payment) => [payment.userSubscriptionId, payment])
     )
 
     for (const user of users) {
       const userSubscriptions = subscriptions.filter((sub) => sub.userId === user.id)
       for (const sub of userSubscriptions) {
+        const payment = subscriptionPaymentById.get(sub.id)
         lines.push({
           key: `subscription-${sub.id}`,
           label: `${sub.name} (${user.fullName ?? user.email})`,
           projected: sub.amount,
-          actual: sub.amount,
+          actual: payment?.amount ?? sub.amount,
           dueDay: sub.dayOfMonth,
           dueDate: null,
           dueDateEstimated: false,
-          paid: subscriptionPaidById.get(sub.id) ?? isPastMonth,
+          paid: payment?.paid ?? isPastMonth,
+          // Same reasoning as recurring bills above - no payment row this
+          // far back means `actual`/`paid` are guesses, not history.
+          estimated: isPastMonth && payment === undefined,
           editable: true,
           receivedOn: null,
         })
@@ -288,6 +314,11 @@ export class StandardMonthService {
           dueDate: null,
           dueDateEstimated: false,
           paid: expensePaidById.get(expense.id) ?? isPastMonth,
+          // `actual` here is always real logged spending (or the line
+          // wouldn't exist at all - see the guard above), so only `paid`
+          // can be a guess: no payment row this far back means nobody
+          // confirmed it, rather than it genuinely being marked paid.
+          estimated: isPastMonth && !expensePaidById.has(expense.id),
           editable: true,
           receivedOn: null,
         })
@@ -324,6 +355,10 @@ export class StandardMonthService {
         // above - only meaningful once there's an actual to reconcile against,
         // since the checkbox itself is hidden while `actual` is null.
         paid: expensePaidById.get(expense.id) ?? isPastMonth,
+        // Same reasoning as the non-recurring branch above - `actual` (when
+        // not null) is always real logged spending, only `paid` can be an
+        // unconfirmed guess.
+        estimated: isPastMonth && !expensePaidById.has(expense.id),
         editable: true,
         receivedOn: null,
       })

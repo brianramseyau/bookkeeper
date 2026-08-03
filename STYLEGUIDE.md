@@ -68,11 +68,13 @@ and read the same on desktop and mobile.
   hover treatment) plus a `variant`-driven icon color, exactly like
   `TextActionButton`'s old variants.
 - **Tooltip**: a plain HTML `title` attribute set from the same `label`
-  prop that fills `aria-label` — no custom tooltip component. This matches
-  the rest of the app (see "Modals / dialogs" below — no custom
-  overlay/popover component exists anywhere) at the cost of the tooltip not
-  appearing on keyboard focus in most browsers; `aria-label` still covers
-  screen readers regardless of that gap.
+  prop that fills `aria-label` — no custom tooltip component. This is fine
+  for a row action, where the icon's meaning is already implied by its
+  position/shape and the tooltip is just a courtesy label, at the cost of
+  the tooltip not appearing on keyboard focus in most browsers;
+  `aria-label` still covers screen readers regardless of that gap. Contrast
+  with "Tap-to-explain tooltips" below, where the explanation itself is the
+  point and a hover-only `title` isn't enough.
 - **Labels are always row-specific**, not the bare verb — `label="Edit
 {row.category.name}"`, not `label="Edit"`. A screen reader user tabbing
   through a table of icon-only buttons needs the entity name to tell one
@@ -134,6 +136,37 @@ This is a desktop-table-column concern only — a mobile card that already
 condenses its actions into the title row (see "Responsive tables (mobile)"
 below) can keep its inline `IconActionButton`s there even past two, since
 there's no shared column width being squeezed.
+
+### Tap-to-explain tooltips
+
+`$lib/components/HelpTooltip.svelte` — a small `mdiHelpCircle` icon button
+(`text-amber-500 dark:text-amber-400`, no background/hit-target padding
+since it always sits directly beside the value it explains) that reveals a
+short explanation on click/tap, not just hover. Use this instead of a bare
+`title` attribute whenever the explanation is the point rather than a
+courtesy label — e.g. Monthly's Actual-amount cell for a recurring bill/
+subscription/expense line where `StandardMonthLine.estimated` is true (no
+payment record exists this far back, so the figure shown is a guess, not a
+confirmed one). A `title` still gets set too (covers desktop hover for
+free), but the click-to-reveal panel is what actually works on a phone,
+where there's no hover state to stumble onto it.
+
+- **Structure**: same `open` `$state` + `fixed inset-0` transparent overlay
+  dismiss pattern as `ActionMenu` above (see that section) — click the icon
+  to open, click anywhere else to close. `role="tooltip"` panel,
+  `absolute left-1/2 top-full ... -translate-x-1/2`, anchored directly below
+  the icon.
+- **One per line, on the value — not on the checkbox.** Monthly's assumed
+  Paid checkbox is tinted amber (see Checkboxes below) instead of getting
+  its own `HelpTooltip`; two icons explaining the same underlying fact
+  (`line.estimated`) on one row is redundant, and the checkbox already sits
+  right next to the Actual cell that carries the explanation. Only add a
+  second `HelpTooltip` to a row if it's explaining a genuinely different
+  fact, not the same flag twice.
+- **Props**: `label` (accessible name for the trigger button, row-specific
+  like `IconActionButton`'s — e.g. `"Why is {line.label}'s actual amount
+  estimated?"`) and `text` (the explanation shown in the panel and set as
+  `title`).
 
 ### Danger action confirmation
 
@@ -239,6 +272,25 @@ browser default), others used `size-4` instead of `h-4 w-4`, and others
 added `focus:ring-indigo-500`/`dark:bg-slate-900` that the reference
 pattern doesn't use. If you add a new checkbox, copy the block above
 rather than re-deriving it.
+
+**Assumed/estimated state** — Monthly's Paid checkbox swaps
+`text-indigo-600` for `text-amber-500 dark:text-amber-400` when
+`StandardMonthLine.estimated` is true (a past month with no payment record
+at all, so `paid` defaulted rather than reflecting a real entry):
+
+```html
+class={[
+  'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
+  line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
+]}
+```
+
+No extra ring/border/badge on the checkbox itself, and no `HelpTooltip`
+next to it — the amber tint alone is the signal, and it's the same
+`estimated` fact already explained by the `HelpTooltip` on the row's Actual
+cell (see "Tap-to-explain tooltips" above); stacking a second explanation
+on the checkbox was tried and removed as redundant. The checkbox's `title`
+is still set from `paidTooltip(line)` for desktop hover.
 
 ## Cards / panels
 
@@ -521,7 +573,9 @@ sortOrder}` pairs that actually changed. This generalizes the old
 - **Semantic**: `emerald` = positive/good (net positive, trending down
   spend, success message), `red` = negative/bad (net negative, trending up
   spend, error message, overdue), `amber` = warning/attention (due soon,
-  paused, budget notice banner).
+  paused, budget notice banner, and — Monthly's Paid checkbox/Actual value/
+  `HelpTooltip` icon — assumed/estimated data standing in for a missing
+  record).
 - Every color utility has a `dark:` counterpart; there is no
   dark-mode-only or light-mode-only color left unhandled in any file read
   during this audit.

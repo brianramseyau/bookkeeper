@@ -448,6 +448,7 @@ export class RecurringBillSchema extends BaseModel {
 
 export class SubscriptionPaymentSchema extends BaseModel {
   static $columns = [
+    'amount',
     'createdAt',
     'id',
     'month',
@@ -457,6 +458,8 @@ export class SubscriptionPaymentSchema extends BaseModel {
     'year',
   ] as const
   $columns = SubscriptionPaymentSchema.$columns
+  @column()
+  declare amount: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column({ isPrimary: true })

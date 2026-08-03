@@ -386,6 +386,49 @@ test.group('StandardMonths / show', () => {
     assert.equal(lineWithOverride.actual, 2750.15)
   })
 
+  test("a subscription's actual mirrors its configured amount unless a SubscriptionPayment overrides it, leaving projected untouched", async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const netflix = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+      dayOfMonth: 10,
+    })
+
+    const withoutOverride = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+    const lineWithoutOverride = withoutOverride
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `subscription-${netflix.id}`)
+    assert.equal(lineWithoutOverride.actual, 22.99)
+    assert.equal(lineWithoutOverride.projected, 22.99)
+
+    // A price increase, recorded against the month it took effect rather
+    // than silently rewriting past months to the new live amount.
+    await SubscriptionPayment.create({
+      userSubscriptionId: netflix.id,
+      year: 2026,
+      month: 3,
+      amount: 24.99,
+      paid: false,
+    })
+
+    const withOverride = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(brian)
+    const lineWithOverride = withOverride
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `subscription-${netflix.id}`)
+    assert.equal(lineWithOverride.actual, 24.99)
+    assert.equal(lineWithOverride.projected, 22.99)
+  })
+
   test('an expense with a budget but no actuals this month projects the budget with a null actual', async ({
     client,
     assert,
@@ -809,6 +852,10 @@ test.group('StandardMonths / paid tracking', () => {
     )
     assert.equal(kayoLine.paid, false)
     assert.equal(netflixLine.paid, false)
+    // The current month is a live reminder, not missing history - false
+    // here isn't a guess, it's the genuine default.
+    assert.isFalse(kayoLine.estimated)
+    assert.isFalse(netflixLine.estimated)
   })
 
   test('defaults a recurring bill and a subscription to paid for a past month with no payment row', async ({
@@ -843,6 +890,87 @@ test.group('StandardMonths / paid tracking', () => {
     )
     assert.equal(kayoLine.paid, true)
     assert.equal(netflixLine.paid, true)
+    // Nobody ever recorded these two months, so both `paid` and the
+    // configured-amount-fallback `actual` are guesses, not history - flag
+    // them as such rather than presenting them as confirmed facts.
+    assert.isTrue(kayoLine.estimated)
+    assert.isTrue(netflixLine.estimated)
+  })
+
+  test('a recurring bill and a subscription are not flagged estimated once a payment row exists for that past month, even without an amount override', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const lastMonth = DateTime.utc().minus({ months: 1 })
+    const kayo = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    const netflix = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: kayo.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      paid: true,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: netflix.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: lastMonth.year, month: lastMonth.month })
+      .loginAs(brian)
+
+    const body = response.body()
+    const kayoLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `recurring-bill-${kayo.id}`
+    )
+    const netflixLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `subscription-${netflix.id}`
+    )
+    // A row exists for that month - someone already confirmed it, even
+    // though the actual amount charged still isn't on record.
+    assert.isFalse(kayoLine.estimated)
+    assert.isFalse(netflixLine.estimated)
+  })
+
+  test('an expense is flagged estimated for a past month with no ExpensePayment row, without mislabeling its real logged actual', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const lastMonth = DateTime.utc().minus({ months: 1 })
+    const groceries = await Expense.create({ name: 'Groceries' })
+    await ExpenseMonthlyActual.create({
+      expenseId: groceries.id,
+      occurredOn: DateTime.utc(lastMonth.year, lastMonth.month, 1),
+      amount: 300,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: lastMonth.year, month: lastMonth.month })
+      .loginAs(brian)
+
+    const groceriesLine = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `expense-${groceries.id}`)
+    assert.equal(groceriesLine.paid, true)
+    assert.isTrue(groceriesLine.estimated)
+    // The 300 is real logged spending, not a fabricated stand-in - only
+    // `paid` was assumed here.
+    assert.equal(groceriesLine.actual, 300)
   })
 
   test("an expense's line reflects an ExpensePayment row for the viewed month", async ({

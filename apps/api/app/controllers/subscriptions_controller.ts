@@ -70,10 +70,28 @@ export default class SubscriptionsController {
     const year = Number(params.year)
     const month = Number(params.month)
 
-    const payment = await SubscriptionPayment.updateOrCreate(
-      { userSubscriptionId, year, month },
-      { paid: payload.paid }
-    )
+    // Same distinguish-omitted-from-unset reasoning as RecurringBillsController
+    // .upsertPayment - the Paid checkbox and the amount-edit form each send
+    // only their own field, and neither should stomp the other's already-saved
+    // value.
+    let payment = await SubscriptionPayment.query()
+      .where({ userSubscriptionId, year, month })
+      .first()
+    if (payment) {
+      payment.merge({
+        ...(payload.paid !== undefined ? { paid: payload.paid } : {}),
+        ...(payload.amount !== undefined ? { amount: payload.amount } : {}),
+      })
+      await payment.save()
+    } else {
+      payment = await SubscriptionPayment.create({
+        userSubscriptionId,
+        year,
+        month,
+        paid: payload.paid ?? false,
+        amount: payload.amount ?? null,
+      })
+    }
 
     return serialize(SubscriptionPaymentTransformer.transform(payment))
   }

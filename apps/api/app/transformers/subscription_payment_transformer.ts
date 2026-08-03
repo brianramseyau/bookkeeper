@@ -9,6 +9,7 @@ export default class SubscriptionPaymentTransformer extends BaseTransformer<Subs
       'year',
       'month',
       'paid',
+      'amount',
       'createdAt',
       'updatedAt',
     ])

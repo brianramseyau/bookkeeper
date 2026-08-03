@@ -29,6 +29,7 @@ export interface SubscriptionPayment {
   year: number
   month: number
   paid: boolean
+  amount: number | null
   createdAt: string
   updatedAt: string
 }
@@ -73,12 +74,11 @@ export function upsertSubscriptionPayment(
   subscriptionId: number,
   year: number,
   month: number,
-  paid: boolean
+  paid?: boolean,
+  amount?: number
 ) {
   return api.put<SubscriptionPayment>(
     `/subscriptions/${subscriptionId}/payments/${year}/${month}`,
-    {
-      paid,
-    }
+    { paid, amount }
   )
 }

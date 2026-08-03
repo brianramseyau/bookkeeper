@@ -199,7 +199,84 @@ test.group('Subscriptions / upsertPayment', () => {
 
     response.assertStatus(200)
     assert.isTrue(response.body().data.paid)
+    assert.isNull(response.body().data.amount)
     assert.equal(response.body().data.userSubscriptionId, subscription.id)
+  })
+
+  test('creates a payment row with an explicit amount override, defaulting paid to false', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+
+    const response = await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 24.99 })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.amount, 24.99)
+    assert.isFalse(response.body().data.paid)
+  })
+
+  test('updating paid alone does not clear a previously saved amount override', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 24.99 })
+
+    const response = await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.paid)
+    assert.equal(response.body().data.amount, 24.99)
+  })
+
+  test('updating amount alone does not clear a previously saved paid flag', async ({
+    client,
+    assert,
+  }) => {
+    const brian = await loginAsBrian()
+    const subscription = await UserSubscription.create({
+      userId: brian.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ paid: true })
+
+    const response = await client
+      .put(`/api/subscriptions/${subscription.id}/payments/2026/3`)
+      .withCsrfToken()
+      .loginAs(brian)
+      .json({ amount: 24.99 })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.paid, true)
+    assert.equal(response.body().data.amount, 24.99)
   })
 
   test('updates the existing payment row for that month rather than duplicating it', async ({

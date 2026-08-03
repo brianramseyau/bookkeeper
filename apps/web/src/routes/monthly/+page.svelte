@@ -36,6 +36,7 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import HelpTooltip from '$lib/components/HelpTooltip.svelte'
   import { mdiPencil, mdiCloseThick, mdiContentSave, mdiDelete, mdiCheckBold } from '@mdi/js'
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
@@ -89,7 +90,12 @@
   let acceptingPlaceholderKey = $state<string | null>(null)
 
   type ExpenseEditMode =
-    'utility' | 'recurring-bill' | 'expense-add' | 'expense-edit' | 'expense-multiple'
+    | 'utility'
+    | 'recurring-bill'
+    | 'subscription'
+    | 'expense-add'
+    | 'expense-edit'
+    | 'expense-multiple'
   let editingExpenseKey = $state<string | null>(null)
   let editExpenseMode = $state<ExpenseEditMode | null>(null)
   let editExpenseTargetId = $state<number | null>(null)
@@ -466,10 +472,26 @@
     return resolveDueDate(line) !== null
   }
 
+  // `estimated` covers both `actual` and `paid` for a recurring bill or
+  // subscription (no payment row this far back means neither is real), but
+  // only `paid` for an expense - its `actual` is always genuinely logged
+  // spending whenever it's non-null (see standard_month_service.ts), so
+  // flagging it here too would mislabel real data as a guess.
+  function actualIsAssumed(line: StandardMonthLine): boolean {
+    return line.estimated && !line.key.startsWith('expense-')
+  }
+
   // The checkbox itself stays visible even when it can't be tracked yet
   // (greyed out via `disabled`) rather than disappearing, so the column
   // reads consistently row to row - this explains why to anyone who hovers.
   function paidTooltip(line: StandardMonthLine): string | undefined {
+    // Takes priority over the disabled-state tooltips below - an assumed
+    // line is usually still trackable (canTrackPaid true), so without this
+    // check hovering it would show no tooltip at all despite the value on
+    // screen not being a real record.
+    if (line.estimated) {
+      return "No record for this month this far back - assumed paid at today's amount because it's in the past. Confirm or correct it."
+    }
     if (canTrackPaid(line)) return undefined
     if (line.key.startsWith('expense-')) {
       return 'No actual amount logged for this expense this month'
@@ -567,6 +589,14 @@
       editExpenseAmount = line.actual ?? line.projected ?? NaN
       return
     }
+    if (line.key.startsWith('subscription-')) {
+      editingExpenseKey = line.key
+      editExpenseMode = 'subscription'
+      editExpenseTargetId = Number(line.key.slice('subscription-'.length))
+      editActualsExpenseId = null
+      editExpenseAmount = line.actual ?? line.projected ?? NaN
+      return
+    }
     if (line.key.startsWith('expense-')) {
       const expenseId = Number(line.key.slice('expense-'.length))
       try {
@@ -609,6 +639,14 @@
         )
       } else if (editExpenseMode === 'recurring-bill') {
         await upsertRecurringBillPayment(
+          editExpenseTargetId,
+          year,
+          month,
+          undefined,
+          editExpenseAmount
+        )
+      } else if (editExpenseMode === 'subscription') {
+        await upsertSubscriptionPayment(
           editExpenseTargetId,
           year,
           month,
@@ -793,6 +831,7 @@
           {@const editable =
             (line.key.startsWith('utility-') && line.editable) ||
             line.key.startsWith('recurring-bill-') ||
+            line.key.startsWith('subscription-') ||
             line.key.startsWith('expense-')}
           {#if editingExpenseKey === line.key}
             <tr
@@ -873,7 +912,10 @@
                   onchange={(e) => togglePaid(line, e.currentTarget.checked)}
                   aria-label="Paid"
                   title={paidTooltip(line)}
-                  class="h-4 w-4 rounded border-slate-300 text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
+                  class={[
+                    'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
+                    line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
+                  ]}
                 />
               </td>
               <td
@@ -966,7 +1008,22 @@
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                   >Actual</span
                 >
-                {formatCurrency(line.actual)}
+                <span>
+                  <span
+                    class={[
+                      actualIsAssumed(line) &&
+                        'font-medium text-amber-600 italic dark:text-amber-400',
+                    ]}
+                  >
+                    {formatCurrency(line.actual)}
+                  </span>
+                  {#if actualIsAssumed(line)}
+                    <HelpTooltip
+                      label="Why is {line.label}'s actual amount estimated?"
+                      text="No record for this month this far back - showing today's live amount, not necessarily what was actually charged then."
+                    />
+                  {/if}
+                </span>
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
@@ -982,7 +1039,10 @@
                   onchange={(e) => togglePaid(line, e.currentTarget.checked)}
                   aria-label="Paid"
                   title={paidTooltip(line)}
-                  class="h-4 w-4 rounded border-slate-300 text-indigo-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
+                  class={[
+                    'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
+                    line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
+                  ]}
                 />
               </td>
               <td

@@ -18,6 +18,14 @@ export interface StandardMonthLine {
   /** Whether the money has actually left the account, independent of whether the amount is known. */
   paid: boolean
   /**
+   * True when this is a recurring bill, subscription, or expense in a past
+   * month with no payment record at all - `paid` and (for bills/
+   * subscriptions) `actual` are placeholders standing in for missing
+   * history rather than confirmed facts. Same concept as
+   * `StandardMonthIncomeLine.estimated`.
+   */
+  estimated: boolean
+  /**
    * False for a non-monthly utility line viewed in a month that isn't its
    * actual billing month - that figure is a computed share of a bill
    * entered elsewhere, not something to edit directly.

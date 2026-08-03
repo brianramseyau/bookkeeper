@@ -53,8 +53,19 @@ describe('subscriptions api', () => {
     expect(api.delete).toHaveBeenCalledWith('/subscriptions/9')
   })
 
-  it('upserts a subscription payment', () => {
+  it('upserts a subscription payment paid flag', () => {
     upsertSubscriptionPayment(9, 2026, 3, true)
-    expect(api.put).toHaveBeenCalledWith('/subscriptions/9/payments/2026/3', { paid: true })
+    expect(api.put).toHaveBeenCalledWith('/subscriptions/9/payments/2026/3', {
+      paid: true,
+      amount: undefined,
+    })
+  })
+
+  it('upserts a subscription payment amount override', () => {
+    upsertSubscriptionPayment(9, 2026, 3, undefined, 24.99)
+    expect(api.put).toHaveBeenCalledWith('/subscriptions/9/payments/2026/3', {
+      paid: undefined,
+      amount: 24.99,
+    })
   })
 })

@@ -136,6 +136,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           dueDay: null,
           dueDate: '2026-03-20T00:00:00.000+00:00',
           dueDateEstimated: false,
+          estimated: false,
           paid: false,
           editable: true,
           receivedOn: null,
@@ -148,6 +149,7 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
           dueDay: 5,
           dueDate: null,
           dueDateEstimated: false,
+          estimated: false,
           paid: true,
           editable: true,
           receivedOn: null,
@@ -773,6 +775,7 @@ describe('month page', () => {
               dueDay: 5,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -805,6 +808,7 @@ describe('month page', () => {
               dueDay: 20,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -843,6 +847,7 @@ describe('month page', () => {
               dueDay: 5,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -882,6 +887,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: '2026-03-28T00:00:00.000+00:00',
               dueDateEstimated: true,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -921,6 +927,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -970,6 +977,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -982,6 +990,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1022,6 +1031,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1054,6 +1064,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1123,6 +1134,7 @@ describe('month page', () => {
               dueDay: 20,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1168,6 +1180,7 @@ describe('month page', () => {
               dueDay: 10,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1187,6 +1200,7 @@ describe('month page', () => {
       year: 2026,
       month: 3,
       paid: true,
+      amount: null,
       createdAt: '',
       updatedAt: '',
     })
@@ -1197,6 +1211,110 @@ describe('month page', () => {
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, true))
+  })
+
+  it('edits a subscription line amount', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'subscription-9',
+              label: 'Netflix (Brian)',
+              projected: 22.99,
+              actual: 22.99,
+              dueDay: 10,
+              dueDate: null,
+              dueDateEstimated: false,
+              estimated: false,
+              paid: false,
+              editable: true,
+              receivedOn: null,
+            },
+          ],
+          projectedTotal: 22.99,
+          actualTotal: 22.99,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    vi.mocked(upsertSubscriptionPayment).mockResolvedValue({
+      id: 1,
+      userSubscriptionId: 9,
+      year: 2026,
+      month: 3,
+      paid: false,
+      amount: 24.99,
+      createdAt: '',
+      updatedAt: '',
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Netflix (Brian)' }))
+    const amountInput = screen.getByDisplayValue('22.99')
+    await user.clear(amountInput)
+    await user.type(amountInput, '24.99')
+    await user.click(screen.getByRole('button', { name: 'Save Netflix (Brian)' }))
+
+    await waitFor(() =>
+      expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, undefined, 24.99)
+    )
+  })
+
+  it('flags an estimated line clearly as assumed, both on its actual amount and its paid checkbox', async () => {
+    vi.mocked(getStandardMonth).mockResolvedValue(
+      baseData({
+        expenses: {
+          lines: [
+            {
+              key: 'subscription-9',
+              label: 'Netflix (Brian)',
+              projected: 22.99,
+              actual: 22.99,
+              dueDay: 10,
+              dueDate: null,
+              dueDateEstimated: false,
+              estimated: true,
+              paid: true,
+              editable: true,
+              receivedOn: null,
+            },
+          ],
+          projectedTotal: 22.99,
+          actualTotal: 22.99,
+        },
+      })
+    )
+    vi.mocked(listIncomeSources).mockResolvedValue([])
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listUsers).mockResolvedValue([])
+    render(MonthPage)
+
+    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    expect(checkbox).toHaveClass('text-amber-500')
+    expect(checkbox).toHaveAttribute(
+      'title',
+      "No record for this month this far back - assumed paid at today's amount because it's in the past. Confirm or correct it."
+    )
+    expect(
+      screen.getByRole('button', {
+        name: "Why is Netflix (Brian)'s actual amount estimated?",
+      })
+    ).toBeInTheDocument()
+  })
+
+  it('does not flag a normally-tracked line as assumed', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+
+    const checkbox = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    for (const box of checkbox) {
+      expect(box).not.toHaveClass('text-amber-500')
+    }
+    expect(screen.queryByText(/Why is .* estimated\?/)).toBeNull()
   })
 
   it('shows an error when toggling paid fails', async () => {
@@ -1255,6 +1373,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: '2026-03-20T00:00:00.000+00:00',
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: '2026-03-14',
@@ -1461,6 +1580,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: false,
               receivedOn: null,
@@ -1495,6 +1615,7 @@ describe('month page', () => {
               dueDay: null,
               dueDate: '2026-03-20T00:00:00.000+00:00',
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1507,6 +1628,7 @@ describe('month page', () => {
               dueDay: 5,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: true,
               editable: true,
               receivedOn: null,
@@ -1519,6 +1641,7 @@ describe('month page', () => {
               dueDay: 12,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
@@ -1531,6 +1654,7 @@ describe('month page', () => {
               dueDay: 8,
               dueDate: null,
               dueDateEstimated: false,
+              estimated: false,
               paid: false,
               editable: true,
               receivedOn: null,
