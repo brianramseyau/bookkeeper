@@ -708,46 +708,18 @@
   <LoadingIndicator />
 {:else if data}
   <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <Card class="p-4">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
-        Carried over from last month
+    <Card class="flex flex-col p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Cash on hand</p>
+      <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+        {formatCurrency(data.carryover + data.income.actualTotal)}
       </p>
-      {#if editingCarryover}
-        <div class="mt-1 flex items-center gap-2">
-          <input
-            type="number"
-            step="0.01"
-            bind:value={editCarryoverAmount}
-            class="w-28 rounded-md border border-slate-300 px-2 py-1 text-lg dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-          />
-          <IconActionButton
-            variant="primary"
-            disabled={savingCarryover}
-            label="Save carried over balance"
-            path={mdiContentSave}
-            onclick={saveCarryover}
-          />
-          <IconActionButton
-            variant="cancel"
-            label="Cancel editing carried over balance"
-            path={mdiCloseThick}
-            onclick={cancelEditCarryover}
-          />
-        </div>
-      {:else}
-        <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-          {formatCurrency(data.carryover)}
-        </p>
-        <IconActionButton
-          variant="neutral"
-          class="mt-1 -ml-2"
-          label="Edit carried over balance"
-          path={mdiPencil}
-          onclick={startEditCarryover}
-        />
-      {/if}
+      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
+        Carried over ({formatCurrency(data.carryover)}) plus actual income received so far ({formatCurrency(
+          data.income.actualTotal
+        )}), before this month's expenses.
+      </p>
     </Card>
-    <Card class="p-4">
+    <Card class="flex flex-col p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Projected net</p>
       <p
         class={[
@@ -759,8 +731,11 @@
       >
         {formatCurrency(data.projectedNet)}
       </p>
+      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
+        Carried over plus projected income, minus projected expenses for the whole month.
+      </p>
     </Card>
-    <Card class="p-4">
+    <Card class="flex flex-col p-4">
       <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Actual net (so far)</p>
       <p
         class={[
@@ -772,14 +747,12 @@
       >
         {formatCurrency(data.actualNet)}
       </p>
-    </Card>
-    <Card class="p-4">
-      <p
-        class="text-xs font-medium text-slate-500 dark:text-slate-400"
-        title="Actual net minus projected net"
-      >
-        Variance
+      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
+        Carried over plus actual income received, minus actual expenses paid so far.
       </p>
+    </Card>
+    <Card class="flex flex-col p-4">
+      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Variance</p>
       <p
         class={[
           'mt-1 text-2xl font-semibold',
@@ -789,6 +762,9 @@
         ]}
       >
         {formatCurrency(data.actualNet - data.projectedNet)}
+      </p>
+      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
+        Actual net (so far) minus projected net.
       </p>
     </Card>
   </div>
@@ -1066,8 +1042,101 @@
       Manage income sources →
     </a>
   </div>
+
   <Card class="mt-3 sm:overflow-x-auto">
-    <table class="block w-full border-collapse text-sm sm:table">
+    <table class="block w-full border-collapse text-sm sm:table sm:table-fixed">
+      <colgroup>
+        <col class="sm:w-[12%]" />
+        <col class="sm:w-[16%]" />
+        <col class="sm:w-[14%]" />
+        <col class="sm:w-[14%]" />
+        <col class="sm:w-[14%]" />
+        <col class="sm:w-[25%]" />
+        <col class="sm:w-[5%]" />
+      </colgroup>
+      <tbody class="block sm:table-row-group">
+        <tr
+          class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-slate-50 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800/60"
+        >
+          <td
+            class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100"
+            colspan="3"
+          >
+            Carried over from last month
+          </td>
+          {#if editingCarryover}
+            <td class="hidden px-3 py-2 sm:table-cell"></td>
+            <td
+              class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Actual</span
+              >
+              <input
+                type="number"
+                step="0.01"
+                bind:value={editCarryoverAmount}
+                class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </td>
+            <td
+              class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              colspan="2"
+            >
+              <IconActionButton
+                variant="primary"
+                disabled={savingCarryover}
+                label="Save carried over balance"
+                path={mdiContentSave}
+                onclick={saveCarryover}
+              />
+              <IconActionButton
+                variant="cancel"
+                label="Cancel editing carried over balance"
+                path={mdiCloseThick}
+                onclick={cancelEditCarryover}
+              />
+            </td>
+          {:else}
+            <td class="hidden px-3 py-2 sm:table-cell"></td>
+            <td
+              class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+            >
+              <span
+                class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                >Actual</span
+              >
+              {formatCurrency(data.carryover)}
+            </td>
+            <td
+              class="flex justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+              colspan="2"
+            >
+              <IconActionButton
+                variant="neutral"
+                label="Edit carried over balance"
+                path={mdiPencil}
+                onclick={startEditCarryover}
+              />
+            </td>
+          {/if}
+        </tr>
+      </tbody>
+    </table>
+  </Card>
+
+  <Card class="mt-3 sm:overflow-x-auto">
+    <table class="block w-full border-collapse text-sm sm:table sm:table-fixed">
+      <colgroup>
+        <col class="sm:w-[12%]" />
+        <col class="sm:w-[16%]" />
+        <col class="sm:w-[14%]" />
+        <col class="sm:w-[14%]" />
+        <col class="sm:w-[14%]" />
+        <col class="sm:w-[25%]" />
+        <col class="sm:w-[5%]" />
+      </colgroup>
       <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
           <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th

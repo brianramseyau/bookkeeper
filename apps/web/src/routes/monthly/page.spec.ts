@@ -1439,9 +1439,9 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
-    // Expenses table renders first now, so income's footer is tables[1].
+    // Table order: expenses, then the carryover mini-table, then income.
     const tables = await screen.findAllByRole('table')
-    const incomeFooter = tables[1]!.querySelector('tfoot')!
+    const incomeFooter = tables[2]!.querySelector('tfoot')!
     expect(within(incomeFooter).getAllByText('$5,000.00')).toHaveLength(2)
     expect(within(tables[0]!).getByText('$700.00')).toBeInTheDocument()
     expect(within(tables[0]!).getByText('$730.00')).toBeInTheDocument()
