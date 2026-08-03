@@ -9,6 +9,12 @@ export default {
     runes: ({ filename }) => (filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
   },
   kit: {
-    adapter: adapter({ fallback: 'index.html' }),
+    // Not named index.html on purpose - serve-static (used by the API's
+    // static middleware) auto-serves a literal index.html for a directory
+    // request, which would let `GET /` skip the router (and with it the
+    // shield CSP middleware that stamps a nonce onto this file's inline
+    // <script> tags) entirely. See the SPA fallback route in
+    // apps/api/start/routes.ts, which reads this file by name.
+    adapter: adapter({ fallback: 'app.html' }),
   },
 }

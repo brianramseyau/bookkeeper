@@ -7,6 +7,7 @@
 |
 */
 
+import { readFile } from 'node:fs/promises'
 import { middleware } from '#start/kernel'
 import router from '@adonisjs/core/services/router'
 import app from '@adonisjs/core/services/app'
@@ -131,9 +132,20 @@ router
 /**
  * SPA fallback: anything that isn't an API route or a real static asset
  * (already handled by the static middleware before requests reach here)
- * gets the SvelteKit build's fallback index.html, so client-side routing
- * works on refresh/deep-link for routes adapter-static couldn't prerender.
+ * gets the SvelteKit build's fallback shell, so client-side routing works
+ * on refresh/deep-link for routes adapter-static couldn't prerender.
+ *
+ * Served through a template read + string replace (not response.download)
+ * so the shield-generated per-request CSP nonce (response.nonce, see
+ * config/shield.ts) can be stamped onto app.html's two inline <script>
+ * tags (the theme-init IIFE and SvelteKit's hydration bootstrap) - that's
+ * what lets script-src drop 'unsafe-inline' while still allowing those to
+ * run. The build output is named app.html rather than index.html precisely
+ * so the static middleware never serves it directly (see svelte.config.js).
  */
-router.get('*', ({ response }) => {
-  return response.download(app.publicPath('index.html'))
+router.get('*', async ({ response }) => {
+  const html = await readFile(app.publicPath('app.html'), 'utf-8')
+  const withNonce = html.replaceAll('<script', `<script nonce="${response.nonce}"`)
+  response.header('content-type', 'text/html; charset=utf-8')
+  return response.send(withNonce)
 })

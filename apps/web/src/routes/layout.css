@@ -13,6 +13,13 @@
   }
 }
 
+/* Replaces the inline `style="display: contents"` SvelteKit's app.html
+   template puts on its root mount div by default, so the CSP's style-src
+   doesn't need `unsafe-inline`. */
+#svelte-root {
+  display: contents;
+}
+
 /* Native date inputs otherwise render a dark calendar icon regardless of
    theme, which is unreadable against our dark-mode input backgrounds. */
 .dark input[type='date'] {

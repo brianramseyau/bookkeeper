@@ -419,17 +419,47 @@ before proceeding.
   Authentik is already the reverse-proxy front line, so this is
   defense-in-depth for the AdonisJS login route rather than the primary
   control.
-- **Content-Security-Policy disabled (Low)** -
-  `apps/api/config/shield.ts` has `csp.enabled: false` while HSTS,
-  X-Frame-Options, and nosniff are all on. Enable a CSP restrictive
-  enough for a same-origin SPA with no third-party scripts (start from
-  `default-src 'self'`) and verify the built SPA still loads/functions
-  fully under it (check the network/console tab for blocked resources -
-  fonts, inline styles from Tailwind, etc. are the likely trip points).
-  **Ask first**: none required to start, but treat this as "verify in a
-  real browser against the production build" rather than "assume the
-  policy is correct" before considering it done - there's no automated
-  test coverage today that would catch a CSP regression.
+- ~~**Content-Security-Policy disabled (Low)**~~ - Fixed.
+  `apps/api/config/shield.ts` now enables a same-origin CSP (`default-src
+  'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`,
+  `frame-ancestors 'none'`). `script-src` is `'self'` plus a per-request
+  nonce (`@nonce`, shield's keyword for `response.nonce`) rather than
+  `'unsafe-inline'` - the SPA fallback route in `apps/api/start/routes.ts`
+  reads the built shell (`app.html`, see below) and stamps that nonce onto
+  its two inline `<script>` tags (the theme-init IIFE and SvelteKit's
+  hydration bootstrap) instead of using `response.download`.
+  `style-src` keeps `'unsafe-inline'` - `PullToRefresh.svelte` and
+  `HelpTooltip.svelte` set computed positioning via a dynamic `style`
+  binding that can't carry a nonce, and inline CSS injection is a much
+  lower-severity risk than inline script injection, so relaxing style-src
+  while keeping script-src strict is the standard tradeoff. `img-src`
+  allows `data:` for Tailwind forms' checkbox/radio SVG backgrounds and the
+  inlined favicon; nothing else needed relaxing (Tailwind's compiled output
+  is otherwise just static external CSS/utility classes).
+  Two supporting changes: the SvelteKit build's fallback shell is named
+  `app.html`, not `index.html` (`apps/web/svelte.config.js`) - AdonisJS's
+  static middleware (`serve-static`) auto-serves a literal `index.html` for
+  a directory request, which would let `GET /` (and `GET /index.html`)
+  bypass the router - and with it shield's nonce-stamping - entirely; and
+  the SvelteKit root div's inline `style="display: contents"` was replaced
+  with `#svelte-root { display: contents }` in
+  `apps/web/src/routes/layout.css` so `style-src` doesn't need to cover it.
+  Verified in a real (non-headless-assumption) browser session via
+  Playwright against a production build: checked the CSP header and nonce
+  on every document response, confirmed zero CSP violations (initially
+  found and fixed one - see below) across all nav pages both logged out
+  and logged in, and screenshotted the Settings page to confirm checkbox
+  icons and other `data:`-URI backgrounds still render. `pnpm test`
+  (1265 tests), `pnpm test:e2e` (16 tests), `pnpm typecheck`, and `pnpm
+  lint` all still pass.
+  One false start worth knowing about if this needs revisiting: SvelteKit
+  has a built-in `kit.csp` hash-mode config, but it doesn't integrate with
+  this app's per-request nonce - worse, if enabled it bakes a *second*,
+  much stricter `<meta http-equiv="Content-Security-Policy">` tag (with no
+  `img-src`/`style-src` of its own) into the built shell, and browsers
+  enforce the *intersection* of a header policy and a meta-tag policy, so
+  it silently overrides the real one. Don't add `kit.csp` to
+  `svelte.config.js`.
 - **Vulnerable transitive deps under `exceljs` (Informational)** -
   `pnpm audit --prod` flags `brace-expansion` (2x High) and `uuid`
   (Moderate) via `exceljs` → `archiver`/`uuid`. `exceljs` is only used by

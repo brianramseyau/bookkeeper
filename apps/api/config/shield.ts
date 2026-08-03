@@ -9,12 +9,35 @@ const shieldConfig = defineConfig({
     /**
      * Enable the Content-Security-Policy header.
      */
-    enabled: false,
+    enabled: true,
 
     /**
-     * Per-resource CSP directives.
+     * Same-origin SPA with no third-party scripts/styles/fonts/images and no
+     * embeds. The two inline <script> tags on the served app.html (see the
+     * SPA fallback route in start/routes.ts) get a per-request nonce stamped
+     * on instead of relying on 'unsafe-inline'.
      */
-    directives: {},
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", '@nonce'],
+      /**
+       * 'unsafe-inline' here (but not on scriptSrc) is deliberate: a couple
+       * of components (PullToRefresh.svelte, HelpTooltip.svelte) set
+       * computed positioning via a dynamic `style` binding, which can't
+       * carry a nonce the way the two static <script> tags in index.html
+       * can. Inline CSS injection is a much lower-severity risk than inline
+       * script injection, so keeping script-src strict while relaxing
+       * style-src is the standard tradeoff here.
+       */
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+    },
 
     /**
      * Report violations without blocking resources.
