@@ -99,6 +99,11 @@ corrections/backfills alike (see e.g.
 special-case a data fix into the importer, a seeder, or a manual SQL
 update against the production database.
 
+In production this needs no manual step: the container's `CMD` runs
+`node ace migration:run --force` before starting the server (see
+`Dockerfile`), so every migration merged to `main` applies itself on the
+next deploy/restart.
+
 ### Demo mode
 
 To show the app to someone without exposing real household data, seed an

@@ -101,7 +101,12 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   that import, so schema changes and data fixes/backfills alike go through
   a migration (`apps/api/database/migrations/`), not an edit to the
   importer, a seeder, or a manual SQL update — see
-  [README.md](README.md#making-data-or-schema-changes).
+  [README.md](README.md#making-data-or-schema-changes). **No manual step is
+  needed to apply a migration in production**: the container's `CMD` is
+  `node ace migration:run --force && node bin/server.js` (`Dockerfile`), so
+  every pending migration runs automatically on container start, before the
+  server begins accepting requests — a deploy (rebuild + restart the
+  container) is sufficient on its own.
 - **SQLite table-rebuild migrations silently cascade-delete child rows —
   this has already wiped production data twice.** SQLite can't do several
   `ALTER TABLE` operations in place — `dropColumn`, adding a column with an
