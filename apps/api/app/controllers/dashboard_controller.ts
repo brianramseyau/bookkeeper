@@ -57,16 +57,42 @@ export default class DashboardController {
     const bills = await RecurringBill.query().where('isActive', true).whereNotNull('dueDay')
 
     const todayStart = DateTime.utc().startOf('day')
+    const billIds = bills.map((bill) => bill.id)
+    const paidPayments = billIds.length
+      ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)
+      : []
+    const paidPeriods = new Set(
+      paidPayments.map((payment) => `${payment.recurringBillId}-${payment.year}-${payment.month}`)
+    )
+
     return bills
       .map((bill) => {
         // whereNotNull('dueDay') above guarantees nextRecurringBillDueDate
-        // returns non-null here too.
-        const nextOccurrence = nextRecurringBillDueDate(
+        // returns non-null here too. Occurrences already marked paid are
+        // skipped so "next due" reflects what's still owed, not the bill's
+        // raw calendar cycle - bounded to a few years out so a bill paid
+        // indefinitely ahead can't spin forever.
+        let cursor: DateTime<boolean> = todayStart
+        let nextOccurrence = nextRecurringBillDueDate(
           bill.frequency,
           bill.dueDay,
           bill.dueMonth,
-          todayStart
+          cursor
         )!
+        let guard = 0
+        while (
+          paidPeriods.has(`${bill.id}-${nextOccurrence.year}-${nextOccurrence.month}`) &&
+          guard < 36
+        ) {
+          cursor = nextOccurrence.plus({ days: 1 })
+          nextOccurrence = nextRecurringBillDueDate(
+            bill.frequency,
+            bill.dueDay,
+            bill.dueMonth,
+            cursor
+          )!
+          guard += 1
+        }
         return {
           id: bill.id,
           name: bill.name,

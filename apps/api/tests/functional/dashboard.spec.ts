@@ -115,6 +115,34 @@ test.group('Dashboard / summary', () => {
     assert.isAtLeast(car.daysUntilDue, 0)
   })
 
+  test("rolls a paid occurrence forward to the bill's next cycle in upcomingBills", async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.utc().startOf('day')
+
+    const bill = await RecurringBill.create({
+      name: 'Internet',
+      amount: 80,
+      frequency: 'monthly',
+      dueDay: today.day,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: today.year,
+      month: today.month,
+      amount: 80,
+      paid: true,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+
+    const entry = response.body().upcomingBills.find((b: { name: string }) => b.name === 'Internet')
+    const nextMonth = today.plus({ months: 1 })
+    assert.equal(DateTime.fromISO(entry.nextDueOn).month, nextMonth.month)
+  })
+
   test('sums utility bills and expense actuals into the monthlyExpenses window', async ({
     client,
     assert,
