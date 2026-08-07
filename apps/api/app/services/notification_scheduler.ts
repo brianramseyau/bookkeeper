@@ -3,12 +3,17 @@ import logger from '@adonisjs/core/services/logger'
 import NotificationSchedule from '#models/notification_schedule'
 import UserNotificationPreference from '#models/user_notification_preference'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 import PushSubscription from '#models/push_subscription'
-import { compareByDaysUntilDue, nextRecurringBillDueDate } from '#services/recurring_bill_due_date'
+import {
+  compareByDaysUntilDue,
+  nextUnpaidRecurringBillDueDate,
+} from '#services/recurring_bill_due_date'
+import { nextUnpaidUtilityDueDate } from '#services/utility_billing_period'
 import { sendPushNotification, type PushPayload } from '#services/push_service'
 
 /** The one settings row this app has for the shared daily check - there's no per-user dimension to when the job runs. */
@@ -57,15 +62,26 @@ export function isNotificationCheckDue(
 async function findDueRecurringBills(today: DateTime, leadDays: number): Promise<DueBill[]> {
   const bills = await RecurringBill.query().where('isActive', true).whereNotNull('dueDay')
 
+  const billIds = bills.map((bill) => bill.id)
+  const paidPayments = billIds.length
+    ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)
+    : []
+  const paidPeriods = new Set(
+    paidPayments.map((payment) => `${payment.recurringBillId}-${payment.year}-${payment.month}`)
+  )
+
   return bills
     .map((bill) => {
-      // whereNotNull('dueDay') above guarantees nextRecurringBillDueDate
-      // returns non-null here too.
-      const nextOccurrence = nextRecurringBillDueDate(
+      // whereNotNull('dueDay') above guarantees nextUnpaidRecurringBillDueDate
+      // returns non-null here too. Shared with the dashboard's upcoming-bills
+      // card so an already-paid occurrence is skipped the same way in both
+      // places, rather than a paid bill still triggering a reminder.
+      const nextOccurrence = nextUnpaidRecurringBillDueDate(
         bill.frequency,
         bill.dueDay,
         bill.dueMonth,
-        today
+        today,
+        (year, month) => paidPeriods.has(`${bill.id}-${year}-${month}`)
       )!
       return {
         kind: 'recurring' as const,
@@ -78,28 +94,31 @@ async function findDueRecurringBills(today: DateTime, leadDays: number): Promise
 }
 
 /**
- * Utilities have no fixed due date the way recurring bills do - a bill
- * covers a period and payment is tracked with a `paid` flag on the current
- * month's row. So this is a same-month unpaid flag, not a lead-time
- * countdown: an unpaid current-month bill is always reported due "today".
+ * Uses the same due-date math as the utility trend chart
+ * (`nextUnpaidUtilityDueDate`, built on `utilityDueDateFor`'s
+ * `receivedOn + dueOffsetDays`) rather than a separate "unpaid current-month
+ * row" flag, so a notification can never fire on a different date than what
+ * the chart shows as "next due" - which is what let a utility bill notify a
+ * full week before its real due date. A utility with no configured
+ * `dueOffsetDays`, or no bill that's ever had a `receivedOn` recorded, has a
+ * genuinely unknown due date and is silently skipped rather than guessed.
  */
-async function findDueUtilityBills(today: DateTime): Promise<DueBill[]> {
+async function findDueUtilityBills(today: DateTime, leadDays: number): Promise<DueBill[]> {
   const utilities = await Utility.query().where('isActive', true)
   const dueBills: DueBill[] = []
 
   for (const utility of utilities) {
-    const bill = await UtilityBill.query()
-      .where('utilityId', utility.id)
-      .where('year', today.year)
-      .where('month', today.month)
-      .first()
+    const bills = await UtilityBill.query().where('utilityId', utility.id)
+    const nextDueOn = nextUnpaidUtilityDueDate(utility, bills, today)
+    if (!nextDueOn) continue
 
-    if (bill && !bill.paid) {
-      dueBills.push({ kind: 'utility', name: utility.name, daysUntilDue: 0 })
+    const daysUntilDue = Math.floor(nextDueOn.diff(today, 'days').days)
+    if (daysUntilDue <= leadDays) {
+      dueBills.push({ kind: 'utility', name: utility.name, daysUntilDue })
     }
   }
 
-  return dueBills
+  return dueBills.sort((a, b) => compareByDaysUntilDue(a.daysUntilDue, b.daysUntilDue))
 }
 
 /** Subscriptions are per-person, so only this user's own are ever included. */
@@ -148,7 +167,7 @@ export async function findDueBillsForUser(
 ): Promise<DueBill[]> {
   const [recurring, utility, subscriptions] = await Promise.all([
     prefs.notifyRecurringBills ? findDueRecurringBills(today, prefs.leadDays) : [],
-    prefs.notifyUtilityBills ? findDueUtilityBills(today) : [],
+    prefs.notifyUtilityBills ? findDueUtilityBills(today, prefs.leadDays) : [],
     prefs.notifySubscriptions ? findDueSubscriptions(userId, today, prefs.leadDays) : [],
   ])
 

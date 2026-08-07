@@ -193,3 +193,40 @@ export function nextUtilityDueDate(
   }
   return null
 }
+
+/**
+ * Like `nextUtilityDueDate`, but skips forward past any billing period whose
+ * bill is already marked paid - the "do I still owe this" question the
+ * notification scheduler needs, layered on the same due-date math the
+ * dashboard/trend chart use so the two can never disagree about *when* a
+ * bill is due, only about whether an already-paid one should still count.
+ * Scans a bounded number of months ahead (independent of `periodMonths`,
+ * since paid-ahead periods can push the answer past a single cycle) so a
+ * utility paid indefinitely ahead can't spin forever.
+ */
+export function nextUnpaidUtilityDueDate(
+  utility: Utility,
+  bills: UtilityBill[],
+  today: DateTime
+): DateTime | null {
+  if (utility.dueOffsetDays === null) return null
+
+  const paidPeriods = new Set(
+    bills.filter((bill) => bill.paid).map((bill) => `${bill.year}-${bill.month}`)
+  )
+
+  let year = today.year
+  let month = today.month
+
+  for (let i = 0; i < 36; i++) {
+    const due = utilityDueDateFor(utility, bills, year, month)
+    if (due && due >= today && !paidPeriods.has(`${year}-${month}`)) return due
+
+    month += 1
+    if (month > 12) {
+      month = 1
+      year += 1
+    }
+  }
+  return null
+}

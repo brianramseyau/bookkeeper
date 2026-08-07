@@ -5,6 +5,7 @@ import NotificationSchedule from '#models/notification_schedule'
 import UserNotificationPreference from '#models/user_notification_preference'
 import PushSubscription from '#models/push_subscription'
 import RecurringBill from '#models/recurring_bill'
+import RecurringBillPayment from '#models/recurring_bill_payment'
 import Utility from '#models/utility'
 import UtilityBill from '#models/utility_bill'
 import UserSubscription from '#models/user_subscription'
@@ -128,6 +129,32 @@ test.group('findDueBillsForUser', (group) => {
     assert.equal(dueBills[0].kind, 'recurring')
   })
 
+  test('excludes a recurring bill already marked paid for its next occurrence, rolling to the following cycle', async ({
+    assert,
+  }) => {
+    // Regression test: shares nextUnpaidRecurringBillDueDate with the
+    // dashboard's upcomingBills card, so a bill already paid for this period
+    // rolls to its next cycle here too, instead of still counting as due.
+    const adam = await loginAsAdam()
+    const vpnDue = today.plus({ days: 2 })
+    const bill = await RecurringBill.create({
+      name: 'VPN',
+      amount: 10,
+      frequency: 'monthly',
+      dueDay: vpnDue.day,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: vpnDue.year,
+      month: vpnDue.month,
+      paid: true,
+    })
+
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
+
+    assert.lengthOf(dueBills, 0)
+  })
+
   test('excludes recurring bills when notifyRecurringBills is off', async ({ assert }) => {
     const adam = await loginAsAdam()
     const vpnDue = today.plus({ days: 2 })
@@ -167,25 +194,27 @@ test.group('findDueBillsForUser', (group) => {
     assert.lengthOf(dueBills, 0)
   })
 
-  test('includes an unpaid current-month utility bill and excludes a paid one', async ({
+  test('includes a utility bill due within leadDays and excludes a paid one', async ({
     assert,
   }) => {
     const adam = await loginAsAdam()
-    const unpaidUtility = await Utility.create({ name: 'Electricity' })
+    const unpaidUtility = await Utility.create({ name: 'Electricity', dueOffsetDays: 2 })
     await UtilityBill.create({
       utilityId: unpaidUtility.id,
       year: today.year,
       month: today.month,
       amount: 150,
       paid: false,
+      receivedOn: today,
     })
-    const paidUtility = await Utility.create({ name: 'Gas' })
+    const paidUtility = await Utility.create({ name: 'Gas', dueOffsetDays: 2 })
     await UtilityBill.create({
       utilityId: paidUtility.id,
       year: today.year,
       month: today.month,
       amount: 80,
       paid: true,
+      receivedOn: today,
     })
 
     const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
@@ -195,15 +224,60 @@ test.group('findDueBillsForUser', (group) => {
     assert.equal(dueBills[0].kind, 'utility')
   })
 
+  test('excludes an unpaid utility bill whose real due date is further out than leadDays', async ({
+    assert,
+  }) => {
+    // Regression test: this utility bill is unpaid the moment it's created,
+    // well before its real due date - a same-month "unpaid" flag alone would
+    // wrongly report it due today (the exact bug that let an Internet bill
+    // notify a full week ahead of its actual due date).
+    const adam = await loginAsAdam()
+    const utility = await Utility.create({ name: 'Internet', dueOffsetDays: 14 })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: today.year,
+      month: today.month,
+      amount: 119,
+      paid: false,
+      receivedOn: today,
+    })
+
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
+
+    assert.lengthOf(dueBills, 0)
+  })
+
+  test('silently skips a utility bill with no known due date, even if unpaid', async ({
+    assert,
+  }) => {
+    // No dueOffsetDays configured - the due date is genuinely unknown, so
+    // this must never be guessed at as "due today" the way the old
+    // unpaid-flag logic did.
+    const adam = await loginAsAdam()
+    const utility = await Utility.create({ name: 'Streaming' })
+    await UtilityBill.create({
+      utilityId: utility.id,
+      year: today.year,
+      month: today.month,
+      amount: 15,
+      paid: false,
+    })
+
+    const dueBills = await findDueBillsForUser(adam.id, allEnabled, today)
+
+    assert.lengthOf(dueBills, 0)
+  })
+
   test('excludes utility bills when notifyUtilityBills is off', async ({ assert }) => {
     const adam = await loginAsAdam()
-    const utility = await Utility.create({ name: 'Electricity' })
+    const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 2 })
     await UtilityBill.create({
       utilityId: utility.id,
       year: today.year,
       month: today.month,
       amount: 150,
       paid: false,
+      receivedOn: today,
     })
 
     const dueBills = await findDueBillsForUser(

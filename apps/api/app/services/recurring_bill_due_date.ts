@@ -87,6 +87,37 @@ export function nextRecurringBillDueDate(
   return null
 }
 
+/**
+ * Like `nextRecurringBillDueDate`, but skips forward past any occurrence
+ * `isPeriodPaid` reports as already paid - the "do I still owe this" question
+ * shared by the dashboard's upcoming-bills card and the notification
+ * scheduler, so the two can never disagree about it the way utility-bill
+ * notifications and the utility trend chart once did. Bounded to a few years
+ * out so a bill paid indefinitely ahead can't spin forever; if every
+ * occurrence in that window is paid, returns the last one checked rather
+ * than null, since a due date this bill genuinely has shouldn't disappear
+ * just because lookahead ran out.
+ */
+export function nextUnpaidRecurringBillDueDate(
+  frequency: string,
+  dueDay: number | null,
+  dueMonth: number | null,
+  today: DateTime,
+  isPeriodPaid: (year: number, month: number) => boolean
+): DateTime | null {
+  if (dueDay === null) return null
+
+  let cursor = today
+  let occurrence = nextRecurringBillDueDate(frequency, dueDay, dueMonth, cursor)!
+  let guard = 0
+  while (isPeriodPaid(occurrence.year, occurrence.month) && guard < 36) {
+    cursor = occurrence.plus({ days: 1 })
+    occurrence = nextRecurringBillDueDate(frequency, dueDay, dueMonth, cursor)!
+    guard += 1
+  }
+  return occurrence
+}
+
 /** Soonest-first, with bills that have no due date at all pushed to the end. */
 export function compareByDaysUntilDue(a: number | null, b: number | null): number {
   if (a === null) return b === null ? 0 : 1
