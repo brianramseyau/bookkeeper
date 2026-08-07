@@ -230,14 +230,14 @@ test.group('expandUtilityBillsToMonthlyShares', () => {
 
 test.group('typicalReceivedDayOfMonth', () => {
   test('returns null when no bill has a received date', ({ assert }) => {
-    assert.isNull(typicalReceivedDayOfMonth([]))
-    assert.isNull(typicalReceivedDayOfMonth([fakeBill(1, 2026, 1, 100)]))
+    assert.isNull(typicalReceivedDayOfMonth([], 2026, 1))
+    assert.isNull(typicalReceivedDayOfMonth([fakeBill(1, 2026, 1, 100)], 2026, 1))
   })
 
   test('returns the single received day when only one bill has one', ({ assert }) => {
     const bills = [fakeBill(1, 2026, 1, 100, '2026-01-07')]
 
-    assert.equal(typicalReceivedDayOfMonth(bills), 7)
+    assert.equal(typicalReceivedDayOfMonth(bills, 2026, 1), 7)
   })
 
   test('averages and rounds the received day across bills that have one, ignoring the rest', ({
@@ -250,7 +250,20 @@ test.group('typicalReceivedDayOfMonth', () => {
     ]
 
     // (5 + 10) / 2 = 7.5, rounds to 8.
-    assert.equal(typicalReceivedDayOfMonth(bills), 8)
+    assert.equal(typicalReceivedDayOfMonth(bills, 2026, 3), 8)
+  })
+
+  test('ignores bills received more than 12 months before the reference month', ({ assert }) => {
+    // Regression test: a stale or synthetic received date from over a year
+    // ago (e.g. a backfilled historical value) shouldn't drag down a recent,
+    // real pattern of arrival days.
+    const bills = [
+      fakeBill(1, 2024, 1, 100, '2024-01-28'),
+      fakeBill(2, 2026, 1, 100, '2026-01-10'),
+      fakeBill(3, 2026, 2, 100, '2026-02-12'),
+    ]
+
+    assert.equal(typicalReceivedDayOfMonth(bills, 2026, 3), 11)
   })
 })
 

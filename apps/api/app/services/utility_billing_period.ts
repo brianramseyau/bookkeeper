@@ -102,12 +102,27 @@ export function expandUtilityBillsToMonthlyShares(
 
 /**
  * The typical day-of-month a utility's bills actually arrive on, from
- * whichever recorded bills have a received date - the best estimate
- * available for projecting a due date into a month that hasn't been billed
- * yet. Null if no bill has a received date recorded at all.
+ * whichever recorded bills up to 12 *cycles* before `referenceYear`/
+ * `referenceMonth` have a received date - the best estimate available for
+ * projecting a due date into a month that hasn't been billed yet. Windowed
+ * in cycles rather than flat calendar months so a monthly utility looks back
+ * at most 12 months, but an annual or quarterly one still finds its last
+ * handful of real bills instead of the window closing before a new one ever
+ * arrives. Null if none of those bills has a received date recorded.
  */
-export function typicalReceivedDayOfMonth(bills: UtilityBill[]): number | null {
-  const days = bills.flatMap((bill) => (bill.receivedOn ? [bill.receivedOn.day] : []))
+export function typicalReceivedDayOfMonth(
+  bills: UtilityBill[],
+  referenceYear: number,
+  referenceMonth: number,
+  periodMonths = 1
+): number | null {
+  const referenceIndex = referenceYear * 12 + referenceMonth
+  const windowMonths = 12 * periodMonths
+  const days = bills.flatMap((bill) => {
+    if (!bill.receivedOn) return []
+    const monthsAgo = referenceIndex - (bill.year * 12 + bill.month)
+    return monthsAgo >= 0 && monthsAgo < windowMonths ? [bill.receivedOn.day] : []
+  })
   if (days.length === 0) return null
   return Math.round(days.reduce((sum, day) => sum + day, 0) / days.length)
 }
@@ -146,7 +161,12 @@ export function utilityDueDateFor(
     return bill.receivedOn.plus({ days: utility.dueOffsetDays }).toUTC()
   }
 
-  const typicalDay = typicalReceivedDayOfMonth(bills)
+  const typicalDay = typicalReceivedDayOfMonth(
+    bills,
+    year,
+    month,
+    utilityPeriodMonths(utility.frequency)
+  )
   if (typicalDay === null) return null
 
   // `daysInMonth` is only ever undefined for an invalid DateTime - (year,
