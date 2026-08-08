@@ -448,7 +448,7 @@ export default class DemoSeed extends BaseCommand {
           )
         }
         for (const { bill, frequency, dueMonth } of cyclicalRecurringBills) {
-          if (isRecurringBillDueMonth(frequency, dueMonth, month)) {
+          if (isRecurringBillDueMonth(frequency, dueMonth, null, year, month)) {
             await RecurringBillPayment.create(
               { recurringBillId: bill.id, year, month, paid: !isCurrent },
               { client: trx }

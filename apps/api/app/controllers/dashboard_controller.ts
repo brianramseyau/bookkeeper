@@ -75,6 +75,7 @@ export default class DashboardController {
           bill.frequency,
           bill.dueDay,
           bill.dueMonth,
+          bill.dueYear,
           todayStart,
           (year, month) => paidPeriods.has(`${bill.id}-${year}-${month}`)
         )!
@@ -194,7 +195,13 @@ export default class DashboardController {
     }
 
     const dueRecurringBills = recurringBills.filter((bill) =>
-      isRecurringBillDueMonth(bill.frequency, bill.dueMonth, viewed.month)
+      isRecurringBillDueMonth(
+        bill.frequency,
+        bill.dueMonth,
+        bill.dueYear,
+        viewed.year,
+        viewed.month
+      )
     )
     const dueRecurringBillIds = dueRecurringBills.map((bill) => bill.id)
     const recurringBillPayments = dueRecurringBillIds.length

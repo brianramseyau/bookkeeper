@@ -36,6 +36,8 @@
     { value: 'quarterly', label: 'Quarterly' },
     { value: 'biannual', label: 'Biannual' },
     { value: 'annual', label: 'Annual' },
+    { value: 'biennial', label: 'Every 2 years' },
+    { value: 'triennial', label: 'Every 3 years' },
   ]
 
   let bills = $state<UpcomingRecurringBill[]>([])

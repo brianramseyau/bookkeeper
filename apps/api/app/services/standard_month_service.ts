@@ -212,7 +212,8 @@ export class StandardMonthService {
       // gets a line at all, at its full amount, the same way a non-monthly
       // utility only shows up in its billing month (see isUtilityBillingMonth
       // above).
-      if (!isRecurringBillDueMonth(bill.frequency, bill.dueMonth, month)) continue
+      if (!isRecurringBillDueMonth(bill.frequency, bill.dueMonth, bill.dueYear, year, month))
+        continue
 
       const payment = recurringBillPaymentById.get(bill.id)
       const isNonMonthly = bill.frequency !== 'monthly'

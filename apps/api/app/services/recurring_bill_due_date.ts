@@ -5,6 +5,8 @@ export const RECURRING_BILL_PERIOD_MONTHS: Record<string, number> = {
   quarterly: 3,
   biannual: 6,
   annual: 12,
+  biennial: 24,
+  triennial: 36,
 }
 
 export function recurringBillPeriodMonths(frequency: string): number {
@@ -12,22 +14,31 @@ export function recurringBillPeriodMonths(frequency: string): number {
 }
 
 /**
- * Whether `month` is a due month for this bill's cycle - a monthly bill is
- * due every month; a quarterly/biannual/annual bill repeats from `dueMonth`
- * every `periodMonths` months, indefinitely. The calendar year never
- * matters (every supported period divides evenly into 12), only the bill's
- * position in its own cycle - so unlike a utility bill there's no need to
- * anchor against billing history, just the bill's own configured due month.
+ * Whether (year, month) is a due month for this bill's cycle - a monthly
+ * bill is due every month; a quarterly/biannual/annual/biennial/triennial
+ * bill repeats from (dueYear, dueMonth) every `periodMonths` months,
+ * indefinitely. For every period up to annual, the calendar year is
+ * irrelevant (12 always divides evenly by those periods, so `dueYear`
+ * cancels out of the modulo below regardless of its value) - only biennial
+ * (24 months) and triennial (36 months) actually need `dueYear` to tell
+ * which of every 2nd/3rd candidate year is the real one. `dueYear` defaults
+ * to `year` when unset (bills created before it existed), which reduces to
+ * the old month-only comparison and is exact for every period that doesn't
+ * need a year anchor in the first place.
  */
 export function isRecurringBillDueMonth(
   frequency: string,
   dueMonth: number | null,
+  dueYear: number | null,
+  year: number,
   month: number
 ): boolean {
   const periodMonths = recurringBillPeriodMonths(frequency)
   if (periodMonths <= 1) return true
   if (dueMonth === null) return false
-  return (((month - dueMonth) % periodMonths) + periodMonths) % periodMonths === 0
+  const anchorYear = dueYear ?? year
+  const diff = year * 12 + month - (anchorYear * 12 + dueMonth)
+  return ((diff % periodMonths) + periodMonths) % periodMonths === 0
 }
 
 /**
@@ -39,11 +50,12 @@ export function recurringBillDueDateFor(
   frequency: string,
   dueDay: number | null,
   dueMonth: number | null,
+  dueYear: number | null,
   year: number,
   month: number
 ): DateTime | null {
   if (dueDay === null) return null
-  if (!isRecurringBillDueMonth(frequency, dueMonth, month)) return null
+  if (!isRecurringBillDueMonth(frequency, dueMonth, dueYear, year, month)) return null
 
   // `daysInMonth` is only ever undefined for an invalid DateTime - (year,
   // month) here always comes from a real calendar month, so the `?? 31`
@@ -64,6 +76,7 @@ export function nextRecurringBillDueDate(
   frequency: string,
   dueDay: number | null,
   dueMonth: number | null,
+  dueYear: number | null,
   today: DateTime
 ): DateTime | null {
   if (dueDay === null) return null
@@ -73,7 +86,7 @@ export function nextRecurringBillDueDate(
   let month = today.month
 
   for (let i = 0; i <= periodMonths; i++) {
-    const due = recurringBillDueDateFor(frequency, dueDay, dueMonth, year, month)
+    const due = recurringBillDueDateFor(frequency, dueDay, dueMonth, dueYear, year, month)
     if (due && due >= today) return due
 
     month += 1
@@ -102,17 +115,18 @@ export function nextUnpaidRecurringBillDueDate(
   frequency: string,
   dueDay: number | null,
   dueMonth: number | null,
+  dueYear: number | null,
   today: DateTime,
   isPeriodPaid: (year: number, month: number) => boolean
 ): DateTime | null {
   if (dueDay === null) return null
 
   let cursor = today
-  let occurrence = nextRecurringBillDueDate(frequency, dueDay, dueMonth, cursor)!
+  let occurrence = nextRecurringBillDueDate(frequency, dueDay, dueMonth, dueYear, cursor)!
   let guard = 0
   while (isPeriodPaid(occurrence.year, occurrence.month) && guard < 36) {
     cursor = occurrence.plus({ days: 1 })
-    occurrence = nextRecurringBillDueDate(frequency, dueDay, dueMonth, cursor)!
+    occurrence = nextRecurringBillDueDate(frequency, dueDay, dueMonth, dueYear, cursor)!
     guard += 1
   }
   return occurrence

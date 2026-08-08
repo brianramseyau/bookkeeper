@@ -56,6 +56,26 @@ test.group('createRecurringBillValidator', () => {
     })
     assert.equal(payload.frequency, 'quarterly')
   })
+
+  test('accepts a triennial frequency', async ({ assert }) => {
+    const payload = await createRecurringBillValidator.validate({
+      name: 'Passport Renewal',
+      amount: 388,
+      frequency: 'triennial',
+      nextDueOn: '2026-02-15',
+    })
+    assert.equal(payload.frequency, 'triennial')
+  })
+
+  test('accepts a biennial frequency', async ({ assert }) => {
+    const payload = await createRecurringBillValidator.validate({
+      name: 'Car Registration',
+      amount: 850,
+      frequency: 'biennial',
+      nextDueOn: '2026-02-15',
+    })
+    assert.equal(payload.frequency, 'biennial')
+  })
 })
 
 test.group('updateRecurringBillValidator', () => {

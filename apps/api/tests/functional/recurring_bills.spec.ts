@@ -92,6 +92,22 @@ test.group('RecurringBills / store', () => {
     assert.notProperty(response.body().data, 'nextDueOn')
   })
 
+  test('derives dueYear from nextDueOn for a triennial bill', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.post('/api/recurring-bills').withCsrfToken().loginAs(adam).json({
+      name: 'Passport Renewal',
+      amount: 388,
+      frequency: 'triennial',
+      nextDueOn: '2026-05-20',
+    })
+
+    response.assertStatus(201)
+    assert.equal(response.body().data.dueDay, 20)
+    assert.equal(response.body().data.dueMonth, 5)
+    assert.equal(response.body().data.dueYear, 2026)
+  })
+
   test('rejects a "custom" frequency - no longer supported', async ({ client }) => {
     const adam = await loginAsAdam()
 
@@ -457,6 +473,70 @@ test.group('RecurringBills / upcoming', () => {
     assert.equal(car.name, 'Car Insurance')
     assert.isAtLeast(car.daysUntilDue, 0)
     assert.isTrue(DateTime.fromISO(car.nextDueOn) >= today)
+  })
+
+  test("a triennial bill's due date lands 3 years out, not next year, once its anchor cycle has passed", async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.utc().startOf('day')
+    // Anchored 2 years ago, in a month that has already passed this year -
+    // the next occurrence is 1 year from now (completing the 3-year cycle),
+    // not next month/year the way an annual bill would roll forward.
+    const anchor = today.minus({ years: 2, months: 1 })
+    await RecurringBill.create({
+      name: 'Passport Renewal',
+      amount: 388,
+      frequency: 'triennial',
+      dueDay: anchor.day,
+      dueMonth: anchor.month,
+      dueYear: anchor.year,
+    })
+
+    const response = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
+
+    response.assertStatus(200)
+    const passport = response.body().data[0]
+    assert.equal(passport.name, 'Passport Renewal')
+    const nextDueOn = DateTime.fromISO(passport.nextDueOn)
+    assert.equal(nextDueOn.year, anchor.year + 3)
+    assert.equal(nextDueOn.month, anchor.month)
+  })
+
+  test('marking the current occurrence paid jumps nextDueOn straight to the next cycle, without waiting for the due date to pass', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.utc().startOf('day')
+    // Anchored so this cycle's due date is still in the future (today counts
+    // as "not yet due") - marking it paid now should still skip ahead
+    // immediately, not just once the date itself lapses.
+    const dueDate = today.plus({ days: 10 })
+    const bill = await RecurringBill.create({
+      name: 'VPN',
+      amount: 39.99,
+      frequency: 'triennial',
+      dueDay: dueDate.day,
+      dueMonth: dueDate.month,
+      dueYear: dueDate.year,
+    })
+
+    const beforePaid = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
+    const beforeDueOn = DateTime.fromISO(beforePaid.body().data[0].nextDueOn)
+    assert.equal(beforeDueOn.toISODate(), dueDate.toISODate())
+
+    await client
+      .put(`/api/recurring-bills/${bill.id}/payments/${dueDate.year}/${dueDate.month}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ paid: true })
+
+    const afterPaid = await client.get('/api/recurring-bills/upcoming').loginAs(adam)
+    const afterDueOn = DateTime.fromISO(afterPaid.body().data[0].nextDueOn)
+    assert.equal(afterDueOn.year, dueDate.year + 3)
+    assert.equal(afterDueOn.month, dueDate.month)
   })
 
   test('a monthly bill rolls forward to next month once past its due day', async ({

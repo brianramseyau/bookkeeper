@@ -419,6 +419,7 @@ export class RecurringBillSchema extends BaseModel {
     'createdAt',
     'dueDay',
     'dueMonth',
+    'dueYear',
     'frequency',
     'id',
     'isActive',
@@ -439,6 +440,8 @@ export class RecurringBillSchema extends BaseModel {
   declare dueDay: number | null
   @column()
   declare dueMonth: number | null
+  @column()
+  declare dueYear: number | null
   @column()
   declare frequency: string
   @column({ isPrimary: true })

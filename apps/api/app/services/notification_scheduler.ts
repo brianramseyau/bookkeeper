@@ -80,6 +80,7 @@ async function findDueRecurringBills(today: DateTime, leadDays: number): Promise
         bill.frequency,
         bill.dueDay,
         bill.dueMonth,
+        bill.dueYear,
         today,
         (year, month) => paidPeriods.has(`${bill.id}-${year}-${month}`)
       )!

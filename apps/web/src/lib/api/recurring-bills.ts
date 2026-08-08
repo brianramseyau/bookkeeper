@@ -1,6 +1,12 @@
 import { api } from '$lib/api'
 
-export type RecurringBillFrequency = 'monthly' | 'quarterly' | 'biannual' | 'annual'
+export type RecurringBillFrequency =
+  | 'monthly'
+  | 'quarterly'
+  | 'biannual'
+  | 'annual'
+  | 'biennial'
+  | 'triennial'
 
 export interface RecurringBill {
   id: number
@@ -10,6 +16,7 @@ export interface RecurringBill {
   frequency: RecurringBillFrequency
   dueDay: number | null
   dueMonth: number | null
+  dueYear: number | null
   isActive: boolean
   isPaused: boolean
   isArchived: boolean

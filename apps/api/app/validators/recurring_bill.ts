@@ -1,6 +1,6 @@
 import vine from '@vinejs/vine'
 
-const FREQUENCIES = ['monthly', 'quarterly', 'biannual', 'annual'] as const
+const FREQUENCIES = ['monthly', 'quarterly', 'biannual', 'annual', 'biennial', 'triennial'] as const
 
 export const createRecurringBillValidator = vine.create({
   name: vine.string().trim().minLength(1).maxLength(160),

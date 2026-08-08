@@ -9,7 +9,10 @@ import {
   updateRecurringBillValidator,
 } from '#validators/recurring_bill'
 import { upsertRecurringBillPaymentValidator } from '#validators/recurring_bill_payment'
-import { compareByDaysUntilDue, nextRecurringBillDueDate } from '#services/recurring_bill_due_date'
+import {
+  compareByDaysUntilDue,
+  nextUnpaidRecurringBillDueDate,
+} from '#services/recurring_bill_due_date'
 
 const DUE_SOON_WINDOW_DAYS = 30
 
@@ -34,6 +37,7 @@ export default class RecurringBillsController {
       frequency: payload.frequency,
       dueDay: nextDueOn.day,
       dueMonth: nextDueOn.month,
+      dueYear: nextDueOn.year,
       notes: payload.notes ?? null,
     })
 
@@ -58,6 +62,7 @@ export default class RecurringBillsController {
     if (payload.nextDueOn) {
       bill.dueDay = payload.nextDueOn.day
       bill.dueMonth = payload.nextDueOn.month
+      bill.dueYear = payload.nextDueOn.year
     }
 
     await bill.save()
@@ -114,15 +119,30 @@ export default class RecurringBillsController {
     const bills = await query
 
     const today = DateTime.utc().startOf('day')
+    const billIds = bills.map((bill) => bill.id)
+    const paidPayments = billIds.length
+      ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)
+      : []
+    const paidPeriods = new Set(
+      paidPayments.map((payment) => `${payment.recurringBillId}-${payment.year}-${payment.month}`)
+    )
+
     const serialized = await serialize.withoutWrapping(RecurringBillTransformer.transform(bills))
 
     const results = serialized.map((item, index) => {
       const bill = bills[index]!
-      const nextOccurrence = nextRecurringBillDueDate(
+      // Shared with the dashboard's upcoming-bills card and the notification
+      // scheduler (see nextUnpaidRecurringBillDueDate's own docs) so "next
+      // due" can't disagree between this page and either of those - marking
+      // the current occurrence paid here jumps straight to the next unpaid
+      // one, rather than waiting for the due date to lapse.
+      const nextOccurrence = nextUnpaidRecurringBillDueDate(
         bill.frequency,
         bill.dueDay,
         bill.dueMonth,
-        today
+        bill.dueYear,
+        today,
+        (year, month) => paidPeriods.has(`${bill.id}-${year}-${month}`)
       )
       const daysUntilDue = nextOccurrence
         ? Math.floor(nextOccurrence.diff(today, 'days').days)
