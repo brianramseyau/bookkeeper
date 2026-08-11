@@ -9,6 +9,8 @@ export interface Utility {
   frequency: UtilityFrequency
   /** Days after a bill's received date that payment is due - null if unknown. */
   dueOffsetDays: number | null
+  /** True means `dueOffsetDays` counts business days (Mon-Fri) only, not calendar days. */
+  dueOffsetBusinessDaysOnly: boolean
   /** False (default) means billed in arrears - the bill's month is the last month it covers. True means paid in advance - the bill's month is the first. */
   paidInAdvance: boolean
   isActive: boolean
@@ -69,7 +71,12 @@ export function createUtility(name: string) {
 
 export function updateUtility(
   id: number,
-  input: { frequency?: UtilityFrequency; dueOffsetDays?: number | null; paidInAdvance?: boolean }
+  input: {
+    frequency?: UtilityFrequency
+    dueOffsetDays?: number | null
+    dueOffsetBusinessDaysOnly?: boolean
+    paidInAdvance?: boolean
+  }
 ) {
   return api.patch<Utility>(`/utilities/${id}`, input)
 }

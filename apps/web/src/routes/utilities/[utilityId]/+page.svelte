@@ -55,6 +55,7 @@
   let editingSettings = $state(false)
   let editFrequency = $state<UtilityFrequency>('monthly')
   let editDueOffsetDays = $state<number>(NaN)
+  let editDueOffsetBusinessDaysOnly = $state(false)
   let editPaidInAdvance = $state(false)
   let savingSettings = $state(false)
 
@@ -213,6 +214,7 @@
     editingSettings = true
     editFrequency = utility.frequency
     editDueOffsetDays = utility.dueOffsetDays ?? NaN
+    editDueOffsetBusinessDaysOnly = utility.dueOffsetBusinessDaysOnly
     editPaidInAdvance = utility.paidInAdvance
   }
 
@@ -227,6 +229,7 @@
       utility = await updateUtility(utilityId, {
         frequency: editFrequency,
         dueOffsetDays: Number.isNaN(editDueOffsetDays) ? null : editDueOffsetDays,
+        dueOffsetBusinessDaysOnly: editDueOffsetBusinessDaysOnly,
         paidInAdvance: editPaidInAdvance,
       })
       editingSettings = false
@@ -335,6 +338,16 @@
         <label class="flex items-center gap-2 pb-1.5">
           <input
             type="checkbox"
+            bind:checked={editDueOffsetBusinessDaysOnly}
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+            >Business days only</span
+          >
+        </label>
+        <label class="flex items-center gap-2 pb-1.5">
+          <input
+            type="checkbox"
             bind:checked={editPaidInAdvance}
             class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
           />
@@ -364,7 +377,10 @@
           >
           · {utility.paidInAdvance ? 'paid in advance' : 'paid in arrears'}
           {#if utility.dueOffsetDays !== null}
-            · due {utility.dueOffsetDays} day{utility.dueOffsetDays === 1 ? '' : 's'} after received
+            · due {utility.dueOffsetDays}
+            {utility.dueOffsetBusinessDaysOnly ? 'business ' : ''}day{utility.dueOffsetDays === 1
+              ? ''
+              : 's'} after received
           {:else}
             · no due-date offset set
           {/if}

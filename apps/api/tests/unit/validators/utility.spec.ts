@@ -45,6 +45,17 @@ test.group('createUtilityValidator', () => {
     })
     assert.isNull(payload.dueOffsetDays)
   })
+
+  test('accepts a dueOffsetBusinessDaysOnly payload (Electricity: 13 business days)', async ({
+    assert,
+  }) => {
+    const payload = await createUtilityValidator.validate({
+      name: 'Electricity',
+      dueOffsetDays: 13,
+      dueOffsetBusinessDaysOnly: true,
+    })
+    assert.isTrue(payload.dueOffsetBusinessDaysOnly)
+  })
 })
 
 test.group('updateUtilityValidator', () => {
@@ -66,5 +77,10 @@ test.group('updateUtilityValidator', () => {
   test('accepts toggling paidInAdvance', async ({ assert }) => {
     const payload = await updateUtilityValidator.validate({ paidInAdvance: true })
     assert.isTrue(payload.paidInAdvance)
+  })
+
+  test('accepts toggling dueOffsetBusinessDaysOnly', async ({ assert }) => {
+    const payload = await updateUtilityValidator.validate({ dueOffsetBusinessDaysOnly: true })
+    assert.isTrue(payload.dueOffsetBusinessDaysOnly)
   })
 })

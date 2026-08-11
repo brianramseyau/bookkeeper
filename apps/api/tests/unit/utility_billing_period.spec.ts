@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import type Utility from '#models/utility'
 import type UtilityBill from '#models/utility_bill'
 import {
+  addBusinessDays,
   expandUtilityBillsToMonthlyShares,
   isUtilityBillingMonth,
   mostRecentUtilityBill,
@@ -12,8 +13,12 @@ import {
   utilityPeriodMonths,
 } from '#services/utility_billing_period'
 
-function fakeUtility(frequency: string, dueOffsetDays: number | null = null): Utility {
-  return { frequency, dueOffsetDays } as Utility
+function fakeUtility(
+  frequency: string,
+  dueOffsetDays: number | null = null,
+  dueOffsetBusinessDaysOnly = false
+): Utility {
+  return { frequency, dueOffsetDays, dueOffsetBusinessDaysOnly } as Utility
 }
 
 function fakeBill(
@@ -42,6 +47,29 @@ test.group('utilityPeriodMonths', () => {
 
   test('falls back to 1 for an unrecognized frequency', ({ assert }) => {
     assert.equal(utilityPeriodMonths('fortnightly'), 1)
+  })
+})
+
+test.group('addBusinessDays', () => {
+  test('skips weekends when counting days forward', ({ assert }) => {
+    // Thu 2026-01-01 + 1 business day = Fri 2026-01-02.
+    assert.equal(addBusinessDays(DateTime.utc(2026, 1, 1), 1).toISODate(), '2026-01-02')
+    // Fri 2026-01-02 + 1 business day = Mon 2026-01-05 (skips Sat/Sun).
+    assert.equal(addBusinessDays(DateTime.utc(2026, 1, 2), 1).toISODate(), '2026-01-05')
+  })
+
+  test('13 business days from a Thursday lands two and a half weeks later', ({ assert }) => {
+    // Thu 2026-01-01 + 13 business days: crosses 2 full weekends.
+    assert.equal(addBusinessDays(DateTime.utc(2026, 1, 1), 13).toISODate(), '2026-01-20')
+  })
+
+  test('0 business days returns the same date', ({ assert }) => {
+    assert.equal(addBusinessDays(DateTime.utc(2026, 1, 1), 0).toISODate(), '2026-01-01')
+  })
+
+  test('starting from a weekend still only counts weekdays', ({ assert }) => {
+    // Sat 2026-01-03 + 1 business day = Mon 2026-01-05.
+    assert.equal(addBusinessDays(DateTime.utc(2026, 1, 3), 1).toISODate(), '2026-01-05')
   })
 })
 
@@ -362,6 +390,33 @@ test.group('utilityDueDateFor', () => {
 
     assert.isNotNull(utilityDueDateFor(utility, bills, 2026, 2))
     assert.isNotNull(utilityDueDateFor(utility, bills, 2026, 3))
+  })
+
+  test('a real bill counts the offset in business days when configured', ({ assert }) => {
+    // Received Thu 2026-01-01 + 13 business days = Tue 2026-01-20 (see
+    // addBusinessDays tests), not the calendar-day Jan 14.
+    const utility = fakeUtility('monthly', 13, true)
+    const bills = [fakeBill(1, 2026, 1, 100, '2026-01-01')]
+
+    const result = utilityDueDateFor(utility, bills, 2026, 1)
+
+    assert.equal(result?.toISO(), '2026-01-20T00:00:00.000Z')
+  })
+
+  test('an estimated received date also counts the offset in business days when configured', ({
+    assert,
+  }) => {
+    const utility = fakeUtility('monthly', 13, true)
+    const bills = [
+      fakeBill(1, 2025, 12, 100, '2025-12-01'),
+      fakeBill(2, 2026, 1, 105, '2026-01-01'),
+    ]
+
+    // Typical received day = 1, so Feb 1 (a Sunday) + 13 business days =
+    // Feb 18.
+    const result = utilityDueDateFor(utility, bills, 2026, 2)
+
+    assert.equal(result?.toISO(), '2026-02-18T00:00:00.000Z')
   })
 })
 

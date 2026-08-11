@@ -32,6 +32,7 @@ const electricity: Utility = {
   categoryId: null,
   frequency: 'quarterly',
   dueOffsetDays: 14,
+  dueOffsetBusinessDaysOnly: false,
   paidInAdvance: false,
   isActive: true,
   createdAt: '',
@@ -669,6 +670,7 @@ describe('utility detail page', () => {
       expect(updateUtility).toHaveBeenCalledWith(1, {
         frequency: 'annual',
         dueOffsetDays: 30,
+        dueOffsetBusinessDaysOnly: false,
         paidInAdvance: false,
       })
     )
@@ -689,10 +691,32 @@ describe('utility detail page', () => {
       expect(updateUtility).toHaveBeenCalledWith(1, {
         frequency: 'quarterly',
         dueOffsetDays: 14,
+        dueOffsetBusinessDaysOnly: false,
         paidInAdvance: true,
       })
     )
     expect(await screen.findByText(/paid in advance/)).toBeInTheDocument()
+  })
+
+  it('edits billing settings and saves dueOffsetBusinessDaysOnly when the checkbox is checked', async () => {
+    setDefaultMocks()
+    vi.mocked(updateUtility).mockResolvedValue({ ...electricity, dueOffsetBusinessDaysOnly: true })
+    const user = userEvent.setup()
+    render(UtilityDetailPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity settings' }))
+    await user.click(screen.getByLabelText('Business days only'))
+    await user.click(screen.getByRole('button', { name: 'Save Electricity settings' }))
+
+    await waitFor(() =>
+      expect(updateUtility).toHaveBeenCalledWith(1, {
+        frequency: 'quarterly',
+        dueOffsetDays: 14,
+        dueOffsetBusinessDaysOnly: true,
+        paidInAdvance: false,
+      })
+    )
+    expect(await screen.findByText(/business days after received/)).toBeInTheDocument()
   })
 
   it('cancels editing billing settings without saving', async () => {

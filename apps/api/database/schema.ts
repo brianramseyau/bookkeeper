@@ -599,6 +599,7 @@ export class UtilitySchema extends BaseModel {
   static $columns = [
     'categoryId',
     'createdAt',
+    'dueOffsetBusinessDaysOnly',
     'dueOffsetDays',
     'frequency',
     'id',
@@ -612,6 +613,8 @@ export class UtilitySchema extends BaseModel {
   declare categoryId: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare dueOffsetBusinessDaysOnly: boolean
   @column()
   declare dueOffsetDays: number | null
   @column()

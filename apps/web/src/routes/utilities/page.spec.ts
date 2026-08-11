@@ -17,6 +17,7 @@ const electricity: Utility = {
   categoryId: null,
   frequency: 'monthly',
   dueOffsetDays: null,
+  dueOffsetBusinessDaysOnly: false,
   paidInAdvance: false,
   isActive: true,
   createdAt: '',
