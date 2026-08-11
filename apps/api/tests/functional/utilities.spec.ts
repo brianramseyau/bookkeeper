@@ -40,6 +40,7 @@ test.group('Utilities / store', () => {
     response.assertStatus(201)
     assert.equal(response.body().data.name, 'Gas')
     assert.isFalse(response.body().data.paidInAdvance)
+    assert.isFalse(response.body().data.dueOffsetBusinessDaysOnly)
   })
 
   test('creates a Water-style quarterly utility with a due offset', async ({ client, assert }) => {
@@ -54,6 +55,23 @@ test.group('Utilities / store', () => {
     response.assertStatus(201)
     assert.equal(response.body().data.frequency, 'quarterly')
     assert.equal(response.body().data.dueOffsetDays, 28)
+  })
+
+  test('creates an Electricity-style utility due in business days only', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client
+      .post('/api/utilities')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ name: 'Electricity', dueOffsetDays: 13, dueOffsetBusinessDaysOnly: true })
+
+    response.assertStatus(201)
+    assert.equal(response.body().data.dueOffsetDays, 13)
+    assert.isTrue(response.body().data.dueOffsetBusinessDaysOnly)
   })
 
   test('creates a Phones-style annual utility paid in advance', async ({ client, assert }) => {
@@ -152,6 +170,20 @@ test.group('Utilities / update', () => {
 
     response.assertStatus(200)
     assert.isTrue(response.body().data.paidInAdvance)
+  })
+
+  test('toggles dueOffsetBusinessDaysOnly', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const utility = await Utility.create({ name: 'Electricity', dueOffsetDays: 13 })
+
+    const response = await client
+      .patch(`/api/utilities/${utility.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ dueOffsetBusinessDaysOnly: true })
+
+    response.assertStatus(200)
+    assert.isTrue(response.body().data.dueOffsetBusinessDaysOnly)
   })
 })
 

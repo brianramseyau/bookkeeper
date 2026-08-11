@@ -14,6 +14,29 @@ export function utilityPeriodMonths(frequency: string): number {
   return UTILITY_PERIOD_MONTHS[frequency] ?? 1
 }
 
+/**
+ * Adds `days` business days (Mon-Fri, no holiday calendar) to `date`. Used
+ * for utilities whose due date is quoted in business days rather than
+ * calendar days (e.g. "13 business days after your bill is issued").
+ */
+export function addBusinessDays(date: DateTime, days: number): DateTime {
+  let result = date
+  let remaining = days
+  while (remaining > 0) {
+    result = result.plus({ days: 1 })
+    if (result.weekday <= 5) remaining -= 1
+  }
+  return result
+}
+
+/** Adds `utility.dueOffsetDays` to `receivedOn`, as calendar or business days per its config. */
+function addDueOffset(utility: Utility, receivedOn: DateTime): DateTime {
+  const days = utility.dueOffsetDays as number
+  return utility.dueOffsetBusinessDaysOnly
+    ? addBusinessDays(receivedOn, days)
+    : receivedOn.plus({ days })
+}
+
 /** The bill covering the most recently billed period - anchors billing cadence. */
 export function mostRecentUtilityBill(bills: UtilityBill[]): UtilityBill | null {
   return bills.reduce<UtilityBill | null>((latest, bill) => {
@@ -158,7 +181,7 @@ export function utilityDueDateFor(
     // `.toUTC()` normalizes a DB-loaded date's zone (SQLite round-trips it
     // through a fixed-offset zone, not the literal UTC zone) so callers get
     // a consistent `Z`-suffixed ISO string either way.
-    return bill.receivedOn.plus({ days: utility.dueOffsetDays }).toUTC()
+    return addDueOffset(utility, bill.receivedOn).toUTC()
   }
 
   const typicalDay = typicalReceivedDayOfMonth(
@@ -177,7 +200,7 @@ export function utilityDueDateFor(
   const daysInMonth = /* c8 ignore next */ DateTime.utc(year, month, 1).daysInMonth ?? 31
   const day = Math.min(typicalDay, daysInMonth)
   const estimatedReceivedOn = DateTime.utc(year, month, day)
-  return estimatedReceivedOn.plus({ days: utility.dueOffsetDays })
+  return addDueOffset(utility, estimatedReceivedOn)
 }
 
 /**

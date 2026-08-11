@@ -20,14 +20,15 @@ export default class UtilitiesController {
       .andWhere('isSystem', true)
       .firstOrFail()
     // The DB column default isn't read back onto the in-memory instance
-    // returned by `create`, so a `paidInAdvance` the client never sent must
-    // still resolve to an explicit `false` here rather than staying
-    // `undefined` in the response - same reasoning as the `paid` default on
-    // UtilityBillsController#upsert.
+    // returned by `create`, so `paidInAdvance`/`dueOffsetBusinessDaysOnly`
+    // the client never sent must still resolve to an explicit `false` here
+    // rather than staying `undefined` in the response - same reasoning as
+    // the `paid` default on UtilityBillsController#upsert.
     const utility = await Utility.create({
       ...payload,
       categoryId: utilitiesCategory.id,
       paidInAdvance: payload.paidInAdvance ?? false,
+      dueOffsetBusinessDaysOnly: payload.dueOffsetBusinessDaysOnly ?? false,
     })
     return response.created(await serialize(UtilityTransformer.transform(utility)))
   }
