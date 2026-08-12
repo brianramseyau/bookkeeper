@@ -239,6 +239,20 @@ Only enable this if the Authentik proxy is the sole path to the container -
 anyone who can reach it directly and knows the shared secret could set
 these headers themselves and pick which local account to become.
 
+#### Debugging the proxy setup
+
+`GET /debug` (outside `/api`, no login required - see below) returns JSON
+useful for diagnosing why the headers above aren't working: the request
+headers actually received, whether `AUTHENTIK_PROXY_AUTH_ENABLED` and
+`AUTHENTIK_SHARED_SECRET` are set in the running container, whether the
+shared secret and `X-authentik-email` header on the current request would
+match, and whether a local user with that email exists. It also reports
+Node/app version and the current auth session state. It's unauthenticated
+on purpose - that's exactly the state you're in when proxy auto-login
+isn't working - but never echoes secret values: the `Cookie`,
+`Authorization`, and `X-Authentik-Shared-Secret` header values are
+redacted to a length only.
+
 ## Backing up your data
 
 **Everything lives in one SQLite file** - the volume mounted at

@@ -130,6 +130,15 @@ router
   .prefix('/api')
 
 /**
+ * Deliberately outside the /api group and its auth middleware - the main
+ * reason to reach for this is diagnosing why the Authentik proxy
+ * auto-login *isn't* logging anyone in, which is exactly the case where an
+ * auth-gated route would be unreachable. See DebugController for what it
+ * returns and what it redacts.
+ */
+router.get('/debug', [controllers.Debug, 'index'])
+
+/**
  * SPA fallback: anything that isn't an API route or a real static asset
  * (already handled by the static middleware before requests reach here)
  * gets the SvelteKit build's fallback shell, so client-side routing works
