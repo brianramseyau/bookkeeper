@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createIncomeSource,
   deleteIncomeSource,
@@ -21,6 +21,7 @@ import {
 import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
+import { authState } from '$lib/stores/auth.svelte'
 import { currentFinancialYear, financialYearLabel } from '$lib/format'
 import IncomePage from './+page.svelte'
 
@@ -140,6 +141,10 @@ describe('income page', () => {
     vi.mocked(setIncomeTaxSetting).mockReset()
   })
 
+  afterEach(() => {
+    authState.user = null
+  })
+
   it('shows a loading state, then an API error on failure', async () => {
     vi.mocked(listUsers).mockRejectedValue(new ApiError(500, 'Could not load users'))
     vi.mocked(listIncomeSources).mockResolvedValue([])
@@ -165,6 +170,36 @@ describe('income page', () => {
     expect(await screen.findByText('$5,000.00/mo · 1 source')).toBeInTheDocument()
     expect(screen.getByText('$5,650.60/mo · 1 source')).toBeInTheDocument()
     expect(screen.getByText('Brian Income')).toBeInTheDocument()
+    expect(screen.queryByText('Ariel Income')).toBeNull()
+  })
+
+  it('defaults to the logged-in user’s tab instead of the first user listed', async () => {
+    setDefaultMocks()
+    authState.user = {
+      id: 2,
+      fullName: 'Ariel',
+      email: 'ariel@example.com',
+      displayColor: null,
+      initials: 'A',
+    }
+    render(IncomePage)
+
+    expect(await screen.findByText('Ariel Income')).toBeInTheDocument()
+    expect(screen.queryByText('Brian Income')).toBeNull()
+  })
+
+  it('falls back to the first user when the logged-in user has no income tab', async () => {
+    setDefaultMocks()
+    authState.user = {
+      id: 99,
+      fullName: 'Someone Else',
+      email: 'someone@example.com',
+      displayColor: null,
+      initials: 'S',
+    }
+    render(IncomePage)
+
+    expect(await screen.findByText('Brian Income')).toBeInTheDocument()
     expect(screen.queryByText('Ariel Income')).toBeNull()
   })
 
@@ -741,7 +776,9 @@ describe('income page / non-PAYG income tax section', () => {
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
     expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: 'Cancel editing entry from 13 Aug 2025' })[0]!)
+    await user.click(
+      screen.getAllByRole('button', { name: 'Cancel editing entry from 13 Aug 2025' })[0]!
+    )
 
     expect(screen.queryByDisplayValue('1000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()

@@ -20,6 +20,7 @@
   } from '$lib/api/income'
   import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
   import { listUsers, type UserSummary } from '$lib/api/users'
+  import { authState } from '$lib/stores/auth.svelte'
   import {
     currentFinancialYear,
     financialYearLabel,
@@ -161,7 +162,11 @@
       sources = sourceList
       summaries = summaryList
       if (selectedUserId === null && users.length > 0) {
-        selectedUserId = users[0]!.id
+        const loggedInUserId = authState.user?.id ?? null
+        selectedUserId =
+          loggedInUserId !== null && users.some((u) => u.id === loggedInUserId)
+            ? loggedInUserId
+            : users[0]!.id
       }
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load income sources'
