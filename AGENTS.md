@@ -54,6 +54,7 @@ pnpm typecheck           # tsc --noEmit (api) + svelte-check (web)
 pnpm format              # prettier --write .
 pnpm test                # full suite: api (Japa) then web (Vitest)
 pnpm test:e2e             # Playwright e2e — see Testing section below
+pnpm verify               # lint + typecheck + test — same checks CI runs on every PR
 pnpm build               # web build -> apps/api/public -> api build
 ```
 

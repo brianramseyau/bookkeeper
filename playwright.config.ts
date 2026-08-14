@@ -38,8 +38,12 @@ export default defineConfig({
       // side effect regardless of which DB it targets - reformat it back
       // to match the committed version so running the e2e suite doesn't
       // leave a spurious diff in the working tree.
+      // `node ace build --ignore-ts-errors` runs first purely to generate
+      // the gitignored `.adonisjs/` codegen (AdonisJS's controller/route
+      // manifest) - every command below imports from it, and on a fresh
+      // checkout (e.g. a CI runner) nothing else has triggered that yet.
       command:
-        'pnpm --filter api exec bash -c "rm -f tmp/e2e.sqlite3* && node ace migration:run --force && npx prettier --write database/schema.ts database/schema_rules.ts && node ace demo:seed && node ace serve"',
+        'pnpm --filter api exec bash -c "rm -f tmp/e2e.sqlite3* && node ace build --ignore-ts-errors > /dev/null && node ace migration:run --force && npx prettier --write database/schema.ts database/schema_rules.ts && node ace demo:seed && node ace serve"',
       url: `http://localhost:${API_PORT}/api/me`,
       reuseExistingServer: false,
       timeout: 60_000,
@@ -47,8 +51,16 @@ export default defineConfig({
         NODE_ENV: 'test',
         PORT: String(API_PORT),
         HOST: 'localhost',
+        LOG_LEVEL: 'info',
+        // Only ever encrypts session data in the disposable e2e SQLite file
+        // (see DB_FILENAME below), never anything real - set here so the
+        // server can boot without requiring an apps/api/.env file, which a
+        // fresh CI checkout doesn't have.
+        APP_KEY: 'oNjyxMPRc6WjMt7DDcRrJ7v6xhWTHu3o',
         APP_URL: `http://localhost:${API_PORT}`,
+        SESSION_DRIVER: 'memory',
         DB_FILENAME: './tmp/e2e.sqlite3',
+        LIMITER_STORE: 'memory',
       },
     },
     {

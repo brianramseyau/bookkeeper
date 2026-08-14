@@ -178,6 +178,19 @@ enclosing check) rather than business logic, and forcing every one of those
 would mean tests bent out of shape to hit a number rather than to verify
 behavior.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on every pull request (and on push to
+`main`): `lint`, `typecheck`, `test` (api + web, as above), and `e2e`
+(Playwright, installing its own Chromium build) as separate jobs, each on a
+fresh checkout with no other setup required. Run the same checks locally
+before pushing with:
+
+```bash
+pnpm verify        # lint + typecheck + test - the fast checks CI gates on
+pnpm test:e2e       # not part of `verify` since it's much slower; CI runs it separately too
+```
+
 ## Deploying (Docker / unRAID)
 
 1. Copy `.env.example` to `.env`, fill in `APP_KEY` and

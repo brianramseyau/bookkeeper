@@ -18,6 +18,7 @@
     "test:coverage": "c8 --reporter=text --reporter=html --exclude=\"**/*.spec.ts\" --exclude=\"tests/**\" --exclude=\"database/**\" --exclude=\"bin/**\" --exclude=\"start/**\" --exclude=\".adonisjs/**\" --exclude=\"commands/**\" node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "pretypecheck": "node ace build --ignore-ts-errors",
     "typecheck": "tsc --noEmit"
   },
   "imports": {
