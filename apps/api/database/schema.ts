@@ -15,6 +15,7 @@ export class BackupSettingSchema extends BaseModel {
     'intervalHours',
     'lastRunAt',
     'retentionDays',
+    'runHour',
     'updatedAt',
   ] as const
   $columns = BackupSettingSchema.$columns
@@ -30,6 +31,8 @@ export class BackupSettingSchema extends BaseModel {
   declare lastRunAt: DateTime | null
   @column()
   declare retentionDays: number
+  @column()
+  declare runHour: number
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

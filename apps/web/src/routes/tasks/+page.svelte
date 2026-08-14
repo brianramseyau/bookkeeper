@@ -52,6 +52,7 @@
   let enabled = $state(true)
   let intervalHours = $state(24)
   let retentionDays = $state(7)
+  let runHour = $state(1)
   let settingsLoading = $state(true)
   let settingsError = $state<string | null>(null)
   let savingSettings = $state(false)
@@ -92,6 +93,7 @@
       enabled = settings.enabled
       intervalHours = settings.intervalHours
       retentionDays = settings.retentionDays
+      runHour = settings.runHour
     } catch (err) {
       settingsError = err instanceof ApiError ? err.message : 'Failed to load backup schedule'
     } finally {
@@ -117,7 +119,7 @@
     settingsError = null
     settingsSaved = false
     try {
-      settings = await updateBackupSettings({ enabled, intervalHours, retentionDays })
+      settings = await updateBackupSettings({ enabled, intervalHours, retentionDays, runHour })
       settingsSaved = true
     } catch (err) {
       settingsError = err instanceof ApiError ? err.message : 'Failed to save backup schedule'
@@ -236,6 +238,17 @@
         bind:value={retentionDays}
         class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
+    </label>
+    <label class="flex flex-col gap-1">
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Run at</span>
+      <select
+        bind:value={runHour}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      >
+        {#each SEND_HOUR_OPTIONS as option (option.value)}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
     </label>
     <PrimaryButton type="submit" disabled={savingSettings}>
       {savingSettings ? 'Saving…' : 'Save'}

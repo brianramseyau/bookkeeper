@@ -5,6 +5,7 @@ export interface BackupSettings {
   enabled: boolean
   intervalHours: number
   retentionDays: number
+  runHour: number
   lastRunAt: string | null
   createdAt: string
   updatedAt: string | null
@@ -18,6 +19,7 @@ export interface UpdateBackupSettingsPayload {
   enabled: boolean
   intervalHours: number
   retentionDays: number
+  runHour: number
 }
 
 export function updateBackupSettings(payload: UpdateBackupSettingsPayload) {

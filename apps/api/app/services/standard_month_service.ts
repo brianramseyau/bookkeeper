@@ -138,7 +138,7 @@ export class StandardMonthService {
     // the moment the bill itself is entered, so there's no "no row yet"
     // state to default - see the one-time backfill migration for how their
     // pre-feature history was handled instead.
-    const today = DateTime.utc()
+    const today = DateTime.local()
     const isPastMonth = year < today.year || (year === today.year && month < today.month)
 
     const utilities = await Utility.query().where('isActive', true).orderBy('name', 'asc')

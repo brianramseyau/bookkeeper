@@ -100,7 +100,7 @@ export default class UtilityBillsController {
     const result = service.computeTrend(
       expandUtilityBillsToMonthlyShares(bills, utility.frequency, utility.paidInAdvance)
     )
-    const nextDueOn = nextUtilityDueDate(utility, bills, DateTime.utc().startOf('day'))
+    const nextDueOn = nextUtilityDueDate(utility, bills, DateTime.local().startOf('day'))
 
     return response.json({ ...result, nextDueOn: nextDueOn?.toISO() ?? null })
   }

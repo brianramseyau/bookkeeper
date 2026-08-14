@@ -8,6 +8,7 @@ export default class BackupSettingTransformer extends BaseTransformer<BackupSett
         'id',
         'intervalHours',
         'retentionDays',
+        'runHour',
         'lastRunAt',
         'createdAt',
         'updatedAt',
