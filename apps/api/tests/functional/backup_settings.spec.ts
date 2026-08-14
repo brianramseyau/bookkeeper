@@ -19,6 +19,7 @@ test.group('BackupSettings / show', () => {
     assert.equal(response.body().data.enabled, true)
     assert.equal(response.body().data.intervalHours, 24)
     assert.equal(response.body().data.retentionDays, 7)
+    assert.equal(response.body().data.runHour, 1)
     assert.isNull(response.body().data.lastRunAt)
   })
 
@@ -43,15 +44,17 @@ test.group('BackupSettings / update', () => {
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ enabled: true, intervalHours: 48, retentionDays: 30 })
+      .json({ enabled: true, intervalHours: 48, retentionDays: 30, runHour: 3 })
 
     response.assertStatus(200)
     assert.equal(response.body().data.enabled, true)
     assert.equal(response.body().data.intervalHours, 48)
     assert.equal(response.body().data.retentionDays, 30)
+    assert.equal(response.body().data.runHour, 3)
 
     const stored = await BackupSetting.findOrFail(1)
     assert.equal(stored.intervalHours, 48)
+    assert.equal(stored.runHour, 3)
   })
 
   test('rejects an out-of-range retentionDays', async ({ client }) => {
@@ -61,7 +64,19 @@ test.group('BackupSettings / update', () => {
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ enabled: true, intervalHours: 24, retentionDays: 0 })
+      .json({ enabled: true, intervalHours: 24, retentionDays: 0, runHour: 1 })
+
+    response.assertStatus(422)
+  })
+
+  test('rejects an out-of-range runHour', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client
+      .put('/api/backup-settings')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ enabled: true, intervalHours: 24, retentionDays: 7, runHour: 24 })
 
     response.assertStatus(422)
   })
@@ -73,7 +88,7 @@ test.group('BackupSettings / update', () => {
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ intervalHours: 24, retentionDays: 7 })
+      .json({ intervalHours: 24, retentionDays: 7, runHour: 1 })
 
     response.assertStatus(422)
   })

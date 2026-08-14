@@ -36,6 +36,7 @@ const defaultSettings: BackupSettings = {
   enabled: false,
   intervalHours: 24,
   retentionDays: 7,
+  runHour: 1,
   lastRunAt: null,
   createdAt: '2026-01-01T00:00:00.000+00:00',
   updatedAt: null,
@@ -140,12 +141,14 @@ describe('tasks page', () => {
     await user.selectOptions(screen.getByLabelText('Frequency'), '48')
     await user.clear(screen.getByLabelText('Keep for (days)'))
     await user.type(screen.getByLabelText('Keep for (days)'), '30')
+    await user.selectOptions(screen.getByLabelText('Run at'), '1')
     await user.click(screen.getAllByRole('button', { name: 'Save' })[0]!)
 
     expect(updateBackupSettings).toHaveBeenCalledWith({
       enabled: true,
       intervalHours: 48,
       retentionDays: 30,
+      runHour: 1,
     })
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
   })
