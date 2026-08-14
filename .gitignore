@@ -8,7 +8,8 @@ node_modules
 .claude/
 
 apps/api/build
-apps/api/tmp
+apps/api/tmp/*
+!apps/api/tmp/.gitkeep
 apps/api/.adonisjs
 apps/api/coverage
 # apps/api/public holds the built SvelteKit SPA, copied in by `pnpm build` -
