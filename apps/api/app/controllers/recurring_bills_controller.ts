@@ -118,7 +118,7 @@ export default class RecurringBillsController {
     }
     const bills = await query
 
-    const today = DateTime.utc().startOf('day')
+    const today = DateTime.local().startOf('day')
     const billIds = bills.map((bill) => bill.id)
     const paidPayments = billIds.length
       ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)

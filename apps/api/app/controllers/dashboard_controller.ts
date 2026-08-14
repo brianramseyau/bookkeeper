@@ -56,7 +56,7 @@ export default class DashboardController {
   private async upcomingBills() {
     const bills = await RecurringBill.query().where('isActive', true).whereNotNull('dueDay')
 
-    const todayStart = DateTime.utc().startOf('day')
+    const todayStart = DateTime.local().startOf('day')
     const billIds = bills.map((bill) => bill.id)
     const paidPayments = billIds.length
       ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)
