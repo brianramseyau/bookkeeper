@@ -7,6 +7,7 @@ import { upsertUtilityBillValidator } from '#validators/utility_bill'
 import { RollingAverageService } from '#services/rolling_average_service'
 import {
   expandUtilityBillsToMonthlyShares,
+  mostRecentUtilityBill,
   nextUtilityDueDate,
   utilityPeriodMonths,
 } from '#services/utility_billing_period'
@@ -102,6 +103,25 @@ export default class UtilityBillsController {
     )
     const nextDueOn = nextUtilityDueDate(utility, bills, DateTime.local().startOf('day'))
 
-    return response.json({ ...result, nextDueOn: nextDueOn?.toISO() ?? null })
+    // The rolling-average window is built from amortized monthly shares (a
+    // quarterly/annual bill split evenly across the months it covers) so the
+    // average, trend indicator and chart read as a plain monthly series -
+    // see `expandUtilityBillsToMonthlyShares`. But "Latest bill" is meant to
+    // show what the last bill actually cost and when it was issued, not that
+    // bill's per-month share, so it's sourced from the real bill record
+    // instead of the shares window.
+    const latestBill = mostRecentUtilityBill(bills)
+
+    return response.json({
+      ...result,
+      ...(latestBill
+        ? {
+            latestAmount: round(latestBill.amount),
+            latestYear: latestBill.year,
+            latestMonth: latestBill.month,
+          }
+        : {}),
+      nextDueOn: nextDueOn?.toISO() ?? null,
+    })
   }
 }

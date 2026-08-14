@@ -360,8 +360,34 @@ test.group('UtilityBills / trend', () => {
 
     response.assertStatus(200)
     assert.equal(response.body().average, 123.16)
-    assert.equal(response.body().latestAmount, 123.16)
     assert.lengthOf(response.body().months, 3)
+
+    // "Latest bill" is the real bill's cost and billing month, not its
+    // per-month amortized share.
+    assert.equal(response.body().latestAmount, 369.49)
+    assert.equal(response.body().latestYear, 2026)
+    assert.equal(response.body().latestMonth, 4)
+  })
+
+  test('latest bill reflects the real bill cost and month for a prepaid annual utility, not the forward-projected share', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const utility = await Utility.create({
+      name: 'Phone',
+      frequency: 'annual',
+      paidInAdvance: true,
+    })
+    await UtilityBill.create({ utilityId: utility.id, year: 2026, month: 1, amount: 600 })
+
+    const response = await client.get(`/api/utilities/${utility.id}/trend`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.equal(response.body().average, 50)
+    assert.equal(response.body().latestAmount, 600)
+    assert.equal(response.body().latestYear, 2026)
+    assert.equal(response.body().latestMonth, 1)
   })
 
   test('nextDueOn is null when no due-day offset is configured', async ({ client, assert }) => {
