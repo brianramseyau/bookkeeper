@@ -5,6 +5,7 @@ export interface Category {
   name: string
   color: string | null
   sortOrder: number
+  parentId: number | null
   isActive: boolean
   isArchived: boolean
   isSystem: boolean
@@ -14,6 +15,7 @@ export interface CategoryInput {
   name: string
   color?: string | null
   sortOrder?: number
+  parentId?: number | null
   isActive?: boolean
   isArchived?: boolean
 }

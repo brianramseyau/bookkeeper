@@ -49,6 +49,32 @@ test.group('Categories / index', () => {
     const hiddenNames = hiddenResponse.body().data.map((c: { name: string }) => c.name)
     assert.include(hiddenNames, 'Archived Cat')
   })
+
+  test('returns parentId and nests children immediately after their parent', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Nesting Parent' })
+    await Category.create({ name: 'Nesting Child 1', parentId: parent.id })
+    await Category.create({ name: 'Nesting Child 2', parentId: parent.id })
+
+    const response = await client.get('/api/categories').loginAs(adam)
+
+    response.assertStatus(200)
+    const data = response.body().data as {
+      name: string
+      parentId: number | null
+      sortOrder: number
+    }[]
+    const child2Entry = data.find((c) => c.name === 'Nesting Child 2')
+    assert.equal(child2Entry?.parentId, parent.id)
+
+    const names = data.map((c) => c.name)
+    const parentIndex = names.indexOf('Nesting Parent')
+    assert.equal(names.indexOf('Nesting Child 1'), parentIndex + 1)
+    assert.equal(names.indexOf('Nesting Child 2'), parentIndex + 2)
+  })
 })
 
 test.group('Categories / store', () => {
@@ -111,6 +137,50 @@ test.group('Categories / store', () => {
     const category = await Category.create({ name: 'Brand New' })
 
     assert.equal(category.sortOrder, 0)
+  })
+
+  test('creates a child category when parentId is given, scoping its sortOrder', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Child Parent' })
+
+    const response = await client
+      .post('/api/categories')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ name: 'Child Cat', parentId: parent.id })
+
+    response.assertStatus(201)
+    assert.equal(response.body().data.parentId, parent.id)
+    assert.equal(response.body().data.sortOrder, 0)
+  })
+
+  test('rejects a parent that does not exist', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client
+      .post('/api/categories')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ name: 'Orphan', parentId: 999999 })
+
+    response.assertStatus(409)
+  })
+
+  test('rejects a child category as a parent (one level only)', async ({ client }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Child Parent 2' })
+    const child = await Category.create({ name: 'Already A Child', parentId: parent.id })
+
+    const response = await client
+      .post('/api/categories')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ name: 'Grandchild', parentId: child.id })
+
+    response.assertStatus(409)
   })
 
   test('rejects an invalid payload', async ({ client }) => {
@@ -215,6 +285,141 @@ test.group('Categories / update', () => {
     response.assertStatus(200)
     assert.equal(response.body().data.color, '#abcdef')
   })
+
+  test('moves a category under a parent', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Move Parent' })
+    const category = await Category.create({ name: 'Move Target' })
+
+    const response = await client
+      .patch(`/api/categories/${category.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ parentId: parent.id })
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.parentId, parent.id)
+  })
+
+  test('promotes a child back to top-level with a null parentId', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Promote Parent' })
+    const child = await Category.create({ name: 'Promote Target', parentId: parent.id })
+
+    const response = await client
+      .patch(`/api/categories/${child.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ parentId: null })
+
+    response.assertStatus(200)
+    assert.isNull(response.body().data.parentId)
+  })
+
+  test('rejects making a category its own parent', async ({ client }) => {
+    const adam = await loginAsAdam()
+    const category = await Category.create({ name: 'Self Parent' })
+
+    const response = await client
+      .patch(`/api/categories/${category.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ parentId: category.id })
+
+    response.assertStatus(409)
+  })
+
+  test('rejects demoting a category that has children', async ({ client }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Grandchild Parent' })
+    const child = await Category.create({ name: 'Has Children' })
+    await Category.create({ name: 'Grandchild-ish', parentId: child.id })
+
+    const response = await client
+      .patch(`/api/categories/${child.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ parentId: parent.id })
+
+    response.assertStatus(409)
+  })
+
+  test('rejects a child category as a parent on update too', async ({ client }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Grandchild Parent 2' })
+    const child = await Category.create({ name: 'Nested Child', parentId: parent.id })
+    const category = await Category.create({ name: 'Would-Be Grandchild' })
+
+    const response = await client
+      .patch(`/api/categories/${category.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ parentId: child.id })
+
+    response.assertStatus(409)
+  })
+
+  test('archiving a parent archives its children too', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Cascade Parent' })
+    const child = await Category.create({ name: 'Cascade Child', parentId: parent.id })
+
+    const response = await client
+      .patch(`/api/categories/${parent.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ isArchived: true })
+
+    response.assertStatus(200)
+    await parent.refresh()
+    await child.refresh()
+    assert.equal(parent.isArchived, true)
+    assert.equal(child.isArchived, true)
+  })
+
+  test('unarchiving a parent unarchives its children too', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Cascade Parent 2' })
+    const child = await Category.create({ name: 'Cascade Child 2', parentId: parent.id })
+    parent.isArchived = true
+    await parent.save()
+    child.isArchived = true
+    await child.save()
+
+    const response = await client
+      .patch(`/api/categories/${parent.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ isArchived: false })
+
+    response.assertStatus(200)
+    await parent.refresh()
+    await child.refresh()
+    assert.equal(parent.isArchived, false)
+    assert.equal(child.isArchived, false)
+  })
+
+  test('unarchiving a child unarchives its parent too', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Cascade Parent 3' })
+    const child = await Category.create({ name: 'Cascade Child 3', parentId: parent.id })
+    parent.isArchived = true
+    await parent.save()
+    child.isArchived = true
+    await child.save()
+
+    const response = await client
+      .patch(`/api/categories/${child.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ isArchived: false })
+
+    response.assertStatus(200)
+    await parent.refresh()
+    await child.refresh()
+    assert.equal(parent.isArchived, false)
+    assert.equal(child.isArchived, false)
+  })
 })
 
 test.group('Categories / destroy', () => {
@@ -283,5 +488,24 @@ test.group('Categories / destroy', () => {
     assert.isNull(utility.categoryId)
     await expense.refresh()
     assert.isNull(expense.categoryId)
+  })
+
+  test('deleting an archived parent deletes its children too', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const parent = await Category.create({ name: 'Destroy Parent' })
+    const child = await Category.create({ name: 'Destroy Child', parentId: parent.id })
+    parent.isArchived = true
+    await parent.save()
+    child.isArchived = true
+    await child.save()
+
+    const response = await client
+      .delete(`/api/categories/${parent.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+
+    response.assertStatus(204)
+    assert.isNull(await Category.find(parent.id))
+    assert.isNull(await Category.find(child.id))
   })
 })

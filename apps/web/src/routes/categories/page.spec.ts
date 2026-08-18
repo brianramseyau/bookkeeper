@@ -23,6 +23,7 @@ const groceries: Category = {
   name: 'Groceries',
   color: '#22c55e',
   sortOrder: 1,
+  parentId: null,
   isActive: true,
   isArchived: false,
   isSystem: false,
@@ -33,6 +34,7 @@ const rent: Category = {
   name: 'Rent',
   color: null,
   sortOrder: 2,
+  parentId: null,
   isActive: true,
   isArchived: false,
   isSystem: false,
@@ -43,9 +45,26 @@ const utilities: Category = {
   name: 'Utilities',
   color: '#0066b2',
   sortOrder: 0,
+  parentId: null,
   isActive: true,
   isArchived: false,
   isSystem: true,
+}
+
+const produce: Category = {
+  ...groceries,
+  id: 4,
+  name: 'Produce',
+  sortOrder: 0,
+  parentId: 1,
+}
+
+const bakery: Category = {
+  ...groceries,
+  id: 5,
+  name: 'Bakery',
+  sortOrder: 1,
+  parentId: 1,
 }
 
 describe('categories page', () => {
@@ -70,27 +89,71 @@ describe('categories page', () => {
     expect(await screen.findByText('Failed to load categories')).toBeInTheDocument()
   })
 
-  it('shows an empty table when there are no categories', async () => {
+  it('shows an empty state when there are no categories', async () => {
     vi.mocked(listCategories).mockResolvedValue([])
     render(CategoriesPage)
 
     await screen.findByPlaceholderText('Add a category (e.g. Household)')
     expect(screen.queryByText('Groceries')).toBeNull()
+    expect(screen.getByText('No categories yet.')).toBeInTheDocument()
   })
 
   it('renders active categories', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, rent])
     render(CategoriesPage)
 
-    expect(await screen.findByText('Groceries')).toBeInTheDocument()
-    expect(screen.getByText('Rent')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Edit Groceries' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit Rent' })).toBeInTheDocument()
+  })
+
+  it('nests child categories under their parent by default', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, produce, bakery])
+    render(CategoriesPage)
+
+    await screen.findByRole('button', { name: 'Collapse Groceries' })
+    expect(screen.getByRole('button', { name: 'Edit Produce' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Edit Bakery' })).toBeInTheDocument()
+  })
+
+  it('collapses and expands a parent with its chevron', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, produce])
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await screen.findByRole('button', { name: 'Collapse Groceries' })
+    await user.click(screen.getByRole('button', { name: 'Collapse Groceries' }))
+    expect(screen.queryByRole('button', { name: 'Edit Produce' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Expand Groceries' }))
+    expect(screen.getByRole('button', { name: 'Edit Produce' })).toBeInTheDocument()
+  })
+
+  it('unfolds less and unfolds more across all parents', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, produce, rent])
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await screen.findByRole('button', { name: 'Collapse Groceries' })
+    await user.click(screen.getByRole('button', { name: 'Unfold less' }))
+    expect(screen.queryByRole('button', { name: 'Edit Produce' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Unfold more' }))
+    expect(screen.getByRole('button', { name: 'Edit Produce' })).toBeInTheDocument()
+  })
+
+  it('hides the unfold toggle when there are no nested categories', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, rent])
+    render(CategoriesPage)
+
+    await screen.findByRole('button', { name: 'Edit Groceries' })
+    expect(screen.queryByRole('button', { name: /^Unfold/ })).toBeNull()
   })
 
   it('shows a System badge for the system category and no Archive button for it', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, utilities])
     render(CategoriesPage)
 
-    await screen.findByText('Utilities')
+    await screen.findByRole('button', { name: 'Edit Utilities' })
     expect(screen.getByText('System')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Archive Utilities' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Archive Groceries' })).toBeInTheDocument()
@@ -109,7 +172,21 @@ describe('categories page', () => {
     await user.click(screen.getByRole('button', { name: 'Add category' }))
 
     expect(createCategory).toHaveBeenCalledWith({ name: 'Groceries' })
-    expect(await screen.findByText('Groceries')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Edit Groceries' })).toBeInTheDocument()
+  })
+
+  it('adds a child category when a parent is selected', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries])
+    vi.mocked(createCategory).mockResolvedValue({ ...produce, name: 'Produce' })
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await screen.findByPlaceholderText('Add a category (e.g. Household)')
+    await user.type(screen.getByPlaceholderText('Add a category (e.g. Household)'), 'Produce')
+    await user.selectOptions(screen.getByLabelText('Parent (optional)'), '1')
+    await user.click(screen.getByRole('button', { name: 'Add category' }))
+
+    expect(createCategory).toHaveBeenCalledWith({ name: 'Produce', parentId: 1 })
   })
 
   it('does not submit an empty or whitespace-only category name', async () => {
@@ -159,7 +236,42 @@ describe('categories page', () => {
       name: 'Food',
       color: '#22c55e',
     })
-    expect(await screen.findByText('Food')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Edit Food' })).toBeInTheDocument()
+  })
+
+  it('moves a category under a parent from the edit form', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, rent])
+    vi.mocked(updateCategory).mockResolvedValue({ ...groceries, parentId: 2 })
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    await user.selectOptions(screen.getByLabelText('Parent for Groceries'), '2')
+    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+
+    expect(updateCategory).toHaveBeenCalledWith(1, {
+      name: 'Groceries',
+      color: '#22c55e',
+      parentId: 2,
+    })
+  })
+
+  it('edits a nested child category', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, produce])
+    vi.mocked(updateCategory).mockResolvedValue({ ...produce, name: 'Fresh Produce' })
+    const user = userEvent.setup()
+    render(CategoriesPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Produce' }))
+    const nameInput = screen.getByDisplayValue('Produce')
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Fresh Produce')
+    await user.click(screen.getByRole('button', { name: 'Save Produce' }))
+
+    expect(updateCategory).toHaveBeenCalledWith(4, {
+      name: 'Fresh Produce',
+      color: '#22c55e',
+    })
   })
 
   it('does not render a rename input for the system category, only saving its color', async () => {
@@ -189,7 +301,7 @@ describe('categories page', () => {
     await user.click(screen.getByRole('button', { name: 'Cancel editing Groceries' }))
 
     expect(updateCategory).not.toHaveBeenCalled()
-    expect(await screen.findByText('Groceries')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Edit Groceries' })).toBeInTheDocument()
   })
 
   it('requires a name when saving an edit', async () => {
@@ -224,7 +336,7 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Show archived / removed' }))
-    await screen.findByText('Groceries')
+    await screen.findByRole('button', { name: 'Edit Groceries' })
     expect(screen.queryByRole('button', { name: 'Delete Groceries' })).toBeNull()
   })
 
@@ -282,7 +394,7 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Show archived / removed' }))
-    await screen.findByText('Groceries')
+    await screen.findByRole('button', { name: 'Archive Groceries' })
     vi.mocked(listCategories).mockResolvedValue([{ ...groceries, isArchived: true }])
     await user.click(screen.getByRole('button', { name: 'Archive Groceries' }))
 
@@ -311,14 +423,14 @@ describe('categories page', () => {
     expect(updateCategory).toHaveBeenCalledWith(1, { isActive: true })
   })
 
-  it('drags a category to a new position, swapping sort order', async () => {
+  it('drags a top-level category to a new position, swapping sort order', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, rent])
     vi.mocked(updateCategory).mockResolvedValue(groceries)
     const { container } = render(CategoriesPage)
 
-    await screen.findByText('Groceries')
-    const tbody = container.querySelector('tbody')!
-    tbody.dispatchEvent(
+    await screen.findByRole('button', { name: 'Edit Groceries' })
+    const zone = container.querySelector('[role="list"]')!
+    zone.dispatchEvent(
       new CustomEvent('finalize', {
         detail: {
           items: [rent, groceries],
@@ -331,14 +443,35 @@ describe('categories page', () => {
     expect(updateCategory).toHaveBeenCalledWith(2, { sortOrder: 1 })
   })
 
+  it('drags a child to a new position within its parent, swapping sort order', async () => {
+    vi.mocked(listCategories).mockResolvedValue([groceries, produce, bakery])
+    vi.mocked(updateCategory).mockResolvedValue(produce)
+    const { container } = render(CategoriesPage)
+
+    await screen.findByRole('button', { name: 'Edit Produce' })
+    const zones = container.querySelectorAll('[role="list"]')
+    const childrenZone = zones[1]!
+    childrenZone.dispatchEvent(
+      new CustomEvent('finalize', {
+        detail: {
+          items: [bakery, produce],
+          info: { trigger: 'droppedIntoZone', id: '5', source: 'pointer' },
+        },
+      })
+    )
+
+    expect(updateCategory).toHaveBeenCalledWith(4, { sortOrder: 1 })
+    expect(updateCategory).toHaveBeenCalledWith(5, { sortOrder: 0 })
+  })
+
   it('shows an error when reordering fails', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, rent])
     vi.mocked(updateCategory).mockRejectedValue(new ApiError(500, 'Failed to reorder'))
     const { container } = render(CategoriesPage)
 
-    await screen.findByText('Groceries')
-    const tbody = container.querySelector('tbody')!
-    tbody.dispatchEvent(
+    await screen.findByRole('button', { name: 'Edit Groceries' })
+    const zone = container.querySelector('[role="list"]')!
+    zone.dispatchEvent(
       new CustomEvent('finalize', {
         detail: {
           items: [rent, groceries],

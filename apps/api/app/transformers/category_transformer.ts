@@ -8,6 +8,7 @@ export default class CategoryTransformer extends BaseTransformer<Category> {
       'name',
       'color',
       'sortOrder',
+      'parentId',
       'isActive',
       'isArchived',
       'isSystem',

@@ -46,6 +46,7 @@ export class CategorySchema extends BaseModel {
     'isArchived',
     'isSystem',
     'name',
+    'parentId',
     'sortOrder',
     'updatedAt',
   ] as const
@@ -64,6 +65,8 @@ export class CategorySchema extends BaseModel {
   declare isSystem: boolean
   @column()
   declare name: string
+  @column()
+  declare parentId: number | null
   @column()
   declare sortOrder: number
   @column.dateTime({ autoCreate: true, autoUpdate: true })

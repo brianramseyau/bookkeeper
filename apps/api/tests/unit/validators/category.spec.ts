@@ -12,9 +12,11 @@ test.group('createCategoryValidator', () => {
       name: 'Groceries',
       color: '#ff0000',
       sortOrder: 3,
+      parentId: 7,
     })
     assert.equal(payload.color, '#ff0000')
     assert.equal(payload.sortOrder, 3)
+    assert.equal(payload.parentId, 7)
   })
 
   test('trims the name', async ({ assert }) => {
@@ -41,12 +43,34 @@ test.group('createCategoryValidator', () => {
     })
     assert.isNull(payload.color)
   })
+
+  test('accepts an explicit null parentId (a top-level category)', async ({ assert }) => {
+    const payload = await createCategoryValidator.validate({
+      name: 'Groceries',
+      parentId: null,
+    })
+    assert.isNull(payload.parentId)
+  })
+
+  test('rejects a non-positive parentId', async ({ assert }) => {
+    await assert.rejects(() => createCategoryValidator.validate({ name: 'Groceries', parentId: 0 }))
+  })
 })
 
 test.group('updateCategoryValidator', () => {
   test('accepts an empty payload (all fields optional)', async ({ assert }) => {
     const payload = await updateCategoryValidator.validate({})
     assert.deepEqual(payload, {})
+  })
+
+  test('accepts a parentId change', async ({ assert }) => {
+    const payload = await updateCategoryValidator.validate({ parentId: 3 })
+    assert.equal(payload.parentId, 3)
+  })
+
+  test('accepts an explicit null parentId (promoting to top-level)', async ({ assert }) => {
+    const payload = await updateCategoryValidator.validate({ parentId: null })
+    assert.isNull(payload.parentId)
   })
 
   test('accepts isActive toggling', async ({ assert }) => {
