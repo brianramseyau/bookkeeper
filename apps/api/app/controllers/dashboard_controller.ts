@@ -7,8 +7,10 @@ import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import IncomeEntry from '#models/income_entry'
 import { StandardMonthService } from '#services/standard_month_service'
 import { expandUtilityBillsToMonthlyShares } from '#services/utility_billing_period'
+import { loadMarginalRates, netIncomeForEntries } from '#services/income_netting'
 import {
   compareByDaysUntilDue,
   isRecurringBillDueMonth,
@@ -33,12 +35,14 @@ export default class DashboardController {
     const month = request.input('month') ? Number(request.input('month')) : today.month
     const viewed = DateTime.local(year, month, 1)
 
-    const [monthResult, upcomingBills, monthlyExpenses, categoryBreakdown] = await Promise.all([
-      new StandardMonthService().compute(year, month),
-      this.upcomingBills(),
-      this.monthlyExpenses(viewed),
-      this.categoryBreakdown(viewed),
-    ])
+    const [monthResult, upcomingBills, monthlyExpenses, categoryBreakdown, totalIncome] =
+      await Promise.all([
+        new StandardMonthService().compute(year, month),
+        this.upcomingBills(),
+        this.monthlyExpenses(viewed),
+        this.categoryBreakdown(viewed),
+        this.totalIncome(viewed),
+      ])
 
     return response.json({
       currentMonth: {
@@ -50,7 +54,31 @@ export default class DashboardController {
       upcomingBills,
       monthlyExpenses,
       categoryBreakdown,
+      totalIncome,
     })
+  }
+
+  /**
+   * Net household income over the same trailing 12-month window as
+   * monthlyExpenses, so the dashboard's income-vs-expenses donut compares
+   * like with like. Net = salary take-home plus other income after each
+   * owner's marginal rate (gross fallback when no rate is set) - see
+   * income_netting.ts.
+   */
+  private async totalIncome(viewed: DateTime) {
+    const start = viewed.startOf('month').minus({ months: MONTHLY_EXPENSE_WINDOW - 1 })
+    const end = viewed.endOf('month')
+    const startIndex = start.year * 12 + start.month
+    const endIndex = end.year * 12 + end.month
+
+    const [entries, rates] = await Promise.all([IncomeEntry.query(), loadMarginalRates()])
+    return netIncomeForEntries(
+      entries.filter((entry) => {
+        const index = entry.year * 12 + entry.month
+        return index >= startIndex && index <= endIndex
+      }),
+      rates
+    )
   }
 
   private async upcomingBills() {

@@ -21,6 +21,7 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import SecondaryButton from '$lib/components/SecondaryButton.svelte'
   import SuccessMessage from '$lib/components/SuccessMessage.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import { mdiDelete } from '@mdi/js'
@@ -446,14 +447,9 @@
         Enable on this device
       {/if}
     </PrimaryButton>
-    <button
-      type="button"
-      onclick={handleSendTest}
-      disabled={testSending}
-      class="rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
-    >
+    <SecondaryButton onclick={handleSendTest} disabled={testSending}>
       {testSending ? 'Sending…' : 'Send test notification'}
-    </button>
+    </SecondaryButton>
   </div>
 {/if}
 
@@ -469,12 +465,12 @@
 {:else if devices.length === 0}
   <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">No devices registered yet</p>
 {:else}
-  <Card class="mt-3 sm:overflow-x-auto">
+  <Card class="mt-3 sm:overflow-x-auto" pivotTable>
     <table class="block w-full border-collapse text-sm sm:table">
       <tbody class="block sm:table-row-group">
         {#each devices as device (device.id)}
           <tr
-            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
           >
             <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
               {device.userAgent ?? 'Unknown device'}

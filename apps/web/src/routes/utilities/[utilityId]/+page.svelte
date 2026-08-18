@@ -409,7 +409,7 @@
     {/if}
   </Card>
 
-  <Card class="sm:overflow-x-auto">
+  <Card class="sm:overflow-x-auto" pivotTable>
     <table class="block w-full border-collapse text-sm sm:table">
       <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -432,7 +432,7 @@
           {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
           {@const conflicts = conflictingBills(year, month)}
           <tr
-            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
           >
             <td
               class="px-3 py-1.5 font-medium whitespace-nowrap text-slate-700 sm:table-cell dark:text-slate-300"

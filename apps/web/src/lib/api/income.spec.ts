@@ -8,6 +8,7 @@ import {
   getIncomeSourcesSummary,
   getIncomeYtd,
   listIncomeEntries,
+  listAllIncomeEntriesForFinancialYear,
   listIncomeEntriesForFinancialYear,
   listIncomeSources,
   updateIncomeEntry,
@@ -96,5 +97,10 @@ describe('income entries api', () => {
   it('lists entries for a user within a financial year', () => {
     listIncomeEntriesForFinancialYear(1, 2026)
     expect(api.get).toHaveBeenCalledWith('/income-entries?userId=1&financialYear=2026')
+  })
+
+  it('lists every household entry within a financial year', () => {
+    listAllIncomeEntriesForFinancialYear(2027)
+    expect(api.get).toHaveBeenCalledWith('/income-entries?financialYear=2027')
   })
 })

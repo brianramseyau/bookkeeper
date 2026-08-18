@@ -375,7 +375,7 @@
 {#if loading}
   <LoadingIndicator />
 {:else}
-  <Card class="mt-6 sm:overflow-x-auto">
+  <Card class="mt-6 sm:overflow-x-auto" pivotTable>
     <table class="block w-full border-collapse text-sm sm:table">
       <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -415,7 +415,7 @@
             {:else}
               <tr
                 id="bill-{bill.id}"
-                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
               >
                 <td
                   class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
@@ -543,7 +543,7 @@
                 {@render editRow(bill)}
               {:else}
                 <tr
-                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
                 >
                   <td
                     class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
@@ -653,7 +653,7 @@
                 {@render editRow(bill)}
               {:else}
                 <tr
-                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white opacity-70 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
                 >
                   <td
                     class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
@@ -760,7 +760,7 @@
             </tr>
             {#each removedBills as bill (bill.id)}
               <tr
-                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white opacity-60 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
               >
                 <td
                   class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"

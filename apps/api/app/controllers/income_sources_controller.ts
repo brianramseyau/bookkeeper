@@ -55,6 +55,8 @@ export default class IncomeSourcesController {
       month: number
       bySource: Record<number, number>
       total: number
+      actual: number
+      projected: number
       estimated: boolean
     }[] = []
     let ytdTotal = 0
@@ -66,13 +68,28 @@ export default class IncomeSourcesController {
       const userLines = lines.filter((line) => line.userId === userId)
       const bySource: Record<number, number> = {}
       let total = 0
+      let actual = 0
+      let projected = 0
       let estimated = false
       for (const line of userLines) {
         if (line.sourceId !== null) bySource[line.sourceId] = line.actual
         total += line.actual
+        // `actual` is the real logged income only - `total` may have been
+        // backfilled from `projected` for months nothing was logged against
+        // a source, which would double-count as real income on a chart.
+        actual += line.estimated ? 0 : line.actual
+        projected += line.projected
         if (line.estimated) estimated = true
       }
-      months.push({ year, month, bySource, total: round(total), estimated })
+      months.push({
+        year,
+        month,
+        bySource,
+        total: round(total),
+        actual: round(actual),
+        projected: round(projected),
+        estimated,
+      })
       ytdTotal += total
     }
 

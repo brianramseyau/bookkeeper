@@ -9,6 +9,10 @@ import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import IncomeSource from '#models/income_source'
+import IncomeEntry from '#models/income_entry'
+import IncomeTaxSetting from '#models/income_tax_setting'
+import { currentFinancialYear } from '#services/financial_year'
 
 async function loginAsAdam() {
   return User.findByOrFail('fullName', 'Adam')
@@ -404,5 +408,60 @@ test.group('Dashboard / summary', () => {
 
     const bill = response.body().upcomingBills.find((b: { name: string }) => b.name === 'Rent')
     assert.equal(bill.daysUntilDue, 3)
+  })
+
+  test('sums net household income across the trailing 12-month window into totalIncome', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const eve = await User.findByOrFail('fullName', 'Eve')
+    const today = DateTime.local()
+    const financialYear = currentFinancialYear()
+
+    // Salary: source-tied, already net take-home.
+    const salarySource = await IncomeSource.create({
+      userId: adam.id,
+      name: 'Salary',
+      expectedAmount: 5000,
+      frequency: 'monthly',
+      payDayOfMonth: 14,
+    })
+    await IncomeEntry.create({
+      incomeSourceId: salarySource.id,
+      year: today.year,
+      month: today.month,
+      amount: 5000,
+    })
+    // Other income nets through Adam's marginal rate: 1000 - 370 = 630.
+    await IncomeEntry.create({
+      userId: adam.id,
+      year: today.year,
+      month: today.month,
+      amount: 1000,
+      taxWithheld: false,
+    })
+    await IncomeTaxSetting.create({ userId: adam.id, financialYear, marginalRate: 0.37 })
+    // Eve's income is part of the household-wide window too.
+    await IncomeEntry.create({
+      userId: eve.id,
+      year: today.year,
+      month: today.month,
+      amount: 300,
+      taxWithheld: true,
+    })
+    // Outside the 12-month window - must not count.
+    const outside = today.minus({ months: 13 })
+    await IncomeEntry.create({
+      userId: adam.id,
+      year: outside.year,
+      month: outside.month,
+      amount: 9999,
+      taxWithheld: false,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+
+    assert.equal(response.body().totalIncome, 5000 + 630 + 300)
   })
 })

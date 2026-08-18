@@ -1,5 +1,6 @@
 <script lang="ts">
   import { mdiDotsVertical } from '@mdi/js'
+  import type { Snippet } from 'svelte'
 
   interface ActionMenuItem {
     label: string
@@ -14,11 +15,18 @@
     label: string
     actions: ActionMenuItem[]
     class?: string
+    /** Custom trigger rendered instead of the default ⋮ icon button. Receives
+        the current open state and a toggle function. */
+    trigger?: Snippet<[open: boolean, toggle: () => void]>
   }
 
-  let { label, actions, class: className = '' }: Props = $props()
+  let { label, actions, class: className = '', trigger }: Props = $props()
 
   let open = $state(false)
+
+  function toggle() {
+    open = !open
+  }
 
   function select(action: ActionMenuItem) {
     open = false
@@ -38,19 +46,23 @@
 </script>
 
 <div class="relative inline-block {className}">
-  <button
-    type="button"
-    onclick={() => (open = !open)}
-    aria-label={label}
-    title={label}
-    aria-haspopup="true"
-    aria-expanded={open}
-    class="inline-flex shrink-0 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
-  >
-    <svg viewBox="0 0 24 24" class="size-5" fill="currentColor" aria-hidden="true">
-      <path d={mdiDotsVertical} />
-    </svg>
-  </button>
+  {#if trigger}
+    {@render trigger(open, toggle)}
+  {:else}
+    <button
+      type="button"
+      onclick={toggle}
+      aria-label={label}
+      title={label}
+      aria-haspopup="true"
+      aria-expanded={open}
+      class="inline-flex shrink-0 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+    >
+      <svg viewBox="0 0 24 24" class="size-5" fill="currentColor" aria-hidden="true">
+        <path d={mdiDotsVertical} />
+      </svg>
+    </button>
+  {/if}
 
   {#if open}
     <button

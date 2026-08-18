@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   currentFinancialYear,
+  financialYearFor,
   financialYearLabel,
   financialYearMonths,
   formatCurrency,
@@ -14,6 +15,7 @@ import {
   monthShortName,
   monthYearLabel,
   round2,
+  todayISO,
 } from './format'
 
 describe('formatCurrency', () => {
@@ -81,9 +83,37 @@ describe('currentFinancialYear', () => {
   })
 })
 
+describe('todayISO', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('formats today as a YYYY-MM-DD string in local time', () => {
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    expect(todayISO()).toBe('2026-03-15')
+  })
+
+  it('zero-pads single-digit month and day', () => {
+    vi.setSystemTime(new Date('2026-07-01T00:00:00.000Z'))
+    expect(todayISO()).toBe('2026-07-01')
+  })
+})
+
 describe('financialYearLabel', () => {
   it('formats as FY <start>-<short end>', () => {
     expect(financialYearLabel(2026)).toBe('FY 2025-26')
+  })
+})
+
+describe('financialYearFor', () => {
+  it('maps Jul-Dec to the year ending the following June', () => {
+    expect(financialYearFor(2025, 7)).toBe(2026)
+    expect(financialYearFor(2025, 12)).toBe(2026)
+  })
+
+  it('maps Jan-Jun to the current calendar year', () => {
+    expect(financialYearFor(2026, 1)).toBe(2026)
+    expect(financialYearFor(2026, 6)).toBe(2026)
   })
 })
 

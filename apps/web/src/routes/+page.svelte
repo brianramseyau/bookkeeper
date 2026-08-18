@@ -2,13 +2,15 @@
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { authState } from '$lib/stores/auth.svelte'
+  import { themeState } from '$lib/stores/theme.svelte'
   import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
-  import { formatCurrency, formatDaysUntilDue, monthName } from '$lib/format'
+  import { formatCurrency, formatDaysUntilDue, monthName, round2 } from '$lib/format'
   import { ApiError } from '$lib/api'
   import { MonthNav } from '$lib/month-nav.svelte'
   import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
   import CategoryBreakdownList from '$lib/components/CategoryBreakdownList.svelte'
+  import PieChart from '$lib/components/PieChart.svelte'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
@@ -34,6 +36,25 @@
   }
 
   onMount(load)
+
+  const INCOME_COLOR = $derived(themeState.current === 'dark' ? '#34d399' : '#10b981')
+  const EXPENSE_COLOR = $derived(themeState.current === 'dark' ? '#f87171' : '#ef4444')
+
+  const expenseTotal = $derived(
+    data ? data.monthlyExpenses.reduce((sum, m) => sum + m.total, 0) : 0
+  )
+  const incomeTotal = $derived(data?.totalIncome ?? 0)
+  const position = $derived(round2(incomeTotal - expenseTotal))
+  const positionIsPositive = $derived(position >= 0)
+
+  const incomeVsExpensePie = $derived.by(() => {
+    const slices: { label: string; value: number; color: string }[] = []
+    if (incomeTotal > 0)
+      slices.push({ label: 'Income', value: round2(incomeTotal), color: INCOME_COLOR })
+    if (expenseTotal > 0)
+      slices.push({ label: 'Expenses', value: round2(expenseTotal), color: EXPENSE_COLOR })
+    return slices
+  })
 </script>
 
 <PageHead title="Dashboard" />
@@ -44,6 +65,22 @@
   </h1>
   <MonthNavHeader {nav} />
 </div>
+
+{#snippet positionCenter()}
+  <span
+    class={[
+      'text-lg font-semibold',
+      positionIsPositive
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-red-600 dark:text-red-400',
+    ]}
+  >
+    {formatCurrency(position)}
+  </span>
+  <span class="text-xs text-slate-400 dark:text-slate-500">
+    {positionIsPositive ? 'Surplus' : 'Deficit'}
+  </span>
+{/snippet}
 
 {#if error}
   <ErrorMessage message={error} />
@@ -161,6 +198,23 @@
       </h2>
       <div class="mt-3">
         <CategoryBreakdownList data={data.categoryBreakdown} />
+      </div>
+    </Card>
+
+    <Card class="p-4">
+      <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+        Income vs expenses (12 months)
+      </h2>
+      <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+        Net income against logged spend through {monthName(nav.month)}
+        {nav.year}
+      </p>
+      <div class="mt-3">
+        <PieChart
+          data={incomeVsExpensePie}
+          emptyMessage="No income or expenses logged"
+          center={positionCenter}
+        />
       </div>
     </Card>
   </div>

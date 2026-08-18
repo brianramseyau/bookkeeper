@@ -80,6 +80,16 @@ export function listIncomeEntriesForFinancialYear(userId: number, financialYear:
   return api.get<IncomeEntry[]>(`/income-entries?userId=${userId}&financialYear=${financialYear}`)
 }
 
+/**
+ * Every income entry in a given Jul-Jun financial year, for all household
+ * members. Source-tied entries don't reliably carry `userId` (the app's
+ * forms store them with just `incomeSourceId`), so the Income page fetches
+ * this and filters client-side by the selected user's sources.
+ */
+export function listAllIncomeEntriesForFinancialYear(financialYear: number) {
+  return api.get<IncomeEntry[]>(`/income-entries?financialYear=${financialYear}`)
+}
+
 export function createIncomeEntry(input: IncomeEntryInput) {
   return api.post<IncomeEntry>('/income-entries', input)
 }
@@ -107,6 +117,11 @@ export interface IncomeYtdMonth {
   year: number
   month: number
   bySource: Record<number, number>
+  /** Real logged income for the month - never backfilled from projected. */
+  actual: number
+  /** What the user's sources were expected to pay that month (cadence math). */
+  projected: number
+  /** The legacy total: real income, falling back to projected for months nothing was logged. */
   total: number
   estimated: boolean
 }
