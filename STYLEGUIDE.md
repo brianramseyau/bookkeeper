@@ -321,6 +321,45 @@ because they're a `<form>` element) use the same look inline:
 `rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800`
 — see any "add a new X" form.
 
+## Charts
+
+All charts are **hand-rolled inline SVG components in `$lib/components/`** —
+no charting library (nothing ships with the app, and a dependency isn't
+worth it for four charts). The existing set: `MonthlyExpenseChart.svelte`
+(monthly expense line, Monthly page), `IncomeYtdChart.svelte` (per-month
+estimated-vs-actual bars, Income), `YearlyIncomeLineChart.svelte` (one
+cumulative net-income line per financial year, Income), and `PieChart.svelte`
+(generic donut — Income's "by person" and "salary vs other" pies).
+
+- **Shared math**: `$lib/chart-utils.ts` exports `niceMax(value)` — a round
+  y-axis ceiling + step across four gridlines. Every bar/line chart uses it;
+  don't re-declare a local copy.
+- **SVG recipe**: a fixed logical `viewBox` (`720×240` for bar/line charts,
+  `180×180` for pies) on a `class="w-full"` svg so it scales to any width.
+  `role="img"` + an `aria-label` describing the chart (written as
+  `aria-label={ariaLabel}`, not the `{ariaLabel}` shorthand — Svelte doesn't
+  camelCase shorthand props into `aria-*` attributes).
+- **Theme-aware colors**: derived from `themeState.current` as a light/dark
+  hex pair (`const COLOR = $derived(themeState.current === 'dark' ? '#818cf8' : '#4f46e5')`),
+  like `MonthlyExpenseChart`. Series/line colors passed in as data are fixed
+  mid-500 hex values that read on both themes; the Income page picks each
+  user's slice color from their `displayColor` when set.
+- **Legends**: a small `text-xs` row of color-swatch + label above the chart
+  (bar/line), or a right-hand `<ul>` with value + rounded percentage for
+  pies. Pies show the formatted total in the donut's centre.
+- **Empty states**: `"Not enough data yet"` `<p>` for the bar/line charts,
+  or a caller-supplied `emptyMessage` prop on `PieChart` (Income passes
+  "No income logged this year").
+- **Netting is the caller's job, not the chart's**: the Income page derives
+  net slices/series (salary take-home, other income after its owner's
+  marginal rate) and passes already-net numbers in; the chart components just
+  draw what they're given.
+- **Placement**: Income's charts live in a `Card` accordion below the
+  entries table, collapsed by default, with a chevron header button
+  (`aria-expanded`) — chart data is fetched lazily the first time the
+  section opens for a given (user, financial year) and re-fetched after any
+  entry mutation while it's open.
+
 ## Page headers
 
 - **h1** (page title): `text-2xl font-semibold text-slate-900 dark:text-slate-100`,

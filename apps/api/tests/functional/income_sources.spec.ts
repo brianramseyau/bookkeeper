@@ -289,6 +289,43 @@ test.group('IncomeSources / ytd', () => {
     assert.equal(body.ytdTotal, 4800 + 5100 + 5000 * 10)
   })
 
+  test('reports per-month actual vs projected for the ytd chart', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const financialYear = currentFinancialYear() - 1
+    const firstMonth = financialYearMonths(financialYear)[0]!
+    const source = await IncomeSource.create({
+      userId: adam.id,
+      name: 'Salary',
+      expectedAmount: 5000,
+      frequency: 'monthly',
+      payDayOfMonth: 14,
+    })
+    await IncomeEntry.create({
+      incomeSourceId: source.id,
+      year: firstMonth.year,
+      month: firstMonth.month,
+      amount: 4800,
+      note: 'Payslip',
+      taxWithheld: true,
+    })
+
+    const response = await client
+      .get('/api/income-sources/ytd')
+      .qs({ userId: adam.id, financialYear })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    // Month with a real entry: actual is what was logged, projected the cadence figure.
+    assert.equal(response.body().months[0].actual, 4800)
+    assert.equal(response.body().months[0].projected, 5000)
+    // Backfilled month: nothing real was logged, so actual stays 0 while
+    // projected carries the expectation.
+    assert.equal(response.body().months[1].actual, 0)
+    assert.equal(response.body().months[1].projected, 5000)
+    assert.isTrue(response.body().months[1].estimated)
+    assert.equal(response.body().months[1].total, 5000)
+  })
+
   test('only includes months up to the current one for the current financial year', async ({
     client,
     assert,

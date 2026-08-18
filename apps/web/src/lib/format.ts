@@ -37,6 +37,11 @@ export function currentFinancialYear(): number {
   return now.getMonth() + 1 >= 7 ? now.getFullYear() + 1 : now.getFullYear()
 }
 
+/** The ending year of the Jul-Jun financial year containing the given calendar year/month. */
+export function financialYearFor(year: number, month: number): number {
+  return month >= 7 ? year + 1 : year
+}
+
 /** Today's date as a `YYYY-MM-DD` string in local time, for `<input type="date">` defaults. */
 export function todayISO(): string {
   const now = new Date()

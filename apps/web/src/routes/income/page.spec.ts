@@ -8,9 +8,11 @@ import {
   listIncomeSources,
   updateIncomeSource,
   listAllIncomeEntriesForFinancialYear,
+  listIncomeEntries,
   createIncomeEntry,
   updateIncomeEntry,
   deleteIncomeEntry,
+  getIncomeYtd,
   type IncomeSource,
   type IncomeSourceSummary,
   type IncomeEntry,
@@ -29,9 +31,11 @@ vi.mock('$lib/api/income', () => ({
   deleteIncomeSource: vi.fn(),
   getIncomeSourcesSummary: vi.fn(),
   listAllIncomeEntriesForFinancialYear: vi.fn(),
+  listIncomeEntries: vi.fn(),
   createIncomeEntry: vi.fn(),
   updateIncomeEntry: vi.fn(),
   deleteIncomeEntry: vi.fn(),
+  getIncomeYtd: vi.fn(),
 }))
 vi.mock('$lib/api/income_tax_settings', () => ({
   getIncomeTaxSetting: vi.fn(),
@@ -117,6 +121,13 @@ function setDefaultMocks() {
   vi.mocked(listIncomeSources).mockResolvedValue([brianSalary, arielWages])
   vi.mocked(getIncomeSourcesSummary).mockResolvedValue(summaries)
   vi.mocked(listAllIncomeEntriesForFinancialYear).mockResolvedValue([])
+  vi.mocked(listIncomeEntries).mockResolvedValue([])
+  vi.mocked(getIncomeYtd).mockResolvedValue({
+    financialYear: currentFinancialYear(),
+    sources: [],
+    months: [],
+    ytdTotal: 0,
+  })
   vi.mocked(getIncomeTaxSetting).mockResolvedValue(noTaxSetting)
 }
 
@@ -139,9 +150,11 @@ describe('income page', () => {
     vi.mocked(updateIncomeSource).mockReset()
     vi.mocked(deleteIncomeSource).mockReset()
     vi.mocked(listAllIncomeEntriesForFinancialYear).mockReset()
+    vi.mocked(listIncomeEntries).mockReset()
     vi.mocked(createIncomeEntry).mockReset()
     vi.mocked(updateIncomeEntry).mockReset()
     vi.mocked(deleteIncomeEntry).mockReset()
+    vi.mocked(getIncomeYtd).mockReset()
     vi.mocked(getIncomeTaxSetting).mockReset()
     vi.mocked(setIncomeTaxSetting).mockReset()
   })
@@ -1010,5 +1023,147 @@ describe('income page', () => {
     expect(within(entriesTable).getAllByText('$6,000.00').length).toBeGreaterThan(0)
     expect(within(entriesTable).getAllByText('$370.00').length).toBeGreaterThan(0)
     expect(within(entriesTable).getAllByText('$630.00').length).toBeGreaterThan(0)
+  })
+
+  describe('charts section', () => {
+    // Entries that fall inside the current financial year so they count for
+    // the selected-year pies (Jul 2026 - Jun 2027 with today in Aug 2026).
+    const brianSalaryChart = { ...salaryEntry, id: 30, year: 2026, month: 8, amount: 5000 }
+    const brianFreelanceChart = {
+      ...otherEntry,
+      id: 31,
+      year: 2026,
+      month: 8,
+      amount: 1000,
+      note: 'Brian freelance',
+    }
+    const arielSalaryChart = {
+      ...salaryEntry,
+      id: 32,
+      incomeSourceId: 2,
+      year: 2026,
+      month: 8,
+      amount: 5000,
+    }
+    const arielFreelanceChart = {
+      ...otherEntry,
+      id: 33,
+      userId: 2,
+      year: 2026,
+      month: 8,
+      amount: 1000,
+      note: 'Ariel freelance',
+    }
+
+    async function openCharts(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole('button', { name: /Charts/ }))
+    }
+
+    it('stays collapsed and defers loading until opened', async () => {
+      setDefaultMocks()
+      render(IncomePage)
+
+      await screen.findByText('Brian Income')
+      expect(screen.queryByText('Estimated vs actual income')).not.toBeInTheDocument()
+      expect(listIncomeEntries).not.toHaveBeenCalled()
+
+      const user = userEvent.setup()
+      await openCharts(user)
+      expect(await screen.findByText('Estimated vs actual income')).toBeInTheDocument()
+      expect(screen.getByText('Year by year')).toBeInTheDocument()
+      expect(screen.getByText('Income by person')).toBeInTheDocument()
+      expect(screen.getByText('Salary vs other income')).toBeInTheDocument()
+      expect(listIncomeEntries).toHaveBeenCalledTimes(1)
+    })
+
+    it('nets income through each person’s marginal rate in the pies', async () => {
+      setDefaultMocks()
+      vi.mocked(listIncomeEntries).mockResolvedValue([
+        brianSalaryChart,
+        brianFreelanceChart,
+        arielSalaryChart,
+        arielFreelanceChart,
+      ])
+      vi.mocked(getIncomeTaxSetting).mockImplementation(async (userId: number) =>
+        userId === 1
+          ? { userId: 1, financialYear: currentFinancialYear(), marginalRate: 0.37 }
+          : { userId: 2, financialYear: currentFinancialYear(), marginalRate: 0.3 }
+      )
+      render(IncomePage)
+
+      await screen.findByText('Brian Income')
+      const user = userEvent.setup()
+      await openCharts(user)
+
+      // Brian: 5000 salary + 1000 freelance - 370 = 5630. Ariel: 5000 + 700 = 5700.
+      expect(await screen.findByText('$5,630.00')).toBeInTheDocument()
+      expect(screen.getByText('$5,700.00')).toBeInTheDocument()
+      // Salary 5000 + 5000 = 10000; other 630 + 700 = 1330.
+      expect(screen.getByText('$10,000.00')).toBeInTheDocument()
+      expect(screen.getByText('$1,330.00')).toBeInTheDocument()
+    })
+
+    it('renders the estimated vs actual months from the ytd endpoint', async () => {
+      setDefaultMocks()
+      vi.mocked(listIncomeEntries).mockResolvedValue([brianSalaryChart])
+      vi.mocked(getIncomeYtd).mockResolvedValue({
+        financialYear: currentFinancialYear(),
+        sources: [{ id: 1, name: 'Brian Income' }],
+        months: [
+          {
+            year: 2026,
+            month: 7,
+            bySource: { 1: 0 },
+            total: 5000,
+            actual: 0,
+            projected: 5000,
+            estimated: true,
+          },
+          {
+            year: 2026,
+            month: 8,
+            bySource: { 1: 5000 },
+            total: 5000,
+            actual: 5000,
+            projected: 5000,
+            estimated: false,
+          },
+        ],
+        ytdTotal: 10000,
+      })
+      render(IncomePage)
+
+      await screen.findByText('Brian Income')
+      const user = userEvent.setup()
+      await openCharts(user)
+
+      expect(await screen.findByText('Estimated vs actual income')).toBeInTheDocument()
+      expect(screen.getByText('Actual')).toBeInTheDocument()
+      expect(screen.getByText('Estimated')).toBeInTheDocument()
+    })
+
+    it('shows empty states when there is no income', async () => {
+      setDefaultMocks()
+      render(IncomePage)
+
+      await screen.findByText('Brian Income')
+      const user = userEvent.setup()
+      await openCharts(user)
+
+      expect(await screen.findAllByText('Not enough data yet')).toHaveLength(2)
+      expect(screen.getAllByText('No income logged this year')).toHaveLength(2)
+    })
+
+    it('shows an error when chart data fails to load', async () => {
+      setDefaultMocks()
+      vi.mocked(listIncomeEntries).mockRejectedValue(new ApiError(500, 'Could not load charts'))
+      render(IncomePage)
+
+      await screen.findByText('Brian Income')
+      const user = userEvent.setup()
+      await openCharts(user)
+
+      expect(await screen.findByText('Could not load charts')).toBeInTheDocument()
+    })
   })
 })

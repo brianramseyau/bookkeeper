@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   currentFinancialYear,
+  financialYearFor,
   financialYearLabel,
   financialYearMonths,
   formatCurrency,
@@ -101,6 +102,18 @@ describe('todayISO', () => {
 describe('financialYearLabel', () => {
   it('formats as FY <start>-<short end>', () => {
     expect(financialYearLabel(2026)).toBe('FY 2025-26')
+  })
+})
+
+describe('financialYearFor', () => {
+  it('maps Jul-Dec to the year ending the following June', () => {
+    expect(financialYearFor(2025, 7)).toBe(2026)
+    expect(financialYearFor(2025, 12)).toBe(2026)
+  })
+
+  it('maps Jan-Jun to the current calendar year', () => {
+    expect(financialYearFor(2026, 1)).toBe(2026)
+    expect(financialYearFor(2026, 6)).toBe(2026)
   })
 })
 

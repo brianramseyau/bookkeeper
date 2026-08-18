@@ -1,6 +1,7 @@
 <script lang="ts">
   import { themeState } from '$lib/stores/theme.svelte'
   import { formatCurrency, monthShortName } from '$lib/format'
+  import { niceMax } from '$lib/chart-utils'
 
   interface MonthlyExpense {
     year: number
@@ -36,15 +37,6 @@
   const padBottom = 28
   const plotWidth = width - padLeft - padRight
   const plotHeight = height - padTop - padBottom
-
-  function niceMax(value: number): { max: number; step: number } {
-    if (value <= 0) return { max: 100, step: 25 }
-    const rough = value / 4
-    const magnitude = 10 ** Math.floor(Math.log10(rough))
-    const normalized = rough / magnitude
-    const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude
-    return { max: step * 4, step }
-  }
 
   const scale = $derived.by(() => {
     const maxValue = Math.max(...data.map((d) => d.total), 0)

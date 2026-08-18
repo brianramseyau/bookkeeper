@@ -117,6 +117,11 @@ export interface IncomeYtdMonth {
   year: number
   month: number
   bySource: Record<number, number>
+  /** Real logged income for the month - never backfilled from projected. */
+  actual: number
+  /** What the user's sources were expected to pay that month (cadence math). */
+  projected: number
+  /** The legacy total: real income, falling back to projected for months nothing was logged. */
   total: number
   estimated: boolean
 }
