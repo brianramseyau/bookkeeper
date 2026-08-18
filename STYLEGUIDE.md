@@ -329,7 +329,8 @@ worth it for four charts). The existing set: `MonthlyExpenseChart.svelte`
 (monthly expense line, Monthly page), `IncomeYtdChart.svelte` (per-month
 estimated-vs-actual bars, Income), `YearlyIncomeLineChart.svelte` (one
 cumulative net-income line per financial year, Income), and `PieChart.svelte`
-(generic donut — Income's "by person" and "salary vs other" pies).
+(generic donut — Income's "by person" and "salary vs other" pies, plus the
+Dashboard's 12-month income-vs-expenses donut).
 
 - **Shared math**: `$lib/chart-utils.ts` exports `niceMax(value)` — a round
   y-axis ceiling + step across four gridlines. Every bar/line chart uses it;
@@ -346,14 +347,25 @@ cumulative net-income line per financial year, Income), and `PieChart.svelte`
   user's slice color from their `displayColor` when set.
 - **Legends**: a small `text-xs` row of color-swatch + label above the chart
   (bar/line), or a right-hand `<ul>` with value + rounded percentage for
-  pies. Pies show the formatted total in the donut's centre.
+  pies. Pies show the formatted total in the donut's centre by default; the
+  caller can override that with a `center` snippet (the Dashboard shows the
+  income-vs-expenses net position there instead, coloured by sign). The
+  donut wrapper is a fixed-width (`180px`) `shrink-0` element and the legend
+  `min-w-40 flex-1` inside a `flex flex-wrap items-center justify-center`
+  root: on cards too narrow for both side-by-side the legend wraps below and
+  `justify-center` centres the donut on its own line, while on wide cards the
+  legend fills the line so the donut stays left — a bare `mx-auto sm:mx-0`
+  or a large legend min-width either un-centred the donut on narrow cards or
+  wrapped the legend on cards that had room for it.
 - **Empty states**: `"Not enough data yet"` `<p>` for the bar/line charts,
   or a caller-supplied `emptyMessage` prop on `PieChart` (Income passes
   "No income logged this year").
 - **Netting is the caller's job, not the chart's**: the Income page derives
   net slices/series (salary take-home, other income after its owner's
   marginal rate) and passes already-net numbers in; the chart components just
-  draw what they're given.
+  draw what they're given. The Dashboard's `totalIncome` is netted
+  server-side in `apps/api/app/services/income_netting.ts` (same rule as the
+  Income page's client-side `netOf`) so the two never disagree.
 - **Placement**: Income's charts live in a `Card` accordion below the
   entries table, collapsed by default, with a chevron header button
   (`aria-expanded`) — chart data is fetched lazily the first time the

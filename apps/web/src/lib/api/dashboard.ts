@@ -31,6 +31,8 @@ export interface DashboardSummary {
   upcomingBills: DashboardUpcomingBill[]
   monthlyExpenses: DashboardMonthlyExpense[]
   categoryBreakdown: DashboardCategoryBreakdown[]
+  /** Net household income over the same 12-month window as monthlyExpenses. */
+  totalIncome: number
 }
 
 export function getDashboardSummary(year: number, month: number) {

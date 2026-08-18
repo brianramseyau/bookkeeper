@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/svelte'
+import { createRawSnippet } from 'svelte'
 import { describe, expect, it } from 'vitest'
 import PieChart, { type PieSlice } from './PieChart.svelte'
 
@@ -50,5 +51,15 @@ describe('PieChart', () => {
 
     expect(screen.getByText('100%')).toBeInTheDocument()
     expect(screen.queryByText('Empty')).not.toBeInTheDocument()
+  })
+
+  it('renders custom centre content via the center snippet instead of the total', () => {
+    const centerSnippet = createRawSnippet(() => ({
+      render: () => '<span class="text-emerald-600">Custom centre</span>',
+    }))
+    render(PieChart, { data, center: centerSnippet })
+
+    expect(screen.getByText('Custom centre')).toBeInTheDocument()
+    expect(screen.queryByText('Total')).not.toBeInTheDocument()
   })
 })

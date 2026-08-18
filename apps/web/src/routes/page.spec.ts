@@ -24,6 +24,7 @@ const baseSummary: DashboardSummary = {
   upcomingBills: [],
   monthlyExpenses: [],
   categoryBreakdown: [],
+  totalIncome: 0,
 }
 
 describe('dashboard page', () => {
@@ -214,5 +215,41 @@ describe('dashboard page', () => {
 
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
     expect(replaceState).toHaveBeenCalledWith('/', {})
+  })
+
+  it('shows the income vs expenses donut with the net position in its centre', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      monthlyExpenses: [
+        { year: 2025, month: 9, total: 200 },
+        { year: 2025, month: 10, total: 300 },
+      ],
+      totalIncome: 400,
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Income')).toBeInTheDocument()
+    expect(screen.getByText('Expenses')).toBeInTheDocument()
+    // Centre shows income - expenses = 400 - 500 = -100 as a deficit.
+    expect(screen.getByText('Deficit')).toBeInTheDocument()
+    expect(screen.getByText('-$100.00')).toBeInTheDocument()
+  })
+
+  it('shows a surplus in the donut centre when income exceeds expenses', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      monthlyExpenses: [{ year: 2025, month: 9, total: 200 }],
+      totalIncome: 500,
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Surplus')).toBeInTheDocument()
+    expect(screen.getByText('$300.00')).toBeInTheDocument()
+  })
+
+  it('shows the donut empty state when there is no income or expenses', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
+    render(DashboardPage)
+    expect(await screen.findByText('No income or expenses logged')).toBeInTheDocument()
   })
 })

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte'
   import { formatCurrency } from '$lib/format'
 
   export interface PieSlice {
@@ -12,6 +13,9 @@
     formatValue?: (value: number) => string
     emptyMessage?: string
     centerLabel?: string
+    // Custom content for the donut's centre (e.g. the dashboard shows the
+    // income-vs-expenses net position there instead of the raw total).
+    center?: Snippet
   }
 
   let {
@@ -19,12 +23,13 @@
     formatValue = formatCurrency,
     emptyMessage = 'No income yet',
     centerLabel = 'Total',
+    center,
   }: Props = $props()
 
   const size = 180
   const strokeWidth = 26
   const radius = (size - strokeWidth) / 2
-  const center = size / 2
+  const midpoint = size / 2
 
   const total = $derived(data.reduce((sum, slice) => sum + slice.value, 0))
 
@@ -43,7 +48,7 @@
 
   function polar(angleDeg: number): { x: number; y: number } {
     const radians = (angleDeg * Math.PI) / 180
-    return { x: center + radius * Math.cos(radians), y: center + radius * Math.sin(radians) }
+    return { x: midpoint + radius * Math.cos(radians), y: midpoint + radius * Math.sin(radians) }
   }
 
   function arcPath(startAngle: number, sweep: number): string {
@@ -54,8 +59,8 @@
   }
 </script>
 
-<div class="flex flex-col gap-5 sm:flex-row sm:items-center">
-  <div class="relative mx-auto shrink-0 sm:mx-0">
+<div class="flex flex-wrap items-center justify-center gap-5">
+  <div class="relative shrink-0" style="width: {size}px">
     {#if slices.length > 0}
       <svg
         viewBox="0 0 {size} {size}"
@@ -65,8 +70,8 @@
       >
         {#if slices.length === 1}
           <circle
-            cx={center}
-            cy={center}
+            cx={midpoint}
+            cy={midpoint}
             r={radius}
             fill="none"
             stroke={slices[0].color}
@@ -87,10 +92,14 @@
         class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"
         aria-hidden="true"
       >
-        <span class="text-lg font-semibold text-slate-900 dark:text-slate-100">
-          {formatValue(total)}
-        </span>
-        <span class="text-xs text-slate-400 dark:text-slate-500">{centerLabel}</span>
+        {#if center}
+          {@render center()}
+        {:else}
+          <span class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {formatValue(total)}
+          </span>
+          <span class="text-xs text-slate-400 dark:text-slate-500">{centerLabel}</span>
+        {/if}
       </div>
     {:else}
       <p class="py-8 text-sm text-slate-400 dark:text-slate-500">{emptyMessage}</p>
@@ -98,10 +107,10 @@
   </div>
 
   {#if slices.length > 0}
-    <ul class="min-w-0 flex-1 space-y-2">
+    <ul class="min-w-40 flex-1 space-y-2">
       {#each slices as slice (slice.label)}
         <li class="flex items-center justify-between gap-3 text-sm">
-          <span class="flex min-w-0 items-center gap-2">
+          <span class="flex min-w-0 flex-1 items-center gap-2">
             <span class="size-2.5 shrink-0 rounded-full" style="background: {slice.color}"></span>
             <span class="truncate text-slate-700 dark:text-slate-300">{slice.label}</span>
           </span>
