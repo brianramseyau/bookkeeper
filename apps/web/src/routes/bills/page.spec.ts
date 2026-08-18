@@ -180,28 +180,46 @@ describe('recurring bills page', () => {
     }
   })
 
-  it('changes a bill category and reloads', async () => {
+  it('shows the category name outside edit mode, with no category select', async () => {
     setDefaultMocks()
-    vi.mocked(updateRecurringBill).mockResolvedValue({ ...carInsurance, categoryId: null })
+    render(RecurringBillsPage)
+
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    expect(within(carRow).getByText('Insurance')).toBeInTheDocument()
+    expect(within(carRow).queryByRole('combobox')).toBeNull()
+  })
+
+  it('renders a category select in edit mode and calls updateRecurringBill with the chosen categoryId', async () => {
+    vi.mocked(listUpcomingRecurringBills).mockResolvedValue([carInsurance, pestControl, gym])
+    vi.mocked(listCategories).mockResolvedValue([
+      insurance,
+      { ...insurance, id: 10, name: 'Household' },
+    ])
+    vi.mocked(updateRecurringBill).mockResolvedValue({ ...carInsurance, categoryId: 10 })
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    const row = (await screen.findByText('Car Insurance')).closest('tr')!
-    const select = within(row).getByRole('combobox')
-    await user.selectOptions(select, 'Uncategorized')
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
 
-    expect(updateRecurringBill).toHaveBeenCalledWith(1, { categoryId: null })
-    await waitFor(() => expect(listUpcomingRecurringBills).toHaveBeenCalledTimes(2))
+    const row = screen.getByDisplayValue('Car Insurance').closest('tr')!
+    const select = within(row).getAllByRole('combobox')[0]!
+    await user.selectOptions(select, '10')
+
+    expect(updateRecurringBill).toHaveBeenCalledWith(1, { categoryId: 10 })
   })
 
-  it('shows an error when changing category fails', async () => {
+  it('shows an error when changing a bill category in edit mode fails', async () => {
     setDefaultMocks()
     vi.mocked(updateRecurringBill).mockRejectedValue(new ApiError(500, 'Could not update category'))
     const user = userEvent.setup()
     render(RecurringBillsPage)
 
-    const row = (await screen.findByText('Car Insurance')).closest('tr')!
-    const select = within(row).getByRole('combobox')
+    const carRow = (await screen.findByText('Car Insurance')).closest('tr')!
+    await user.click(within(carRow).getAllByRole('button', { name: 'Edit Car Insurance' })[0]!)
+
+    const row = screen.getByDisplayValue('Car Insurance').closest('tr')!
+    const select = within(row).getAllByRole('combobox')[0]!
     await user.selectOptions(select, 'Insurance')
 
     expect(await screen.findByText('Could not update category')).toBeInTheDocument()

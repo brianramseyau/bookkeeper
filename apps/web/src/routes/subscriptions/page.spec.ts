@@ -170,27 +170,45 @@ describe('subscriptions page', () => {
     expect(screen.queryByText('Netflix')).toBeNull()
   })
 
-  it('changes a subscription category and reloads', async () => {
+  it('shows the category name outside edit mode, with no category select', async () => {
     setDefaultMocks()
-    vi.mocked(updateSubscription).mockResolvedValue({ ...netflix, categoryId: null })
+    render(SubscriptionsPage)
+
+    const netflixRow = (await screen.findByText('Netflix')).closest('tr')!
+    expect(within(netflixRow).getByText('Streaming')).toBeInTheDocument()
+    expect(within(netflixRow).queryByRole('combobox')).toBeNull()
+  })
+
+  it('renders a category select in edit mode and calls updateSubscription with the chosen categoryId', async () => {
+    setDefaultMocks()
+    vi.mocked(listCategories).mockResolvedValue([
+      streaming,
+      { ...streaming, id: 10, name: 'Household' },
+    ])
+    vi.mocked(updateSubscription).mockResolvedValue({ ...netflix, categoryId: 10 })
     const user = userEvent.setup()
     render(SubscriptionsPage)
 
-    const row = (await screen.findByText('Netflix')).closest('tr')!
-    const select = within(row).getByRole('combobox')
-    await user.selectOptions(select, 'Uncategorized')
+    const netflixRow = (await screen.findByText('Netflix')).closest('tr')!
+    await user.click(within(netflixRow).getAllByRole('button', { name: 'Edit Netflix' })[0]!)
 
-    expect(updateSubscription).toHaveBeenCalledWith(1, { categoryId: null })
-    await waitFor(() => expect(listSubscriptions).toHaveBeenCalledTimes(2))
+    const row = screen.getByDisplayValue('Netflix').closest('tr')!
+    const select = within(row).getByRole('combobox')
+    await user.selectOptions(select, '10')
+
+    expect(updateSubscription).toHaveBeenCalledWith(1, { categoryId: 10 })
   })
 
-  it('shows an error when changing category fails', async () => {
+  it('shows an error when changing a subscription category in edit mode fails', async () => {
     setDefaultMocks()
     vi.mocked(updateSubscription).mockRejectedValue(new ApiError(500, 'Could not update category'))
     const user = userEvent.setup()
     render(SubscriptionsPage)
 
-    const row = (await screen.findByText('Netflix')).closest('tr')!
+    const netflixRow = (await screen.findByText('Netflix')).closest('tr')!
+    await user.click(within(netflixRow).getAllByRole('button', { name: 'Edit Netflix' })[0]!)
+
+    const row = screen.getByDisplayValue('Netflix').closest('tr')!
     const select = within(row).getByRole('combobox')
     await user.selectOptions(select, 'Streaming')
 
