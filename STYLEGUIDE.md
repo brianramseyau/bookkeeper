@@ -217,7 +217,8 @@ not interchangeable, and not an inconsistency:
 - **Compact (table-row edit) inputs** — `py-1`, `dark:border-slate-600`.
   Used inside an inline table-row edit (`{#if editingId === row.id}` /
   `{#snippet editRow}`). Example, from
-  `apps/web/src/routes/categories/+page.svelte`:
+  `apps/web/src/lib/components/CategoryTree.svelte` (the Categories inline
+  edit row, now a tree of flex rows rather than a table):
   `w-28 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100`
   (drop the `w-*` for inputs that should fill/auto-size).
 - **Standard (form-panel) inputs** — `py-1.5`, `dark:border-slate-700`.
@@ -231,13 +232,16 @@ plain `border-slate-300` in light mode — only the `py-*` and dark border
 shade change.
 
 A third, larger variant (`px-3 py-2`, `focus:border-indigo-500
-focus:ring-indigo-500`) is used for the two single-field "quick add" inputs
-that sit outside any bordered form panel — Categories' and Utilities'
-"Add a category/utility" inputs — `dark:border-slate-700 dark:bg-slate-800`
-(note: `bg-slate-800`, not `bg-slate-900`, matching the page background
-tier). The login page uses the same `px-3 py-2` size with
-`focus:border-indigo-500 focus:ring-indigo-500` but `dark:border-slate-600
-dark:bg-slate-900` — see "Known inconsistencies" below.
+focus:ring-indigo-500`) is used for the single-field "quick add" inputs that
+sit outside any bordered form panel — Utilities' "Add a utility" input —
+`dark:border-slate-700 dark:bg-slate-800` (note: `bg-slate-800`, not
+`bg-slate-900`, matching the page background tier). Categories' "Add a
+category" form used to be a single-field quick add but is now a two-field
+form (Name + Parent select, see `categories/+page.svelte`) that uses the
+same `px-3 py-2` input size. The login page uses the same `px-3 py-2` size
+with `focus:border-indigo-500 focus:ring-indigo-500` but
+`dark:border-slate-600 dark:bg-slate-900` — see "Known inconsistencies"
+below.
 
 **Label wrapper**: every labeled field in a form panel is
 `<label class="flex flex-col gap-1"><span class="text-xs font-medium text-slate-500 dark:text-slate-400">Label</span><input .../></label>`
@@ -313,8 +317,9 @@ look at `sm`. Because the chrome is gone, the tile rows themselves carry
 the card background on mobile (`bg-white dark:bg-slate-800
 sm:bg-transparent sm:dark:bg-transparent`, see "Responsive tables" below) —
 don't rely on the card to provide it. Don't use `pivotTable` for cards
-wrapping a non-pivot table (e.g. Categories) or anything that isn't a
-table: those keep their chrome at every size.
+wrapping a non-pivot table or anything that isn't a table: those keep their
+chrome at every size. (Categories is no longer a table — see "Category
+tree" below — but it also keeps its card chrome at every size, same rule.)
 
 Bordered form panels (not `Card`, but visually identical, hand-rolled
 because they're a `<form>` element) use the same look inline:
@@ -384,7 +389,9 @@ Dashboard's 12-month income-vs-expenses donut).
   typically `mt-8` above it (or `mt-8 mb-3` when no lead-in paragraph
   follows). List pages that have a per-section toggle put the h2 and the
   toggle in `<div class="flex items-center justify-between">` (see
-  Categories' "Show paused / archived / removed" toggle).
+  Categories' "Show archived / removed" toggle — Categories' header also
+  carries the "Unfold less"/"Unfold more" nesting toggle in that same
+  right-hand flex group).
 - **h3** (sub-heading): `text-sm font-semibold text-slate-900 dark:text-slate-100`
   — only used in `tasks/+page.svelte` ("Everything, as JSON" / "Individual
   tables, as CSV") and dashboard Card titles.
@@ -394,7 +401,8 @@ Dashboard's 12-month income-vs-expenses donut).
 ## Tables
 
 Every data table follows the same recipe — see
-`apps/web/src/routes/categories/+page.svelte` as the reference:
+`apps/web/src/routes/bills/+page.svelte` as the reference (Categories used
+to be, but is now a tree of flex rows — see "Category tree" below):
 
 ```html
 <Card class="mt-6 sm:overflow-x-auto" pivotTable>
@@ -434,7 +442,9 @@ Every data table follows the same recipe — see
   (see Form inputs above) and `IconActionButton` primary (Save) + cancel
   (Cancel).
 - **Grouped section header row** inside a `<tbody>` (Paused/Archived/Removed
-  in Categories/Bills/Subscriptions; frequency groups in Bills):
+  in Bills/Subscriptions; frequency groups in Bills; Categories' Archived /
+  Removed / System sections use the same header styling on a `<div>` since
+  the page is no longer a table):
   `border-b border-slate-100 bg-slate-50 dark:border-slate-700/60 dark:bg-slate-900/40`,
   with a single `colspan`'d cell:
   `px-3 py-1.5 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400`.
@@ -556,53 +566,79 @@ utilities on the _same_ markup, not a second parallel "mobile" template: one
 
 ### Reorderable rows (drag-and-drop)
 
-Manually-orderable lists (Categories' non-system and System groups, Expenses'
-active group — each backed by a `sortOrder` column) are reordered by
-click/touch-and-drag, not up/down arrow buttons (the old pattern, removed
-app-wide — a pair of tap targets per row doesn't scale to touch as well as
-grabbing and dragging the row itself, and arrows also add a click per
-position moved instead of one drag). See
-`apps/web/src/routes/categories/+page.svelte` and
+Manually-orderable lists (Categories' sibling groups — top level plus one
+per parent — and Expenses' active group, each backed by a `sortOrder`
+column) are reordered by click/touch-and-drag, not up/down arrow buttons
+(the old pattern, removed app-wide — a pair of tap targets per row doesn't
+scale to touch as well as grabbing and dragging the row itself, and arrows
+also add a click per position moved instead of one drag). See
+`apps/web/src/lib/components/CategoryTree.svelte` and
 `apps/web/src/routes/expenses/+page.svelte` for the reference
 implementation.
 
-- **Library**: `svelte-dnd-action`'s `dragHandleZone` action on the `<tbody>`
-  wrapping the reorderable group (`use:dragHandleZone={{ items, flipDurationMs:
-150, dragDisabled }}`, `onconsider`/`onfinalize` props update a local
-  `$state` copy of the list). Only the rows meant to be reorderable belong to
-  that `<tbody>` — a table with a mix of reorderable and non-reorderable rows
-  (e.g. Categories' active vs. Archived/Removed groups) splits them into
-  separate `<tbody>` elements (multiple `<tbody>` per `<table>` is valid
-  HTML and doesn't change rendering) so the dnd zone's items always match its
-  actual DOM children.
+- **Library**: `svelte-dnd-action`'s `dragHandleZone` action on the
+  container wrapping the reorderable group
+  (`use:dragHandleZone={{ items, flipDurationMs: 150, dragDisabled }}`,
+  `onconsider`/`onfinalize` props update a local `$state` copy of the list).
+  Only the rows meant to be reorderable belong to that container — a list
+  with a mix of reorderable and non-reorderable groups (e.g. Categories'
+  active tree vs. Archived/Removed sections) splits them into separate
+  zones so each zone's `items` always matches its actual DOM children.
+- **Nested zones & per-group reorder**: Categories is one level deep, and a
+  drag only ever reorders within the same sibling group — a child can't be
+  dragged into another parent (move it there from the edit form instead).
+  Each group gets its own `dragHandleZone`, with **unique `type` strings**
+  (`'top'` / `'system-top'` / `` `children-${parentId}` ``) so the library
+  itself refuses cross-group drops. Child groups are nested _inside_ their
+  parent's row wrapper (each wrapper is one item of the parent zone), which
+  is the library's supported Trello-style nesting — not recursive in this
+  app, so the shadow-placeholder caveat doesn't apply.
 - **Handle** — `$lib/components/DragHandle.svelte`, a `use:dragHandle`
   (`svelte-dnd-action`) span rendering the six-dot `mdiDrag` icon
   (`@mdi/js`), `cursor: grab`/`grabbing`. Not `IconActionButton` — a drag
   handle isn't a click action, and needs the library's own action attached
   directly to it.
-- **Placement — left side of the row**: a dedicated first table column
-  (`hidden ... sm:table-cell`, desktop only) so the handle is the leftmost
-  thing in the row above `sm`; inlined as the first child of the title
-  cell's flex row (`sm:hidden`) below `sm`, ahead of the name/link, so it's
-  still the leftmost element of the card on mobile. This is the same
-  duplicate-markup-per-breakpoint technique the title cell's action icons
-  already use (see "Responsive tables" above) — reuse it rather than trying
-  to make one element serve both layouts.
+- **Placement — left side of the row**: the handle sits in a leading slot
+  before the color dot and name (in a table, a dedicated first column —
+  see the Expenses reference for the desktop/mobile duplicate-markup
+  treatment). Categories' rows are flex divs, so the handle just sits first
+  in the flex row.
 - **Persisting the reorder** — `$lib/dnd.ts`'s `reorderedSortOrders(items)`:
   given the list in its new (already client-reordered) positions, it
   reassigns the same pool of `sortOrder` values the group already held
   (sorted ascending) to the new positions, returning only the `{id,
 sortOrder}` pairs that actually changed. This generalizes the old
   two-item-swap logic to an arbitrary drag without ever introducing a gap or
-  duplicate into a shared/global `sortOrder` column (categories/expenses
-  share one `sortOrder` sequence across every group, not one sequence per
-  group). The `onfinalize` handler `Promise.all`s an `updateCategory`/
-  `updateExpense` call per changed row, then refreshes.
+  duplicate into the group's `sortOrder` column. **`sortOrder` is now per
+  sibling group, not global** — Categories assigns each group's sequence
+  independently (top level and each parent each start at 0; the model's
+  `assignSortOrder` hook scopes to `parentId`), and Expenses still uses one
+  sequence for its single group. The `onfinalize` handler `Promise.all`s an
+  `updateCategory`/`updateExpense` call per changed row, then refreshes.
 - **Keyboard**: no separate keyboard fallback was built — `dragHandleZone`/
   `dragHandle` already support keyboard reordering natively (Tab to the
   handle, Space/Enter to pick up, arrow keys to move, Space/Enter or
   `Escape` to drop), so a keyboard-only user isn't locked out despite there
   being no visible up/down button.
+
+### Category tree (nesting)
+
+Categories support one level of nesting (`parent_id` → `parent_id` is
+forbidden server-side, so no grandchildren). `$lib/components/CategoryTree.svelte`
+renders one drag-reorderable zone of top-level rows; each row with children
+gets a chevron button (`mdiChevronRight`/`mdiChevronDown`, `aria-expanded`)
+that toggles a nested children zone (indented `pl-8 sm:pl-10` over a
+`bg-slate-50/70 dark:bg-slate-900/30` band). Everything is open by default;
+the page's header offers an "Unfold less"/"Unfold more" toggle that
+collapses/expands every parent. The add form and the inline edit row both
+have a "Parent" `<select>` listing top-level categories — the option values
+are **strings** (`value={String(parent.id)}`) because Svelte's `bind:value`
+on a `<select>` compares against the option's `__value`, so numeric option
+values would never match a string-bound state. A category with children
+can't be demoted to a child itself (the server rejects it), so its edit-row
+parent select renders `disabled`. Children are full categories — `CategorySelect`
+indents them (`\u00A0\u00A0\u00A0↳ `) under their parent in every other
+form.
 
 ## Badges / status pills
 
@@ -723,13 +759,13 @@ correction.
   point on this grid.
 - **Login page's large text inputs** (`px-3 py-2`,
   `focus:border-indigo-500 focus:ring-indigo-500`) use
-  `dark:border-slate-600 dark:bg-slate-900`, while the only other users of
-  that same large-input size — Categories' and Utilities' "quick add"
-  inputs — use `dark:border-slate-700 dark:bg-slate-800`. Login renders
-  outside the authenticated app shell entirely (no nav, centered card, own
-  page background), so it's plausibly a deliberate visual distinction
-  rather than a slip, and there's no third data point to establish which
-  one is "correct."
+  `dark:border-slate-600 dark:bg-slate-900`, while the other users of that
+  same large-input size — Categories' "Add a category" form (Name + Parent)
+  and Utilities' "Add a utility" input — use `dark:border-slate-700
+dark:bg-slate-800`. Login renders outside the authenticated app shell
+  entirely (no nav, centered card, own page background), so it's plausibly a
+  deliberate visual distinction rather than a slip, and there's no third
+  data point to establish which one is "correct."
 - **Settings' "Send test notification" secondary button** is the only
   outline/secondary button in the app and isn't backed by a shared
   component (see Buttons → Ad hoc buttons). Not wrong, but if a second

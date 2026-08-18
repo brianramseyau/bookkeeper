@@ -34,4 +34,41 @@ test.group('Category.assignSortOrder', () => {
       await trx.rollback()
     }
   })
+
+  test("scopes the next sortOrder to the category's parent group", async ({ assert }) => {
+    const parent = await Category.create({ name: 'Sort Scope Parent' })
+    try {
+      const child1 = await Category.create({ name: 'Sort Scope Child 1', parentId: parent.id })
+      const child2 = await Category.create({ name: 'Sort Scope Child 2', parentId: parent.id })
+      try {
+        // Children start their own sequence at 0 regardless of the global max.
+        assert.equal(child1.sortOrder, 0)
+        assert.equal(child2.sortOrder, 1)
+      } finally {
+        await child2.delete()
+        await child1.delete()
+      }
+    } finally {
+      await parent.delete()
+    }
+  })
+
+  test("continues the top-level sequence, not the parent's child sequence", async ({ assert }) => {
+    const parent = await Category.create({ name: 'Seq Parent' })
+    const child = await Category.create({ name: 'Seq Child', parentId: parent.id })
+    try {
+      // A top-level category created while a parent + children exist keeps
+      // counting the top-level sequence rather than restarting at 0.
+      const topLevel = await Category.create({ name: 'Seq Top Level' })
+      try {
+        assert.isTrue(topLevel.sortOrder > parent.sortOrder)
+        assert.isTrue(topLevel.sortOrder !== child.sortOrder)
+      } finally {
+        await topLevel.delete()
+      }
+    } finally {
+      await child.delete()
+      await parent.delete()
+    }
+  })
 })

@@ -38,6 +38,11 @@ export default class Category extends CategorySchema {
    * form, findOrCreate calls during xlsx import) that don't specify a
    * sortOrder - without this they'd all silently default to the column's
    * DB default of 0, making every category tie and the reorder UI a no-op.
+   *
+   * sortOrder only orders categories within their own sibling group (one
+   * group for top-level categories, one per parent), so the next value is
+   * scoped to the category's parent - otherwise the first child of a fresh
+   * parent would inherit the global max sortOrder instead of starting at 0.
    */
   @beforeCreate()
   static async assignSortOrder(category: Category) {
@@ -46,7 +51,12 @@ export default class Category extends CategorySchema {
     // SQLite's single-connection pool, querying outside it while that
     // transaction holds the only connection deadlocks instead of erroring.
     const query = category.$trx ? Category.query({ client: category.$trx }) : Category.query()
-    const last = await query.orderBy('sortOrder', 'desc').first()
+    // `parentId` is `undefined` when not supplied (only `null` when explicitly
+    // sent) - both mean top-level, so scope the next value by truthiness.
+    const scoped = category.parentId
+      ? query.where('parentId', category.parentId)
+      : query.whereNull('parentId')
+    const last = await scoped.orderBy('sortOrder', 'desc').first()
     category.sortOrder = last ? last.sortOrder + 1 : 0
   }
 

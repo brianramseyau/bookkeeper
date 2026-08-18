@@ -26,6 +26,8 @@ const insurance: Category = {
   name: 'Insurance',
   color: null,
   sortOrder: 0,
+
+  parentId: null,
   isActive: true,
   isArchived: false,
   isSystem: false,

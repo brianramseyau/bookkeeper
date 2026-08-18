@@ -9,6 +9,7 @@ const categories: Category[] = [
     name: 'Groceries',
     color: null,
     sortOrder: 0,
+    parentId: null,
     isActive: true,
     isArchived: false,
     isSystem: false,
@@ -18,11 +19,20 @@ const categories: Category[] = [
     name: 'Utilities',
     color: null,
     sortOrder: 1,
+    parentId: null,
     isActive: true,
     isArchived: false,
     isSystem: true,
   },
 ]
+
+const groceriesChild: Category = {
+  ...categories[0]!,
+  id: 3,
+  name: 'Produce',
+  sortOrder: 0,
+  parentId: 1,
+}
 
 describe('CategorySelect', () => {
   it('renders an Uncategorized option plus one per category', () => {
@@ -30,6 +40,17 @@ describe('CategorySelect', () => {
     expect(getByText('Uncategorized')).toBeInTheDocument()
     expect(getByText('Groceries')).toBeInTheDocument()
     expect(getByText('Utilities')).toBeInTheDocument()
+  })
+
+  it('indents child categories under their parent', () => {
+    const { container } = render(CategorySelect, {
+      categories: [categories[0]!, groceriesChild],
+      value: '',
+      onchange: vi.fn(),
+    })
+    const options = Array.from(container.querySelectorAll('option')).map((o) => o.textContent)
+    expect(options).toContain('Groceries')
+    expect(options).toContain('\u00A0\u00A0\u00A0↳ Produce')
   })
 
   it('reflects the selected value', () => {

@@ -9,6 +9,10 @@
   }
 
   let { categories, value, onchange, variant = 'form' }: Props = $props()
+
+  // The list arrives in tree order (each parent followed by its children), so
+  // a child just needs a leading indent to read as nested under its parent.
+  const childPrefix = '\u00A0\u00A0\u00A0↳ '
 </script>
 
 <select
@@ -20,6 +24,8 @@
 >
   <option value="">Uncategorized</option>
   {#each categories as category (category.id)}
-    <option value={category.id}>{category.name}</option>
+    <option value={category.id}>
+      {category.parentId === null ? category.name : childPrefix + category.name}
+    </option>
   {/each}
 </select>
