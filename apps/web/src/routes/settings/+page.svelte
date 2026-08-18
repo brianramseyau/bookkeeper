@@ -21,6 +21,7 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import SecondaryButton from '$lib/components/SecondaryButton.svelte'
   import SuccessMessage from '$lib/components/SuccessMessage.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import { mdiDelete } from '@mdi/js'
@@ -446,14 +447,9 @@
         Enable on this device
       {/if}
     </PrimaryButton>
-    <button
-      type="button"
-      onclick={handleSendTest}
-      disabled={testSending}
-      class="rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
-    >
+    <SecondaryButton onclick={handleSendTest} disabled={testSending}>
       {testSending ? 'Sending…' : 'Send test notification'}
-    </button>
+    </SecondaryButton>
   </div>
 {/if}
 

@@ -80,6 +80,16 @@ export function listIncomeEntriesForFinancialYear(userId: number, financialYear:
   return api.get<IncomeEntry[]>(`/income-entries?userId=${userId}&financialYear=${financialYear}`)
 }
 
+/**
+ * Every income entry in a given Jul-Jun financial year, for all household
+ * members. Source-tied entries don't reliably carry `userId` (the app's
+ * forms store them with just `incomeSourceId`), so the Income page fetches
+ * this and filters client-side by the selected user's sources.
+ */
+export function listAllIncomeEntriesForFinancialYear(financialYear: number) {
+  return api.get<IncomeEntry[]>(`/income-entries?financialYear=${financialYear}`)
+}
+
 export function createIncomeEntry(input: IncomeEntryInput) {
   return api.post<IncomeEntry>('/income-entries', input)
 }

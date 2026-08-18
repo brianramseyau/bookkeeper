@@ -187,24 +187,27 @@ each for a shape the components don't cover:
   with `disabled:cursor-not-allowed disabled:opacity-40` added on whichever
   side (Next) can hit a boundary.
 - **Selected/unselected tab button** (the per-user picker at the top of
-  `income/+page.svelte` and `subscriptions/+page.svelte`, identical in
-  both):
+  `income/+page.svelte` and `subscriptions/+page.svelte`, and Income's
+  All / Salary / Other filter, identical in all three):
   `rounded-lg border px-4 py-2 text-left transition-colors` plus, when
   selected, `border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-900/30`,
   otherwise
   `border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-600`.
+  Income's filter adds `px-3 py-1.5 text-sm font-medium` (compact) and a
+  muted count span (`ml-1 text-xs font-normal opacity-70`).
 - **"This Month" jump button** (`month/+page.svelte` only, a filled
   indigo-tinted variant of the outline nav button, `invisible` when
   already on the current month):
   `rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1 text-sm font-medium text-indigo-600 hover:bg-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50`.
-- **Secondary (outline) button** — one instance, "Send test notification"
-  in `settings/+page.svelte`:
-  `rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700`.
-  There's no shared "secondary button" component; if a second one is
-  needed, extract this into one rather than hand-rolling a third variant.
-- **Expand/collapse row toggle** (amortized bills row in `month/+page.svelte`,
-  YTD month row in `income/+page.svelte`): a button wrapping a `▸`/`▾`
-  glyph, `inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400`.
+- **Secondary (outline) button** — `$lib/components/SecondaryButton.svelte`
+  (mirrors `PrimaryButton`: `onclick`/`href`/`type`/`disabled`/`size`/`class`,
+  `sm`/`md`/`lg`), base
+  `rounded-md border border-slate-300 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700`.
+  Used for revealed-form toggles ("Add source", "Add other income") and
+  in-form Cancel buttons on Income, plus Settings' "Send test notification".
+- **Expand/collapse row toggle** (amortized bills row in `month/+page.svelte`):
+  a button wrapping a `▸`/`▾` glyph,
+  `inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400`.
 
 ## Form inputs
 
@@ -390,21 +393,17 @@ Every data table follows the same recipe — see
 - **Empty table body**: a single full-width cell,
   `px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500`,
   text `"No {items} yet."`.
-- **Expandable detail row** (YTD month expansion in Income, amortized bills
-  in Monthly): toggled via the `▸`/`▾` button (see "Ad hoc buttons"), the
-  expanded row/cell background is `bg-slate-100 dark:bg-slate-900/50` (row)
-  or `bg-slate-50 dark:bg-slate-900/25` (nested detail cell) — the nested
-  detail cell's background moves behind `sm:` when it hosts a pivot table,
-  and the expanded row swaps its highlight for the standard tile background
-  on mobile (see "Responsive tables").
-- **Shared income-entry rows**: `IncomeEntryDisplayRow.svelte` /
-  `IncomeEntryEditRow.svelte` factor out the repeated amount/date/note/actions
-  columns, used by `income/+page.svelte`'s YTD month expansion.
-  `monthly/+page.svelte`'s Incoming table hand-rolls its rows instead (see
-  "Not-yet-persisted placeholder row" below) since its column order and
-  per-row placeholder variant don't fit the shared components' fixed
-  amount→date→note cell order — extend the shared pair for a table that
-  matches their shape, don't force a divergent one onto them.
+- **Expandable detail row** (amortized bills in Monthly): toggled via the
+  `▸`/`▾` button (see "Ad hoc buttons"), the expanded row background is
+  `bg-slate-100 dark:bg-slate-900/50`.
+- **Income's single entries table** hand-rolls its rows (the merged
+  salary/other table in `income/+page.svelte`) because neither the shared
+  display/edit row shape (`leading → amount → date → note → actions`) nor
+  Monthly's Incoming row shape fits its `item → date → amount → tax withheld
+→ tax → gain` column order — salary rows show a dash for the marginal-rate
+  Tax/Gain columns (that calc only applies to non-PAYG "other" income), and
+  the entry note folds under the item name as a muted subtitle
+  (see "Secondary attributes folded under the title cell" below).
 - **Secondary attributes folded under the title cell instead of their own
   column** (Expenses' Name column — category, "adhoc expense" when not
   Recurring, "ignored from budget" when excluded): when a table has too
@@ -449,10 +448,7 @@ utilities on the _same_ markup, not a second parallel "mobile" template: one
 - **The wrapping `Card`**: pass `pivotTable` (see "Cards / panels" above) so
   its white background/border/shadow are unset below `sm` — otherwise that
   container background bleeds through the `mb-2` gaps between the tile rows
-  and they don't read as separate cards. A pivot table nested inside a tinted
-  container (Income's YTD expanded detail cell, `bg-slate-50`) moves the same
-  background behind `sm:` (`block bg-transparent ... sm:bg-slate-50
-dark:bg-transparent sm:dark:bg-slate-900/25`) for the identical reason.
+  and they don't read as separate cards.
 - **`thead`**: `hidden sm:table-header-group` — column headers are redundant
   once every cell carries its own mobile label.
 - **`tbody`** / **`tfoot`**: `block sm:table-row-group` /
@@ -485,9 +481,6 @@ dark:bg-transparent sm:dark:bg-slate-900/25`) for the identical reason.
     (move a bare `text-right`/`text-center` behind `sm:` too), with a label
     prepended as the cell's first child:
     `<span class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500">Label</span>`.
-    For a table with a **dynamic column set** (Income's YTD table, one
-    column per income source), the label is just the same data already used
-    for the `<th>` (`{source.name}`) — no special-casing needed.
   - **A cell whose value is inherently multi-control** (e.g. Income sources'
     Cadence cell: a `<select>` plus a conditional day/checkbox or date input)
     doesn't fit the label-left/value-right flex row — use a stacked block
@@ -636,7 +629,7 @@ weight: `font-semibold` for headings and emphasized numbers,
 - **Loading**: `$lib/components/LoadingIndicator.svelte`, text "Loading…",
   `text-sm text-slate-400 dark:text-slate-500`, default `class="mt-6"` for
   a whole-page load, callers pass `class="mt-3"` for a sub-section load
-  (Settings' forms, Tasks' forms, Income's YTD/non-PAYG panels).
+  (Settings' forms, Tasks' forms, Income's entries table).
 - **Error**: `$lib/components/ErrorMessage.svelte`, `text-sm text-red-600 dark:text-red-400`,
   default `class="mt-3"`; detail pages use `class="mt-6"` for a
   page-level "not found" error.

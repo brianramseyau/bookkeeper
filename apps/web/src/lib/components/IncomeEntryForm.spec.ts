@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/svelte'
 import { describe, expect, it, vi } from 'vitest'
 import type { IncomeSource } from '$lib/api/income'
 import type { UserSummary } from '$lib/api/users'
+import { todayISO } from '$lib/format'
 import IncomeEntryForm from './IncomeEntryForm.svelte'
 
 const sources: IncomeSource[] = [
@@ -69,6 +70,45 @@ describe('IncomeEntryForm', () => {
       onSubmit: vi.fn(),
     })
     expect(queryByText('Other')).toBeNull()
+  })
+
+  it('hides the Source dropdown and auto-attributes to the only source', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    const { container, queryByText } = render(IncomeEntryForm, {
+      sources,
+      submitting: false,
+      onSubmit,
+    })
+    expect(queryByText('Source')).toBeNull()
+
+    const amountInput = container.querySelector('input[type="number"]')!
+    await fireEvent.input(amountInput, { target: { value: '250' } })
+    await fireEvent.submit(container.querySelector('form')!)
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ incomeSourceId: 1 }))
+  })
+
+  it('pre-fills the received-on date with today when defaultReceivedOnToday is set', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true)
+    const { container } = render(IncomeEntryForm, {
+      sources,
+      submitting: false,
+      onSubmit,
+      defaultReceivedOnToday: true,
+    })
+    const dateInput = container.querySelector('input[type="date"]') as HTMLInputElement
+    expect(dateInput.value).toBe(todayISO())
+
+    await fireEvent.submit(container.querySelector('form')!)
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ receivedOn: todayISO() }))
+  })
+
+  it('keeps the Source dropdown when there are multiple sources', () => {
+    const { getByText } = render(IncomeEntryForm, {
+      sources: multiUserSources,
+      submitting: false,
+      onSubmit: vi.fn(),
+    })
+    expect(getByText('Source')).toBeInTheDocument()
   })
 
   it('submits the source-attributed values on submit', async () => {

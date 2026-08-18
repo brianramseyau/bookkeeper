@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
+import { createRawSnippet } from 'svelte'
 import { describe, expect, it, vi } from 'vitest'
 import { mdiArchive, mdiPencil } from '@mdi/js'
 import ActionMenu from './ActionMenu.svelte'
@@ -59,5 +60,19 @@ describe('ActionMenu', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Delete' }))
 
     expect(onDelete).not.toHaveBeenCalled()
+  })
+
+  it('renders a custom trigger instead of the default ⋮ button', () => {
+    const trigger = createRawSnippet(() => ({
+      render: () => '<button type="button">Custom add</button>',
+    }))
+    const { getByRole, queryByRole } = render(ActionMenu, {
+      label: 'Add income',
+      actions: [{ label: 'Salary', path: mdiPencil, onclick: vi.fn() }],
+      trigger,
+    })
+
+    expect(getByRole('button', { name: 'Custom add' })).toBeInTheDocument()
+    expect(queryByRole('button', { name: 'Add income' })).toBeNull()
   })
 })

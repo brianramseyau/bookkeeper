@@ -37,6 +37,14 @@ export function currentFinancialYear(): number {
   return now.getMonth() + 1 >= 7 ? now.getFullYear() + 1 : now.getFullYear()
 }
 
+/** Today's date as a `YYYY-MM-DD` string in local time, for `<input type="date">` defaults. */
+export function todayISO(): string {
+  const now = new Date()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
 /** e.g. `financialYearLabel(2026)` -> `"FY 2025-26"` (Jul 2025 - Jun 2026). */
 export function financialYearLabel(fyEndYear: number): string {
   const shortEndYear = String(fyEndYear).slice(-2)

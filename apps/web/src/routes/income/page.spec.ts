@@ -5,24 +5,21 @@ import {
   createIncomeSource,
   deleteIncomeSource,
   getIncomeSourcesSummary,
-  getIncomeYtd,
   listIncomeSources,
   updateIncomeSource,
-  listIncomeEntries,
-  listIncomeEntriesForFinancialYear,
+  listAllIncomeEntriesForFinancialYear,
   createIncomeEntry,
   updateIncomeEntry,
   deleteIncomeEntry,
   type IncomeSource,
   type IncomeSourceSummary,
-  type IncomeYtd,
   type IncomeEntry,
 } from '$lib/api/income'
 import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
 import { authState } from '$lib/stores/auth.svelte'
-import { currentFinancialYear, financialYearLabel } from '$lib/format'
+import { currentFinancialYear, financialYearLabel, todayISO } from '$lib/format'
 import IncomePage from './+page.svelte'
 
 vi.mock('$lib/api/income', () => ({
@@ -31,9 +28,7 @@ vi.mock('$lib/api/income', () => ({
   updateIncomeSource: vi.fn(),
   deleteIncomeSource: vi.fn(),
   getIncomeSourcesSummary: vi.fn(),
-  getIncomeYtd: vi.fn(),
-  listIncomeEntries: vi.fn(),
-  listIncomeEntriesForFinancialYear: vi.fn(),
+  listAllIncomeEntriesForFinancialYear: vi.fn(),
   createIncomeEntry: vi.fn(),
   updateIncomeEntry: vi.fn(),
   deleteIncomeEntry: vi.fn(),
@@ -91,16 +86,9 @@ const summaries: IncomeSourceSummary[] = [
   { userId: 2, fullName: 'Ariel', total: 5650.6, count: 1 },
 ]
 
-const emptyYtd: IncomeYtd = { financialYear: 2026, sources: [], months: [], ytdTotal: 0 }
+const noTaxSetting = { userId: 1, financialYear: 2026, marginalRate: null }
 
-const januaryYtd: IncomeYtd = {
-  financialYear: 2026,
-  sources: [{ id: 1, name: 'Brian Income' }],
-  months: [{ year: 2026, month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false }],
-  ytdTotal: 5000,
-}
-
-const janEntry: IncomeEntry = {
+const salaryEntry: IncomeEntry = {
   id: 10,
   incomeSourceId: 1,
   userId: null,
@@ -112,15 +100,34 @@ const janEntry: IncomeEntry = {
   taxWithheld: null,
 }
 
-const noTaxSetting = { userId: 1, financialYear: 2026, marginalRate: null }
+const otherEntry: IncomeEntry = {
+  id: 20,
+  incomeSourceId: null,
+  userId: 1,
+  year: 2026,
+  month: 8,
+  receivedOn: '2025-08-13T00:00:00.000+00:00',
+  amount: 1000,
+  note: 'Share sale',
+  taxWithheld: false,
+}
 
 function setDefaultMocks() {
   vi.mocked(listUsers).mockResolvedValue([brian, ariel])
   vi.mocked(listIncomeSources).mockResolvedValue([brianSalary, arielWages])
   vi.mocked(getIncomeSourcesSummary).mockResolvedValue(summaries)
-  vi.mocked(getIncomeYtd).mockResolvedValue(emptyYtd)
-  vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([])
+  vi.mocked(listAllIncomeEntriesForFinancialYear).mockResolvedValue([])
   vi.mocked(getIncomeTaxSetting).mockResolvedValue(noTaxSetting)
+}
+
+function setEntries(...entries: IncomeEntry[]) {
+  vi.mocked(listAllIncomeEntriesForFinancialYear).mockResolvedValue(entries)
+}
+
+// Opens the "Add" menu and picks one of its options (Salary / Other income).
+async function chooseAddOption(user: ReturnType<typeof userEvent.setup>, option: string) {
+  await user.click(await screen.findByRole('button', { name: 'Add' }))
+  await user.click(await screen.findByRole('menuitem', { name: option }))
 }
 
 describe('income page', () => {
@@ -128,12 +135,10 @@ describe('income page', () => {
     vi.mocked(listUsers).mockReset()
     vi.mocked(listIncomeSources).mockReset()
     vi.mocked(getIncomeSourcesSummary).mockReset()
-    vi.mocked(getIncomeYtd).mockReset()
     vi.mocked(createIncomeSource).mockReset()
     vi.mocked(updateIncomeSource).mockReset()
     vi.mocked(deleteIncomeSource).mockReset()
-    vi.mocked(listIncomeEntries).mockReset()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockReset()
+    vi.mocked(listAllIncomeEntriesForFinancialYear).mockReset()
     vi.mocked(createIncomeEntry).mockReset()
     vi.mocked(updateIncomeEntry).mockReset()
     vi.mocked(deleteIncomeEntry).mockReset()
@@ -222,12 +227,23 @@ describe('income page', () => {
     vi.mocked(listUsers).mockResolvedValue([brian])
     vi.mocked(listIncomeSources).mockResolvedValue([])
     vi.mocked(getIncomeSourcesSummary).mockResolvedValue([])
-    vi.mocked(getIncomeYtd).mockResolvedValue(emptyYtd)
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([])
+    vi.mocked(listAllIncomeEntriesForFinancialYear).mockResolvedValue([])
     vi.mocked(getIncomeTaxSetting).mockResolvedValue(noTaxSetting)
     render(IncomePage)
 
     expect(await screen.findByText('No income sources yet.')).toBeInTheDocument()
+  })
+
+  it('keeps the add-source form hidden until "Add source" is clicked', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(IncomePage)
+    await screen.findByText('Brian Income')
+
+    expect(screen.queryByRole('button', { name: 'Add income source' })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Add source' }))
+    expect(screen.getByRole('button', { name: 'Add income source' })).toBeInTheDocument()
   })
 
   it('requires a name and expected amount to add a source', async () => {
@@ -235,7 +251,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Add income source' }))
+    await user.click(await screen.findByRole('button', { name: 'Add source' }))
+    await user.click(screen.getByRole('button', { name: 'Add income source' }))
 
     expect(await screen.findByText('Name and expected amount are required')).toBeInTheDocument()
     expect(createIncomeSource).not.toHaveBeenCalled()
@@ -246,7 +263,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.type(await screen.findByPlaceholderText('e.g. Salary'), 'Bonus')
+    await user.click(await screen.findByRole('button', { name: 'Add source' }))
+    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Bonus')
     const amountInputs = screen.getAllByRole('spinbutton')
     await user.type(amountInputs[0]!, '100')
     await user.click(screen.getByRole('button', { name: 'Add income source' }))
@@ -262,7 +280,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.type(await screen.findByPlaceholderText('e.g. Salary'), 'Side gig')
+    await user.click(await screen.findByRole('button', { name: 'Add source' }))
+    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Side gig')
     await user.type(screen.getAllByRole('spinbutton')[0]!, '100')
     await user.selectOptions(screen.getByLabelText('Frequency'), 'fortnightly')
     await user.click(screen.getByRole('button', { name: 'Add income source' }))
@@ -273,13 +292,14 @@ describe('income page', () => {
     expect(createIncomeSource).not.toHaveBeenCalled()
   })
 
-  it('adds a monthly income source and reloads the list', async () => {
+  it('adds a monthly income source, closes the form, and reloads the list', async () => {
     setDefaultMocks()
     vi.mocked(createIncomeSource).mockResolvedValue(brianSalary)
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.type(await screen.findByPlaceholderText('e.g. Salary'), 'Bonus')
+    await user.click(await screen.findByRole('button', { name: 'Add source' }))
+    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Bonus')
     await user.type(screen.getAllByRole('spinbutton')[0]!, '250')
     await user.type(screen.getByLabelText('Pay day'), '1')
     await user.click(screen.getByRole('button', { name: 'Add income source' }))
@@ -297,6 +317,9 @@ describe('income page', () => {
       })
     )
     expect(listIncomeSources).toHaveBeenCalledTimes(2)
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Add income source' })).toBeNull()
+    )
   })
 
   it('shows an API error when adding a source fails', async () => {
@@ -305,7 +328,8 @@ describe('income page', () => {
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.type(await screen.findByPlaceholderText('e.g. Salary'), 'Bonus')
+    await user.click(await screen.findByRole('button', { name: 'Add source' }))
+    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Bonus')
     await user.type(screen.getAllByRole('spinbutton')[0]!, '250')
     await user.type(screen.getByLabelText('Pay day'), '1')
     await user.click(screen.getByRole('button', { name: 'Add income source' }))
@@ -394,35 +418,122 @@ describe('income page', () => {
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })
 
-  it('shows the year-to-date table with source columns, an estimated tag, and a running total', async () => {
-    setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue({
-      financialYear: 2026,
-      sources: [{ id: 1, name: 'Brian Income' }],
-      months: [
-        { year: 2026, month: 1, bySource: { 1: 5000 }, total: 5000, estimated: false },
-        { year: 2026, month: 2, bySource: { 1: 5000 }, total: 5000, estimated: true },
-      ],
-      ytdTotal: 10000,
-    })
-    render(IncomePage)
-
-    const table = await screen
-      .findByText('Year to date')
-      .then(() => screen.getAllByRole('table')[1]!)
-    expect(within(table).getByText('(est.)')).toBeInTheDocument()
-    expect(within(table).getAllByText('$10,000.00').length).toBeGreaterThan(0)
-  })
-
-  it('shows a "no data" message when the YTD table is empty', async () => {
+  it('shows a "no income logged" message when the entries table is empty', async () => {
     setDefaultMocks()
     render(IncomePage)
     expect(
-      await screen.findByText(`No data yet for ${financialYearLabel(currentFinancialYear())}.`)
+      await screen.findByText(`No income logged for ${financialYearLabel(currentFinancialYear())}.`)
     ).toBeInTheDocument()
   })
 
-  it('navigates to the previous year and reloads YTD, disabling Next at the current financial year', async () => {
+  it('shows the YTD summary line and per-type totals', async () => {
+    setDefaultMocks()
+    setEntries(salaryEntry, otherEntry)
+    render(IncomePage)
+
+    expect(await screen.findByText('Share sale')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        (content) =>
+          content.includes(financialYearLabel(currentFinancialYear())) &&
+          content.includes('to date:')
+      )
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('$6,000.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$1,000.00').length).toBeGreaterThan(0)
+  })
+
+  it('nets other income through the marginal rate in the YTD summary', async () => {
+    setDefaultMocks()
+    setEntries(salaryEntry, otherEntry)
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    // Salary $5,000.00 (net) + Other gain $630.00 (1000 - 370) = $5,630.00.
+    expect(screen.getAllByText('$5,630.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$630.00').length).toBeGreaterThan(0)
+    // The gross sale total still appears in the table, not the summary.
+    expect(screen.getAllByText('$6,000.00').length).toBeGreaterThan(0)
+  })
+
+  it('counts a withheld other-income item at its full amount in the summary', async () => {
+    setDefaultMocks()
+    setEntries(salaryEntry, { ...otherEntry, taxWithheld: true })
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    expect(screen.getAllByText('$6,000.00').length).toBeGreaterThan(0)
+  })
+
+  it('shows only the selected user’s entries', async () => {
+    setDefaultMocks()
+    setEntries(
+      salaryEntry,
+      otherEntry,
+      { ...salaryEntry, id: 11, incomeSourceId: 2, note: 'Ariel entry' },
+      { ...otherEntry, id: 12, userId: 2, note: 'Ariel freelance' }
+    )
+    render(IncomePage)
+
+    await screen.findByText('Payslip')
+    expect(screen.getByText('Share sale')).toBeInTheDocument()
+    expect(screen.queryByText('Ariel entry')).toBeNull()
+    expect(screen.queryByText('Ariel freelance')).toBeNull()
+  })
+
+  it('filters the entries table by All / Salary / Other', async () => {
+    setDefaultMocks()
+    setEntries(salaryEntry, otherEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    expect(screen.getByText('Payslip')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /Salary/ }))
+    expect(screen.getByText('Payslip')).toBeInTheDocument()
+    expect(screen.queryByText('Share sale')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /Other/ }))
+    expect(screen.queryByText('Payslip')).toBeNull()
+    expect(screen.getByText('Share sale')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^All/ }))
+    expect(screen.getByText('Payslip')).toBeInTheDocument()
+    expect(screen.getByText('Share sale')).toBeInTheDocument()
+  })
+
+  it('shows filter-specific empty messages', async () => {
+    setDefaultMocks()
+    setEntries(otherEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getByRole('button', { name: /Salary/ }))
+    expect(
+      await screen.findByText(
+        `No salary income logged for ${financialYearLabel(currentFinancialYear())}.`
+      )
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^All/ }))
+    await user.click(screen.getByRole('button', { name: /Other/ }))
+    expect(screen.queryByText('No other income logged')).toBeNull()
+  })
+
+  it('navigates to the previous year and reloads entries, disabling Next at the current financial year', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
@@ -434,112 +545,170 @@ describe('income page', () => {
     await user.click(screen.getByRole('button', { name: '← Prev' }))
 
     expect(screen.getAllByText(financialYearLabel(thisFinancialYear - 1)).length).toBeGreaterThan(0)
-    await waitFor(() => expect(getIncomeYtd).toHaveBeenLastCalledWith(1, thisFinancialYear - 1))
+    await waitFor(() =>
+      expect(listAllIncomeEntriesForFinancialYear).toHaveBeenLastCalledWith(thisFinancialYear - 1)
+    )
     expect(screen.getByRole('button', { name: 'Next →' })).not.toBeDisabled()
   })
 
-  it('shows an API error when loading YTD fails', async () => {
+  it('shows an API error when loading entries fails', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockRejectedValue(new ApiError(500, 'Could not load YTD'))
+    vi.mocked(listAllIncomeEntriesForFinancialYear).mockRejectedValue(
+      new ApiError(500, 'Could not load income')
+    )
     render(IncomePage)
-    expect(await screen.findByText('Could not load YTD')).toBeInTheDocument()
+    expect(await screen.findByText('Could not load income')).toBeInTheDocument()
   })
 
-  it('expands a month row and loads its income entries', async () => {
+  it('shows a hint when no marginal rate is set yet for the financial year', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    render(IncomePage)
+
+    expect(await screen.findByText(/No marginal rate set for/)).toBeInTheDocument()
+  })
+
+  it('saves a marginal tax rate', async () => {
+    setDefaultMocks()
+    vi.mocked(setIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
+    await screen.findByText('Income entries')
+    await user.type(screen.getByLabelText('Marginal rate'), '37')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
 
-    expect(listIncomeEntries).toHaveBeenCalledWith(2026, 1)
-    expect(await screen.findByText('Payslip')).toBeInTheDocument()
+    await waitFor(() =>
+      expect(setIncomeTaxSetting).toHaveBeenCalledWith(1, currentFinancialYear(), 0.37)
+    )
+  })
+
+  it('shows an API error when saving a marginal rate fails', async () => {
+    setDefaultMocks()
+    vi.mocked(setIncomeTaxSetting).mockRejectedValue(new ApiError(500, 'Could not save rate'))
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Income entries')
+    await user.type(screen.getByLabelText('Marginal rate'), '37')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(await screen.findByText('Could not save rate')).toBeInTheDocument()
+  })
+
+  it('renders an other-income row with computed tax and gain once a rate is set', async () => {
+    setDefaultMocks()
+    setEntries(otherEntry)
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    expect(await screen.findByText('Share sale')).toBeInTheDocument()
+    expect(screen.getAllByText('$370.00').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('$630.00').length).toBeGreaterThan(0)
+  })
+
+  it('shows a dash for tax and gain on a salary row', async () => {
+    setDefaultMocks()
+    setEntries(salaryEntry)
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    await screen.findByText('Payslip')
+    const row = screen.getByText('Payslip').closest('tr')!
+    expect(within(row).getAllByText('—').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('keeps the add-salary form hidden until it is chosen from the Add menu', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Brian Income')
+    expect(screen.queryByRole('button', { name: 'Log income' })).toBeNull()
+
+    await chooseAddOption(user, 'Salary')
     expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
   })
 
-  it('filters out entries whose source belongs to another user', async () => {
+  it('only opens one add form at a time', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([
-      janEntry,
-      { ...janEntry, id: 11, incomeSourceId: 2, note: 'Ariel entry' },
-    ])
     const user = userEvent.setup()
     render(IncomePage)
+    await screen.findByText('Brian Income')
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
+    await chooseAddOption(user, 'Salary')
+    expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
 
-    expect(await screen.findByText('Payslip')).toBeInTheDocument()
-    expect(screen.queryByText('Ariel entry')).toBeNull()
+    await chooseAddOption(user, 'Other income')
+    expect(screen.queryByRole('button', { name: 'Log income' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add item' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Add source' }))
+    expect(screen.queryByRole('button', { name: 'Add item' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add income source' })).toBeInTheDocument()
+
+    await chooseAddOption(user, 'Salary')
+    expect(screen.queryByRole('button', { name: 'Add income source' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
   })
 
-  it('collapses an expanded month on a second click', async () => {
+  it('requires a source and amount to log a salary entry', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
     const user = userEvent.setup()
     render(IncomePage)
 
-    const toggle = await screen.findByRole('button', { name: 'Jan 2026' })
-    await user.click(toggle)
-    await screen.findByText('Payslip')
-    await user.click(toggle)
-
-    expect(screen.queryByText('Payslip')).toBeNull()
-  })
-
-  it('shows a "no entries" message for an expanded month with nothing logged', async () => {
-    setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
-
-    expect(await screen.findByText('No entries logged for Jan 2026.')).toBeInTheDocument()
-  })
-
-  it('shows an API error when loading a month’s entries fails', async () => {
-    setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockRejectedValue(new ApiError(500, 'Could not load entries'))
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
-
-    expect(await screen.findByText('Could not load entries')).toBeInTheDocument()
-  })
-
-  it('requires a source and amount to log an entry', async () => {
-    setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
-    await screen.findByText('No entries logged for Jan 2026.')
+    await chooseAddOption(user, 'Salary')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('Source and amount are required')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('logs a new income entry for the expanded month and reloads', async () => {
+  it('requires a received-on date to log a salary entry', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
-    vi.mocked(createIncomeEntry).mockResolvedValue(janEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
-    await screen.findByText('No entries logged for Jan 2026.')
-    await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '5000')
+    await chooseAddOption(user, 'Salary')
+    await user.type(screen.getByLabelText('Amount'), '5000')
+    await user.clear(screen.getByLabelText('Received on'))
+    await user.click(screen.getByRole('button', { name: 'Log income' }))
+
+    expect(await screen.findByText('A received-on date is required')).toBeInTheDocument()
+    expect(createIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('pre-fills the salary form’s received-on date with today', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await chooseAddOption(user, 'Salary')
+    expect(screen.getByLabelText('Received on')).toHaveValue(todayISO())
+  })
+
+  it('logs a new salary entry, closes the form, and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await chooseAddOption(user, 'Salary')
+    await user.type(screen.getByLabelText('Amount'), '5000')
+    const receivedOn = screen.getByLabelText('Received on')
+    await user.clear(receivedOn)
+    await user.type(receivedOn, '2026-01-14')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
     await waitFor(() =>
@@ -548,37 +717,34 @@ describe('income page', () => {
         year: 2026,
         month: 1,
         amount: 5000,
-        receivedOn: null,
+        receivedOn: '2026-01-14',
         note: null,
       })
     )
-    expect(listIncomeEntries).toHaveBeenCalledTimes(2)
+    expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Log income' })).toBeNull())
   })
 
-  it('shows an API error when logging an entry fails', async () => {
+  it('shows an API error when logging a salary entry fails', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([])
     vi.mocked(createIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not log income'))
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
-    await screen.findByText('No entries logged for Jan 2026.')
-    await user.type(screen.getByRole('spinbutton', { name: 'Amount' }), '5000')
+    await chooseAddOption(user, 'Salary')
+    await user.type(screen.getByLabelText('Amount'), '5000')
+    await user.type(screen.getByLabelText('Received on'), '2026-01-14')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('Could not log income')).toBeInTheDocument()
   })
 
-  it('edits an income entry inline and cancels without saving', async () => {
+  it('edits a salary entry inline and cancels without saving', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    setEntries(salaryEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
@@ -588,15 +754,13 @@ describe('income page', () => {
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('saves an edited income entry and reloads', async () => {
+  it('saves an edited salary entry and reloads', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
-    vi.mocked(updateIncomeEntry).mockResolvedValue(janEntry)
+    setEntries(salaryEntry)
+    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
     const amountInput = screen.getByDisplayValue('5000')
@@ -611,18 +775,16 @@ describe('income page', () => {
         note: 'Payslip',
       })
     )
-    expect(listIncomeEntries).toHaveBeenCalledTimes(2)
+    expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
   })
 
-  it('shows an API error when saving an entry edit fails', async () => {
+  it('shows an API error when saving a salary entry edit fails', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    setEntries(salaryEntry)
     vi.mocked(updateIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not save entry'))
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
     await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
@@ -630,14 +792,12 @@ describe('income page', () => {
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
 
-  it('requires an amount when saving an entry edit', async () => {
+  it('requires an amount when saving a salary entry edit', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    setEntries(salaryEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
     await user.clear(screen.getByDisplayValue('5000'))
@@ -647,33 +807,29 @@ describe('income page', () => {
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('deletes an income entry and reloads', async () => {
+  it('deletes a salary entry and reloads', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    setEntries(salaryEntry)
     vi.mocked(deleteIncomeEntry).mockResolvedValue(undefined)
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(
       screen.getAllByRole('button', { name: 'Delete entry from 14 Jan 2026' }).at(-1)!
     )
 
     await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
-    expect(listIncomeEntries).toHaveBeenCalledTimes(2)
+    expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
   })
 
   it('shows an API error when deleting an entry fails', async () => {
     setDefaultMocks()
-    vi.mocked(getIncomeYtd).mockResolvedValue(januaryYtd)
-    vi.mocked(listIncomeEntries).mockResolvedValue([janEntry])
+    setEntries(salaryEntry)
     vi.mocked(deleteIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not delete entry'))
     const user = userEvent.setup()
     render(IncomePage)
 
-    await user.click(await screen.findByRole('button', { name: 'Jan 2026' }))
     await screen.findByText('Payslip')
     await user.click(
       screen.getAllByRole('button', { name: 'Delete entry from 14 Jan 2026' }).at(-1)!
@@ -681,95 +837,78 @@ describe('income page', () => {
 
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
   })
-})
 
-describe('income page / non-PAYG income tax section', () => {
-  const shareItem: IncomeEntry = {
-    id: 20,
-    incomeSourceId: null,
-    userId: 1,
-    year: 2026,
-    month: 8,
-    receivedOn: '2025-08-13T00:00:00.000+00:00',
-    amount: 1000,
-    note: 'Share sale',
-    taxWithheld: false,
-  }
-
-  beforeEach(() => {
-    vi.mocked(listUsers).mockReset()
-    vi.mocked(listIncomeSources).mockReset()
-    vi.mocked(getIncomeSourcesSummary).mockReset()
-    vi.mocked(getIncomeYtd).mockReset()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockReset()
-    vi.mocked(createIncomeEntry).mockReset()
-    vi.mocked(updateIncomeEntry).mockReset()
-    vi.mocked(deleteIncomeEntry).mockReset()
-    vi.mocked(getIncomeTaxSetting).mockReset()
-    vi.mocked(setIncomeTaxSetting).mockReset()
-  })
-
-  it('shows a hint when no marginal rate is set yet for the financial year', async () => {
+  it('keeps the add-other-income form hidden until it is chosen from the Add menu', async () => {
     setDefaultMocks()
-    render(IncomePage)
-
-    expect(await screen.findByText('Non-PAYG Income Tax')).toBeInTheDocument()
-    expect(await screen.findByText(/No rate set for/)).toBeInTheDocument()
-  })
-
-  it('saves a marginal tax rate', async () => {
-    setDefaultMocks()
-    vi.mocked(setIncomeTaxSetting).mockResolvedValue({
-      userId: 1,
-      financialYear: currentFinancialYear(),
-      marginalRate: 0.37,
-    })
     const user = userEvent.setup()
     render(IncomePage)
 
-    await screen.findByText('Non-PAYG Income Tax')
-    await user.type(screen.getByLabelText('Marginal tax rate (%)'), '37')
-    await user.click(screen.getByRole('button', { name: 'Save rate' }))
+    await screen.findByText('Brian Income')
+    expect(screen.queryByRole('button', { name: 'Add item' })).toBeNull()
+
+    await chooseAddOption(user, 'Other income')
+    expect(screen.getByRole('button', { name: 'Add item' })).toBeInTheDocument()
+  })
+
+  it('requires date, item and amount to add an other-income entry', async () => {
+    setDefaultMocks()
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await chooseAddOption(user, 'Other income')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
+
+    expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
+    expect(createIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('adds an other-income entry, closes the form, and reloads', async () => {
+    setDefaultMocks()
+    vi.mocked(createIncomeEntry).mockResolvedValue(otherEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await chooseAddOption(user, 'Other income')
+    await user.type(screen.getByLabelText('Item'), 'Share sale')
+    await user.type(screen.getByLabelText('Sale amount'), '1000')
+    const dateInput = screen.getByLabelText('Date')
+    await user.clear(dateInput)
+    await user.type(dateInput, '2025-08-13')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
 
     await waitFor(() =>
-      expect(setIncomeTaxSetting).toHaveBeenCalledWith(1, currentFinancialYear(), 0.37)
+      expect(createIncomeEntry).toHaveBeenCalledWith({
+        userId: 1,
+        year: 2025,
+        month: 8,
+        amount: 1000,
+        receivedOn: '2025-08-13',
+        note: 'Share sale',
+        taxWithheld: false,
+      })
     )
+    expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Add item' })).toBeNull())
   })
 
-  it('renders a non-PAYG item with computed tax and gain once a rate is set', async () => {
+  it('shows an API error when adding an other-income entry fails', async () => {
     setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
-    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
-      userId: 1,
-      financialYear: currentFinancialYear(),
-      marginalRate: 0.37,
-    })
+    vi.mocked(createIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not add item'))
+    const user = userEvent.setup()
     render(IncomePage)
 
-    expect(await screen.findByText('Share sale')).toBeInTheDocument()
-    expect(screen.getAllByText('$370.00').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('$630.00').length).toBeGreaterThan(0)
+    await chooseAddOption(user, 'Other income')
+    await user.type(screen.getByLabelText('Item'), 'Share sale')
+    await user.type(screen.getByLabelText('Sale amount'), '1000')
+    await user.type(screen.getByLabelText('Date'), '2025-08-13')
+    await user.click(screen.getByRole('button', { name: 'Add item' }))
+
+    expect(await screen.findByText('Could not add item')).toBeInTheDocument()
   })
 
-  it('shows a dash for tax and gain on an item with tax withheld', async () => {
+  it('edits an other-income entry inline and cancels without saving', async () => {
     setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([
-      { ...shareItem, note: 'Bonus', taxWithheld: true },
-    ])
-    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
-      userId: 1,
-      financialYear: currentFinancialYear(),
-      marginalRate: 0.37,
-    })
-    render(IncomePage)
-
-    const row = (await screen.findByText('Bonus')).closest('tr')!
-    expect(within(row).getAllByText('—')).toHaveLength(2)
-  })
-
-  it('edits a non-PAYG item inline and cancels without saving', async () => {
-    setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    setEntries(otherEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
@@ -784,10 +923,10 @@ describe('income page / non-PAYG income tax section', () => {
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('saves an edited non-PAYG item and reloads', async () => {
+  it('saves an edited other-income entry and reloads', async () => {
     setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
-    vi.mocked(updateIncomeEntry).mockResolvedValue(shareItem)
+    setEntries(otherEntry)
+    vi.mocked(updateIncomeEntry).mockResolvedValue(otherEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
@@ -808,12 +947,12 @@ describe('income page / non-PAYG income tax section', () => {
         taxWithheld: false,
       })
     )
-    expect(listIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+    expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
   })
 
-  it('shows an API error when saving a non-PAYG item edit fails', async () => {
+  it('shows an API error when saving an other-income edit fails', async () => {
     setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    setEntries(otherEntry)
     vi.mocked(updateIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not save item'))
     const user = userEvent.setup()
     render(IncomePage)
@@ -825,9 +964,9 @@ describe('income page / non-PAYG income tax section', () => {
     expect(await screen.findByText('Could not save item')).toBeInTheDocument()
   })
 
-  it('requires date, item and amount when saving a non-PAYG item edit', async () => {
+  it('requires date, item and amount when saving an other-income edit', async () => {
     setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    setEntries(otherEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
@@ -840,85 +979,9 @@ describe('income page / non-PAYG income tax section', () => {
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('requires date, item and amount to add a non-PAYG item', async () => {
+  it('deletes an other-income entry and reloads', async () => {
     setDefaultMocks()
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await screen.findByText('Non-PAYG Income Tax')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
-
-    expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
-    expect(createIncomeEntry).not.toHaveBeenCalled()
-  })
-
-  it('shows an API error when adding a non-PAYG item fails', async () => {
-    setDefaultMocks()
-    vi.mocked(createIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not add item'))
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await screen.findByText('Non-PAYG Income Tax')
-    await user.type(screen.getByLabelText('Item'), 'Share sale')
-    await user.type(screen.getByLabelText('Sale amount'), '1000')
-    await user.type(screen.getByLabelText('Date'), '2025-08-13')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
-
-    expect(await screen.findByText('Could not add item')).toBeInTheDocument()
-  })
-
-  it('shows an API error when saving a marginal rate fails', async () => {
-    setDefaultMocks()
-    vi.mocked(setIncomeTaxSetting).mockRejectedValue(new ApiError(500, 'Could not save rate'))
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await screen.findByText('Non-PAYG Income Tax')
-    await user.type(screen.getByLabelText('Marginal tax rate (%)'), '37')
-    await user.click(screen.getByRole('button', { name: 'Save rate' }))
-
-    expect(await screen.findByText('Could not save rate')).toBeInTheDocument()
-  })
-
-  it('shows an API error when loading the non-PAYG section fails', async () => {
-    setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockRejectedValue(
-      new ApiError(500, 'Could not load items')
-    )
-    render(IncomePage)
-
-    expect(await screen.findByText('Could not load items')).toBeInTheDocument()
-  })
-
-  it('adds a non-PAYG item and reloads', async () => {
-    setDefaultMocks()
-    vi.mocked(createIncomeEntry).mockResolvedValue(shareItem)
-    const user = userEvent.setup()
-    render(IncomePage)
-
-    await screen.findByText('Non-PAYG Income Tax')
-    await user.type(screen.getByLabelText('Item'), 'Share sale')
-    await user.type(screen.getByLabelText('Sale amount'), '1000')
-    await user.type(screen.getByLabelText('Date'), '2025-08-13')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
-
-    await waitFor(() =>
-      expect(createIncomeEntry).toHaveBeenCalledWith({
-        userId: 1,
-        year: 2025,
-        month: 8,
-        amount: 1000,
-        receivedOn: '2025-08-13',
-        note: 'Share sale',
-        taxWithheld: false,
-      })
-    )
-    expect(listIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
-  })
-
-  it('deletes a non-PAYG item and reloads', async () => {
-    setDefaultMocks()
-    vi.mocked(listIncomeEntriesForFinancialYear).mockResolvedValue([shareItem])
+    setEntries(otherEntry)
     vi.mocked(deleteIncomeEntry).mockResolvedValue(undefined)
     const user = userEvent.setup()
     render(IncomePage)
@@ -929,6 +992,23 @@ describe('income page / non-PAYG income tax section', () => {
     )
 
     await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(20))
-    expect(listIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+    expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows combined totals in the footer for the active filter', async () => {
+    setDefaultMocks()
+    setEntries(salaryEntry, otherEntry)
+    vi.mocked(getIncomeTaxSetting).mockResolvedValue({
+      userId: 1,
+      financialYear: currentFinancialYear(),
+      marginalRate: 0.37,
+    })
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    const entriesTable = screen.getAllByRole('table')[1]!
+    expect(within(entriesTable).getAllByText('$6,000.00').length).toBeGreaterThan(0)
+    expect(within(entriesTable).getAllByText('$370.00').length).toBeGreaterThan(0)
+    expect(within(entriesTable).getAllByText('$630.00').length).toBeGreaterThan(0)
   })
 })

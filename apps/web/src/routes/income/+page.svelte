@@ -1,21 +1,18 @@
 <script lang="ts">
-  import { onMount, type Snippet } from 'svelte'
+  import { onMount } from 'svelte'
   import {
     listIncomeSources,
     createIncomeSource,
     updateIncomeSource,
     deleteIncomeSource,
     getIncomeSourcesSummary,
-    getIncomeYtd,
-    listIncomeEntries,
-    listIncomeEntriesForFinancialYear,
+    listAllIncomeEntriesForFinancialYear,
     createIncomeEntry,
     updateIncomeEntry,
     deleteIncomeEntry,
     type IncomeSource,
     type IncomeSourceFrequency,
     type IncomeSourceSummary,
-    type IncomeYtd,
     type IncomeEntry,
   } from '$lib/api/income'
   import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
@@ -26,8 +23,8 @@
     financialYearLabel,
     formatCurrency,
     formatDate,
-    monthYearLabel,
     round2,
+    todayISO,
   } from '$lib/format'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
@@ -35,19 +32,34 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import SecondaryButton from '$lib/components/SecondaryButton.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
-  import { mdiPencil, mdiCloseThick, mdiContentSave, mdiDelete } from '@mdi/js'
+  import ActionMenu from '$lib/components/ActionMenu.svelte'
+  import {
+    mdiPencil,
+    mdiCloseThick,
+    mdiContentSave,
+    mdiDelete,
+    mdiPlus,
+    mdiChevronDown,
+    mdiBriefcase,
+    mdiBank,
+  } from '@mdi/js'
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
-  import IncomeEntryEditRow, {
-    type IncomeEntryEditUpdates,
-  } from '$lib/components/IncomeEntryEditRow.svelte'
-  import IncomeEntryDisplayRow from '$lib/components/IncomeEntryDisplayRow.svelte'
+
+  type EntryFilter = 'all' | 'salary' | 'other'
 
   const FREQUENCIES: { value: IncomeSourceFrequency; label: string }[] = [
     { value: 'monthly', label: 'Monthly' },
     { value: 'fortnightly', label: 'Fortnightly' },
+  ]
+
+  const FILTERS: { value: EntryFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'salary', label: 'Salary' },
+    { value: 'other', label: 'Other' },
   ]
 
   let users = $state<UserSummary[]>([])
@@ -55,10 +67,16 @@
   let summaries = $state<IncomeSourceSummary[]>([])
   let selectedUserId = $state<number | null>(null)
   let selectedFinancialYear = $state(currentFinancialYear())
-  let ytd = $state<IncomeYtd | null>(null)
-  let ytdLoading = $state(false)
+  let entries = $state<IncomeEntry[]>([])
+  let entriesLoading = $state(false)
+  let entriesLoaded = $state(false)
   let loading = $state(true)
   let error = $state<string | null>(null)
+
+  let filter = $state<EntryFilter>('all')
+  let showAddSource = $state(false)
+  let showAddSalary = $state(false)
+  let showAddOther = $state(false)
 
   let name = $state('')
   let expectedAmount = $state<number>(NaN)
@@ -79,23 +97,14 @@
   let editTaxWithheld = $state(true)
   let savingEdit = $state(false)
 
-  let expandedMonth = $state<number | null>(null)
-  let expandedYear = $state<number | null>(null)
-  let monthEntries = $state<IncomeEntry[]>([])
-  let entriesLoading = $state(false)
   let loggingEntry = $state(false)
-
   let editingEntryId = $state<number | null>(null)
   let savingEntryEdit = $state(false)
+  let editEntryAmount = $state<number>(NaN)
+  let editEntryReceivedOn = $state('')
+  let editEntryNote = $state('')
 
-  let nonPaygItems = $state<IncomeEntry[]>([])
-  let nonPaygLoading = $state(false)
-  let nonPaygLoaded = $state(false)
-  let savedMarginalRate = $state<number | null>(null)
-  let marginalRatePercent = $state<number>(NaN)
-  let savingMarginalRate = $state(false)
-
-  let itemDate = $state('')
+  let itemDate = $state(todayISO())
   let itemName = $state('')
   let itemAmount = $state<number>(NaN)
   let itemTaxWithheld = $state(false)
@@ -108,31 +117,68 @@
   let editItemTaxWithheld = $state(false)
   let savingItemEdit = $state(false)
 
-  const visibleSources = $derived(sources.filter((s) => s.userId === selectedUserId))
+  let savedMarginalRate = $state<number | null>(null)
+  let marginalRatePercent = $state<number>(NaN)
+  let savingMarginalRate = $state(false)
 
-  const nonPaygTotals = $derived.by(() => {
-    let sale = 0
-    let tax = 0
-    let gain = 0
-    for (const item of nonPaygItems) {
-      sale += item.amount
-      if (!item.taxWithheld && savedMarginalRate !== null) {
-        const itemTax = round2(item.amount * savedMarginalRate)
-        tax += itemTax
-        gain += round2(item.amount - itemTax)
-      }
-    }
-    return { sale: round2(sale), tax: round2(tax), gain: round2(gain) }
+  const visibleSources = $derived(sources.filter((s) => s.userId === selectedUserId))
+  const sourceById = $derived(new Map(sources.map((s) => [s.id, s])))
+
+  const salaryEntries = $derived(entries.filter((e) => e.incomeSourceId !== null))
+  const otherEntries = $derived(entries.filter((e) => e.incomeSourceId === null))
+
+  const visibleEntries = $derived.by(() => {
+    const base = filter === 'all' ? entries : filter === 'salary' ? salaryEntries : otherEntries
+    return [...base].sort((a, b) => (b.receivedOn ?? '').localeCompare(a.receivedOn ?? ''))
   })
 
-  function computeItemTax(item: IncomeEntry): number | null {
-    if (item.taxWithheld || savedMarginalRate === null) return null
-    return round2(item.amount * savedMarginalRate)
-  }
+  const visibleHasOther = $derived(visibleEntries.some((e) => e.incomeSourceId === null))
 
-  function computeItemGain(item: IncomeEntry): number | null {
-    const tax = computeItemTax(item)
-    return tax === null ? null : round2(item.amount - tax)
+  const visibleTotals = $derived.by(() => {
+    let amount = 0
+    let tax = 0
+    let gain = 0
+    for (const entry of visibleEntries) {
+      amount += entry.amount
+      if (entry.incomeSourceId === null && !entry.taxWithheld && savedMarginalRate !== null) {
+        const itemTax = round2(entry.amount * savedMarginalRate)
+        tax += itemTax
+        gain += round2(entry.amount - itemTax)
+      }
+    }
+    return { amount: round2(amount), tax: round2(tax), gain: round2(gain) }
+  })
+
+  // Both figures are net (usable) income, so the total is a true budget
+  // number: salary entries are already net take-home (PAYG withheld at the
+  // source), and other income counts its post-marginal-rate gain - or its
+  // full amount when tax was withheld at source, or (no rate set yet) the
+  // gross sale as the only number available.
+  const ytdSummary = $derived.by(() => {
+    const salary = round2(salaryEntries.reduce((a, e) => a + e.amount, 0))
+    const other = round2(
+      otherEntries.reduce(
+        (a, e) => a + (e.taxWithheld ? e.amount : (computeItemGain(e) ?? e.amount)),
+        0
+      )
+    )
+    return { salary, other, total: round2(salary + other) }
+  })
+
+  const emptyMessage = $derived(
+    filter === 'all'
+      ? `No income logged for ${financialYearLabel(selectedFinancialYear)}.`
+      : filter === 'salary'
+        ? `No salary income logged for ${financialYearLabel(selectedFinancialYear)}.`
+        : `No other income logged for ${financialYearLabel(selectedFinancialYear)}.`
+  )
+
+  function filterCount(value: EntryFilter): number {
+    return value === 'all'
+      ? entries.length
+      : value === 'salary'
+        ? salaryEntries.length
+        : otherEntries.length
   }
 
   onMount(load)
@@ -145,7 +191,7 @@
     } finally {
       loading = false
     }
-    await Promise.all([loadYtd(), loadNonPaygSection()])
+    await loadEntries()
   }
 
   // Re-fetches without touching `loading` - toggling `loading` swaps the
@@ -173,57 +219,83 @@
     }
   }
 
-  // Only shows the section's loading state the first time it loads for a
-  // given user - once there's data on screen, switching year should
-  // re-fetch quietly rather than tearing the table down to a spinner and
-  // back on every Prev/Next click.
-  async function loadYtd() {
+  // Fetches every income entry in the financial year for the whole household
+  // and filters client-side: source-tied entries by the selected user's
+  // sources (entries logged from the Monthly page carry only incomeSourceId,
+  // not userId), unattributed entries by userId. This mirrors how the old YTD
+  // month expansion filtered its entries. Only shows the section's loading
+  // state the first time - once there's data on screen, switching user/year
+  // re-fetches quietly rather than tearing the table down to a spinner on
+  // every Prev/Next click.
+  async function loadEntries() {
     if (selectedUserId === null) return
-    if (!ytd) ytdLoading = true
+    if (!entriesLoaded) entriesLoading = true
     try {
-      ytd = await getIncomeYtd(selectedUserId, selectedFinancialYear)
+      const [entryList, setting] = await Promise.all([
+        listAllIncomeEntriesForFinancialYear(selectedFinancialYear),
+        getIncomeTaxSetting(selectedUserId, selectedFinancialYear),
+      ])
+      const visibleIds = new Set(visibleSources.map((s) => s.id))
+      entries = entryList.filter(
+        (e) =>
+          (e.incomeSourceId !== null && visibleIds.has(e.incomeSourceId)) ||
+          (e.incomeSourceId === null && e.userId === selectedUserId)
+      )
+      savedMarginalRate = setting.marginalRate
+      marginalRatePercent = setting.marginalRate === null ? NaN : round2(setting.marginalRate * 100)
+      entriesLoaded = true
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to load year-to-date income'
+      error = err instanceof ApiError ? err.message : 'Failed to load income'
     } finally {
-      ytdLoading = false
+      entriesLoading = false
     }
   }
 
-  async function loadNonPaygSection() {
-    if (selectedUserId === null) return
-    if (!nonPaygLoaded) nonPaygLoading = true
-    try {
-      const [entries, setting] = await Promise.all([
-        listIncomeEntriesForFinancialYear(selectedUserId, selectedFinancialYear),
-        getIncomeTaxSetting(selectedUserId, selectedFinancialYear),
-      ])
-      nonPaygItems = entries
-        .filter((entry) => entry.incomeSourceId === null)
-        .sort((a, b) => (a.receivedOn ?? '').localeCompare(b.receivedOn ?? ''))
-      savedMarginalRate = setting.marginalRate
-      marginalRatePercent = setting.marginalRate === null ? NaN : round2(setting.marginalRate * 100)
-      nonPaygLoaded = true
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to load non-PAYG income'
-    } finally {
-      nonPaygLoading = false
+  function resetTransientState() {
+    editingId = null
+    editingEntryId = null
+    editingItemId = null
+    showAddSource = false
+    showAddSalary = false
+    showAddOther = false
+  }
+
+  // Only one add-form is open at a time - opening any of them closes the
+  // other two so the page never stacks forms from different sections.
+  function toggleAddSource() {
+    showAddSource = !showAddSource
+    if (showAddSource) {
+      showAddSalary = false
+      showAddOther = false
+    }
+  }
+
+  function toggleAddSalary() {
+    showAddSalary = !showAddSalary
+    if (showAddSalary) {
+      showAddSource = false
+      showAddOther = false
+    }
+  }
+
+  function toggleAddOther() {
+    showAddOther = !showAddOther
+    if (showAddOther) {
+      showAddSource = false
+      showAddSalary = false
     }
   }
 
   function selectUser(userId: number) {
     selectedUserId = userId
-    expandedMonth = null
-    editingItemId = null
-    void loadYtd()
-    void loadNonPaygSection()
+    resetTransientState()
+    void loadEntries()
   }
 
   function changeYear(delta: number) {
     selectedFinancialYear += delta
-    expandedMonth = null
-    editingItemId = null
-    void loadYtd()
-    void loadNonPaygSection()
+    resetTransientState()
+    void loadEntries()
   }
 
   function cadenceLabel(source: IncomeSource): string {
@@ -286,6 +358,7 @@
       weekendRollback = false
       anchorDate = ''
       taxWithheld = true
+      showAddSource = false
       await refresh()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add income source'
@@ -346,106 +419,14 @@
     }
   }
 
-  // Entries for a source-total cell aren't fetched until that month is
-  // expanded - the YTD table already shows the aggregate, so there's no
-  // need to pull every entry for the year up front.
-  async function loadMonthEntries(year: number, month: number) {
-    entriesLoading = true
-    try {
-      const monthEntryList = await listIncomeEntries(year, month)
-      const visibleIds = new Set(visibleSources.map((s) => s.id))
-      monthEntries = monthEntryList.filter(
-        (entry) => entry.incomeSourceId !== null && visibleIds.has(entry.incomeSourceId)
-      )
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to load income entries'
-    } finally {
-      entriesLoading = false
-    }
+  function computeItemTax(item: IncomeEntry): number | null {
+    if (item.taxWithheld || savedMarginalRate === null) return null
+    return round2(item.amount * savedMarginalRate)
   }
 
-  function toggleMonth(year: number, month: number) {
-    editingEntryId = null
-    if (expandedMonth === month) {
-      expandedMonth = null
-      expandedYear = null
-      return
-    }
-    expandedMonth = month
-    expandedYear = year
-    void loadMonthEntries(year, month)
-  }
-
-  async function refreshEntries() {
-    if (expandedMonth === null || expandedYear === null) return
-    await Promise.all([loadMonthEntries(expandedYear, expandedMonth), loadYtd()])
-  }
-
-  async function handleAddEntry(values: IncomeEntryFormValues): Promise<boolean> {
-    if (expandedMonth === null || expandedYear === null) return false
-    if (values.incomeSourceId === null || Number.isNaN(values.amount) || values.amount === null) {
-      error = 'Source and amount are required'
-      return false
-    }
-    loggingEntry = true
-    error = null
-    try {
-      await createIncomeEntry({
-        incomeSourceId: values.incomeSourceId,
-        year: expandedYear,
-        month: expandedMonth,
-        amount: values.amount,
-        receivedOn: values.receivedOn,
-        note: values.note,
-      })
-      await refreshEntries()
-      return true
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to log income'
-      return false
-    } finally {
-      loggingEntry = false
-    }
-  }
-
-  function startEditEntry(entry: IncomeEntry) {
-    editingEntryId = entry.id
-  }
-
-  function cancelEditEntry() {
-    editingEntryId = null
-  }
-
-  async function saveEntryEdit(entry: IncomeEntry, updates: IncomeEntryEditUpdates) {
-    if (Number.isNaN(updates.amount) || updates.amount === null) {
-      error = 'Amount is required'
-      return
-    }
-    savingEntryEdit = true
-    error = null
-    try {
-      await updateIncomeEntry(entry.id, updates)
-      editingEntryId = null
-      await refreshEntries()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save changes'
-    } finally {
-      savingEntryEdit = false
-    }
-  }
-
-  async function handleDeleteEntry(entry: IncomeEntry) {
-    error = null
-    try {
-      await deleteIncomeEntry(entry.id)
-      await refreshEntries()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to delete entry'
-    }
-  }
-
-  function sourceName(sourceId: number | null): string {
-    return sources.find((s) => s.id === sourceId)?.name ?? 'Unknown'
+  function computeItemGain(item: IncomeEntry): number | null {
+    const tax = computeItemTax(item)
+    return tax === null ? null : round2(item.amount - tax)
   }
 
   async function saveMarginalRate() {
@@ -473,8 +454,89 @@
     }
   }
 
+  function sourceName(sourceId: number | null): string {
+    return sourceById.get(sourceId ?? -1)?.name ?? 'Unknown'
+  }
+
+  // A salary entry's year/month come from its received-on date - the table
+  // is no longer scoped to a particular expanded month.
+  async function handleAddSalary(values: IncomeEntryFormValues): Promise<boolean> {
+    if (values.incomeSourceId === null || Number.isNaN(values.amount) || values.amount === null) {
+      error = 'Source and amount are required'
+      return false
+    }
+    if (!values.receivedOn) {
+      error = 'A received-on date is required'
+      return false
+    }
+    const [year, month] = values.receivedOn.split('-').map(Number) as [number, number]
+    loggingEntry = true
+    error = null
+    try {
+      await createIncomeEntry({
+        incomeSourceId: values.incomeSourceId,
+        year,
+        month,
+        amount: values.amount,
+        receivedOn: values.receivedOn,
+        note: values.note,
+      })
+      await loadEntries()
+      showAddSalary = false
+      return true
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to log income'
+      return false
+    } finally {
+      loggingEntry = false
+    }
+  }
+
+  function startEditEntry(entry: IncomeEntry) {
+    editingEntryId = entry.id
+    editEntryAmount = entry.amount
+    editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
+    editEntryNote = entry.note ?? ''
+  }
+
+  function cancelEditEntry() {
+    editingEntryId = null
+  }
+
+  async function saveEntryEdit(entry: IncomeEntry) {
+    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
+      error = 'Amount is required'
+      return
+    }
+    savingEntryEdit = true
+    error = null
+    try {
+      await updateIncomeEntry(entry.id, {
+        amount: editEntryAmount,
+        receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
+        note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
+      })
+      editingEntryId = null
+      await loadEntries()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to save changes'
+    } finally {
+      savingEntryEdit = false
+    }
+  }
+
+  async function handleDeleteEntry(entry: IncomeEntry) {
+    error = null
+    try {
+      await deleteIncomeEntry(entry.id)
+      await loadEntries()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to delete entry'
+    }
+  }
+
   function resetItemForm() {
-    itemDate = ''
+    itemDate = todayISO()
     itemName = ''
     itemAmount = NaN
     itemTaxWithheld = false
@@ -506,7 +568,8 @@
         taxWithheld: itemTaxWithheld,
       })
       resetItemForm()
-      await loadNonPaygSection()
+      showAddOther = false
+      await loadEntries()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to add item'
     } finally {
@@ -549,7 +612,7 @@
         taxWithheld: editItemTaxWithheld,
       })
       editingItemId = null
-      await loadNonPaygSection()
+      await loadEntries()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {
@@ -561,7 +624,7 @@
     error = null
     try {
       await deleteIncomeEntry(item.id)
-      await loadNonPaygSection()
+      await loadEntries()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete item'
     }
@@ -572,10 +635,8 @@
 
 <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Income</h1>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-  Manage income sources and how often they're actually paid. Logging what came in each month still
-  happens on the <a href="/monthly" class="text-indigo-600 hover:underline dark:text-indigo-400"
-    >Monthly</a
-  > page.
+  Manage income sources and log salary and other income. Each person's projected income still feeds
+  the <a href="/monthly" class="text-indigo-600 hover:underline dark:text-indigo-400">Monthly</a> page.
 </p>
 
 {#if error}
@@ -612,7 +673,98 @@
   </div>
 
   {#if selectedUserId !== null}
-    <Card class="mt-6 sm:overflow-x-auto" pivotTable>
+    <div class="mt-6 flex items-center justify-between">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income sources</h2>
+      <SecondaryButton onclick={toggleAddSource}>
+        {showAddSource ? 'Cancel' : 'Add source'}
+      </SecondaryButton>
+    </div>
+
+    {#if showAddSource}
+      <form
+        onsubmit={handleAdd}
+        class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+      >
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Name</span>
+          <input
+            type="text"
+            bind:value={name}
+            placeholder="e.g. Salary"
+            class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+            >Expected per pay</span
+          >
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            bind:value={expectedAmount}
+            class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Frequency</span>
+          <select
+            bind:value={frequency}
+            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          >
+            {#each FREQUENCIES as f (f.value)}
+              <option value={f.value}>{f.label}</option>
+            {/each}
+          </select>
+        </label>
+        {#if frequency === 'monthly'}
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Pay day</span>
+            <input
+              type="number"
+              min="1"
+              max="31"
+              bind:value={payDayOfMonth}
+              class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label
+            class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400"
+          >
+            <input
+              type="checkbox"
+              bind:checked={weekendRollback}
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Roll to preceding Friday on a weekend
+          </label>
+        {:else}
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
+              >A confirmed real pay date</span
+            >
+            <input
+              type="date"
+              bind:value={anchorDate}
+              class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+        {/if}
+        <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
+          <input
+            type="checkbox"
+            bind:checked={taxWithheld}
+            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+          />
+          Tax withheld (PAYG)
+        </label>
+        <PrimaryButton type="submit" disabled={creating}>
+          {creating ? 'Adding…' : 'Add income source'}
+        </PrimaryButton>
+      </form>
+    {/if}
+
+    <Card class="mt-3 sm:overflow-x-auto" pivotTable>
       <table class="block w-full border-collapse text-sm sm:table">
         <thead class="hidden sm:table-header-group">
           <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -829,86 +981,20 @@
       </table>
     </Card>
 
-    <form
-      onsubmit={handleAdd}
-      class="mt-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Name</span>
-        <input
-          type="text"
-          bind:value={name}
-          placeholder="e.g. Salary"
-          class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </label>
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Expected per pay</span>
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          bind:value={expectedAmount}
-          class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </label>
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Frequency</span>
-        <select
-          bind:value={frequency}
-          class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        >
-          {#each FREQUENCIES as f (f.value)}
-            <option value={f.value}>{f.label}</option>
-          {/each}
-        </select>
-      </label>
-      {#if frequency === 'monthly'}
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Pay day</span>
-          <input
-            type="number"
-            min="1"
-            max="31"
-            bind:value={payDayOfMonth}
-            class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-        </label>
-        <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <input
-            type="checkbox"
-            bind:checked={weekendRollback}
-            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-          />
-          Roll to preceding Friday on a weekend
-        </label>
-      {:else}
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-            >A confirmed real pay date</span
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income entries</h2>
+        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+          {financialYearLabel(selectedFinancialYear)} to date:
+          <span class="font-medium text-slate-900 dark:text-slate-100"
+            >{formatCurrency(ytdSummary.total)}</span
           >
-          <input
-            type="date"
-            bind:value={anchorDate}
-            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-        </label>
-      {/if}
-      <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-        <input
-          type="checkbox"
-          bind:checked={taxWithheld}
-          class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-        />
-        Tax withheld (PAYG)
-      </label>
-      <PrimaryButton type="submit" disabled={creating}>
-        {creating ? 'Adding…' : 'Add income source'}
-      </PrimaryButton>
-    </form>
-
-    <div class="mt-8 flex items-center justify-between">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Year to date</h2>
+          <span class="mx-1 text-slate-300 dark:text-slate-600">·</span>
+          Salary {formatCurrency(ytdSummary.salary)}
+          <span class="mx-1 text-slate-300 dark:text-slate-600">·</span>
+          Other {formatCurrency(ytdSummary.other)}
+        </p>
+      </div>
       <div class="flex items-center gap-3">
         <button
           type="button"
@@ -931,257 +1017,156 @@
       </div>
     </div>
 
-    {#if ytdLoading}
-      <LoadingIndicator class="mt-3" />
-    {:else if ytd && ytd.months.length > 0}
-      {@const runningTotals = ytd.months.reduce<number[]>((acc, m) => {
-        acc.push((acc.at(-1) ?? 0) + m.total)
-        return acc
-      }, [])}
-      <Card class="mt-3 sm:overflow-x-auto" pivotTable>
-        <table class="block w-full border-collapse text-sm sm:table">
-          <thead class="hidden sm:table-header-group">
-            <tr class="border-b border-slate-200 dark:border-slate-700">
-              <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
-                >Month</th
-              >
-              {#each ytd.sources as source (source.id)}
-                <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-                  >{source.name}</th
-                >
-              {/each}
-              <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-                >Total</th
-              >
-              <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-                >YTD</th
-              >
-            </tr>
-          </thead>
-          <tbody class="block sm:table-row-group">
-            {#each ytd.months as monthRow, i (monthRow.month)}
-              {@const expanded = expandedMonth === monthRow.month}
-              <tr
-                class={[
-                  'mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60',
-                  expanded
-                    ? 'bg-slate-100 dark:bg-slate-900/50'
-                    : 'bg-white sm:bg-transparent dark:bg-slate-800 sm:dark:bg-transparent',
-                ]}
-              >
-                <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100">
-                  <button
-                    type="button"
-                    onclick={() => toggleMonth(monthRow.year, monthRow.month)}
-                    class="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400"
-                  >
-                    <span class="text-slate-400 dark:text-slate-500" aria-hidden="true"
-                      >{expanded ? '▾' : '▸'}</span
-                    >
-                    {monthYearLabel(monthRow.year, monthRow.month)}
-                  </button>
-                </td>
-                {#each ytd.sources as source (source.id)}
-                  <td
-                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
-                  >
-                    <span
-                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >{source.name}</span
-                    >
-                    {formatCurrency(monthRow.bySource[source.id] ?? 0)}
-                  </td>
-                {/each}
-                <td
-                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
-                >
-                  <span
-                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                    >Total</span
-                  >
-                  <span>
-                    {formatCurrency(monthRow.total)}
-                    {#if monthRow.estimated}
-                      <span
-                        class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
-                        title="No entry logged this month - backfilled from the projected amount"
-                        >(est.)</span
-                      >
-                    {/if}
-                  </span>
-                </td>
-                <td
-                  class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
-                >
-                  <span
-                    class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                    >YTD</span
-                  >
-                  {formatCurrency(runningTotals[i]!)}
-                </td>
-              </tr>
-              {#if expanded}
-                <tr
-                  class="block border-b border-slate-100 last:border-0 sm:table-row dark:border-slate-700/60"
-                >
-                  <td
-                    colspan={ytd.sources.length + 3}
-                    class="block bg-transparent px-3 py-3 sm:table-cell sm:bg-slate-50 dark:bg-transparent sm:dark:bg-slate-900/25"
-                  >
-                    {#if entriesLoading}
-                      <p class="text-xs text-slate-400 dark:text-slate-500">Loading entries…</p>
-                    {:else}
-                      <table class="block w-full border-collapse text-sm sm:table">
-                        <thead class="hidden sm:table-header-group">
-                          <tr class="border-b border-slate-200 dark:border-slate-700">
-                            <th
-                              class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
-                              >Source</th
-                            >
-                            <th
-                              class="py-1.5 pr-3 text-right font-semibold text-slate-500 dark:text-slate-400"
-                              >Amount</th
-                            >
-                            <th
-                              class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
-                              >Date</th
-                            >
-                            <th
-                              class="py-1.5 pr-3 text-left font-semibold text-slate-500 dark:text-slate-400"
-                              >Note</th
-                            >
-                            <th class="py-1.5"></th>
-                          </tr>
-                        </thead>
-                        <tbody class="block sm:table-row-group">
-                          {#each monthEntries as entry (entry.id)}
-                            {#snippet sourceCell(actions: Snippet)}
-                              <td
-                                class="flex min-h-9 items-center justify-between gap-3 py-1.5 pr-3 text-slate-700 sm:table-cell sm:min-h-0 dark:text-slate-300"
-                              >
-                                <span class="min-w-0 truncate"
-                                  >{sourceName(entry.incomeSourceId)}</span
-                                >
-                                {@render actions()}
-                              </td>
-                            {/snippet}
-                            {#if editingEntryId === entry.id}
-                              <IncomeEntryEditRow
-                                initialAmount={entry.amount}
-                                initialReceivedOn={entry.receivedOn
-                                  ? entry.receivedOn.slice(0, 10)
-                                  : ''}
-                                initialNote={entry.note ?? ''}
-                                saving={savingEntryEdit}
-                                cellClass="py-1.5 pr-3"
-                                lastCellClass="py-1.5 text-right whitespace-nowrap"
-                                leading={sourceCell}
-                                onSave={(updates) => saveEntryEdit(entry, updates)}
-                                onCancel={cancelEditEntry}
-                              />
-                            {:else}
-                              <IncomeEntryDisplayRow
-                                amount={entry.amount}
-                                receivedOn={entry.receivedOn}
-                                note={entry.note}
-                                cellClass="py-1.5 pr-3"
-                                lastCellClass="py-1.5 text-right whitespace-nowrap"
-                                amountValueClass="text-slate-900 dark:text-slate-100"
-                                leading={sourceCell}
-                                onEdit={() => startEditEntry(entry)}
-                                onRemove={() => handleDeleteEntry(entry)}
-                              />
-                            {/if}
-                          {:else}
-                            <tr class="block sm:table-row">
-                              <td
-                                colspan="5"
-                                class="block py-3 text-center text-xs text-slate-400 sm:table-cell dark:text-slate-500"
-                              >
-                                No entries logged for {monthYearLabel(
-                                  monthRow.year,
-                                  monthRow.month
-                                )}.
-                              </td>
-                            </tr>
-                          {/each}
-                        </tbody>
-                      </table>
-                      <IncomeEntryForm
-                        sources={visibleSources}
-                        submitting={loggingEntry}
-                        class="mt-3 flex flex-wrap items-end gap-3"
-                        onSubmit={handleAddEntry}
-                      />
-                    {/if}
-                  </td>
-                </tr>
-              {/if}
-            {/each}
-          </tbody>
-          <tfoot class="block sm:table-footer-group">
-            <tr
-              class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex gap-2">
+        {#each FILTERS as tab (tab.value)}
+          <button
+            type="button"
+            onclick={() => (filter = tab.value)}
+            class={[
+              'rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+              filter === tab.value
+                ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600',
+            ]}
+          >
+            {tab.label}
+            <span class="ml-1 text-xs font-normal opacity-70">{filterCount(tab.value)}</span>
+          </button>
+        {/each}
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        {#if filter !== 'salary'}
+          <div class="flex items-center gap-2">
+            <label
+              class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400"
             >
-              <td
-                class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100"
-                colspan={1 + ytd.sources.length}>Year to date</td
-              >
-              <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
-                colspan="2"
-              >
-                <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Total</span
-                >
-                {formatCurrency(ytd.ytdTotal)}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </Card>
-    {:else}
-      <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">
-        No data yet for {financialYearLabel(selectedFinancialYear)}.
+              Marginal rate
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                bind:value={marginalRatePercent}
+                class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <PrimaryButton size="sm" onclick={saveMarginalRate} disabled={savingMarginalRate}>
+              {savingMarginalRate ? 'Saving…' : 'Save'}
+            </PrimaryButton>
+          </div>
+        {/if}
+        <ActionMenu
+          label="Add income"
+          actions={[
+            { label: 'Salary', path: mdiBriefcase, onclick: toggleAddSalary },
+            { label: 'Other income', path: mdiBank, onclick: toggleAddOther },
+          ]}
+        >
+          {#snippet trigger(open, toggle)}
+            <button
+              type="button"
+              onclick={toggle}
+              aria-haspopup="true"
+              aria-expanded={open}
+              class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            >
+              <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+                <path d={mdiPlus} />
+              </svg>
+              Add
+              <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+                <path d={mdiChevronDown} />
+              </svg>
+            </button>
+          {/snippet}
+        </ActionMenu>
+      </div>
+    </div>
+
+    {#if filter !== 'salary' && savedMarginalRate === null}
+      <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        No marginal rate set for {financialYearLabel(selectedFinancialYear)} yet - Tax/Gain will show
+        as "—" until one is saved.
       </p>
     {/if}
 
-    <div class="mt-8 flex items-center justify-between">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Non-PAYG Income Tax</h2>
-      <span class="text-sm text-slate-500 dark:text-slate-400">
-        {financialYearLabel(selectedFinancialYear)}
-      </span>
-    </div>
-
-    <div
-      class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-    >
-      <label class="flex flex-col gap-1">
-        <span class="text-xs font-medium text-slate-500 dark:text-slate-400"
-          >Marginal tax rate (%)</span
+    {#if showAddSalary}
+      <div
+        class="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+      >
+        <IncomeEntryForm
+          sources={visibleSources}
+          submitting={loggingEntry}
+          onSubmit={handleAddSalary}
+          submitOnOwnLine
+          defaultReceivedOnToday
         >
-        <input
-          type="number"
-          step="0.01"
-          min="0"
-          max="100"
-          bind:value={marginalRatePercent}
-          class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-        />
-      </label>
-      <PrimaryButton onclick={saveMarginalRate} disabled={savingMarginalRate}>
-        {savingMarginalRate ? 'Saving…' : 'Save rate'}
-      </PrimaryButton>
-      {#if savedMarginalRate === null}
-        <span class="pb-1.5 text-xs text-slate-400 dark:text-slate-500">
-          No rate set for {financialYearLabel(selectedFinancialYear)} yet - Tax/Gain will show as "—"
-          until one is saved.
-        </span>
-      {/if}
-    </div>
+          {#snippet footerActions()}
+            <SecondaryButton type="button" onclick={() => (showAddSalary = false)}
+              >Cancel</SecondaryButton
+            >
+          {/snippet}
+        </IncomeEntryForm>
+      </div>
+    {/if}
 
-    {#if nonPaygLoading}
+    {#if showAddOther}
+      <form
+        onsubmit={handleAddItem}
+        class="mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
+      >
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Date</span>
+            <input
+              type="date"
+              bind:value={itemDate}
+              class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Sale amount</span>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              bind:value={itemAmount}
+              class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Item</span>
+            <input
+              type="text"
+              placeholder="e.g. Share sale, dividend, bonus"
+              bind:value={itemName}
+              class="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+          <label
+            class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400"
+          >
+            <input
+              type="checkbox"
+              bind:checked={itemTaxWithheld}
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+            />
+            Tax withheld
+          </label>
+        </div>
+        <div class="mt-3 flex items-center gap-3">
+          <PrimaryButton type="submit" disabled={addingItem}>
+            {addingItem ? 'Adding…' : 'Add item'}
+          </PrimaryButton>
+          <SecondaryButton type="button" onclick={() => (showAddOther = false)}
+            >Cancel</SecondaryButton
+          >
+        </div>
+      </form>
+    {/if}
+
+    {#if entriesLoading && !entriesLoaded}
       <LoadingIndicator class="mt-3" />
     {:else}
       <Card class="mt-3 sm:overflow-x-auto" pivotTable>
@@ -1189,13 +1174,13 @@
           <thead class="hidden sm:table-header-group">
             <tr class="border-b border-slate-200 dark:border-slate-700">
               <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
-                >Date</th
-              >
-              <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
                 >Item</th
               >
+              <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
+                >Date</th
+              >
               <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-                >Sale</th
+                >Amount</th
               >
               <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
                 >Tax withheld</th
@@ -1210,11 +1195,236 @@
             </tr>
           </thead>
           <tbody class="block sm:table-row-group">
-            {#each nonPaygItems as item (item.id)}
-              {#if editingItemId === item.id}
+            {#each visibleEntries as entry (entry.id)}
+              {#if entry.incomeSourceId !== null}
+                {#if editingEntryId === entry.id}
+                  <tr
+                    class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
+                  >
+                    <td class="block px-3 py-2 sm:table-cell">
+                      <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                          <span class="block truncate text-slate-500 dark:text-slate-400"
+                            >{sourceName(entry.incomeSourceId)}</span
+                          >
+                          <input
+                            type="text"
+                            placeholder="Note (optional)"
+                            bind:value={editEntryNote}
+                            class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                          />
+                        </div>
+                        <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                          <IconActionButton
+                            variant="primary"
+                            disabled={savingEntryEdit}
+                            label="Save income entry"
+                            path={mdiContentSave}
+                            onclick={() => saveEntryEdit(entry)}
+                          />
+                          <IconActionButton
+                            variant="cancel"
+                            label="Cancel editing income entry"
+                            path={mdiCloseThick}
+                            onclick={cancelEditEntry}
+                          />
+                        </span>
+                      </div>
+                    </td>
+                    <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Date</span
+                      >
+                      <input
+                        type="date"
+                        bind:value={editEntryReceivedOn}
+                        class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Amount</span
+                      >
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        bind:value={editEntryAmount}
+                        class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell dark:text-slate-500"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Tax withheld</span
+                      >
+                      {sourceById.get(entry.incomeSourceId)?.taxWithheld ? 'Yes' : 'No'}
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Tax</span
+                      >
+                      —
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Gain</span
+                      >
+                      —
+                    </td>
+                    <td
+                      class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    >
+                      <IconActionButton
+                        variant="primary"
+                        disabled={savingEntryEdit}
+                        label="Save income entry"
+                        path={mdiContentSave}
+                        onclick={() => saveEntryEdit(entry)}
+                      />
+                      <IconActionButton
+                        variant="cancel"
+                        label="Cancel editing income entry"
+                        path={mdiCloseThick}
+                        onclick={cancelEditEntry}
+                      />
+                    </td>
+                  </tr>
+                {:else}
+                  <tr
+                    class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
+                  >
+                    <td
+                      class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+                    >
+                      <div class="min-w-0">
+                        <div class="truncate">{sourceName(entry.incomeSourceId)}</div>
+                        {#if entry.note}
+                          <div
+                            class="mt-0.5 truncate text-xs font-normal text-slate-400 dark:text-slate-500"
+                          >
+                            {entry.note}
+                          </div>
+                        {/if}
+                      </div>
+                      <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                        <IconActionButton
+                          variant="neutral"
+                          label="Edit entry from {formatDate(entry.receivedOn)}"
+                          path={mdiPencil}
+                          onclick={() => startEditEntry(entry)}
+                        />
+                        <IconActionButton
+                          variant="danger"
+                          label="Delete entry from {formatDate(entry.receivedOn)}"
+                          path={mdiDelete}
+                          onclick={() => handleDeleteEntry(entry)}
+                        />
+                      </span>
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Date</span
+                      >
+                      {formatDate(entry.receivedOn)}
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Amount</span
+                      >
+                      {formatCurrency(entry.amount)}
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Tax withheld</span
+                      >
+                      {sourceById.get(entry.incomeSourceId)?.taxWithheld ? 'Yes' : 'No'}
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Tax</span
+                      >
+                      —
+                    </td>
+                    <td
+                      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                    >
+                      <span
+                        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                        >Gain</span
+                      >
+                      —
+                    </td>
+                    <td
+                      class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
+                    >
+                      <IconActionButton
+                        variant="neutral"
+                        label="Edit entry from {formatDate(entry.receivedOn)}"
+                        path={mdiPencil}
+                        onclick={() => startEditEntry(entry)}
+                      />
+                      <IconActionButton
+                        variant="danger"
+                        label="Delete entry from {formatDate(entry.receivedOn)}"
+                        path={mdiDelete}
+                        onclick={() => handleDeleteEntry(entry)}
+                      />
+                    </td>
+                  </tr>
+                {/if}
+              {:else if editingItemId === entry.id}
                 <tr
                   class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
                 >
+                  <td class="block px-3 py-2 sm:table-cell">
+                    <div class="flex items-center justify-between gap-3">
+                      <input
+                        type="text"
+                        bind:value={editItemName}
+                        class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                      <span class="flex shrink-0 items-center gap-1 sm:hidden">
+                        <IconActionButton
+                          variant="primary"
+                          disabled={savingItemEdit}
+                          label="Save entry from {formatDate(entry.receivedOn)}"
+                          path={mdiContentSave}
+                          onclick={() => saveItemEdit(entry)}
+                        />
+                        <IconActionButton
+                          variant="cancel"
+                          label="Cancel editing entry from {formatDate(entry.receivedOn)}"
+                          path={mdiCloseThick}
+                          onclick={cancelEditItem}
+                        />
+                      </span>
+                    </div>
+                  </td>
                   <td class="px-3 py-2 sm:table-cell">
                     <input
                       type="date"
@@ -1222,39 +1432,12 @@
                       class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                     />
                   </td>
-                  <td class="block px-3 py-2 sm:table-cell">
-                    <div class="mb-1 flex items-center justify-between gap-3 sm:hidden">
-                      <span class="text-xs font-medium text-slate-400 uppercase dark:text-slate-500"
-                        >Item</span
-                      >
-                      <span class="flex shrink-0 items-center gap-1">
-                        <IconActionButton
-                          variant="primary"
-                          disabled={savingItemEdit}
-                          label="Save entry from {formatDate(item.receivedOn)}"
-                          path={mdiContentSave}
-                          onclick={() => saveItemEdit(item)}
-                        />
-                        <IconActionButton
-                          variant="cancel"
-                          label="Cancel editing entry from {formatDate(item.receivedOn)}"
-                          path={mdiCloseThick}
-                          onclick={cancelEditItem}
-                        />
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      bind:value={editItemName}
-                      class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm sm:w-40 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                    />
-                  </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
                   >
                     <span
                       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Sale</span
+                      >Amount</span
                     >
                     <input
                       type="number"
@@ -1299,13 +1482,13 @@
                     <IconActionButton
                       variant="primary"
                       disabled={savingItemEdit}
-                      label="Save entry from {formatDate(item.receivedOn)}"
+                      label="Save entry from {formatDate(entry.receivedOn)}"
                       path={mdiContentSave}
-                      onclick={() => saveItemEdit(item)}
+                      onclick={() => saveItemEdit(entry)}
                     />
                     <IconActionButton
                       variant="cancel"
-                      label="Cancel editing entry from {formatDate(item.receivedOn)}"
+                      label="Cancel editing entry from {formatDate(entry.receivedOn)}"
                       path={mdiCloseThick}
                       onclick={cancelEditItem}
                     />
@@ -1315,36 +1498,42 @@
                 <tr
                   class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
                 >
-                  <td class="px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400">
-                    {formatDate(item.receivedOn)}
-                  </td>
                   <td
-                    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+                    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
                   >
-                    <span class="min-w-0 truncate">{item.note ?? '—'}</span>
+                    <span class="min-w-0 truncate">{entry.note ?? '—'}</span>
                     <span class="flex shrink-0 items-center gap-1 sm:hidden">
                       <IconActionButton
                         variant="neutral"
-                        label="Edit entry from {formatDate(item.receivedOn)}"
+                        label="Edit entry from {formatDate(entry.receivedOn)}"
                         path={mdiPencil}
-                        onclick={() => startEditItem(item)}
+                        onclick={() => startEditItem(entry)}
                       />
                       <IconActionButton
                         variant="danger"
-                        label="Delete entry from {formatDate(item.receivedOn)}"
+                        label="Delete entry from {formatDate(entry.receivedOn)}"
                         path={mdiDelete}
-                        onclick={() => handleDeleteItem(item)}
+                        onclick={() => handleDeleteItem(entry)}
                       />
                     </span>
+                  </td>
+                  <td
+                    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                  >
+                    <span
+                      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                      >Date</span
+                    >
+                    {formatDate(entry.receivedOn)}
                   </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
                   >
                     <span
                       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                      >Sale</span
+                      >Amount</span
                     >
-                    {formatCurrency(item.amount)}
+                    {formatCurrency(entry.amount)}
                   </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
@@ -1353,7 +1542,7 @@
                       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                       >Tax withheld</span
                     >
-                    {item.taxWithheld ? 'Yes' : 'No'}
+                    {entry.taxWithheld ? 'Yes' : 'No'}
                   </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
@@ -1362,7 +1551,7 @@
                       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                       >Tax</span
                     >
-                    {formatCurrency(computeItemTax(item))}
+                    {formatCurrency(computeItemTax(entry))}
                   </td>
                   <td
                     class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
@@ -1371,22 +1560,22 @@
                       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                       >Gain</span
                     >
-                    {formatCurrency(computeItemGain(item))}
+                    {formatCurrency(computeItemGain(entry))}
                   </td>
                   <td
                     class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right"
                   >
                     <IconActionButton
                       variant="neutral"
-                      label="Edit entry from {formatDate(item.receivedOn)}"
+                      label="Edit entry from {formatDate(entry.receivedOn)}"
                       path={mdiPencil}
-                      onclick={() => startEditItem(item)}
+                      onclick={() => startEditItem(entry)}
                     />
                     <IconActionButton
                       variant="danger"
-                      label="Delete entry from {formatDate(item.receivedOn)}"
+                      label="Delete entry from {formatDate(entry.receivedOn)}"
                       path={mdiDelete}
-                      onclick={() => handleDeleteItem(item)}
+                      onclick={() => handleDeleteItem(entry)}
                     />
                   </td>
                 </tr>
@@ -1397,7 +1586,7 @@
                   colspan="7"
                   class="block px-3 py-6 text-center text-sm text-slate-400 sm:table-cell dark:text-slate-500"
                 >
-                  No non-PAYG income logged for {financialYearLabel(selectedFinancialYear)}.
+                  {emptyMessage}
                 </td>
               </tr>
             {/each}
@@ -1414,9 +1603,9 @@
               >
                 <span
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-                  >Sale</span
+                  >Amount</span
                 >
-                {formatCurrency(nonPaygTotals.sale)}
+                {formatCurrency(visibleTotals.amount)}
               </td>
               <td class="hidden px-3 py-2 sm:table-cell"></td>
               <td
@@ -1426,7 +1615,7 @@
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                   >Tax</span
                 >
-                {formatCurrency(nonPaygTotals.tax)}
+                {visibleHasOther ? formatCurrency(visibleTotals.tax) : '—'}
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
@@ -1435,57 +1624,13 @@
                   class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                   >Gain</span
                 >
-                {formatCurrency(nonPaygTotals.gain)}
+                {visibleHasOther ? formatCurrency(visibleTotals.gain) : '—'}
               </td>
               <td class="hidden px-3 py-2 sm:table-cell"></td>
             </tr>
           </tfoot>
         </table>
       </Card>
-
-      <form
-        onsubmit={handleAddItem}
-        class="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
-      >
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Date</span>
-          <input
-            type="date"
-            bind:value={itemDate}
-            class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Item</span>
-          <input
-            type="text"
-            placeholder="e.g. Share sale, dividend, bonus"
-            bind:value={itemName}
-            class="w-48 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-        </label>
-        <label class="flex flex-col gap-1">
-          <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Sale amount</span>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            bind:value={itemAmount}
-            class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-          />
-        </label>
-        <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-          <input
-            type="checkbox"
-            bind:checked={itemTaxWithheld}
-            class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
-          />
-          Tax withheld
-        </label>
-        <PrimaryButton type="submit" disabled={addingItem}>
-          {addingItem ? 'Adding…' : 'Add item'}
-        </PrimaryButton>
-      </form>
     {/if}
   {/if}
 {/if}

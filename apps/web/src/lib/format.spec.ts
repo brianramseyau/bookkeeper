@@ -14,6 +14,7 @@ import {
   monthShortName,
   monthYearLabel,
   round2,
+  todayISO,
 } from './format'
 
 describe('formatCurrency', () => {
@@ -78,6 +79,22 @@ describe('currentFinancialYear', () => {
   it('returns next year once July starts', () => {
     vi.setSystemTime(new Date('2026-07-01T00:00:00.000Z'))
     expect(currentFinancialYear()).toBe(2027)
+  })
+})
+
+describe('todayISO', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('formats today as a YYYY-MM-DD string in local time', () => {
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    expect(todayISO()).toBe('2026-03-15')
+  })
+
+  it('zero-pads single-digit month and day', () => {
+    vi.setSystemTime(new Date('2026-07-01T00:00:00.000Z'))
+    expect(todayISO()).toBe('2026-07-01')
   })
 })
 
