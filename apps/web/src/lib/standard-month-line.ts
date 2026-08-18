@@ -11,6 +11,15 @@ export function lastDayOfMonthIso(year: number, month: number): string {
   return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
 }
 
+// A month/year picker (native `<input type="month">`) yields "YYYY-MM";
+// expense monthly actuals are entered at month granularity but stored as a
+// date, so the day is derived as the last day of the month.
+export function monthValueToLastDayIso(monthValue: string): string {
+  const [year, month] = monthValue.split('-').map(Number)
+  if (year === undefined || month === undefined) return monthValue
+  return lastDayOfMonthIso(year, month)
+}
+
 // `dueDay` is a bare day-of-month (from a monthly recurring bill, which has
 // no month/year of its own) - resolve it against the month currently being
 // viewed, clamping to that month's last day (e.g. a due day of 31 in

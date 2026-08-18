@@ -8,6 +8,7 @@ import {
   dueLabel,
   dueTitle,
   lastDayOfMonthIso,
+  monthValueToLastDayIso,
   paidTooltip,
   resolveDueDate,
   viewHref,
@@ -34,6 +35,15 @@ describe('lastDayOfMonthIso', () => {
   it('returns the last calendar day of the month', () => {
     expect(lastDayOfMonthIso(2026, 2)).toBe('2026-02-28')
     expect(lastDayOfMonthIso(2024, 2)).toBe('2024-02-29')
+  })
+})
+
+describe('monthValueToLastDayIso', () => {
+  it('converts a YYYY-MM value to the last day of that month', () => {
+    expect(monthValueToLastDayIso('2026-01')).toBe('2026-01-31')
+    expect(monthValueToLastDayIso('2026-02')).toBe('2026-02-28')
+    expect(monthValueToLastDayIso('2024-02')).toBe('2024-02-29')
+    expect(monthValueToLastDayIso('2026-12')).toBe('2026-12-31')
   })
 })
 

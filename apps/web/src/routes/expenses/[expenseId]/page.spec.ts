@@ -419,9 +419,11 @@ describe('expense detail page', () => {
     expect(febIndex).toBeGreaterThan(-1)
     expect(janIndex).toBeGreaterThan(febIndex)
     expect(screen.getByText('Weekly shop')).toBeInTheDocument()
+    expect(screen.getByText('Jan 2026')).toBeInTheDocument()
+    expect(screen.getByText('Feb 2026')).toBeInTheDocument()
   })
 
-  it('requires a date and amount to add a monthly actual', async () => {
+  it('requires a month and amount to add a monthly actual', async () => {
     mockLoad()
     const user = userEvent.setup()
     render(ExpenseDetailPage)
@@ -429,7 +431,7 @@ describe('expense detail page', () => {
     await screen.findByText('No entries yet.')
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
 
-    expect(await screen.findByText('Date and amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Month and amount are required')).toBeInTheDocument()
     expect(createExpenseActual).not.toHaveBeenCalled()
   })
 
@@ -441,7 +443,8 @@ describe('expense detail page', () => {
 
     await screen.findByText('No entries yet.')
 
-    await user.type(screen.getByLabelText('Date'), '2026-01-15')
+    await user.click(screen.getByLabelText('Month'))
+    await user.click(screen.getByRole('button', { name: 'Jan' }))
     await user.type(screen.getAllByLabelText('Amount')[1]!, '120')
     await user.type(screen.getByLabelText('Notes'), 'Weekly shop')
 
@@ -449,8 +452,9 @@ describe('expense detail page', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
 
+    const currentYear = new Date().getFullYear()
     expect(createExpenseActual).toHaveBeenCalledWith(1, {
-      occurredOn: '2026-01-15',
+      occurredOn: `${currentYear}-01-31`,
       amount: 120,
       notes: 'Weekly shop',
     })
@@ -464,14 +468,16 @@ describe('expense detail page', () => {
     render(ExpenseDetailPage)
 
     await screen.findByText('No entries yet.')
-    await user.type(screen.getByLabelText('Date'), '2026-01-15')
+    await user.click(screen.getByLabelText('Month'))
+    await user.click(screen.getByRole('button', { name: 'Jan' }))
     await user.type(screen.getAllByLabelText('Amount')[1]!, '120')
 
     mockLoad({ actuals: [{ ...januaryShop, notes: null }] })
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
 
+    const currentYear = new Date().getFullYear()
     expect(createExpenseActual).toHaveBeenCalledWith(1, {
-      occurredOn: '2026-01-15',
+      occurredOn: `${currentYear}-01-31`,
       amount: 120,
       notes: undefined,
     })
@@ -484,7 +490,8 @@ describe('expense detail page', () => {
     render(ExpenseDetailPage)
 
     await screen.findByText('No entries yet.')
-    await user.type(screen.getByLabelText('Date'), '2026-01-15')
+    await user.click(screen.getByLabelText('Month'))
+    await user.click(screen.getByRole('button', { name: 'Jan' }))
     await user.type(screen.getAllByLabelText('Amount')[1]!, '120')
     await user.click(screen.getByRole('button', { name: 'Add entry' }))
 
@@ -497,7 +504,7 @@ describe('expense detail page', () => {
     const user = userEvent.setup()
     render(ExpenseDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from Jan 2026' }))
 
     const amountInput = screen.getByDisplayValue('120')
     await user.clear(amountInput)
@@ -505,10 +512,10 @@ describe('expense detail page', () => {
 
     mockLoad({ actuals: [{ ...januaryShop, amount: 200 }] })
 
-    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from Jan 2026' }))
 
     expect(updateExpenseActual).toHaveBeenCalledWith(20, {
-      occurredOn: '2026-01-15',
+      occurredOn: '2026-01-31',
       amount: 200,
       notes: 'Weekly shop',
     })
@@ -521,15 +528,15 @@ describe('expense detail page', () => {
     const user = userEvent.setup()
     render(ExpenseDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from Jan 2026' }))
     const notesInput = screen.getByDisplayValue('Weekly shop')
     await user.clear(notesInput)
 
     mockLoad({ actuals: [{ ...januaryShop, notes: null }] })
-    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from Jan 2026' }))
 
     expect(updateExpenseActual).toHaveBeenCalledWith(20, {
-      occurredOn: '2026-01-15',
+      occurredOn: '2026-01-31',
       amount: 120,
       notes: null,
     })
@@ -540,27 +547,28 @@ describe('expense detail page', () => {
     const user = userEvent.setup()
     render(ExpenseDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from Jan 2026' }))
     const amountInput = screen.getByDisplayValue('120')
     await user.clear(amountInput)
     await user.type(amountInput, '999')
-    await user.click(screen.getByRole('button', { name: 'Cancel editing entry from 15 Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing entry from Jan 2026' }))
 
     expect(updateExpenseActual).not.toHaveBeenCalled()
     expect(await screen.findByText('$120.00')).toBeInTheDocument()
   })
 
-  it('requires a date and amount when saving a monthly actual edit', async () => {
+  it('requires a month and amount when saving a monthly actual edit', async () => {
     mockLoad({ actuals: [januaryShop] })
     const user = userEvent.setup()
     render(ExpenseDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
-    const dateInput = screen.getByDisplayValue('2026-01-15')
-    await user.clear(dateInput)
-    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from Jan 2026' }))
+    // Re-clicking the already-selected month clears the field.
+    await user.click(screen.getByRole('button', { name: 'Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Jan' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from Jan 2026' }))
 
-    expect(await screen.findByText('Date and amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Month and amount are required')).toBeInTheDocument()
     expect(updateExpenseActual).not.toHaveBeenCalled()
   })
 
@@ -570,8 +578,8 @@ describe('expense detail page', () => {
     const user = userEvent.setup()
     render(ExpenseDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 15 Jan 2026' }))
-    await user.click(screen.getByRole('button', { name: 'Save entry from 15 Jan 2026' }))
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Save entry from Jan 2026' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
@@ -585,7 +593,7 @@ describe('expense detail page', () => {
     await screen.findByText('Weekly shop')
     vi.mocked(getExpenseTrend).mockResolvedValue(noTrend)
 
-    await user.click(screen.getByRole('button', { name: 'Delete entry from 15 Jan 2026' }))
+    await user.click(screen.getByRole('button', { name: 'Delete entry from Jan 2026' }))
 
     expect(deleteExpenseActual).toHaveBeenCalledWith(20)
     expect(await screen.findByText('No entries yet.')).toBeInTheDocument()
@@ -598,7 +606,7 @@ describe('expense detail page', () => {
     const user = userEvent.setup()
     render(ExpenseDetailPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Delete entry from 15 Jan 2026' }))
+    await user.click(await screen.findByRole('button', { name: 'Delete entry from Jan 2026' }))
 
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
     expect(screen.getByText('Weekly shop')).toBeInTheDocument()

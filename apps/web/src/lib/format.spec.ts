@@ -8,6 +8,7 @@ import {
   formatDateTime,
   formatDaysUntilDue,
   formatFileSize,
+  formatMonthYear,
   formatRelativeDate,
   monthName,
   monthShortName,
@@ -118,6 +119,20 @@ describe('formatDate', () => {
 
   it('renders an em dash for null', () => {
     expect(formatDate(null)).toBe('—')
+  })
+})
+
+describe('formatMonthYear', () => {
+  it('formats an ISO datetime string as month and year only', () => {
+    expect(formatMonthYear('2026-01-19T00:00:00.000+00:00')).toBe('Jan 2026')
+  })
+
+  it('handles a bare YYYY-MM-DD date string', () => {
+    expect(formatMonthYear('2026-12-31')).toBe('Dec 2026')
+  })
+
+  it('renders an em dash for null', () => {
+    expect(formatMonthYear(null)).toBe('—')
   })
 })
 
