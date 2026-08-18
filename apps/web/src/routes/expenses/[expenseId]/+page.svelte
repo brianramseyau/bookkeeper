@@ -19,7 +19,8 @@
     type ExpenseBudgetItem,
   } from '$lib/api/expense-budget-items'
   import { listCategories, type Category } from '$lib/api/categories'
-  import { formatCurrency, formatDate } from '$lib/format'
+  import { formatCurrency, formatMonthYear } from '$lib/format'
+  import { monthValueToLastDayIso } from '$lib/standard-month-line'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -28,6 +29,7 @@
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
   import CategorySelect from '$lib/components/CategorySelect.svelte'
+  import MonthYearPicker from '$lib/components/MonthYearPicker.svelte'
   import { mdiPencil, mdiCloseThick, mdiContentSave, mdiDelete } from '@mdi/js'
 
   const expenseId = Number(page.params.expenseId)
@@ -40,13 +42,13 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
 
-  let occurredOn = $state('')
+  let actualMonth = $state('')
   let amount = $state<number>(NaN)
   let notes = $state('')
   let creating = $state(false)
 
   let editingId = $state<number | null>(null)
-  let editOccurredOn = $state('')
+  let editActualMonth = $state('')
   let editAmount = $state<number>(NaN)
   let editNotes = $state('')
   let savingEdit = $state(false)
@@ -174,19 +176,19 @@
 
   async function handleAdd(event: SubmitEvent) {
     event.preventDefault()
-    if (!occurredOn || Number.isNaN(amount) || amount === null) {
-      error = 'Date and amount are required'
+    if (!actualMonth || Number.isNaN(amount) || amount === null) {
+      error = 'Month and amount are required'
       return
     }
     creating = true
     error = null
     try {
       await createExpenseActual(expenseId, {
-        occurredOn,
+        occurredOn: monthValueToLastDayIso(actualMonth),
         amount,
         notes: notes.trim() === '' ? undefined : notes.trim(),
       })
-      occurredOn = ''
+      actualMonth = ''
       amount = NaN
       notes = ''
       await refresh()
@@ -199,7 +201,7 @@
 
   function startEdit(actual: ExpenseMonthlyActual) {
     editingId = actual.id
-    editOccurredOn = actual.occurredOn.slice(0, 10)
+    editActualMonth = actual.occurredOn.slice(0, 7)
     editAmount = actual.amount
     editNotes = actual.notes ?? ''
   }
@@ -209,15 +211,15 @@
   }
 
   async function saveEdit(actual: ExpenseMonthlyActual) {
-    if (!editOccurredOn || Number.isNaN(editAmount) || editAmount === null) {
-      error = 'Date and amount are required'
+    if (!editActualMonth || Number.isNaN(editAmount) || editAmount === null) {
+      error = 'Month and amount are required'
       return
     }
     savingEdit = true
     error = null
     try {
       await updateExpenseActual(actual.id, {
-        occurredOn: editOccurredOn,
+        occurredOn: monthValueToLastDayIso(editActualMonth),
         amount: editAmount,
         notes: editNotes.trim() === '' ? null : editNotes.trim(),
       })
@@ -472,7 +474,8 @@
     <table class="block w-full border-collapse text-sm sm:table">
       <thead class="hidden sm:table-header-group">
         <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
+          <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Month</th
+          >
           <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
             >Amount</th
           >
@@ -488,11 +491,7 @@
               class="mb-2 block divide-y divide-indigo-100 rounded-lg border border-indigo-200 bg-indigo-50/40 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-indigo-900/40 dark:border-indigo-900/40 dark:bg-indigo-900/20 sm:dark:border-slate-700/60"
             >
               <td class="px-3 py-2 sm:table-cell">
-                <input
-                  type="date"
-                  bind:value={editOccurredOn}
-                  class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                />
+                <MonthYearPicker bind:value={editActualMonth} size="table" />
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
@@ -526,13 +525,13 @@
                 <IconActionButton
                   variant="primary"
                   disabled={savingEdit}
-                  label="Save entry from {formatDate(actual.occurredOn)}"
+                  label="Save entry from {formatMonthYear(actual.occurredOn)}"
                   path={mdiContentSave}
                   onclick={() => saveEdit(actual)}
                 />
                 <IconActionButton
                   variant="cancel"
-                  label="Cancel editing entry from {formatDate(actual.occurredOn)}"
+                  label="Cancel editing entry from {formatMonthYear(actual.occurredOn)}"
                   path={mdiCloseThick}
                   onclick={cancelEdit}
                 />
@@ -543,7 +542,7 @@
               class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
             >
               <td class="px-3 py-2 text-slate-700 sm:table-cell dark:text-slate-300">
-                {formatDate(actual.occurredOn)}
+                {formatMonthYear(actual.occurredOn)}
               </td>
               <td
                 class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
@@ -568,13 +567,13 @@
               >
                 <IconActionButton
                   variant="neutral"
-                  label="Edit entry from {formatDate(actual.occurredOn)}"
+                  label="Edit entry from {formatMonthYear(actual.occurredOn)}"
                   path={mdiPencil}
                   onclick={() => startEdit(actual)}
                 />
                 <IconActionButton
                   variant="danger"
-                  label="Delete entry from {formatDate(actual.occurredOn)}"
+                  label="Delete entry from {formatMonthYear(actual.occurredOn)}"
                   path={mdiDelete}
                   onclick={() => handleDelete(actual)}
                 />
@@ -600,12 +599,8 @@
     class="mt-6 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800"
   >
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Date</span>
-      <input
-        type="date"
-        bind:value={occurredOn}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      />
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Month</span>
+      <MonthYearPicker bind:value={actualMonth} size="form" />
     </label>
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>

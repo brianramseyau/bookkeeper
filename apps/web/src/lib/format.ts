@@ -76,6 +76,19 @@ export function formatDate(isoDate: string | null): string {
   return dateFormatter.format(new Date(isoDate))
 }
 
+/**
+ * Month/year only, hiding the day - for fields stored day-for-day in the
+ * database but only ever entered/meaningful at month granularity (expense
+ * monthly actuals, whose `occurred_on` day is derived as the last day of
+ * the month). Reads the year/month in UTC so a midnight UTC date column
+ * value never shifts month under a negative local offset.
+ */
+export function formatMonthYear(isoDate: string | null): string {
+  if (!isoDate) return '—'
+  const date = new Date(isoDate)
+  return monthYearLabel(date.getUTCFullYear(), date.getUTCMonth() + 1)
+}
+
 const dateTimeFormatter = new Intl.DateTimeFormat('en-AU', {
   day: 'numeric',
   month: 'short',
