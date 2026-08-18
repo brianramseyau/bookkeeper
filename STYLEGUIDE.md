@@ -301,6 +301,18 @@ the `class` prop — `p-4` for stat/summary tiles, `overflow-x-auto` (no
 padding) when the card wraps a `<table>` since the table supplies its own
 cell padding.
 
+When the card wraps a table that pivots to stacked tiles on mobile, pass
+the `pivotTable` prop. It strips the card chrome (background, border,
+rounded corners, shadow) below `sm` so each tile reads as its own card
+against the page background — the container's white background otherwise
+bleeds through the `mb-2` gaps between tiles — and restores the full card
+look at `sm`. Because the chrome is gone, the tile rows themselves carry
+the card background on mobile (`bg-white dark:bg-slate-800
+sm:bg-transparent sm:dark:bg-transparent`, see "Responsive tables" below) —
+don't rely on the card to provide it. Don't use `pivotTable` for cards
+wrapping a non-pivot table (e.g. Categories) or anything that isn't a
+table: those keep their chrome at every size.
+
 Bordered form panels (not `Card`, but visually identical, hand-rolled
 because they're a `<form>` element) use the same look inline:
 `rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-800`
@@ -331,7 +343,7 @@ Every data table follows the same recipe — see
 `apps/web/src/routes/categories/+page.svelte` as the reference:
 
 ```html
-<Card class="mt-6 sm:overflow-x-auto">
+<Card class="mt-6 sm:overflow-x-auto" pivotTable>
   <table class="block w-full border-collapse text-sm sm:table">
     <thead class="hidden sm:table-header-group">
       <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -381,7 +393,10 @@ Every data table follows the same recipe — see
 - **Expandable detail row** (YTD month expansion in Income, amortized bills
   in Monthly): toggled via the `▸`/`▾` button (see "Ad hoc buttons"), the
   expanded row/cell background is `bg-slate-100 dark:bg-slate-900/50` (row)
-  or `bg-slate-50 dark:bg-slate-900/25` (nested detail cell).
+  or `bg-slate-50 dark:bg-slate-900/25` (nested detail cell) — the nested
+  detail cell's background moves behind `sm:` when it hosts a pivot table,
+  and the expanded row swaps its highlight for the standard tile background
+  on mobile (see "Responsive tables").
 - **Shared income-entry rows**: `IncomeEntryDisplayRow.svelte` /
   `IncomeEntryEditRow.svelte` factor out the repeated amount/date/note/actions
   columns, used by `income/+page.svelte`'s YTD month expansion.
@@ -431,6 +446,13 @@ utilities on the _same_ markup, not a second parallel "mobile" template: one
 `apps/web/src/routes/bills/+page.svelte` for a simpler one.
 
 - **`table`**: `block w-full border-collapse text-sm sm:table`.
+- **The wrapping `Card`**: pass `pivotTable` (see "Cards / panels" above) so
+  its white background/border/shadow are unset below `sm` — otherwise that
+  container background bleeds through the `mb-2` gaps between the tile rows
+  and they don't read as separate cards. A pivot table nested inside a tinted
+  container (Income's YTD expanded detail cell, `bg-slate-50`) moves the same
+  background behind `sm:` (`block bg-transparent ... sm:bg-slate-50
+dark:bg-transparent sm:dark:bg-slate-900/25`) for the identical reason.
 - **`thead`**: `hidden sm:table-header-group` — column headers are redundant
   once every cell carries its own mobile label.
 - **`tbody`** / **`tfoot`**: `block sm:table-row-group` /
@@ -440,7 +462,11 @@ utilities on the _same_ markup, not a second parallel "mobile" template: one
   `border-b border-slate-100 last:border-0 dark:border-slate-700/60`, or the
   indigo-tinted edit-mode variant) and move them behind `sm:`, replacing them
   on mobile with:
-  `mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 dark:divide-slate-700/60 dark:border-slate-700 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 sm:dark:border-slate-700/60`
+  `mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white dark:bg-slate-800 sm:bg-transparent sm:dark:bg-transparent last:mb-0 dark:divide-slate-700/60 dark:border-slate-700 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 sm:dark:border-slate-700/60`
+  The unprefixed `bg-white dark:bg-slate-800` gives the tile its own card
+  background on mobile (the `pivotTable` card no longer provides one); the
+  `sm:bg-transparent sm:dark:bg-transparent` pair hands the background back
+  to the card on desktop, where the row is transparent again.
   (swap `slate` for `indigo` — and add the `bg-indigo-50/40 dark:bg-indigo-900/20`
   tint unprefixed — for an edit-mode row). `opacity-70`/`opacity-60` on a
   muted row stays unprefixed (not display-related, applies at both sizes).

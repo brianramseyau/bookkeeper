@@ -469,12 +469,12 @@
 {:else if devices.length === 0}
   <p class="mt-3 text-sm text-slate-400 dark:text-slate-500">No devices registered yet</p>
 {:else}
-  <Card class="mt-3 sm:overflow-x-auto">
+  <Card class="mt-3 sm:overflow-x-auto" pivotTable>
     <table class="block w-full border-collapse text-sm sm:table">
       <tbody class="block sm:table-row-group">
         {#each devices as device (device.id)}
           <tr
-            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+            class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
           >
             <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100">
               {device.userAgent ?? 'Unknown device'}

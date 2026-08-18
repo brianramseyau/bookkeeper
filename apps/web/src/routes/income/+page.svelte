@@ -612,7 +612,7 @@
   </div>
 
   {#if selectedUserId !== null}
-    <Card class="mt-6 sm:overflow-x-auto">
+    <Card class="mt-6 sm:overflow-x-auto" pivotTable>
       <table class="block w-full border-collapse text-sm sm:table">
         <thead class="hidden sm:table-header-group">
           <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -749,7 +749,7 @@
               </tr>
             {:else}
               <tr
-                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
               >
                 <td
                   class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
@@ -938,7 +938,7 @@
         acc.push((acc.at(-1) ?? 0) + m.total)
         return acc
       }, [])}
-      <Card class="mt-3 sm:overflow-x-auto">
+      <Card class="mt-3 sm:overflow-x-auto" pivotTable>
         <table class="block w-full border-collapse text-sm sm:table">
           <thead class="hidden sm:table-header-group">
             <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -964,7 +964,9 @@
               <tr
                 class={[
                   'mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60',
-                  expanded && 'bg-slate-100 dark:bg-slate-900/50',
+                  expanded
+                    ? 'bg-slate-100 dark:bg-slate-900/50'
+                    : 'bg-white sm:bg-transparent dark:bg-slate-800 sm:dark:bg-transparent',
                 ]}
               >
                 <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100">
@@ -1024,7 +1026,7 @@
                 >
                   <td
                     colspan={ytd.sources.length + 3}
-                    class="block bg-slate-50 px-3 py-3 sm:table-cell dark:bg-slate-900/25"
+                    class="block bg-transparent px-3 py-3 sm:table-cell sm:bg-slate-50 dark:bg-transparent sm:dark:bg-slate-900/25"
                   >
                     {#if entriesLoading}
                       <p class="text-xs text-slate-400 dark:text-slate-500">Loading entries…</p>
@@ -1182,7 +1184,7 @@
     {#if nonPaygLoading}
       <LoadingIndicator class="mt-3" />
     {:else}
-      <Card class="mt-3 sm:overflow-x-auto">
+      <Card class="mt-3 sm:overflow-x-auto" pivotTable>
         <table class="block w-full border-collapse text-sm sm:table">
           <thead class="hidden sm:table-header-group">
             <tr class="border-b border-slate-200 dark:border-slate-700">
@@ -1311,7 +1313,7 @@
                 </tr>
               {:else}
                 <tr
-                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 sm:dark:border-slate-700/60"
+                  class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
                 >
                   <td class="px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400">
                     {formatDate(item.receivedOn)}
