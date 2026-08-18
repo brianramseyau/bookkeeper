@@ -416,17 +416,14 @@
                     />
                   </span>
                 </td>
-                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                <td
+                  class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+                >
                   <span
                     class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
                     >Category</span
                   >
-                  <CategorySelect
-                    {categories}
-                    value={sub.categoryId}
-                    onchange={(value) => handleCategoryChange(sub, value)}
-                    variant="table"
-                  />
+                  {categories.find((c) => c.id === sub.categoryId)?.name ?? 'Uncategorized'}
                 </td>
                 <td
                   class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
