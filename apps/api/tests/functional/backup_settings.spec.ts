@@ -17,22 +17,28 @@ test.group('BackupSettings / show', () => {
 
     response.assertStatus(200)
     assert.equal(response.body().data.enabled, true)
-    assert.equal(response.body().data.intervalHours, 24)
-    assert.equal(response.body().data.retentionDays, 7)
-    assert.equal(response.body().data.runHour, 1)
-    assert.isNull(response.body().data.lastRunAt)
+    assert.equal(response.body().data.frequency, 'daily')
+    assert.equal(response.body().data.timeOfDay, '01:00')
+    assert.equal(response.body().data.retentionCount, 7)
   })
 
   test('returns the existing schedule rather than resetting it', async ({ client, assert }) => {
     const adam = await loginAsAdam()
-    await BackupSetting.create({ id: 1, enabled: true, intervalHours: 12, retentionDays: 14 })
+    await BackupSetting.create({
+      id: 1,
+      enabled: true,
+      frequency: 'weekly',
+      timeOfDay: '03:00',
+      retentionCount: 14,
+    })
 
     const response = await client.get('/api/backup-settings').loginAs(adam)
 
     response.assertStatus(200)
     assert.equal(response.body().data.enabled, true)
-    assert.equal(response.body().data.intervalHours, 12)
-    assert.equal(response.body().data.retentionDays, 14)
+    assert.equal(response.body().data.frequency, 'weekly')
+    assert.equal(response.body().data.timeOfDay, '03:00')
+    assert.equal(response.body().data.retentionCount, 14)
   })
 })
 
@@ -44,39 +50,51 @@ test.group('BackupSettings / update', () => {
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ enabled: true, intervalHours: 48, retentionDays: 30, runHour: 3 })
+      .json({ enabled: true, frequency: 'monthly', timeOfDay: '03:30', retentionCount: 30 })
 
     response.assertStatus(200)
     assert.equal(response.body().data.enabled, true)
-    assert.equal(response.body().data.intervalHours, 48)
-    assert.equal(response.body().data.retentionDays, 30)
-    assert.equal(response.body().data.runHour, 3)
+    assert.equal(response.body().data.frequency, 'monthly')
+    assert.equal(response.body().data.timeOfDay, '03:30')
+    assert.equal(response.body().data.retentionCount, 30)
 
     const stored = await BackupSetting.findOrFail(1)
-    assert.equal(stored.intervalHours, 48)
-    assert.equal(stored.runHour, 3)
+    assert.equal(stored.frequency, 'monthly')
+    assert.equal(stored.timeOfDay, '03:30')
   })
 
-  test('rejects an out-of-range retentionDays', async ({ client }) => {
+  test('rejects an invalid frequency', async ({ client }) => {
     const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ enabled: true, intervalHours: 24, retentionDays: 0, runHour: 1 })
+      .json({ enabled: true, frequency: 'hourly', timeOfDay: '01:00', retentionCount: 7 })
 
     response.assertStatus(422)
   })
 
-  test('rejects an out-of-range runHour', async ({ client }) => {
+  test('rejects a malformed timeOfDay', async ({ client }) => {
     const adam = await loginAsAdam()
 
     const response = await client
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ enabled: true, intervalHours: 24, retentionDays: 7, runHour: 24 })
+      .json({ enabled: true, frequency: 'daily', timeOfDay: '25:00', retentionCount: 7 })
+
+    response.assertStatus(422)
+  })
+
+  test('rejects an out-of-range retentionCount', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client
+      .put('/api/backup-settings')
+      .withCsrfToken()
+      .loginAs(adam)
+      .json({ enabled: true, frequency: 'daily', timeOfDay: '01:00', retentionCount: 0 })
 
     response.assertStatus(422)
   })
@@ -88,7 +106,7 @@ test.group('BackupSettings / update', () => {
       .put('/api/backup-settings')
       .withCsrfToken()
       .loginAs(adam)
-      .json({ intervalHours: 24, retentionDays: 7, runHour: 1 })
+      .json({ frequency: 'daily', timeOfDay: '01:00', retentionCount: 7 })
 
     response.assertStatus(422)
   })

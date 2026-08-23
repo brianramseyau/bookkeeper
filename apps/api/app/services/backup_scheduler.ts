@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
-import BackupSetting from '#models/backup_setting'
-import { createBackup, purgeExpired } from '#services/backup_service'
+import BackupSetting, { type BackupFrequency } from '#models/backup_setting'
+import { createBackup, listBackups, pruneAutomaticBackups } from '#services/backup_service'
 
 /** The one settings row this app has - there's no per-user dimension to a backup schedule. */
 const SETTINGS_ID = 1
@@ -9,10 +9,9 @@ const SETTINGS_ID = 1
 /** Defaults mirror the migration's own column defaults - set explicitly here too so a freshly-created row's in-memory attributes are real JS values right away, not whatever SQLite's raw 0/1 comes back as before a re-fetch. */
 const DEFAULT_SETTINGS = {
   enabled: true,
-  intervalHours: 24,
-  retentionDays: 7,
-  runHour: 1,
-  lastRunAt: null,
+  frequency: 'daily' as BackupFrequency,
+  timeOfDay: '01:00',
+  retentionCount: 7,
 }
 
 export async function getBackupSettings(): Promise<BackupSetting> {
@@ -20,60 +19,102 @@ export async function getBackupSettings(): Promise<BackupSetting> {
 }
 
 /**
- * A fixed local-time reference instant, used only as the zero point for the
- * `intervalHours` slot arithmetic below - never compared against directly.
+ * Start of the current scheduling period as of `now` - e.g. for a daily
+ * 1am schedule checked at 1:04am, this is today at 1:00am; checked at
+ * 12:30am it's yesterday's 1:00am. Weekly anchors to Sunday, monthly to
+ * the 1st.
  */
-const SCHEDULE_EPOCH = { year: 2000, month: 1, day: 1 }
+export function currentPeriodStart(
+  frequency: BackupFrequency,
+  timeOfDay: string,
+  now: DateTime
+): DateTime {
+  const [hour, minute] = timeOfDay.split(':').map(Number)
 
-/**
- * Start of the most recent scheduled slot at or before `now`: every
- * `intervalHours` hours, anchored to `runHour` on `SCHEDULE_EPOCH`'s date so
- * slots land on a fixed clock time (e.g. 1am daily, or 1am/1pm for a
- * 12-hour interval) instead of drifting - unlike measuring elapsed time
- * since whenever the last run happened to fire, which walks around the
- * clock over many runs as each one's timestamp shifts by up to however late
- * the poll loop was.
- */
-function currentSlotStart(runHour: number, intervalHours: number, now: DateTime): DateTime {
-  const anchor = DateTime.local(
-    SCHEDULE_EPOCH.year,
-    SCHEDULE_EPOCH.month,
-    SCHEDULE_EPOCH.day,
-    runHour
-  )
-  const hoursSinceAnchor = now.diff(anchor, 'hours').hours
-  const slotIndex = Math.floor(hoursSinceAnchor / intervalHours)
-  return anchor.plus({ hours: slotIndex * intervalHours })
+  if (frequency === 'daily') {
+    const candidate = now.set({ hour, minute, second: 0, millisecond: 0 })
+    return candidate > now ? candidate.minus({ days: 1 }) : candidate
+  }
+
+  if (frequency === 'weekly') {
+    // Luxon weekday: 1 = Monday ... 7 = Sunday. Anchored on Sunday.
+    const today = now.set({ hour, minute, second: 0, millisecond: 0 })
+    const daysSinceSunday = today.weekday % 7
+    const candidate = today.minus({ days: daysSinceSunday })
+    return candidate > now ? candidate.minus({ weeks: 1 }) : candidate
+  }
+
+  const candidate = now.set({ day: 1, hour, minute, second: 0, millisecond: 0 })
+  return candidate > now ? candidate.minus({ months: 1 }) : candidate
 }
 
 /**
- * True when the schedule is on and `now` has reached (or passed) the start
- * of a scheduled slot that hasn't run yet.
+ * The most recent automatic backup's timestamp, or null if none exist yet -
+ * read straight off disk (via the backup filenames `listBackups` already
+ * parses) rather than tracked in a separate DB column, so it can never
+ * drift out of sync with what's actually there. This is what the old
+ * schedule got wrong: it stamped a `lastRunAt` column on every run and
+ * compared it against an hours-since-a-fixed-epoch "slot" calculation,
+ * which in production disagreed with itself across restarts/polls and fired
+ * a backup on every 15-minute poll instead of once a day.
+ */
+async function lastAutomaticBackupAt(): Promise<DateTime | null> {
+  const allBackups = await listBackups()
+  const automatic = allBackups.filter((backup) => backup.source === 'automatic')
+  return automatic[0]?.createdAt ?? null
+}
+
+/**
+ * Due at most once per period: fires as soon as `now` reaches the period's
+ * scheduled time, and stays "not due" once the last automatic backup
+ * catches up to it. If no automatic backup has ever run, waits for the
+ * first period boundary *after* the schedule was created rather than
+ * backdating to whatever the current period's start happens to be -
+ * otherwise a freshly-created schedule (e.g. this instance's first-ever
+ * startup) would see a stale, already-elapsed period as "due" and fire
+ * immediately, however far that is from the configured time of day.
  */
 export function isBackupDue(
-  settings: Pick<BackupSetting, 'enabled' | 'intervalHours' | 'runHour' | 'lastRunAt'>,
-  now: DateTime
+  settings: { enabled: boolean; frequency: BackupFrequency; timeOfDay: string },
+  lastAutomaticAt: DateTime | null,
+  now: DateTime,
+  scheduleCreatedAt: DateTime | null = null
 ): boolean {
   if (!settings.enabled) return false
-  if (!settings.lastRunAt) return true
-  const slotStart = currentSlotStart(settings.runHour, settings.intervalHours, now)
-  return settings.lastRunAt < slotStart
+
+  const periodStart = currentPeriodStart(settings.frequency, settings.timeOfDay, now)
+  if (lastAutomaticAt) return lastAutomaticAt < periodStart
+  return !scheduleCreatedAt || periodStart >= scheduleCreatedAt
 }
 
 /**
- * Runs a backup (and purges expired ones) if the schedule says it's due.
- * Swallows and logs its own errors so a failed backup never crashes the
- * periodic scheduler loop that calls this.
+ * Runs a backup (and prunes down to the retention count) if the schedule
+ * says it's due. Swallows and logs its own errors so a failed backup never
+ * crashes the periodic scheduler loop that calls this.
  */
 export async function runDueBackupCheck(now: DateTime = DateTime.utc()): Promise<void> {
   const settings = await getBackupSettings()
-  if (!isBackupDue(settings, now)) return
 
+  // Everything below - including `lastAutomaticBackupAt`'s own disk read -
+  // goes through this one try/catch, not just the backup/prune calls: a
+  // read failure there is just as much "the scheduled check couldn't
+  // complete" as a failed backup, and must never crash the periodic loop
+  // that calls this either.
   try {
+    const due = isBackupDue(
+      {
+        enabled: settings.enabled,
+        frequency: settings.frequency as BackupFrequency,
+        timeOfDay: settings.timeOfDay,
+      },
+      await lastAutomaticBackupAt(),
+      now,
+      settings.createdAt
+    )
+    if (!due) return
+
     await createBackup(now)
-    await purgeExpired(settings.retentionDays, now)
-    settings.lastRunAt = now
-    await settings.save()
+    await pruneAutomaticBackups(settings.retentionCount)
   } catch (error) {
     logger.error({ err: error }, 'Scheduled backup failed')
   }

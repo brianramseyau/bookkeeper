@@ -1,12 +1,13 @@
 import { api } from '$lib/api'
 
+export type BackupFrequency = 'daily' | 'weekly' | 'monthly'
+
 export interface BackupSettings {
   id: number
   enabled: boolean
-  intervalHours: number
-  retentionDays: number
-  runHour: number
-  lastRunAt: string | null
+  frequency: BackupFrequency
+  timeOfDay: string
+  retentionCount: number
   createdAt: string
   updatedAt: string | null
 }
@@ -17,9 +18,9 @@ export function getBackupSettings() {
 
 export interface UpdateBackupSettingsPayload {
   enabled: boolean
-  intervalHours: number
-  retentionDays: number
-  runHour: number
+  frequency: BackupFrequency
+  timeOfDay: string
+  retentionCount: number
 }
 
 export function updateBackupSettings(payload: UpdateBackupSettingsPayload) {
