@@ -63,8 +63,8 @@ function timestampedFilename(now: DateTime, source: BackupSource): string {
 /**
  * The timestamp encoded in a backup's own filename - used instead of the
  * file's filesystem mtime, which a copy/restore/sync could easily change
- * to "now" and which `purgeExpired` needs to stay tied to when the backup
- * actually ran.
+ * to "now", and which the backup schedule (`#services/backup_scheduler`)
+ * needs to stay tied to when the backup actually ran.
  */
 function timestampFromFilename(filename: string): DateTime {
   const match = FILENAME_PATTERN.exec(filename)!
@@ -148,20 +148,19 @@ export function resolveBackupPath(filename: string): string | null {
 }
 
 /**
- * Deletes automatic backups older than `retentionDays`. Manual backups are
- * exempt from retention entirely - someone who clicks "Backup now" is
- * making a deliberate snapshot, not participating in the rolling schedule,
- * so it stays until explicitly deleted.
+ * Keeps only the newest `retentionCount` automatic backups, deleting the
+ * rest. Manual backups are exempt from retention entirely - someone who
+ * clicks "Backup now" is making a deliberate snapshot, not participating in
+ * the rolling schedule, so it stays until explicitly deleted. Pruning by
+ * count rather than by age also means retention needs nothing but the
+ * backup files themselves - no separately-tracked "last run" state that
+ * could drift out of sync with what's actually on disk (see
+ * `#services/backup_scheduler`).
  */
-export async function purgeExpired(
-  retentionDays: number,
-  now: DateTime = DateTime.utc()
-): Promise<number> {
-  const cutoff = now.minus({ days: retentionDays })
+export async function pruneAutomaticBackups(retentionCount: number): Promise<number> {
   const allBackups = await listBackups()
-  const expired = allBackups.filter(
-    (backup) => backup.source === 'automatic' && backup.createdAt < cutoff
-  )
-  await Promise.all(expired.map((backup) => deleteBackup(backup.filename)))
-  return expired.length
+  const automatic = allBackups.filter((backup) => backup.source === 'automatic')
+  const excess = automatic.slice(retentionCount)
+  await Promise.all(excess.map((backup) => deleteBackup(backup.filename)))
+  return excess.length
 }

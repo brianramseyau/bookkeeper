@@ -11,12 +11,17 @@ describe('backup settings api', () => {
   })
 
   it('updates the backup schedule', () => {
-    updateBackupSettings({ enabled: true, intervalHours: 24, retentionDays: 7, runHour: 1 })
+    updateBackupSettings({
+      enabled: true,
+      frequency: 'daily',
+      timeOfDay: '01:00',
+      retentionCount: 7,
+    })
     expect(api.put).toHaveBeenCalledWith('/backup-settings', {
       enabled: true,
-      intervalHours: 24,
-      retentionDays: 7,
-      runHour: 1,
+      frequency: 'daily',
+      timeOfDay: '01:00',
+      retentionCount: 7,
     })
   })
 })

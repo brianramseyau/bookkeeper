@@ -6,10 +6,9 @@ export default class BackupSettingTransformer extends BaseTransformer<BackupSett
     return {
       ...this.pick(this.resource, [
         'id',
-        'intervalHours',
-        'retentionDays',
-        'runHour',
-        'lastRunAt',
+        'frequency',
+        'timeOfDay',
+        'retentionCount',
         'createdAt',
         'updatedAt',
       ]),

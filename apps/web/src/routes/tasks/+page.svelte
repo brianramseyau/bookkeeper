@@ -3,6 +3,7 @@
   import {
     getBackupSettings,
     updateBackupSettings,
+    type BackupFrequency,
     type BackupSettings,
   } from '$lib/api/backup-settings'
   import {
@@ -28,12 +29,10 @@
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import { mdiDelete } from '@mdi/js'
 
-  const INTERVAL_OPTIONS = [
-    { value: 6, label: 'Every 6 hours' },
-    { value: 12, label: 'Every 12 hours' },
-    { value: 24, label: 'Daily' },
-    { value: 48, label: 'Every 2 days' },
-    { value: 168, label: 'Weekly' },
+  const FREQUENCY_OPTIONS: { value: BackupFrequency; label: string }[] = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly (Sunday)' },
+    { value: 'monthly', label: 'Monthly (1st)' },
   ]
 
   const EXPORT_TABLES: { key: string; label: string }[] = [
@@ -50,9 +49,9 @@
 
   let settings = $state<BackupSettings | null>(null)
   let enabled = $state(true)
-  let intervalHours = $state(24)
-  let retentionDays = $state(7)
-  let runHour = $state(1)
+  let frequency = $state<BackupFrequency>('daily')
+  let timeOfDay = $state('01:00')
+  let retentionCount = $state(7)
   let settingsLoading = $state(true)
   let settingsError = $state<string | null>(null)
   let savingSettings = $state(false)
@@ -66,6 +65,11 @@
 
   const automaticBackups = $derived(backups.filter((b) => b.source === 'automatic'))
   const manualBackups = $derived(backups.filter((b) => b.source === 'manual'))
+  // Driven by the file list (the most recent backup of any source), not a
+  // separate "last run" field on the schedule - there isn't one, since due-
+  // ness is derived from the backup files themselves (see
+  // #services/backup_scheduler on the API).
+  const lastBackup = $derived(backups[0] ?? null)
 
   const SEND_HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
     value: hour,
@@ -91,9 +95,9 @@
     try {
       settings = await getBackupSettings()
       enabled = settings.enabled
-      intervalHours = settings.intervalHours
-      retentionDays = settings.retentionDays
-      runHour = settings.runHour
+      frequency = settings.frequency
+      timeOfDay = settings.timeOfDay
+      retentionCount = settings.retentionCount
     } catch (err) {
       settingsError = err instanceof ApiError ? err.message : 'Failed to load backup schedule'
     } finally {
@@ -119,7 +123,7 @@
     settingsError = null
     settingsSaved = false
     try {
-      settings = await updateBackupSettings({ enabled, intervalHours, retentionDays, runHour })
+      settings = await updateBackupSettings({ enabled, frequency, timeOfDay, retentionCount })
       settingsSaved = true
     } catch (err) {
       settingsError = err instanceof ApiError ? err.message : 'Failed to save backup schedule'
@@ -192,8 +196,8 @@
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Backup schedule</h2>
 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-  Automatically snapshot the database on a schedule. Old backups past the retention window are
-  deleted automatically.
+  Automatically snapshot the database on a schedule. Only the newest automated backups (up to
+  "Backups to keep") are kept - older ones are deleted automatically.
 </p>
 
 {#if settingsError}
@@ -221,41 +225,38 @@
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Frequency</span>
       <select
-        bind:value={intervalHours}
+        bind:value={frequency}
         class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       >
-        {#each INTERVAL_OPTIONS as option (option.value)}
+        {#each FREQUENCY_OPTIONS as option (option.value)}
           <option value={option.value}>{option.label}</option>
         {/each}
       </select>
     </label>
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Keep for (days)</span>
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Time of day</span>
       <input
-        type="number"
-        min="1"
-        max="365"
-        bind:value={retentionDays}
-        class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        type="time"
+        bind:value={timeOfDay}
+        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Run at</span>
-      <select
-        bind:value={runHour}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-      >
-        {#each SEND_HOUR_OPTIONS as option (option.value)}
-          <option value={option.value}>{option.label}</option>
-        {/each}
-      </select>
+      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Backups to keep</span>
+      <input
+        type="number"
+        min="1"
+        max="60"
+        bind:value={retentionCount}
+        class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
     </label>
     <PrimaryButton type="submit" disabled={savingSettings}>
       {savingSettings ? 'Saving…' : 'Save'}
     </PrimaryButton>
-    {#if settings?.lastRunAt}
+    {#if lastBackup}
       <span class="text-xs text-slate-400 dark:text-slate-500">
-        Last backup: {formatDateTime(settings.lastRunAt)}
+        Last backup: {formatDateTime(lastBackup.createdAt)}
       </span>
     {/if}
   </form>
@@ -319,7 +320,7 @@
 
   <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-slate-100">Manual backups</h3>
   <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-    Not subject to the retention window above - kept until you delete them yourself.
+    Not subject to the "Backups to keep" limit above - kept until you delete them yourself.
   </p>
   {#if manualBackups.length === 0}
     <p class="mt-2 text-sm text-slate-400 dark:text-slate-500">No manual backups yet</p>

@@ -24,11 +24,10 @@ export default class BackupsController {
   }
 
   /**
-   * Manual "Backup Now" - deliberately does not touch the automatic
-   * schedule's `lastRunAt`. It used to, which meant every manual click
-   * pushed the next automatic backup out to "24h from now", so the
-   * automatic cadence drifted to whenever someone last happened to click
-   * the button instead of running on a stable schedule.
+   * Manual "Backup Now" - writes a `manual`-tagged file, which the
+   * automatic schedule never looks at (see `lastAutomaticBackupAt` in
+   * `#services/backup_scheduler`), so a manual click can never push the
+   * next automatic backup's due time out or suppress it.
    */
   async store({ response }: HttpContext) {
     const backup = await createBackup(DateTime.utc(), 'manual')

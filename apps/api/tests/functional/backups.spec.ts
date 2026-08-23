@@ -52,30 +52,27 @@ test.group('Backups / store', (group) => {
     assert.equal(response.body().data.source, 'manual')
   })
 
-  test('does not touch the automatic schedule or purge automatic backups', async ({
+  test('does not touch the automatic schedule or prune automatic backups', async ({
     client,
     assert,
   }) => {
     const adam = await loginAsAdam()
+    // Retention count of 0 means any due check would prune every automatic
+    // backup - a manual "Backup now" click must not trigger that.
     const oldAutomatic = await createBackup(DateTime.utc().minus({ days: 10 }))
     await BackupSetting.firstOrCreate(
       { id: 1 },
-      { enabled: false, intervalHours: 24, retentionDays: 7 }
+      { enabled: false, frequency: 'daily', timeOfDay: '01:00', retentionCount: 0 }
     )
 
     const response = await client.post('/api/backups').withCsrfToken().loginAs(adam)
 
     response.assertStatus(201)
-    // The 10-day-old automatic backup is past retentionDays 7, but a manual
-    // "Backup now" click must not purge it or otherwise touch the schedule.
     const listResponse = await client.get('/api/backups').loginAs(adam)
     assert.lengthOf(listResponse.body().data, 2)
     const filenames = listResponse.body().data.map((b: { filename: string }) => b.filename)
     assert.include(filenames, oldAutomatic.filename)
     assert.include(filenames, response.body().data.filename)
-
-    const reloaded = await BackupSetting.findOrFail(1)
-    assert.isNull(reloaded.lastRunAt)
   })
 })
 

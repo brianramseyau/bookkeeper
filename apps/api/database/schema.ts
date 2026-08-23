@@ -11,11 +11,10 @@ export class BackupSettingSchema extends BaseModel {
   static $columns = [
     'createdAt',
     'enabled',
+    'frequency',
     'id',
-    'intervalHours',
-    'lastRunAt',
-    'retentionDays',
-    'runHour',
+    'retentionCount',
+    'timeOfDay',
     'updatedAt',
   ] as const
   $columns = BackupSettingSchema.$columns
@@ -23,16 +22,14 @@ export class BackupSettingSchema extends BaseModel {
   declare createdAt: DateTime
   @column()
   declare enabled: boolean
+  @column()
+  declare frequency: string
   @column({ isPrimary: true })
   declare id: number
   @column()
-  declare intervalHours: number
-  @column.dateTime()
-  declare lastRunAt: DateTime | null
+  declare retentionCount: number
   @column()
-  declare retentionDays: number
-  @column()
-  declare runHour: number
+  declare timeOfDay: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

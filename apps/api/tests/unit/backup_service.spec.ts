@@ -7,7 +7,7 @@ import {
   deleteBackup,
   isBackupFilename,
   listBackups,
-  purgeExpired,
+  pruneAutomaticBackups,
   resolveBackupPath,
 } from '#services/backup_service'
 
@@ -128,26 +128,28 @@ test.group('BackupService', (group) => {
     assert.isNull(resolveBackupPath('../../etc/passwd'))
   })
 
-  test('purgeExpired deletes only automatic backups older than retentionDays', async ({
+  test('pruneAutomaticBackups deletes only the oldest automatic backups past the retention count', async ({
     assert,
   }) => {
     const now = DateTime.utc(2026, 7, 28, 12, 0, 0)
     await createBackup(now.minus({ days: 10 }))
     await createBackup(now.minus({ days: 1 }))
 
-    const removed = await purgeExpired(7, now)
+    const removed = await pruneAutomaticBackups(1)
 
     assert.equal(removed, 1)
     const remaining = await listBackups()
     assert.lengthOf(remaining, 1)
-    assert.isTrue(remaining[0]!.createdAt >= now.minus({ days: 7 }))
+    assert.equal(remaining[0]!.createdAt.toMillis(), now.minus({ days: 1 }).toMillis())
   })
 
-  test('purgeExpired never removes manual backups, however old', async ({ assert }) => {
+  test('pruneAutomaticBackups never removes manual backups, however many exist', async ({
+    assert,
+  }) => {
     const now = DateTime.utc(2026, 7, 28, 12, 0, 0)
     await createBackup(now.minus({ days: 10 }), 'manual')
 
-    const removed = await purgeExpired(7, now)
+    const removed = await pruneAutomaticBackups(0)
 
     assert.equal(removed, 0)
     assert.lengthOf(await listBackups(), 1)

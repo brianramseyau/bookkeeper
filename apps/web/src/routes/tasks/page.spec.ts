@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte'
+import { fireEvent, render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
@@ -34,10 +34,9 @@ vi.mock('$lib/api/notification-schedule', () => ({
 const defaultSettings: BackupSettings = {
   id: 1,
   enabled: false,
-  intervalHours: 24,
-  retentionDays: 7,
-  runHour: 1,
-  lastRunAt: null,
+  frequency: 'daily',
+  timeOfDay: '01:00',
+  retentionCount: 7,
   createdAt: '2026-01-01T00:00:00.000+00:00',
   updatedAt: null,
 }
@@ -79,9 +78,8 @@ describe('tasks page', () => {
     vi.mocked(getBackupSettings).mockResolvedValue({
       ...defaultSettings,
       enabled: true,
-      intervalHours: 12,
-      retentionDays: 14,
-      lastRunAt: '2026-01-27T03:00:00.000+00:00',
+      frequency: 'weekly',
+      retentionCount: 14,
     })
     vi.mocked(listBackups).mockResolvedValue([backupA])
 
@@ -131,24 +129,24 @@ describe('tasks page', () => {
     vi.mocked(updateBackupSettings).mockResolvedValue({
       ...defaultSettings,
       enabled: true,
-      intervalHours: 48,
-      retentionDays: 30,
+      frequency: 'weekly',
+      retentionCount: 30,
     })
     const user = userEvent.setup()
     render(TasksPage)
 
     await user.click(await screen.findByRole('checkbox', { name: 'Enabled' }))
-    await user.selectOptions(screen.getByLabelText('Frequency'), '48')
-    await user.clear(screen.getByLabelText('Keep for (days)'))
-    await user.type(screen.getByLabelText('Keep for (days)'), '30')
-    await user.selectOptions(screen.getByLabelText('Run at'), '1')
+    await user.selectOptions(screen.getByLabelText('Frequency'), 'weekly')
+    await fireEvent.input(screen.getByLabelText('Time of day'), { target: { value: '03:30' } })
+    await user.clear(screen.getByLabelText('Backups to keep'))
+    await user.type(screen.getByLabelText('Backups to keep'), '30')
     await user.click(screen.getAllByRole('button', { name: 'Save' })[0]!)
 
     expect(updateBackupSettings).toHaveBeenCalledWith({
       enabled: true,
-      intervalHours: 48,
-      retentionDays: 30,
-      runHour: 1,
+      frequency: 'weekly',
+      timeOfDay: '03:30',
+      retentionCount: 30,
     })
     expect(await screen.findByText('Saved.')).toBeInTheDocument()
   })

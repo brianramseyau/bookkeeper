@@ -276,24 +276,27 @@ income entry.
 
 ### Built-in backups (recommended)
 
-**On by default** - a daily backup with a 7-day retention window starts
+**On by default** - a daily backup at 1am, keeping the newest 7, starts
 automatically the first time the app runs, no setup required. The
 **Tasks** page (`/tasks`) has a **Backup schedule** section where you can
-adjust the interval (every 6/12/24/48 hours, or weekly), the retention
-window in days, or turn it off entirely - backups past the retention
-window are purged automatically. Backups are written to
-`/app/data/backups` (a `backups` subfolder next to the database), using
-SQLite's own online backup API for a consistent snapshot even while the
-app is running and writing - so this needs no cron job, sidecar
-container, or stopping the app. The schedule runs in the same Node
-process that serves the app, checked periodically, so it only fires while
-the container is actually running.
+adjust the frequency (daily, weekly on Sunday, or monthly on the 1st),
+the time of day it runs, how many backups to keep, or turn it off
+entirely - once more than that many automated backups exist, the oldest
+are purged automatically. Backups are written to `/app/data/backups` (a
+`backups` subfolder next to the database), using SQLite's own online
+backup API for a consistent snapshot even while the app is running and
+writing - so this needs no cron job, sidecar container, or stopping the
+app. The schedule runs in the same Node process that serves the app,
+checked periodically, so it only fires while the container is actually
+running. Due-ness is worked out from the timestamps of the backup files
+already on disk, not a separately-tracked "last run" value, so it can't
+drift out of sync with what's actually there.
 
 Below the schedule, the backup list is split into two sections. **Automated
 backups** are the ones the schedule above produced, and only those count
-against the retention window. **Manual backups** are made with the
+against "Backups to keep". **Manual backups** are made with the
 **Backup now** button - a deliberate, one-off snapshot that's exempt from
-retention and kept until you delete it yourself, and doesn't affect when
+that limit and kept until you delete it yourself, and doesn't affect when
 the next automated backup runs. Each row has **Download** and **Delete**
 actions.
 
