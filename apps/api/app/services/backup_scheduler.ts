@@ -92,7 +92,7 @@ export function isBackupDue(
  * says it's due. Swallows and logs its own errors so a failed backup never
  * crashes the periodic scheduler loop that calls this.
  */
-export async function runDueBackupCheck(now: DateTime = DateTime.utc()): Promise<void> {
+export async function runDueBackupCheck(now: DateTime = DateTime.local()): Promise<void> {
   const settings = await getBackupSettings()
 
   // Everything below - including `lastAutomaticBackupAt`'s own disk read -
@@ -113,7 +113,13 @@ export async function runDueBackupCheck(now: DateTime = DateTime.utc()): Promise
     )
     if (!due) return
 
-    await createBackup(now)
+    // `now` is deliberately local (see the default param above) so "Time of
+    // day" is interpreted in the container's TZ, matching the notification
+    // schedule (#services/notification_scheduler) - but the backup's own
+    // stored timestamp/filename must stay a plain UTC instant, since
+    // `timestampFromFilename` (#services/backup_service) parses it back as
+    // UTC regardless of what zone produced it.
+    await createBackup(now.toUTC())
     await pruneAutomaticBackups(settings.retentionCount)
   } catch (error) {
     logger.error({ err: error }, 'Scheduled backup failed')
