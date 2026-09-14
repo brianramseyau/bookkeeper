@@ -312,16 +312,27 @@ been merged:
 3. **Ask the owner before committing, and ask again before pushing and
    opening the PR** (`gh pr create`) — see Courtesy above; this applies
    per-phase, not just once for the whole plan.
-4. **Wait for CI** (`.github/workflows/ci.yml`'s four jobs — lint,
-   typecheck, test, e2e) to finish on the PR before treating it as done.
-   This repo has no automated code-review bot — a PR's only checks are
-   those four jobs, and the owner reviews the diff itself; there's no
-   separate "check passed but the review didn't" gap to watch for here.
-5. **Address any comments the owner leaves on the PR**, then merge only
-   with their explicit confirmation.
-6. **Close out**: tick the phase doc's acceptance criteria, note any
+4. **Wait for all PR checks to finish**: `.github/workflows/ci.yml`'s four
+   jobs (lint, typecheck, test, e2e) plus **Kilo Code Review**. Don't treat
+   "pending" as done.
+5. **A green Kilo check is not proof there's nothing to fix.** Kilo's
+   check can pass while its review still has critical, unaddressed
+   comments. Once the checks are green, fetch and read every review
+   comment: `gh api repos/<owner>/<repo>/pulls/<n>/comments`, and also
+   `gh pr view <n> --comments` for top-level review bodies.
+6. **Handle each comment on its own diff line**, whether it's from Kilo or
+   the owner. Fix it, or decide deliberately not to. Then reply on that
+   specific thread saying what changed, or why nothing changed
+   (`gh api repos/<owner>/<repo>/pulls/<n>/comments/<id>/replies`).
+7. **Resolve each thread individually** after replying, via
+   `gh api graphql` and the `resolveReviewThread` mutation. Never post one
+   consolidated "here's everything I fixed" reply. A fix that adds commits
+   goes back through steps 2–4 (ask before each commit and push), and any
+   new comments from the re-run review get the same treatment.
+8. **Close out**: tick the phase doc's acceptance criteria, note any
    deviations, and update DESIGN.md's decisions log if the phase changed a
-   design decision. Start the next phase from an updated `main`.
+   design decision. Merge only with the owner's explicit confirmation.
+   Start the next phase from an updated `main`.
 
 ## Testing
 

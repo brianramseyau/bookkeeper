@@ -40,16 +40,18 @@ Goal: a calm, purposeful and consistent app on the same stack as home-work-hours
 
 ## Per-phase workflow: checks and reviews
 
-Every phase goes through these steps. The next phase does not start until step 6 is done. The full rules are in [AGENTS.md](../AGENTS.md#checks-and-reviews-multi-phase-plans).
+Every phase goes through these steps. The next phase does not start until step 8 is done. The full rules are in [AGENTS.md](../AGENTS.md#checks-and-reviews-multi-phase-plans).
 
 1. **Branch:** one branch per phase, named after its doc (e.g. `phase-03-unified-outgoings`). Never work on `main`.
 2. **Local gate:**
    - `pnpm verify`, `pnpm test:e2e` and API coverage at 100% all pass.
    - For a UI-touching phase, screenshots are taken at 390px and 1440px, light and dark, en-AU, and reviewed against DESIGN.md with `/frontend-design`.
 3. **Ask the owner** before committing, and again before pushing and opening the PR.
-4. **Wait for CI** (`.github/workflows/ci.yml`'s lint/typecheck/test/e2e jobs) to finish on the PR. This repo has no automated review bot — the owner reviews the diff directly.
-5. **Address any comments the owner leaves on the PR.**
-6. **Tick the phase doc** and log deviations, updating DESIGN.md's decisions log if the phase changed a design decision. Merge only with the owner's confirmation.
+4. **Wait for all PR checks** to finish: CI (`.github/workflows/ci.yml`'s lint/typecheck/test/e2e jobs) plus **Kilo Code Review**.
+5. **A green Kilo check is not proof there's nothing to fix.** Kilo's check can pass while its review still has critical, unaddressed comments — fetch and read every review comment once checks are green (`gh api repos/<owner>/<repo>/pulls/<n>/comments`, `gh pr view <n> --comments`).
+6. **Handle each comment on its own diff line**, Kilo's or the owner's. Fix it, or decide deliberately not to, then reply on that specific thread with what changed or why nothing did.
+7. **Resolve each thread individually** after replying (`gh api graphql`'s `resolveReviewThread`). Never post one consolidated reply. New commits from a fix go back through steps 2–4.
+8. **Tick the phase doc** and log deviations, updating DESIGN.md's decisions log if the phase changed a design decision. Merge only with the owner's confirmation.
 
 ## Verification (every phase)
 
