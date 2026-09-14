@@ -38,8 +38,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
-  import SecondaryButton from '$lib/components/SecondaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
   import PieChart, { type PieSlice } from '$lib/components/PieChart.svelte'
@@ -864,9 +863,9 @@
   {#if selectedUserId !== null}
     <div class="mt-6 flex items-center justify-between">
       <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income sources</h2>
-      <SecondaryButton onclick={toggleAddSource}>
+      <Button variant="outline" onclick={toggleAddSource}>
         {showAddSource ? 'Cancel' : 'Add source'}
-      </SecondaryButton>
+      </Button>
     </div>
 
     {#if showAddSource}
@@ -947,9 +946,9 @@
           />
           Tax withheld (PAYG)
         </label>
-        <PrimaryButton type="submit" disabled={creating}>
+        <Button type="submit" disabled={creating}>
           {creating ? 'Adding…' : 'Add income source'}
-        </PrimaryButton>
+        </Button>
       </form>
     {/if}
 
@@ -1240,9 +1239,9 @@
                 class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
-            <PrimaryButton size="sm" onclick={saveMarginalRate} disabled={savingMarginalRate}>
+            <Button size="sm" onclick={saveMarginalRate} disabled={savingMarginalRate}>
               {savingMarginalRate ? 'Saving…' : 'Save'}
-            </PrimaryButton>
+            </Button>
           </div>
         {/if}
         <ActionMenu
@@ -1293,8 +1292,8 @@
           defaultReceivedOnToday
         >
           {#snippet footerActions()}
-            <SecondaryButton type="button" onclick={() => (showAddSalary = false)}
-              >Cancel</SecondaryButton
+            <Button variant="outline" type="button" onclick={() => (showAddSalary = false)}
+              >Cancel</Button
             >
           {/snippet}
         </IncomeEntryForm>
@@ -1346,11 +1345,11 @@
           </label>
         </div>
         <div class="mt-3 flex items-center gap-3">
-          <PrimaryButton type="submit" disabled={addingItem}>
+          <Button type="submit" disabled={addingItem}>
             {addingItem ? 'Adding…' : 'Add item'}
-          </PrimaryButton>
-          <SecondaryButton type="button" onclick={() => (showAddOther = false)}
-            >Cancel</SecondaryButton
+          </Button>
+          <Button variant="outline" type="button" onclick={() => (showAddOther = false)}
+            >Cancel</Button
           >
         </div>
       </form>

@@ -17,8 +17,8 @@ describe('Card', () => {
     const { container } = render(Card, { children: childrenSnippet })
     const div = container.querySelector('div')
     expect(div?.className).toContain('rounded-xl')
-    expect(div?.className).toContain('border-slate-200')
-    expect(div?.className).toContain('dark:bg-slate-800')
+    expect(div?.className).toContain('border-border')
+    expect(div?.className).toContain('bg-card')
   })
 
   it('appends extra classes passed via the class prop', () => {
@@ -48,28 +48,23 @@ describe('Card', () => {
     expect(classes).toContain('bg-transparent')
     expect(classes).toContain('border-0')
     expect(classes).toContain('rounded-none')
-    expect(classes).toContain('shadow-none')
-    expect(classes).not.toContain('bg-white')
-    expect(classes).not.toContain('dark:bg-slate-800')
+    expect(classes).not.toContain('bg-card')
   })
 
   it('restores the card chrome at sm when pivotTable is set', () => {
     const { container } = render(Card, { children: childrenSnippet, pivotTable: true })
     const div = container.querySelector('div')
     const classes = div?.className.split(/\s+/)
-    expect(classes).toContain('sm:bg-white')
-    expect(classes).toContain('sm:border-slate-200')
+    expect(classes).toContain('sm:bg-card')
+    expect(classes).toContain('sm:border-border')
     expect(classes).toContain('sm:rounded-xl')
-    expect(classes).toContain('sm:shadow-sm')
-    expect(classes).toContain('sm:dark:bg-slate-800')
-    expect(classes).toContain('sm:dark:border-slate-800')
   })
 
   it('keeps the full card chrome at every size by default', () => {
     const { container } = render(Card, { children: childrenSnippet })
     const div = container.querySelector('div')
     const classes = div?.className.split(/\s+/)
-    expect(classes).toContain('bg-white')
+    expect(classes).toContain('bg-card')
     expect(classes).not.toContain('bg-transparent')
   })
 })

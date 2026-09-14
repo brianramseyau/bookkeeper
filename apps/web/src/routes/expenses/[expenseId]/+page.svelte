@@ -25,7 +25,7 @@
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
   import CategorySelect from '$lib/components/CategorySelect.svelte'
@@ -462,9 +462,9 @@
         class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <PrimaryButton type="submit" disabled={creatingItem}>
+    <Button type="submit" disabled={creatingItem}>
       {creatingItem ? 'Adding…' : 'Add item'}
-    </PrimaryButton>
+    </Button>
   </form>
 
   <h2 class="mt-8 mb-3 text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -621,8 +621,8 @@
         class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <PrimaryButton type="submit" disabled={creating}>
+    <Button type="submit" disabled={creating}>
       {creating ? 'Adding…' : 'Add entry'}
-    </PrimaryButton>
+    </Button>
   </form>
 {/if}

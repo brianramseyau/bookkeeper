@@ -14,7 +14,7 @@
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import TrendIndicator from '$lib/components/TrendIndicator.svelte'
 
   interface Row {
@@ -174,8 +174,8 @@
       bind:value={newUtilityName}
       class="max-w-xs flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
     />
-    <PrimaryButton type="submit" size="lg" disabled={creating}>
+    <Button type="submit" size="lg" disabled={creating}>
       {creating ? 'Adding…' : 'Add utility'}
-    </PrimaryButton>
+    </Button>
   </form>
 {/if}

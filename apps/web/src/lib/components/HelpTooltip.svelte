@@ -17,7 +17,7 @@
     aria-label={label}
     title={text}
     class={[
-      'inline-flex shrink-0 items-center justify-center text-amber-500 transition-colors hover:text-amber-600 dark:text-amber-400 dark:hover:text-amber-300',
+      'text-due inline-flex shrink-0 items-center justify-center transition-colors hover:opacity-75',
       className,
     ]}
   >
@@ -32,11 +32,7 @@
        the explanation is announced (implicit aria-live="polite") the moment it
        appears, which is what actually matters on a phone with no hover state
        to reveal a native title tooltip. -->
-  <PopoverContent
-    role="status"
-    align="center"
-    class="w-56 border-amber-200 bg-white p-2 text-xs font-normal text-slate-700 shadow-lg dark:border-amber-800 dark:bg-slate-800 dark:text-slate-200"
-  >
+  <PopoverContent role="status" align="center" class="border-due/30 w-56 p-2 text-xs">
     {text}
   </PopoverContent>
 </Popover>

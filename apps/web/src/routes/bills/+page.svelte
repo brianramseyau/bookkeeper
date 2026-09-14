@@ -16,7 +16,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import {
@@ -876,8 +876,8 @@
         class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <PrimaryButton type="submit" disabled={creating}>
+    <Button type="submit" disabled={creating}>
       {creating ? 'Adding…' : 'Add bill'}
-    </PrimaryButton>
+    </Button>
   </form>
 {/if}

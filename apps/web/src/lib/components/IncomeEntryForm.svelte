@@ -3,7 +3,7 @@
   import type { IncomeSource } from '$lib/api/income'
   import type { UserSummary } from '$lib/api/users'
   import { todayISO } from '$lib/format'
-  import PrimaryButton from './PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
 
   export interface IncomeEntryFormValues {
     incomeSourceId: number | null
@@ -175,20 +175,14 @@
   {/if}
   {#if submitOnOwnLine}
     <div class="mt-3 flex basis-full items-center gap-3">
-      <PrimaryButton
-        type="submit"
-        disabled={submitting || (!allowUnattributed && sources.length === 0)}
-      >
+      <Button type="submit" disabled={submitting || (!allowUnattributed && sources.length === 0)}>
         {submitting ? 'Logging…' : 'Log income'}
-      </PrimaryButton>
+      </Button>
       {@render footerActions?.()}
     </div>
   {:else}
-    <PrimaryButton
-      type="submit"
-      disabled={submitting || (!allowUnattributed && sources.length === 0)}
-    >
+    <Button type="submit" disabled={submitting || (!allowUnattributed && sources.length === 0)}>
       {submitting ? 'Logging…' : 'Log income'}
-    </PrimaryButton>
+    </Button>
   {/if}
 </form>

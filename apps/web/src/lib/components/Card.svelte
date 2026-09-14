@@ -13,10 +13,12 @@
 
   let { class: className = '', href, pivotTable = false, children }: Props = $props()
 
+  // Cards are `surface` with a `rule` border and no shadow - only floating
+  // surfaces (menus, sheets, dialogs) get elevation. See DESIGN.md → Layout.
   const base = $derived(
     pivotTable
-      ? 'rounded-none border-0 bg-transparent shadow-none sm:rounded-xl sm:border sm:border-slate-200 sm:bg-white sm:shadow-sm sm:dark:border-slate-800 sm:dark:bg-slate-800'
-      : 'rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-800'
+      ? 'rounded-none border-0 bg-transparent sm:rounded-xl sm:border sm:border-border sm:bg-card'
+      : 'rounded-xl border border-border bg-card'
   )
 </script>
 

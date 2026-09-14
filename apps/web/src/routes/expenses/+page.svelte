@@ -17,7 +17,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
@@ -864,8 +864,8 @@
       bind:value={newName}
       class="max-w-xs flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
     />
-    <PrimaryButton type="submit" size="lg" disabled={creating}>
+    <Button type="submit" size="lg" disabled={creating}>
       {creating ? 'Adding…' : 'Add expense'}
-    </PrimaryButton>
+    </Button>
   </form>
 {/if}

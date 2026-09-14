@@ -37,16 +37,21 @@ describe('IconActionButton', () => {
       path: mdiPencil,
       onclick: vi.fn(),
     })
-    expect(container.querySelector('button')?.className).toContain('hover:text-indigo-600')
+    // Not hover:text-primary - DESIGN.md reserves violet for interactive
+    // elements specifically (buttons, links, focus, selection), not as a
+    // generic hover accent on every icon action. A plain "Edit" hovers to
+    // ink, same as cancel/muted; only the semantic variants (primary,
+    // danger, amber, success) get a Polymer colour.
+    expect(container.querySelector('button')?.className).toContain('hover:text-foreground')
   })
 
   it.each([
-    ['danger', 'hover:text-red-600'],
-    ['primary', 'hover:text-indigo-700'],
-    ['cancel', 'hover:text-slate-600'],
-    ['amber', 'hover:text-amber-600'],
-    ['muted', 'hover:text-slate-700'],
-    ['success', 'hover:text-emerald-600'],
+    ['danger', 'hover:text-destructive'],
+    ['primary', 'text-primary'],
+    ['cancel', 'hover:text-foreground'],
+    ['amber', 'hover:text-due'],
+    ['muted', 'hover:text-foreground'],
+    ['success', 'hover:text-in'],
   ] as const)('applies the %s variant classes', (variant, expectedClass) => {
     const { container } = render(IconActionButton, {
       label: 'Edit',
