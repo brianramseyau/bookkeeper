@@ -121,6 +121,29 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('alertdialog')).toContainElement(document.activeElement as HTMLElement)
   })
 
+  it('still blocks a double-click when pending is explicitly false at rest, not just when omitted', async () => {
+    // The failure mode Kilo Code Review's follow-up flagged: a caller
+    // passing a reactive `isSaving`/`isBusy` flag that starts `false` (not
+    // omitted) must not lose the built-in guard just for having supplied
+    // `pending` at all - only an explicit `true` should ever disable it.
+    const onConfirm = vi.fn()
+    const user = userEvent.setup()
+    render(ConfirmDialog, {
+      open: true,
+      onOpenChange: vi.fn(),
+      title: 'Delete it?',
+      onConfirm,
+      pending: false,
+    })
+
+    const confirmButton = screen.getByRole('button', { name: 'Delete' })
+    await user.click(confirmButton)
+    expect(confirmButton).toBeDisabled()
+    await user.click(confirmButton)
+
+    expect(onConfirm).toHaveBeenCalledOnce()
+  })
+
   it('lets a caller control the guard via `pending`, allowing retry after a failed attempt', async () => {
     const onConfirm = vi.fn()
     const user = userEvent.setup()
