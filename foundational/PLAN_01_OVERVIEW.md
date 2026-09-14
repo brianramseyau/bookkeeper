@@ -46,11 +46,11 @@ Every phase goes through these steps. The next phase does not start until step 8
 2. **Local gate:**
    - `pnpm verify`, `pnpm test:e2e` and API coverage at 100% all pass.
    - For a UI-touching phase, screenshots are taken at 390px and 1440px, light and dark, en-AU, and reviewed against DESIGN.md with `/frontend-design`.
-3. **Ask the owner** before committing, and again before pushing and opening the PR.
+3. **Ask the owner** before committing and pushing to open the PR — once per phase. Fix-up commits within that same PR (steps 5–7) don't need to re-ask each time; the owner will say up front if they want to hold off on a round.
 4. **Wait for all PR checks** to finish: CI (`.github/workflows/ci.yml`'s lint/typecheck/test/e2e jobs) plus **Kilo Code Review**.
 5. **A green Kilo check is not proof there's nothing to fix.** Kilo's check can pass while its review still has critical, unaddressed comments — fetch and read every review comment once checks are green (`gh api repos/<owner>/<repo>/pulls/<n>/comments`, `gh pr view <n> --comments`).
 6. **Handle each comment on its own diff line**, Kilo's or the owner's. Fix it, or decide deliberately not to, then reply on that specific thread with what changed or why nothing did.
-7. **Resolve each thread individually** after replying (`gh api graphql`'s `resolveReviewThread`). Never post one consolidated reply. New commits from a fix go back through steps 2–4.
+7. **Resolve each thread individually** after replying (`gh api graphql`'s `resolveReviewThread`). Never post one consolidated reply. New commits from a fix go back through step 2's local gate, then push directly.
 8. **Tick the phase doc** and log deviations, updating DESIGN.md's decisions log if the phase changed a design decision. Merge only with the owner's confirmation.
 
 ## Verification (every phase)
@@ -59,4 +59,3 @@ Every phase goes through these steps. The next phase does not start until step 8
 - `pnpm --filter api test:coverage` (100%) and `pnpm --filter web test:coverage` (no regression; `ui/**` is excluded)
 - `pnpm test:e2e`
 - Playwright screenshots of every touched page at 390px and 1440px, light and dark, en-AU
-- Leave `pnpm dev:api` and `pnpm dev:web` running at the end of each session

@@ -26,13 +26,13 @@ pair follows the same pattern for the next multi-phase effort.
 
 ## Courtesy
 
-The end user checks all changes after being made and before committing,
-always ask before committing and pushing. This applies to every commit and
-every push, not just the first one in a session — do not chain follow-up
-commits/pushes onto an earlier approval without asking again.
-The local dev server should always be left running after work is completed
-and if it is required to be turned off for a change, it should be returned
-to running again at the end of the session.
+The end user checks all changes after being made and before committing —
+ask before the first commit and push that opens a PR for a new piece of
+work. Once a PR is open, keep iterating on it (fixing CI failures,
+addressing review/Kilo feedback) without asking again for each commit and
+push in that cycle; the owner will say up front if they want to hold off
+on a round instead. Still ask again before merging, and before starting a
+new, unrelated piece of work.
 Clean up after yourself, do not leave any other sessions active.
 
 ## Monorepo layout
@@ -311,7 +311,9 @@ been merged:
    against DESIGN.md.
 3. **Ask the owner before committing, and ask again before pushing and
    opening the PR** (`gh pr create`) — see Courtesy above; this applies
-   per-phase, not just once for the whole plan.
+   once per phase, at the start of that phase's PR. Fix-up commits within
+   that same PR (CI failures, review feedback — steps 5–7 below) don't
+   need to re-ask each time.
 4. **Wait for all PR checks to finish**: `.github/workflows/ci.yml`'s four
    jobs (lint, typecheck, test, e2e) plus **Kilo Code Review**. Don't treat
    "pending" as done.
@@ -327,8 +329,9 @@ been merged:
 7. **Resolve each thread individually** after replying, via
    `gh api graphql` and the `resolveReviewThread` mutation. Never post one
    consolidated "here's everything I fixed" reply. A fix that adds commits
-   goes back through steps 2–4 (ask before each commit and push), and any
-   new comments from the re-run review get the same treatment.
+   goes back through step 2's local gate, then commits and pushes directly
+   (see Courtesy above — no need to re-ask), and any new comments from the
+   re-run review get the same treatment.
 8. **Close out**: tick the phase doc's acceptance criteria, note any
    deviations, and update DESIGN.md's decisions log if the phase changed a
    design decision. Merge only with the owner's explicit confirmation.
