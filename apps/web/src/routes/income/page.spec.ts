@@ -136,9 +136,25 @@ function setEntries(...entries: IncomeEntry[]) {
 }
 
 // Opens the "Add" menu and picks one of its options (Salary / Other income).
+// Not getByRole('menuitem', { name }) - see ActionMenu.spec.ts's
+// top-of-file comment: bits-ui's floating menu content never resolves out
+// of `visibility: hidden` under jsdom (no real layout), and that's
+// inherited by descendants, which empties out the accessible-name
+// computation `getByRole(..., { name })` relies on. `getByText` matches raw
+// text content instead, unaffected by that.
 async function chooseAddOption(user: ReturnType<typeof userEvent.setup>, option: string) {
   await user.click(await screen.findByRole('button', { name: 'Add' }))
-  await user.click(await screen.findByRole('menuitem', { name: option }))
+  // Scoped to the open menu, not a page-wide findByText - Income's own
+  // All/Salary/Other filter tabs already put a "Salary" text node on the
+  // page, so an unscoped query matches both.
+  const menu = await screen.findByRole('menu', { hidden: true })
+  await user.click(within(menu).getByText(option))
+  // Selecting the option closes the dropdown, but bits-ui's body-scroll-lock
+  // only lifts `<body>`'s `pointer-events: none` after a real, debounced
+  // timer (see src/tests/setup.ts) - wait it out before the caller interacts
+  // with the form the click just revealed, or userEvent refuses to click/type
+  // into it (it correctly won't act through an inherited pointer-events:none).
+  await waitFor(() => expect(getComputedStyle(document.body).pointerEvents).not.toBe('none'))
 }
 
 describe('income page', () => {

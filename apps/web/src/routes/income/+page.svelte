@@ -1251,12 +1251,10 @@
             { label: 'Other income', path: mdiBank, onclick: toggleAddOther },
           ]}
         >
-          {#snippet trigger(open, toggle)}
+          {#snippet trigger(triggerProps)}
             <button
               type="button"
-              onclick={toggle}
-              aria-haspopup="true"
-              aria-expanded={open}
+              {...triggerProps}
               class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
               <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">

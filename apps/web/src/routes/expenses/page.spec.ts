@@ -532,7 +532,13 @@ describe('expenses page', () => {
 
     await screen.findByText('Groceries')
     await user.click(await screen.findByRole('button', { name: 'Actions for Groceries' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Archive' }))
+    // Not getByRole('menuitem', { name }) - see ActionMenu.spec.ts's
+    // top-of-file comment: bits-ui's floating menu content never resolves
+    // out of `visibility: hidden` under jsdom (no real layout), and that's
+    // inherited by descendants, which empties out the accessible-name
+    // computation `getByRole(..., { name })` relies on. `getByText` matches
+    // raw text content instead, unaffected by that.
+    await user.click(await screen.findByText('Archive'))
 
     expect(updateExpense).toHaveBeenCalledWith(1, { isArchived: true })
   })

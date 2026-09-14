@@ -13,6 +13,17 @@ home server (unRAID) with no cloud dependency — one SQLite file holds all
 data. See [README.md](README.md) for product-level detail, backup
 procedures, and the list of permanent non-goals / deferred work.
 
+## Plans
+
+`foundational/PLAN_01_OVERVIEW.md` is the master doc for the ongoing UI/UX
+overhaul, and each phase has its own `foundational/PLAN_01_PHASE_NN_*.md`
+with tasks and acceptance criteria. Design lives in
+[foundational/DESIGN.md](foundational/DESIGN.md) — the "Polymer" concept,
+colour/type tokens, layout rules, copy rules and a decisions log. When a
+phase is finished, tick its acceptance criteria and note any deviations in
+that phase's own doc. A future `PLAN_NN_OVERVIEW.md` + `PLAN_NN_PHASE_NN_*.md`
+pair follows the same pattern for the next multi-phase effort.
+
 ## Courtesy
 
 The end user checks all changes after being made and before committing,
@@ -185,8 +196,25 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   runs in the browser after mount.
 - Tailwind CSS v4 via `@tailwindcss/vite` (no separate `tailwind.config.js`
   — config lives in CSS via the Vite plugin).
-- UI/CSS conventions: see STYLEGUIDE.md for current button/form/checkbox/card
-  patterns — check it before introducing new UI patterns.
+- **UI/CSS conventions**: [STYLEGUIDE.md](STYLEGUIDE.md) documents the
+  current, pre-overhaul button/form/checkbox/card patterns (being migrated
+  away from — see Plans above) and [foundational/DESIGN.md](foundational/DESIGN.md)
+  is the target design system ("Polymer") the overhaul is moving the app
+  onto — check whichever a given page has already moved to before adding a
+  new UI pattern.
+- **Load the `/frontend-design` skill before any UI work** (design/copy/
+  layout decisions, not a pure logic or API change) and follow DESIGN.md.
+  Avoid the templated tells it calls out: all-caps eyebrows, middle-dot
+  meta strings (use badges instead), `→` suffixes on links/buttons,
+  identical card grids, gradient washes, and a single radius used
+  everywhere. Load the `dataviz` skill before any chart work.
+- **shadcn-svelte** supplies the UI primitives, vendored into
+  `src/lib/components/ui/**` by its own CLI
+  (`pnpm dlx shadcn-svelte@latest add <name> -y`, config in
+  `apps/web/components.json`). Wrap and compose them in app-level
+  components; don't hand-edit anything under `ui/**` beyond what the CLI
+  generates — it's excluded from both lint and coverage for that reason
+  (see `eslint.config.js` and `vitest.config.ts`).
 - Favour building reusable, unit testable components over large in-line
   pages with sprawling sections, this will make re-use trivial.
 - **Reuse and DRY are a priority, not an afterthought** — `routes/monthly`
@@ -229,6 +257,71 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   - When you find near-duplicate code while working nearby, extracting it
     is in scope for that change even if it wasn't the original ask — leave
     the file more DRY than you found it rather than adding a third copy.
+
+## Verifying UI changes in a browser
+
+Unit tests can't catch visual regressions. For any UI change, run the app
+and **look at screenshots**: 390px and 1440px, light and dark. Log in with
+the root `.env` `SEED_BRIAN_EMAIL`/`SEED_BRIAN_PASSWORD` (or
+`SEED_ARIEL_*`) credentials against the dev server — see the Auth bullet
+above. The login endpoint is throttled (5 attempts per 15 minutes per
+IP+email, `apps/api/start/limiter.ts`), so reuse one Playwright session
+(`page.setViewportSize`, dark mode via
+`localStorage.setItem('theme','dark')` plus `.reload()`) rather than
+logging in again for every viewport/theme combination:
+
+```sh
+node -e "
+const { chromium } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ args: ['--lang=en-AU'] });
+  const page = await browser.newPage({ locale: 'en-AU', colorScheme: 'dark', viewport: { width: 390, height: 844 } });
+  await page.goto('http://localhost:5173/login');
+  await page.getByLabel('Email').fill(process.env.SEED_BRIAN_EMAIL);
+  await page.getByLabel('Password').fill(process.env.SEED_BRIAN_PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL('http://localhost:5173/');
+  await page.goto('http://localhost:5173/<route>');
+  await page.screenshot({ path: '/tmp/check.png', fullPage: true });
+  await browser.close();
+})();
+"
+```
+
+Native date/time inputs follow the **browser's** UI language, not the
+page's `lang`. Use `en-AU` (day-first, matching this app's AUD/AU-dates
+audience) through both `locale` and `--lang`, so a `MM/DD` rendering isn't
+mistaken for an app bug. The Playwright suite under `e2e/` runs against its
+own isolated API/web ports (3334/5174) with fictional seed data and is
+unaffected by the dev server's login throttle — prefer adding/extending an
+e2e spec (see `e2e/action-menu.spec.ts` for a real-browser regression test)
+over repeated manual dev-server logins when a check can be automated.
+
+## Checks and reviews (multi-phase plans)
+
+For a plan broken into phases (see Plans above), each phase is its own
+branch and PR, and the next phase doesn't start until the current one has
+been merged:
+
+1. **Branch**: one branch per phase, named after its phase doc (e.g.
+   `phase-03-unified-outgoings`). Never work on `main`.
+2. **Local gate**: `pnpm verify` (lint + typecheck + test) and
+   `pnpm test:e2e` both pass before anything is committed. For a
+   UI-touching phase, take the screenshots described above and review them
+   against DESIGN.md.
+3. **Ask the owner before committing, and ask again before pushing and
+   opening the PR** (`gh pr create`) — see Courtesy above; this applies
+   per-phase, not just once for the whole plan.
+4. **Wait for CI** (`.github/workflows/ci.yml`'s four jobs — lint,
+   typecheck, test, e2e) to finish on the PR before treating it as done.
+   This repo has no automated code-review bot — a PR's only checks are
+   those four jobs, and the owner reviews the diff itself; there's no
+   separate "check passed but the review didn't" gap to watch for here.
+5. **Address any comments the owner leaves on the PR**, then merge only
+   with their explicit confirmation.
+6. **Close out**: tick the phase doc's acceptance criteria, note any
+   deviations, and update DESIGN.md's decisions log if the phase changed a
+   design decision. Start the next phase from an updated `main`.
 
 ## Testing
 
@@ -275,7 +368,7 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   Playwright is also available as a general local dependency for any
   agent that wants to visually validate a web change in a real browser
   beyond what Vitest/jsdom can check — e.g. `npx playwright test
-  --headed`, or drive one-off pages with `npx playwright screenshot` /
+--headed`, or drive one-off pages with `npx playwright screenshot` /
   ad-hoc scripts using `@playwright/test`'s `chromium.launch()`, rather
   than only trusting a jsdom-based unit test for a visual/interaction
   change.

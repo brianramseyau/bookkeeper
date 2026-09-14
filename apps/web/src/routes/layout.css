@@ -1,9 +1,95 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
 @plugin '@tailwindcss/forms';
 
 /* Class-based dark mode (toggled via the theme store), instead of Tailwind's
    default prefers-color-scheme-only `dark:` variant. */
 @custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * shadcn-svelte semantic tokens (see foundational/DESIGN.md → "Polymer").
+ *
+ * Phase 0 (this pass) only installs the primitives needed to fix the
+ * clipped ActionMenu/HelpTooltip popovers (dropdown-menu, popover, button)
+ * - it deliberately maps these tokens to the app's *existing* slate/indigo
+ * palette rather than the Polymer palette, so vendored shadcn components
+ * render consistently with every hand-rolled page that hasn't been
+ * migrated yet. Phase 1 replaces these values with the Polymer tokens once
+ * the rest of the app moves onto them - don't hand-tune these hex values
+ * without also updating that phase's work.
+ */
+:root {
+  --background: #f8fafc; /* slate-50 */
+  --foreground: #0f172a; /* slate-900 */
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #4f46e5; /* indigo-600 */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9; /* slate-100 */
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b; /* slate-500 */
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626; /* red-600 */
+  --border: #e2e8f0; /* slate-200 */
+  --input: #cbd5e1; /* slate-300 */
+  --ring: #6366f1; /* indigo-500 */
+  /* Matches Tailwind's own default radius scale exactly (a no-op), only
+     defined because the vendored button component reads --radius-md
+     directly (see button.svelte's xs/sm sizes) - don't derive these from a
+     single --radius the way shadcn's default globals.css does until
+     Phase 1 deliberately changes the app's radii (see DESIGN.md → Layout). */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}
+
+.dark {
+  --background: #0f172a; /* slate-900 */
+  --foreground: #f1f5f9; /* slate-100 */
+  --card: #1e293b; /* slate-800 */
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #6366f1; /* indigo-500 */
+  --primary-foreground: #0f172a;
+  --secondary: #334155; /* slate-700 */
+  --secondary-foreground: #f1f5f9;
+  --muted: #334155;
+  --muted-foreground: #94a3b8; /* slate-400 */
+  --accent: #334155;
+  --accent-foreground: #f1f5f9;
+  --destructive: #f87171; /* red-400 */
+  --border: #334155;
+  --input: #475569; /* slate-600 */
+  --ring: #818cf8; /* indigo-400 */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
 
 /* Match html/body to the app background so overscroll/rubber-banding shows
    the theme color instead of a flash of white. */
