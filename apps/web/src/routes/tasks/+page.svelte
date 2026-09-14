@@ -24,7 +24,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import SuccessMessage from '$lib/components/SuccessMessage.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import { mdiDelete } from '@mdi/js'
@@ -251,9 +251,9 @@
         class="w-24 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
       />
     </label>
-    <PrimaryButton type="submit" disabled={savingSettings}>
+    <Button type="submit" disabled={savingSettings}>
       {savingSettings ? 'Saving…' : 'Save'}
-    </PrimaryButton>
+    </Button>
     {#if lastBackup}
       <span class="text-xs text-slate-400 dark:text-slate-500">
         Last backup: {formatDateTime(lastBackup.createdAt)}
@@ -269,9 +269,9 @@
 {/if}
 
 <div class="mt-3">
-  <PrimaryButton onclick={handleBackupNow} disabled={creatingBackup}>
+  <Button onclick={handleBackupNow} disabled={creatingBackup}>
     {creatingBackup ? 'Backing up…' : 'Backup now'}
-  </PrimaryButton>
+  </Button>
 </div>
 
 {#snippet backupTable(list: Backup[])}
@@ -340,9 +340,9 @@
   <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
     A single file with every table, useful for a full backup or import into another tool.
   </p>
-  <PrimaryButton href="/api/export/json" size="lg" class="mt-3 inline-flex items-center gap-1">
+  <Button href="/api/export/json" size="lg" class="mt-3 inline-flex items-center gap-1">
     Download JSON
-  </PrimaryButton>
+  </Button>
 </Card>
 
 <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -400,9 +400,9 @@
         {/each}
       </select>
     </label>
-    <PrimaryButton type="submit" disabled={savingNotificationSchedule}>
+    <Button type="submit" disabled={savingNotificationSchedule}>
       {savingNotificationSchedule ? 'Saving…' : 'Save'}
-    </PrimaryButton>
+    </Button>
     {#if notificationSchedule?.lastRunAt}
       <span class="text-xs text-slate-400 dark:text-slate-500">
         Last check: {formatDateTime(notificationSchedule.lastRunAt)}

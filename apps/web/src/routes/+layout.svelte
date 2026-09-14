@@ -66,13 +66,11 @@
 <PullToRefresh />
 
 {#if authState.loading}
-  <div
-    class="flex min-h-screen items-center justify-center bg-slate-50 text-slate-400 dark:bg-slate-900 dark:text-slate-500"
-  >
+  <div class="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
     Loading…
   </div>
 {:else if authState.user}
-  <div class="min-h-screen bg-slate-50 dark:bg-slate-900">
+  <div class="min-h-screen bg-background">
     <nav class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <div class="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 sm:px-6">
         <a href="/" class="font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</a>

@@ -6,6 +6,28 @@ import { afterEach, vi } from 'vitest'
 // routes/bills/+page.svelte's load()).
 Element.prototype.scrollIntoView = vi.fn()
 
+// jsdom doesn't implement window.matchMedia at all either, which throws in
+// any test that mounts a component using Svelte's built-in `MediaQuery`
+// (svelte/reactivity) - e.g. ResponsiveFormSheet choosing between a Sheet
+// and a Drawer by viewport width. Defaults to "no match" (the mobile/Drawer
+// branch); a test that cares which branch renders overrides this per-test
+// with `vi.spyOn(window, 'matchMedia')`.
+window.matchMedia =
+  window.matchMedia ||
+  vi.fn().mockImplementation(
+    (query: string) =>
+      ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(), // deprecated, but still part of MediaQueryList's type
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }) satisfies MediaQueryList
+  )
+
 afterEach(() => {
   vi.restoreAllMocks()
   vi.clearAllMocks()

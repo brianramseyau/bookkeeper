@@ -37,16 +37,31 @@ describe('IconActionButton', () => {
       path: mdiPencil,
       onclick: vi.fn(),
     })
-    expect(container.querySelector('button')?.className).toContain('hover:text-indigo-600')
+    // Not hover:text-primary - DESIGN.md reserves violet for interactive
+    // elements specifically (buttons, links, focus, selection), not as a
+    // generic hover accent on every icon action. A plain "Edit" hovers to
+    // ink, same as cancel/muted; only the semantic variants (primary,
+    // danger, amber, success) get a Polymer colour.
+    //
+    // Asserting the resting `text-muted-foreground`, not the hover class:
+    // the underlying `Button variant="ghost"` already applies
+    // `hover:text-foreground` on its own (see ui/button/button.svelte), so
+    // that class alone would still be present even if VARIANT_TEXT.neutral
+    // were deleted - it wouldn't catch a real regression.
+    expect(container.querySelector('button')?.className).toContain('text-muted-foreground')
   })
 
   it.each([
-    ['danger', 'hover:text-red-600'],
-    ['primary', 'hover:text-indigo-700'],
-    ['cancel', 'hover:text-slate-600'],
-    ['amber', 'hover:text-amber-600'],
-    ['muted', 'hover:text-slate-700'],
-    ['success', 'hover:text-emerald-600'],
+    ['danger', 'hover:text-destructive'],
+    ['primary', 'text-primary'],
+    // cancel/muted share neutral's exact mapping - asserting the resting
+    // `text-muted-foreground` here for the same reason as the test above,
+    // not `hover:text-foreground` (already supplied by the ghost Button
+    // base regardless of this component's own variant map).
+    ['cancel', 'text-muted-foreground'],
+    ['amber', 'hover:text-due'],
+    ['muted', 'text-muted-foreground'],
+    ['success', 'hover:text-in'],
   ] as const)('applies the %s variant classes', (variant, expectedClass) => {
     const { container } = render(IconActionButton, {
       label: 'Edit',

@@ -5,7 +5,7 @@
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
 
   let email = $state('')
   let password = $state('')
@@ -60,9 +60,9 @@
       {#if error}
         <ErrorMessage message={error} class="" />
       {/if}
-      <PrimaryButton type="submit" size="lg" disabled={submitting} class="mt-2">
+      <Button type="submit" size="lg" disabled={submitting} class="mt-2">
         {submitting ? 'Signing in…' : 'Sign in'}
-      </PrimaryButton>
+      </Button>
     </form>
   </Card>
 </div>

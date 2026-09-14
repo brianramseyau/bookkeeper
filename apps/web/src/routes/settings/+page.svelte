@@ -20,8 +20,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
-  import SecondaryButton from '$lib/components/SecondaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import SuccessMessage from '$lib/components/SuccessMessage.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import { mdiDelete } from '@mdi/js'
@@ -266,9 +265,9 @@
       class="h-9 w-16 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
     />
   </label>
-  <PrimaryButton type="submit" disabled={savingColor}>
+  <Button type="submit" disabled={savingColor}>
     {savingColor ? 'Saving…' : 'Save'}
-  </PrimaryButton>
+  </Button>
 </form>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Email address</h2>
@@ -303,9 +302,9 @@
       class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     />
   </label>
-  <PrimaryButton type="submit" disabled={savingEmail} class="self-start">
+  <Button type="submit" disabled={savingEmail} class="self-start">
     {savingEmail ? 'Saving…' : 'Save'}
-  </PrimaryButton>
+  </Button>
 </form>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Change password</h2>
@@ -348,9 +347,9 @@
       class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
     />
   </label>
-  <PrimaryButton type="submit" disabled={savingPassword} class="self-start">
+  <Button type="submit" disabled={savingPassword} class="self-start">
     {savingPassword ? 'Saving…' : 'Change password'}
-  </PrimaryButton>
+  </Button>
 </form>
 
 <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Notifications</h2>
@@ -421,9 +420,9 @@
         <span class="text-sm text-slate-900 dark:text-slate-100">Subscriptions</span>
       </label>
     </div>
-    <PrimaryButton type="submit" disabled={savingPreferences} class="self-start">
+    <Button type="submit" disabled={savingPreferences} class="self-start">
       {savingPreferences ? 'Saving…' : 'Save'}
-    </PrimaryButton>
+    </Button>
   </form>
 {/if}
 
@@ -438,7 +437,7 @@
   </p>
 {:else}
   <div class="mt-3 flex flex-wrap items-center gap-3">
-    <PrimaryButton onclick={handleToggleDevice} disabled={togglingDevice}>
+    <Button onclick={handleToggleDevice} disabled={togglingDevice}>
       {#if togglingDevice}
         Working…
       {:else if pushState.subscribed}
@@ -446,10 +445,10 @@
       {:else}
         Enable on this device
       {/if}
-    </PrimaryButton>
-    <SecondaryButton onclick={handleSendTest} disabled={testSending}>
+    </Button>
+    <Button variant="outline" onclick={handleSendTest} disabled={testSending}>
       {testSending ? 'Sending…' : 'Send test notification'}
-    </SecondaryButton>
+    </Button>
   </div>
 {/if}
 

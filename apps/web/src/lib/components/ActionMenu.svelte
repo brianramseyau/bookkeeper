@@ -39,22 +39,17 @@
   // Bits-ui applies `data-highlighted` to the keyboard/pointer-focused item
   // (see dropdown-menu-item.svelte's own `focus:bg-accent` for the
   // unstyled default) - used here instead of `hover:` so a variant's tint
-  // also shows during keyboard navigation, not just on mouse hover.
+  // also shows during keyboard navigation, not just on mouse hover. Colours
+  // are the Polymer semantic tokens (see DESIGN.md → Colour); each is
+  // already theme-aware, so no separate `dark:` pair is needed.
   const VARIANT_TEXT = {
-    neutral:
-      'text-slate-700 data-highlighted:bg-slate-100 dark:text-slate-200 dark:data-highlighted:bg-slate-700',
-    danger:
-      'text-red-600 data-highlighted:bg-red-50 dark:text-red-400 dark:data-highlighted:bg-red-900/20',
-    primary:
-      'text-indigo-600 data-highlighted:bg-indigo-50 dark:text-indigo-400 dark:data-highlighted:bg-indigo-900/30',
-    cancel:
-      'text-slate-700 data-highlighted:bg-slate-100 dark:text-slate-200 dark:data-highlighted:bg-slate-700',
-    amber:
-      'text-amber-600 data-highlighted:bg-amber-50 dark:text-amber-400 dark:data-highlighted:bg-amber-900/20',
-    muted:
-      'text-slate-700 data-highlighted:bg-slate-100 dark:text-slate-200 dark:data-highlighted:bg-slate-700',
-    success:
-      'text-emerald-600 data-highlighted:bg-emerald-50 dark:text-emerald-400 dark:data-highlighted:bg-emerald-900/20',
+    neutral: 'text-ink data-highlighted:bg-accent',
+    danger: 'text-over data-highlighted:bg-over-tint',
+    primary: 'text-violet data-highlighted:bg-accent',
+    cancel: 'text-ink data-highlighted:bg-accent',
+    amber: 'text-due data-highlighted:bg-due-tint',
+    muted: 'text-muted-ink data-highlighted:bg-accent',
+    success: 'text-in data-highlighted:bg-in-tint',
   }
 </script>
 
@@ -70,7 +65,7 @@
           aria-label={label}
           title={label}
           class={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400',
+            'text-muted-ink hover:bg-accent hover:text-violet inline-flex shrink-0 items-center justify-center rounded-md p-2 transition-colors',
             props.class as string | undefined
           )}
         >
@@ -81,10 +76,7 @@
       {/if}
     {/snippet}
   </DropdownMenuTrigger>
-  <DropdownMenuContent
-    align="end"
-    class="w-36 min-w-36 rounded-md border border-slate-200 bg-white p-1 py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
-  >
+  <DropdownMenuContent align="end" class="w-36 min-w-36">
     {#each actions as action (action.label)}
       <DropdownMenuItem
         disabled={action.disabled}

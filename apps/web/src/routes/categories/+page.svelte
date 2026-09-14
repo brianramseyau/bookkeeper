@@ -14,7 +14,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import StatusBadge from '$lib/components/StatusBadge.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import {
@@ -529,8 +529,8 @@
         {/each}
       </select>
     </label>
-    <PrimaryButton type="submit" size="lg" disabled={creating}>
+    <Button type="submit" size="lg" disabled={creating}>
       {creating ? 'Adding…' : 'Add category'}
-    </PrimaryButton>
+    </Button>
   </form>
 {/if}

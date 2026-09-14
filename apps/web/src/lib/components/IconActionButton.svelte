@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { Button } from '$lib/components/ui/button'
+  import { cn } from '$lib/utils'
+
   interface Props {
     onclick: (event: MouseEvent) => void
     /** Rarely needed - e.g. preventing an adjacent input's blur handler from firing before this click registers. */
@@ -22,38 +25,37 @@
     class: className = '',
   }: Props = $props()
 
-  const VARIANTS = {
-    neutral:
-      'text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400',
-    danger:
-      'text-slate-300 hover:bg-slate-100 hover:text-red-600 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-red-400',
-    primary:
-      'text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-300',
-    cancel:
-      'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300',
-    amber:
-      'text-slate-400 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-amber-400',
-    muted:
-      'text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300',
-    success:
-      'text-slate-400 hover:bg-slate-100 hover:text-emerald-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-emerald-400',
+  // Polymer semantic tokens (see DESIGN.md → Colour) layered on the shadcn
+  // "ghost" Button variant - each is already theme-aware, so no separate
+  // dark: pair is needed. The base colour is muted for every variant except
+  // primary, matching the old slate-400-by-default look; only the hover
+  // colour signals what the action does. `primary` has no hover token: it's
+  // already violet at rest (unlike the others, which are muted at rest), and
+  // the ghost Button base's own hover:bg-accent already supplies the hover
+  // affordance, so a same-colour `hover:text-primary` would be a no-op.
+  const VARIANT_TEXT = {
+    neutral: 'text-muted-foreground hover:text-foreground',
+    danger: 'text-muted-foreground hover:text-destructive',
+    primary: 'text-primary',
+    cancel: 'text-muted-foreground hover:text-foreground',
+    amber: 'text-muted-foreground hover:text-due',
+    muted: 'text-muted-foreground hover:text-foreground',
+    success: 'text-muted-foreground hover:text-in',
   }
 </script>
 
-<button
+<Button
   type="button"
+  variant="ghost"
+  size="icon"
   {onclick}
   {onmousedown}
   {disabled}
   aria-label={label}
   title={label}
-  class={[
-    'inline-flex shrink-0 items-center justify-center rounded-md p-2 transition-colors disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent',
-    VARIANTS[variant],
-    className,
-  ]}
+  class={cn(VARIANT_TEXT[variant], className)}
 >
   <svg viewBox="0 0 24 24" class="size-5" fill="currentColor" aria-hidden="true">
     <path d={path} />
   </svg>
-</button>
+</Button>

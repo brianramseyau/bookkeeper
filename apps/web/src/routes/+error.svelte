@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state'
-  import PrimaryButton from '$lib/components/PrimaryButton.svelte'
+  import { Button } from '$lib/components/ui/button'
   import LostPiggyIllustration from '$lib/components/LostPiggyIllustration.svelte'
 
   const notFound = $derived(page.status === 404)
@@ -20,5 +20,5 @@
       ? "The page you're looking for doesn't exist or has moved."
       : (page.error?.message ?? 'An unexpected error occurred.')}
   </p>
-  <PrimaryButton href="/" class="mt-2">Back to Dashboard</PrimaryButton>
+  <Button href="/" class="mt-2">Back to Dashboard</Button>
 </div>

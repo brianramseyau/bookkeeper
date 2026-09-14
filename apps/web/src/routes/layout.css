@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn-svelte/tailwind.css';
+@import '@fontsource-variable/recursive/full.css';
 @plugin '@tailwindcss/forms';
 
 /* Class-based dark mode (toggled via the theme store), instead of Tailwind's
@@ -8,66 +9,109 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * shadcn-svelte semantic tokens (see foundational/DESIGN.md → "Polymer").
+ * "Polymer" design tokens - see foundational/DESIGN.md for the concept
+ * (palette drawn from Australian polymer banknotes) and the full rationale
+ * for each value. `ground`/`surface`/`ink`/`muted`/`rule`/`violet`/`in`/
+ * `due`/`over` are the brand names; they're mapped onto shadcn-svelte's
+ * semantic tokens below so the vendored ui/** components pick them up for
+ * free, and re-exposed as their own Tailwind colours (`bg-ground`,
+ * `text-in`, `bg-due/15`, …) for app code that wants the brand name
+ * directly rather than the generic shadcn one.
  *
- * Phase 0 (this pass) only installs the primitives needed to fix the
- * clipped ActionMenu/HelpTooltip popovers (dropdown-menu, popover, button)
- * - it deliberately maps these tokens to the app's *existing* slate/indigo
- * palette rather than the Polymer palette, so vendored shadcn components
- * render consistently with every hand-rolled page that hasn't been
- * migrated yet. Phase 1 replaces these values with the Polymer tokens once
- * the rest of the app moves onto them - don't hand-tune these hex values
- * without also updating that phase's work.
+ * `in`/`due` are darker in light mode than the literal $100/$50 note hues
+ * DESIGN.md started from - measured against `ground` they were 4.84:1 and
+ * 3.13:1 (the gold outright failed WCAG AA's 4.5:1 for normal text), so
+ * both were darkened until they passed as text, not just as a colour
+ * swatch. `due` (light) and `over` (dark) needed a second round once axe
+ * ran against real rendered badges rather than hand-computed contrast: a
+ * semantic colour's own *tint* is a different (lighter, in light mode)
+ * background than `ground`/`surface`, so passing against those doesn't
+ * guarantee passing against a badge built from the same colour - `due`
+ * light needed darkening again, and dark `over-tint`'s mix percentage
+ * needed lowering rather than the colour itself. See DESIGN.md's decisions
+ * log; check *every* colour-on-its-own-tint pairing with axe, not just
+ * colour-on-page-background, before adding a new semantic colour.
  */
 :root {
-  --background: #f8fafc; /* slate-50 */
-  --foreground: #0f172a; /* slate-900 */
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #4f46e5; /* indigo-600 */
+  /* Brand palette */
+  --ground: #f2f5f3;
+  --surface: #ffffff;
+  --ink: #16201b;
+  --muted-ink: #5c6a63;
+  --rule: #dae1dc;
+  --violet: #5b3fa0;
+  --in: #0a6b50;
+  --due: #7a5600;
+  --over: #9c3320;
+  /* A pale wash of each semantic colour, for a chip/badge background under
+     that colour's own text - "sits on a tint" in DESIGN.md's colour table. */
+  --due-tint: color-mix(in oklab, var(--due) 15%, var(--surface));
+  --over-tint: color-mix(in oklab, var(--over) 12%, var(--surface));
+  --in-tint: color-mix(in oklab, var(--in) 12%, var(--surface));
+
+  /* shadcn-svelte semantic tokens, mapped onto the brand palette above */
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--violet);
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9; /* slate-100 */
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b; /* slate-500 */
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #dc2626; /* red-600 */
-  --border: #e2e8f0; /* slate-200 */
-  --input: #cbd5e1; /* slate-300 */
-  --ring: #6366f1; /* indigo-500 */
-  /* Matches Tailwind's own default radius scale exactly (a no-op), only
-     defined because the vendored button component reads --radius-md
-     directly (see button.svelte's xs/sm sizes) - don't derive these from a
-     single --radius the way shadcn's default globals.css does until
-     Phase 1 deliberately changes the app's radii (see DESIGN.md → Layout). */
+  --secondary: color-mix(in oklab, var(--rule) 55%, var(--surface));
+  --secondary-foreground: var(--ink);
+  --muted: color-mix(in oklab, var(--rule) 40%, var(--surface));
+  --muted-foreground: var(--muted-ink);
+  --accent: color-mix(in oklab, var(--violet) 8%, var(--surface));
+  --accent-foreground: var(--ink);
+  --destructive: var(--over);
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--violet);
+
+  /* Cards/sheets are 10px, controls stay Tailwind's default 6px (rounded-md
+     already matched this before Phase 1) - see DESIGN.md → Layout. Radii
+     are deliberately not all the same. --radius-md is read directly by the
+     vendored button component (its xs/sm sizes), not just derived from. */
+  --radius: 0.375rem;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
+  --radius-xl: 0.625rem;
 }
 
 .dark {
-  --background: #0f172a; /* slate-900 */
-  --foreground: #f1f5f9; /* slate-100 */
-  --card: #1e293b; /* slate-800 */
-  --card-foreground: #f1f5f9;
-  --popover: #1e293b;
-  --popover-foreground: #f1f5f9;
-  --primary: #6366f1; /* indigo-500 */
-  --primary-foreground: #0f172a;
-  --secondary: #334155; /* slate-700 */
-  --secondary-foreground: #f1f5f9;
-  --muted: #334155;
-  --muted-foreground: #94a3b8; /* slate-400 */
-  --accent: #334155;
-  --accent-foreground: #f1f5f9;
-  --destructive: #f87171; /* red-400 */
-  --border: #334155;
-  --input: #475569; /* slate-600 */
-  --ring: #818cf8; /* indigo-400 */
+  --ground: #101613;
+  --surface: #18201c;
+  --ink: #e5ece8;
+  --muted-ink: #93a299;
+  --rule: #27322c;
+  --violet: #b7a1ec;
+  --in: #3fc79d;
+  --due: #e6ae34;
+  --over: #f2735a;
+  --due-tint: color-mix(in oklab, var(--due) 18%, var(--surface));
+  --over-tint: color-mix(in oklab, var(--over) 12%, var(--surface));
+  --in-tint: color-mix(in oklab, var(--in) 16%, var(--surface));
+
+  --background: var(--ground);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--violet);
+  --primary-foreground: var(--ground);
+  --secondary: color-mix(in oklab, var(--rule) 60%, var(--surface));
+  --secondary-foreground: var(--ink);
+  --muted: color-mix(in oklab, var(--rule) 45%, var(--surface));
+  --muted-foreground: var(--muted-ink);
+  --accent: color-mix(in oklab, var(--violet) 14%, var(--surface));
+  --accent-foreground: var(--ink);
+  --destructive: var(--over);
+  --border: var(--rule);
+  --input: var(--rule);
+  --ring: var(--violet);
 }
 
 @theme inline {
@@ -89,13 +133,54 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  /* Brand colours as their own Tailwind utilities - bg-ground, text-in,
+     border-rule, bg-due/15, etc. */
+  --color-ground: var(--ground);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted-ink: var(--muted-ink);
+  --color-rule: var(--rule);
+  --color-violet: var(--violet);
+  --color-in: var(--in);
+  --color-due: var(--due);
+  --color-over: var(--over);
+  --color-due-tint: var(--due-tint);
+  --color-over-tint: var(--over-tint);
+  --color-in-tint: var(--in-tint);
+
+  /* Recursive Variable carries every type role via its variable axes (see
+     the font-display/font-figures utilities below) - one font-family for
+     the whole app. */
+  --font-sans:
+    'Recursive Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+    'Segoe UI Emoji';
+}
+
+/* Type roles - see DESIGN.md → Type. Recursive's non-standard axes (CASL,
+   MONO) need font-variation-settings; its standard axes (wght, the slnt
+   registered as font-style: oblique) apply as ordinary CSS properties and
+   compose with font-variation-settings rather than needing to be repeated
+   inside it. CSS `oblique <angle>` and OpenType's `slnt` axis use opposite
+   sign conventions (CSS Fonts 4 §4.3) - DESIGN.md's "slnt -4" (the font's
+   own axis value) is therefore `oblique 4deg` here, not `oblique -4deg`
+   (which would request `slnt +4`, outside Recursive's 0…-15 range and
+   silently clamp back to upright - caught in Phase 1's Kilo Code Review). */
+@utility font-display {
+  font-weight: 750;
+  font-style: oblique 4deg;
+  font-variation-settings: 'CASL' 1;
+}
+@utility font-figures {
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: 'MONO' 1;
 }
 
 /* Match html/body to the app background so overscroll/rubber-banding shows
    the theme color instead of a flash of white. */
 @layer base {
   html {
-    @apply bg-slate-50 dark:bg-slate-900;
+    @apply bg-ground text-ink;
   }
 }
 
@@ -126,11 +211,11 @@
 /* Momentary flash on an element scrolled to via a same-page or cross-page
    hash link (e.g. Monthly's expense-line links landing on a Bills row), so
    the target is easy to spot in a long list - same idea as Jira's flash on
-   a linked comment. Alpha-based indigo tint so it reads correctly over both
+   a linked comment. Alpha-based violet tint so it reads correctly over both
    light and dark row backgrounds without a separate dark: variant. */
 @keyframes highlight-flash {
   from {
-    background-color: rgba(99, 102, 241, 0.35);
+    background-color: rgba(91, 63, 160, 0.35);
   }
   to {
     background-color: transparent;
