@@ -1,70 +1,48 @@
-import { render, screen } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import HelpTooltip from './HelpTooltip.svelte'
 
-const TOOLTIP_WIDTH = 224
-const VIEWPORT_MARGIN = 8
-
-function mockTriggerRect(rect: Partial<DOMRect>) {
-  vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockReturnValue({
-    x: 0,
-    y: 0,
-    width: 16,
-    height: 16,
-    top: 0,
-    right: 0,
-    bottom: 16,
-    left: 0,
-    toJSON: () => {},
-    ...rect,
-  })
-}
-
-function getTooltipLeft() {
-  const style = screen.getByRole('tooltip').getAttribute('style') ?? ''
-  return Number(style.match(/left:\s*(-?\d+(?:\.\d+)?)px/)?.[1])
-}
+// See ActionMenu.spec.ts's top-of-file comment for why an open bits-ui
+// floating panel needs `{ hidden: true }` on role queries under jsdom (no
+// real layout, so the content never leaves `visibility: hidden`) and why an
+// outside click has to be fired with `fireEvent` at an explicit nonzero
+// coordinate and awaited with `waitFor` rather than a role/name query or a
+// fixed delay - the same mechanics apply here since HelpTooltip is now a
+// thin wrapper around the same bits-ui Popover primitive as ActionMenu's
+// DropdownMenu.
+const inOpenPanel = { hidden: true } as const
 
 describe('HelpTooltip', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
-  it('shows the tooltip text on click, then closes on outside click', async () => {
+  it('shows the explanation on click, then closes on outside click', async () => {
     const user = userEvent.setup()
     render(HelpTooltip, {
       label: 'Why is this estimated?',
       text: 'No record for this month this far back.',
     })
 
-    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(screen.queryByRole('status', inOpenPanel)).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Why is this estimated?' }))
-    expect(screen.getByRole('tooltip')).toHaveTextContent('No record for this month this far back.')
+    expect(screen.getByRole('status', inOpenPanel)).toHaveTextContent(
+      'No record for this month this far back.'
+    )
 
-    await user.click(screen.getByRole('button', { name: 'Close tooltip' }))
-    expect(screen.queryByRole('tooltip')).toBeNull()
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
+    await waitFor(() => expect(screen.queryByRole('status', inOpenPanel)).toBeNull())
   })
 
-  it('clamps the tooltip within the viewport when the trigger is near the left edge', async () => {
+  it('sets the explanation as both the trigger title and the panel text', async () => {
     const user = userEvent.setup()
-    mockTriggerRect({ left: 0, right: 16, width: 16 })
-
     render(HelpTooltip, { label: 'Why is this estimated?', text: 'Some help text.' })
+
+    expect(screen.getByRole('button', { name: 'Why is this estimated?' })).toHaveAttribute(
+      'title',
+      'Some help text.'
+    )
+
     await user.click(screen.getByRole('button', { name: 'Why is this estimated?' }))
-
-    expect(getTooltipLeft()).toBe(VIEWPORT_MARGIN)
-  })
-
-  it('clamps the tooltip within the viewport when the trigger is near the right edge', async () => {
-    const user = userEvent.setup()
-    const viewportWidth = window.innerWidth
-    mockTriggerRect({ left: viewportWidth - 16, right: viewportWidth, width: 16 })
-
-    render(HelpTooltip, { label: 'Why is this estimated?', text: 'Some help text.' })
-    await user.click(screen.getByRole('button', { name: 'Why is this estimated?' }))
-
-    expect(getTooltipLeft()).toBe(viewportWidth - TOOLTIP_WIDTH - VIEWPORT_MARGIN)
+    expect(screen.getByRole('status', inOpenPanel)).toHaveTextContent('Some help text.')
   })
 })
