@@ -27,6 +27,11 @@
         done, so a caller doing async work can keep it open until it
         finishes. */
     onConfirm: () => void
+    /** Fires once the open/close transition has actually finished (bits-ui's
+        presence-aware callback), not just when `open` flips - use this for
+        teardown that must wait out the exit animation, e.g.
+        `confirmDestructive`'s unmount. */
+    onOpenChangeComplete?: (open: boolean) => void
   }
 
   let {
@@ -38,10 +43,23 @@
     cancelLabel = 'Cancel',
     destructive = true,
     onConfirm,
+    onOpenChangeComplete,
   }: Props = $props()
+
+  let confirming = $state(false)
+
+  $effect(() => {
+    if (open) confirming = false
+  })
+
+  function handleConfirm() {
+    if (confirming) return
+    confirming = true
+    onConfirm()
+  }
 </script>
 
-<AlertDialog {open} {onOpenChange}>
+<AlertDialog {open} {onOpenChange} {onOpenChangeComplete}>
   <AlertDialogContent>
     <AlertDialogHeader>
       <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -51,7 +69,11 @@
     </AlertDialogHeader>
     <AlertDialogFooter>
       <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
-      <AlertDialogAction variant={destructive ? 'destructive' : 'default'} onclick={onConfirm}>
+      <AlertDialogAction
+        variant={destructive ? 'destructive' : 'default'}
+        disabled={confirming}
+        onclick={handleConfirm}
+      >
         {confirmLabel}
       </AlertDialogAction>
     </AlertDialogFooter>

@@ -8,11 +8,6 @@ export interface ConfirmDestructiveOptions {
   cancelLabel?: string
 }
 
-// Matches AlertDialogContent's own open/close transition duration (see
-// alert-dialog-content.svelte's `duration-100`) plus a little slack, so the
-// exit animation gets to finish before the throwaway instance is torn down.
-const CLOSE_ANIMATION_MS = 150
-
 /**
  * Imperative replacement for the browser's native `confirm(...)` (see
  * AGENTS.md → Design rules and DESIGN.md → Interaction rules: destructive
@@ -28,7 +23,7 @@ const CLOSE_ANIMATION_MS = 150
  * ```
  */
 export function confirmDestructive(options: ConfirmDestructiveOptions): Promise<boolean> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const target = document.createElement('div')
     document.body.appendChild(target)
 
@@ -38,10 +33,11 @@ export function confirmDestructive(options: ConfirmDestructiveOptions): Promise<
       settled = true
       props.open = false
       resolve(result)
-      setTimeout(() => {
-        unmount(instance)
-        target.remove()
-      }, CLOSE_ANIMATION_MS)
+      // Actual teardown waits for `onOpenChangeComplete` below, once the
+      // exit animation has actually finished, rather than a fixed timer -
+      // see this function's Phase 1 Kilo Code Review comment for why a
+      // discarded `setTimeout` handle was a bug (uncancellable, and the
+      // instance/portal/scroll-lock could outlive the caller).
     }
 
     const props = $state({
@@ -50,9 +46,20 @@ export function confirmDestructive(options: ConfirmDestructiveOptions): Promise<
       onOpenChange: (next: boolean) => {
         if (!next) settle(false)
       },
+      onOpenChangeComplete: (next: boolean) => {
+        if (next) return
+        unmount(instance)
+        target.remove()
+      },
       onConfirm: () => settle(true),
     })
 
-    const instance = mount(ConfirmDialog, { target, props })
+    let instance: ReturnType<typeof mount>
+    try {
+      instance = mount(ConfirmDialog, { target, props })
+    } catch (error) {
+      target.remove()
+      reject(error)
+    }
   })
 }

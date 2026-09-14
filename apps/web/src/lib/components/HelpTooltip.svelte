@@ -17,7 +17,7 @@
     aria-label={label}
     title={text}
     class={[
-      'text-due inline-flex shrink-0 items-center justify-center transition-colors hover:opacity-75',
+      'text-due inline-flex shrink-0 items-center justify-center transition-opacity hover:opacity-75',
       className,
     ]}
   >

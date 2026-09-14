@@ -6,7 +6,12 @@ import { confirmDestructive } from './confirmDestructive.svelte'
 // confirmDestructive mounts straight to document.body (there's no host
 // component to render it into, unlike every other spec in this app) -
 // clean that up directly rather than via @testing-library/svelte's render.
-afterEach(() => {
+// Teardown itself is driven by bits-ui's `onOpenChangeComplete` (fired a
+// tick after `open` flips, not a fixed timer - see confirmDestructive.svelte.ts),
+// so give it a frame to run first; wiping the DOM out from under a still-
+// mounted instance would run its unmount against already-detached nodes.
+afterEach(async () => {
+  await new Promise((resolve) => requestAnimationFrame(resolve))
   document.body.innerHTML = ''
 })
 

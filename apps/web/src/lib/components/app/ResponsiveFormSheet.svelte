@@ -31,7 +31,11 @@
 
   let { open, onOpenChange, title, description, children, footer }: Props = $props()
 
-  // Sheet at sm (640px) and up, Drawer below it - see DESIGN.md → Layout.
+  // Sheet at sm and up, Drawer below it - see DESIGN.md → Layout. 640px is
+  // Tailwind's own default `sm` breakpoint; Tailwind v4's CSS-based config
+  // (no tailwind.config.js - see AGENTS.md) has no JS-importable theme
+  // value to read this from, so it's hardcoded here. If a `sm` override is
+  // ever added to layout.css's `@theme`, update this to match.
   const isDesktop = new MediaQuery('min-width: 640px')
 </script>
 

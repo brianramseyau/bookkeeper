@@ -161,10 +161,14 @@
    MONO) need font-variation-settings; its standard axes (wght, the slnt
    registered as font-style: oblique) apply as ordinary CSS properties and
    compose with font-variation-settings rather than needing to be repeated
-   inside it. */
+   inside it. CSS `oblique <angle>` and OpenType's `slnt` axis use opposite
+   sign conventions (CSS Fonts 4 §4.3) - DESIGN.md's "slnt -4" (the font's
+   own axis value) is therefore `oblique 4deg` here, not `oblique -4deg`
+   (which would request `slnt +4`, outside Recursive's 0…-15 range and
+   silently clamp back to upright - caught in Phase 1's Kilo Code Review). */
 @utility font-display {
   font-weight: 750;
-  font-style: oblique -4deg;
+  font-style: oblique 4deg;
   font-variation-settings: 'CASL' 1;
 }
 @utility font-figures {

@@ -59,7 +59,7 @@ The brand names are also exposed as Tailwind colours (`bg-ground`, `text-in`, `b
 | `rule`    | `#DAE1DC` | `#27322C` | Borders and dividers                                                      |
 | `violet`  | `#5B3FA0` | `#B7A1EC` | Buttons, links, focus, selection. **Interactive elements only**           |
 | `in`      | `#0A6B50` | `#3FC79D` | Money coming in, surplus                                                  |
-| `due`     | `#8A6200` | `#E6AE34` | Due soon; estimated or assumed values. Text in `due` sits on a `due` tint |
+| `due`     | `#7A5600` | `#E6AE34` | Due soon; estimated or assumed values. Text in `due` sits on a `due` tint |
 | `over`    | `#9C3320` | `#F2735A` | Overdue, deficit, delete                                                  |
 
 - Each person's `displayColor` (Settings) remains their per-person colour in Income, Subscriptions and charts.
