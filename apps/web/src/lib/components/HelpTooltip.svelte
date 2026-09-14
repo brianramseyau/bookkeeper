@@ -25,8 +25,15 @@
       <path d={mdiHelpCircle} />
     </svg>
   </PopoverTrigger>
+  <!-- Not role="tooltip" - PopoverTrigger already sets aria-haspopup="dialog"/
+       aria-expanded on the trigger, and a true ARIA tooltip is non-interactive
+       hover-triggered description text, which contradicts this panel's actual
+       click-to-open, focus-managed popover behaviour. role="status" instead:
+       the explanation is announced (implicit aria-live="polite") the moment it
+       appears, which is what actually matters on a phone with no hover state
+       to reveal a native title tooltip. -->
   <PopoverContent
-    role="tooltip"
+    role="status"
     align="center"
     class="w-56 border-amber-200 bg-white p-2 text-xs font-normal text-slate-700 shadow-lg dark:border-amber-800 dark:bg-slate-800 dark:text-slate-200"
   >

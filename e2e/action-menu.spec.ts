@@ -21,10 +21,15 @@ test('the last row action menu on Expenses opens fully inside the viewport', asy
   await lastTrigger.scrollIntoViewIfNeeded()
   await lastTrigger.click()
 
-  const editItem = page.getByRole('menuitem', { name: 'Edit' })
-  await expect(editItem).toBeVisible()
+  // Check the menu container itself, not just one item inside it - a menu
+  // that opens downward with too little room below could still leave its
+  // first item (Edit) on-screen while later ones (Pause/Archive) are cut
+  // off, which would pass this regression test in exactly the failure mode
+  // it exists to catch.
+  const menu = page.getByRole('menu')
+  await expect(menu).toBeVisible()
 
-  const box = await editItem.boundingBox()
+  const box = await menu.boundingBox()
   const viewport = page.viewportSize()
   expect(box).not.toBeNull()
   expect(viewport).not.toBeNull()

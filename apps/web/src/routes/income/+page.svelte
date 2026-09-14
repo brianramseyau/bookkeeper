@@ -33,6 +33,7 @@
     todayISO,
   } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import { cn } from '$lib/utils'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
@@ -1255,7 +1256,10 @@
             <button
               type="button"
               {...triggerProps}
-              class="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+              class={cn(
+                'inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400',
+                triggerProps.class as string | undefined
+              )}
             >
               <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
                 <path d={mdiPlus} />

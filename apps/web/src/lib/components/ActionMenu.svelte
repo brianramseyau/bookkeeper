@@ -7,6 +7,7 @@
     DropdownMenuItem,
     DropdownMenuTrigger,
   } from '$lib/components/ui/dropdown-menu'
+  import { cn } from '$lib/utils'
 
   interface ActionMenuItem {
     label: string
@@ -68,7 +69,10 @@
           {...props}
           aria-label={label}
           title={label}
-          class="inline-flex shrink-0 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+          class={cn(
+            'inline-flex shrink-0 items-center justify-center rounded-md p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400',
+            props.class as string | undefined
+          )}
         >
           <svg viewBox="0 0 24 24" class="size-5" fill="currentColor" aria-hidden="true">
             <path d={mdiDotsVertical} />

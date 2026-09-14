@@ -14,23 +14,23 @@ import HelpTooltip from './HelpTooltip.svelte'
 const inOpenPanel = { hidden: true } as const
 
 describe('HelpTooltip', () => {
-  it('shows the tooltip text on click, then closes on outside click', async () => {
+  it('shows the explanation on click, then closes on outside click', async () => {
     const user = userEvent.setup()
     render(HelpTooltip, {
       label: 'Why is this estimated?',
       text: 'No record for this month this far back.',
     })
 
-    expect(screen.queryByRole('tooltip', inOpenPanel)).toBeNull()
+    expect(screen.queryByRole('status', inOpenPanel)).toBeNull()
 
     await user.click(screen.getByRole('button', { name: 'Why is this estimated?' }))
-    expect(screen.getByRole('tooltip', inOpenPanel)).toHaveTextContent(
+    expect(screen.getByRole('status', inOpenPanel)).toHaveTextContent(
       'No record for this month this far back.'
     )
 
     await new Promise((resolve) => setTimeout(resolve, 10))
     await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
-    await waitFor(() => expect(screen.queryByRole('tooltip', inOpenPanel)).toBeNull())
+    await waitFor(() => expect(screen.queryByRole('status', inOpenPanel)).toBeNull())
   })
 
   it('sets the explanation as both the trigger title and the panel text', async () => {
@@ -43,6 +43,6 @@ describe('HelpTooltip', () => {
     )
 
     await user.click(screen.getByRole('button', { name: 'Why is this estimated?' }))
-    expect(screen.getByRole('tooltip', inOpenPanel)).toHaveTextContent('Some help text.')
+    expect(screen.getByRole('status', inOpenPanel)).toHaveTextContent('Some help text.')
   })
 })
