@@ -90,4 +90,59 @@ describe('ConfirmDialog', () => {
 
     expect(screen.getByRole('button', { name: 'Send' })).not.toHaveClass('text-destructive')
   })
+
+  it('guards against a double-click firing onConfirm twice while the dialog stays open', async () => {
+    // onConfirm here does *not* call onOpenChange(false), simulating a
+    // caller doing async work and keeping the dialog open until it finishes
+    // (see the onConfirm prop doc) - the scenario Kilo Code Review flagged
+    // where AlertDialogAction doesn't close itself.
+    const onConfirm = vi.fn()
+    const user = userEvent.setup()
+    render(ConfirmDialog, { open: true, onOpenChange: vi.fn(), title: 'Delete it?', onConfirm })
+
+    const confirmButton = screen.getByRole('button', { name: 'Delete' })
+    await user.click(confirmButton)
+    expect(confirmButton).toBeDisabled()
+    await user.click(confirmButton)
+
+    expect(onConfirm).toHaveBeenCalledOnce()
+  })
+
+  it('keeps focus inside the dialog once the confirm button disables itself', async () => {
+    const user = userEvent.setup()
+    render(ConfirmDialog, { open: true, onOpenChange: vi.fn(), title: 'Delete it?', onConfirm: vi.fn() })
+
+    const confirmButton = screen.getByRole('button', { name: 'Delete' })
+    confirmButton.focus()
+    await user.click(confirmButton)
+
+    expect(confirmButton).toBeDisabled()
+    expect(document.activeElement).not.toBe(document.body)
+    expect(screen.getByRole('alertdialog')).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  it('lets a caller control the guard via `pending`, allowing retry after a failed attempt', async () => {
+    const onConfirm = vi.fn()
+    const user = userEvent.setup()
+    const { rerender } = render(ConfirmDialog, {
+      open: true,
+      onOpenChange: vi.fn(),
+      title: 'Delete it?',
+      onConfirm,
+      pending: true,
+    })
+
+    // Already pending (e.g. a previous attempt failed and the caller hasn't
+    // cleared it yet) - clicking must not re-invoke onConfirm.
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+    expect(onConfirm).not.toHaveBeenCalled()
+
+    // Caller clears `pending` once the failed attempt has been handled -
+    // unlike the internally-managed default, this does *not* require
+    // closing and reopening the dialog to allow a retry.
+    await rerender({ open: true, onOpenChange: vi.fn(), title: 'Delete it?', onConfirm, pending: false })
+    await user.click(screen.getByRole('button', { name: 'Delete' }))
+
+    expect(onConfirm).toHaveBeenCalledOnce()
+  })
 })

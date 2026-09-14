@@ -44,6 +44,11 @@ describe('StatCard', () => {
     // non-colour signal, since `value` is pre-formatted by the caller and
     // doesn't necessarily carry its own +/- sign (see /_design's specimen).
     expect(screen.getByText('▲')).toHaveClass('text-in')
+    // The glyph itself is aria-hidden (decorative for sighted users), so the
+    // tone also needs a screen-reader-only equivalent - otherwise a screen
+    // reader user gets no signal at all, since neither the label nor the
+    // pre-formatted value can be relied on to imply a direction.
+    expect(screen.getByText('Positive:')).toHaveClass('sr-only')
   })
 
   it('colours the value over and shows a down glyph for a negative tone', () => {
@@ -51,6 +56,7 @@ describe('StatCard', () => {
 
     expect(screen.getByText('-$80.00')).toHaveClass('text-over')
     expect(screen.getByText('▼')).toHaveClass('text-over')
+    expect(screen.getByText('Negative:')).toHaveClass('sr-only')
   })
 
   it('renders the value with tabular figures', () => {

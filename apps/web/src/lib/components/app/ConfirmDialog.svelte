@@ -32,6 +32,15 @@
         teardown that must wait out the exit animation, e.g.
         `confirmDestructive`'s unmount. */
     onOpenChangeComplete?: (open: boolean) => void
+    /** Disables the confirm button and blocks re-invoking `onConfirm` -
+        controls the double-click guard below. Omit it to let the component
+        manage the guard itself (blocks an immediate double-click, resets
+        when the dialog reopens); pass it explicitly if `onConfirm` keeps the
+        dialog open during async work and needs to allow a retry after a
+        failure - reset it back to `false` yourself once that attempt ends,
+        success or failure, since the component has no way to know that on
+        its own. */
+    pending?: boolean
   }
 
   let {
@@ -44,17 +53,19 @@
     destructive = true,
     onConfirm,
     onOpenChangeComplete,
+    pending,
   }: Props = $props()
 
-  let confirming = $state(false)
+  let internalPending = $state(false)
+  const confirming = $derived(pending ?? internalPending)
 
   $effect(() => {
-    if (open) confirming = false
+    if (open) internalPending = false
   })
 
   function handleConfirm() {
     if (confirming) return
-    confirming = true
+    if (pending === undefined) internalPending = true
     onConfirm()
   }
 </script>

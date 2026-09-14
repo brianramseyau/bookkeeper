@@ -24,14 +24,22 @@
 
   // DESIGN.md: "Status is never shown by colour alone" - a positive/negative
   // tone also gets a glyph, not just the colour (a value pre-formatted by
-  // the caller doesn't necessarily carry its own +/- sign; see /_design's
-  // "$1,240.00" with tone="positive"). aria-hidden since the surrounding
-  // context (the stat's label, e.g. "Variance") already conveys the meaning
-  // to a screen reader; the glyph is a sighted-user affordance only.
+  // the caller doesn't necessarily carry its own +/- sign, and the label
+  // doesn't necessarily imply a direction either; see /_design's
+  // "$1,240.00" with tone="positive" under the label "Projected net"). The
+  // glyph itself is aria-hidden (it's a sighted-user affordance - a
+  // screen reader doesn't need "up triangle"), but paired with a visually-
+  // hidden TONE_LABEL text so the tone itself still reaches the
+  // accessibility tree, per Kilo Code Review's follow-up on the first fix.
   const TONE_GLYPH = {
     default: null,
     positive: '▲',
     negative: '▼',
+  }
+  const TONE_LABEL = {
+    default: null,
+    positive: 'Positive:',
+    negative: 'Negative:',
   }
 </script>
 
@@ -42,6 +50,7 @@
       <span aria-hidden="true" class={['text-base leading-none', TONE_TEXT[tone]]}
         >{TONE_GLYPH[tone]}</span
       >
+      <span class="sr-only">{TONE_LABEL[tone]}</span>
     {/if}
     <span class={['font-figures text-2xl font-semibold', TONE_TEXT[tone]]}>{value}</span>
   </p>
