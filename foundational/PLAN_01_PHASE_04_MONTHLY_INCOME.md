@@ -35,11 +35,17 @@ chunks 2-4.
         behaviour unchanged, existing specs ported (unmodified - see Notes
         and deviations). `+page.svelte`: 1497 -> 565 lines (470 of it is
         still orchestration script, not markup - see Notes).
-- **Chunk 3:**
-  - [ ] Replace inline row editing with the sheet. Use `ActionMenu` for rows
-        with more than two actions.
-  - [ ] Build shared `IncomeEntryDisplayRow`/`IncomeEntryEditRow` components
-        and use them for Monthly's income rows.
+- **Chunk 3** (split into two sub-passes - see Notes and deviations):
+  - [x] Build shared `IncomeEntryDisplayRow`/`IncomeEntryEditRow` components
+        and use them for Monthly's income rows (logged entries and
+        placeholder pay dates both now edit via `IncomeEntryEditRow`'s
+        sheet, not an inline row).
+  - [ ] Replace Outgoing lines' inline row editing (utility/recurring
+        bill/subscription/expense actual) with the sheet.
+  - [x] `ActionMenu` for rows with more than two actions - not needed:
+        every row in Monthly has at most two always-visible actions (Edit +
+        Delete, or Accept + Edit for a placeholder), so this is satisfied
+        trivially rather than built.
 - **Chunk 4:**
   - [ ] Income:
     - [ ] Sources are edited in a sheet.
@@ -60,12 +66,38 @@ chunks 2-4.
   and built from DESIGN.md's own signature-element spec and
   `/frontend-design` alone. Flag this if a future session has `dataviz`
   available, in case it would have changed the chart's construction.
-- AGENTS.md's Web conventions section describes `IncomeEntryDisplayRow.svelte`
-  /`IncomeEntryEditRow.svelte` as already existing ("as `IncomeEntryDisplayRow.svelte`
-  /`IncomeEntryEditRow.svelte` already are for the Income page"). They don't
-  exist yet as of the start of this phase - building them is chunk 3's job,
-  not a pre-existing component this phase can just adopt. Update that
-  AGENTS.md wording once they exist.
+- AGENTS.md's Web conventions section described `IncomeEntryDisplayRow.svelte`
+  /`IncomeEntryEditRow.svelte` as already existing for the Income page before
+  this phase built them - they didn't exist at the start of Phase 4. Now
+  built (chunk 3, first sub-pass) and used by Monthly; Income itself
+  (chunk 4) still needs to adopt them, which is when AGENTS.md's wording
+  becomes accurate. `IncomeEntryEditRow` diverges from what the name alone
+  implies: DESIGN.md mandates edit-in-a-sheet, never an inline row, so it
+  renders a `ResponsiveFormSheet`'s form fields, not a `<tr>` - only
+  `IncomeEntryDisplayRow` renders a real table row. `IncomeEntryDisplayRow`'s
+  `leading` snippet (a `Snippet<[IncomeEntry]>`) covers Monthly's Owner
+  column; its separate `projected` prop (omit entirely to hide the column)
+  covers the aligned Projected figure - AGENTS.md's "leading snippet ...
+  e.g. Monthly's Owner/Projected columns" undersells that Projected is its
+  own prop, not part of the snippet, since the two columns aren't adjacent
+  in the row's markup.
+- Chunk 3 turned out to have two genuinely different-sized pieces - the
+  income-entry sheet conversion (small, well-scoped, matches the
+  AGENTS.md-named component pair) and the Outgoing lines sheet conversion
+  (six edit modes - utility/recurring-bill/subscription/expense-add/
+  expense-edit/expense-multiple - each with its own fields, plus a delete
+  path) - so it's landing as two sub-passes rather than one commit.
+  Everything above this note is the first sub-pass; the Outgoing lines
+  conversion is still open.
+- Deleting a logged income entry now confirms through `confirmDestructive`
+  (an `AlertDialog`, per DESIGN.md's interaction rules) instead of deleting
+  immediately with no confirmation at all, which is what the pre-Phase-4
+  inline-edit version did - a real behaviour addition, not just a
+  presentation change, done alongside the sheet conversion since both are
+  "how this row's actions work" changes. Save/delete/accept mutations on
+  Monthly's income rows now also confirm with a Sonner toast, matching
+  DESIGN.md's interaction rules (previously mutations here had no toast at
+  all).
 - The first pass of `MonthStrip` rendered a full name label under every
   tick, matching DESIGN.md's ASCII mock literally - but that mock shows
   ~8 ticks total, while a real household's month can carry 20-30+ outgoing
@@ -84,6 +116,32 @@ chunks 2-4.
   (`daysInMonth * 28px`, min 480px) so the below-`sm` horizontal scroll has
   legible per-day spacing instead of a fixed guess. Logged in DESIGN.md's
   decisions log too.
+- A `<select>` whose `<option>`s come from an `{#each}` block does not
+  reliably apply a value set programmatically on the same render pass its
+  options are created - it stays on the first option regardless, in this
+  Svelte 5.56.7/jsdom combination. Reproduced in isolation outside any app
+  code: fails whether the value is set via `bind:value` or a plain
+  `value={}`, via `$effect`, via a synchronous `$state()` initializer, with
+  `{#key}` forcing a full remount, keyed or unkeyed each blocks, or an
+  `<option selected={...}>` attribute instead - the only fix found is
+  setting `.value` imperatively through a real element reference
+  (`bind:this` + an `$effect` that does `el.value = value`), kept alongside
+  `bind:value` so the user's own selection still flows back normally. See
+  `IncomeEntryEditRow.svelte`'s `ownerSelectEl` for the pattern - reuse it
+  for any future `<select>` that needs a pre-filled value from an
+  each-block option list (`OutgoingFormSheet`'s own selects may have the
+  same latent bug; no existing test asserts a pre-filled select value
+  there to have caught it).
+- Drawer content in this stack (vaul-svelte) attaches a `pointerdown`
+  handler needing `setPointerCapture`, unimplemented in jsdom - clicking
+  anything inside a `ResponsiveFormSheet` with `@testing-library/user-event`
+  (real pointer events) throws an uncaught `TypeError` in the mobile/Drawer
+  branch (the jsdom default - see `ResponsiveFormSheet.spec.ts`). Tests
+  don't fail outright but vitest flags it as an unhandled error that
+  "might cause false positive tests" - use `fireEvent` instead of
+  `userEvent` for interactions inside a `ResponsiveFormSheet`'s body
+  (`IncomeEntryEditRow.spec.ts`, matching `OutgoingFormSheet.spec.ts`'s
+  existing convention) rather than `userEvent`.
 - Chunk 2 was a pure markup extraction: all editing state and handlers
   (carryover, expense lines, income entries, placeholders) stay in
   `+page.svelte`, passed down to the four new components as props/callbacks

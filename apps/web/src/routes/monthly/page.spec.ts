@@ -1,6 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'svelte-sonner'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import { page } from '$app/state'
 import { replaceState } from '$app/navigation'
 import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
@@ -31,6 +33,10 @@ import MonthPage from './+page.svelte'
 
 vi.mock('$app/navigation', () => ({ replaceState: vi.fn() }))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/monthly') } }))
+vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
+}))
 vi.mock('$lib/api/standard-month', () => ({ getStandardMonth: vi.fn() }))
 vi.mock('$lib/api/month-carryover', () => ({ setMonthCarryover: vi.fn() }))
 vi.mock('$lib/api/income', () => ({
@@ -203,6 +209,9 @@ describe('month page', () => {
     vi.mocked(upsertSubscriptionPayment).mockReset()
     vi.mocked(upsertExpensePayment).mockReset()
     vi.mocked(replaceState).mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(confirmDestructive).mockReset()
+    vi.mocked(confirmDestructive).mockResolvedValue(true)
   })
 
   it('reads year/month from the URL and shows a loading state, then the header', async () => {
@@ -473,10 +482,12 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit projected pay for 14 Mar 2026' }))[0]!
     )
+    // fireEvent rather than userEvent for interactions inside the sheet - a
+    // real pointerdown on Drawer content hits vaul-svelte's drag-to-dismiss
+    // handler, which needs setPointerCapture (unimplemented in jsdom).
     const amountInput = screen.getByDisplayValue('5000')
-    await user.clear(amountInput)
-    await user.type(amountInput, '5100')
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    await fireEvent.input(amountInput, { target: { value: '5100' } })
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
@@ -529,7 +540,7 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
         amount: 5000,
@@ -537,11 +548,34 @@ describe('month page', () => {
         note: 'March pay',
       })
     )
+    expect(toast.success).toHaveBeenCalledWith('Income entry saved')
+
+    // fireEvent rather than userEvent - the underlying row can still sit
+    // under the closing sheet's overlay (pointer-events: none) briefly
+    // after it stops rendering, which userEvent's pointer simulation
+    // (unlike a plain click event) checks for and fails on.
+    await fireEvent.click(
+      (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
+    )
+    await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Delete entry from 14 Mar 2026?' })
+    )
+    expect(toast.success).toHaveBeenCalledWith('Income entry deleted')
+  })
+
+  it('does not delete an entry when the confirmation is declined', async () => {
+    setDefaultMocks()
+    vi.mocked(confirmDestructive).mockResolvedValue(false)
+    const user = userEvent.setup()
+    render(MonthPage)
 
     await user.click(
       (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
     )
-    await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
+    await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
+
+    expect(deleteIncomeEntry).not.toHaveBeenCalled()
   })
 
   it('blocks saving an entry edit when the amount field is cleared', async () => {
@@ -557,8 +591,8 @@ describe('month page', () => {
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
     const amountInput = screen.getByDisplayValue('5000')
-    await user.clear(amountInput)
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    await fireEvent.input(amountInput, { target: { value: '' } })
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Amount is required')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -573,7 +607,7 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
@@ -587,7 +621,7 @@ describe('month page', () => {
       (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
     )
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: 'Cancel editing income entry' })[0]!)
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByDisplayValue('5000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -756,8 +790,11 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit entry' }))[0]!)
-    await user.click(screen.getByLabelText('Withheld'))
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    // The bottom "log a new entry" form has its own "Tax withheld" checkbox
+    // too - scope to the one inside the edit sheet/drawer.
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByText('Tax withheld'))
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(11, {

@@ -32,7 +32,9 @@
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { ApiError } from '$lib/api'
   import { lastDayOfMonthIso, resolveDueDate } from '$lib/standard-month-line'
-  import type { IncomeRow } from '$lib/income-rows'
+  import { type IncomeRow, entryRowLabel } from '$lib/income-rows'
+  import { toast } from 'svelte-sonner'
+  import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
@@ -40,6 +42,10 @@
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
+  import IncomeEntryEditRow, {
+    type IncomeEntryEditTarget,
+    type IncomeEntryEditValues,
+  } from '$lib/components/IncomeEntryEditRow.svelte'
   import MonthSummary from '$lib/components/monthly/MonthSummary.svelte'
   import OutgoingLinesTable from '$lib/components/monthly/OutgoingLinesTable.svelte'
   import CarryoverCard from '$lib/components/monthly/CarryoverCard.svelte'
@@ -59,23 +65,16 @@
 
   let loggingEntry = $state(false)
 
-  let editingEntryId = $state<number | null>(null)
-  let editEntryUserId = $state('')
-  let editEntryTaxWithheld = $state(false)
-  let editEntryAmount = $state<number>(NaN)
-  let editEntryReceivedOn = $state('')
-  let editEntryNote = $state('')
-  let savingEntryEdit = $state(false)
+  // Backs both an existing entry's edit sheet and a placeholder pay date's
+  // "adjust before logging" sheet - see IncomeEntryEditRow.
+  let entryEditOpen = $state(false)
+  let entryEditTarget = $state<IncomeEntryEditTarget | null>(null)
+  let entryEditSubmitting = $state(false)
+  let entryEditError = $state<string | null>(null)
 
-  // Not-yet-logged pay dates render as greyed placeholder rows (see
-  // incomeRowsForLine below) - these three cover both ways a placeholder
-  // becomes a real IncomeEntry: instant one-click accept, or opening this
-  // inline form (pre-filled with the projected amount/date) to adjust first.
-  let editingPlaceholderKey = $state<string | null>(null)
-  let editPlaceholderAmount = $state<number>(NaN)
-  let editPlaceholderReceivedOn = $state('')
-  let editPlaceholderNote = $state('')
-  let savingPlaceholderEdit = $state(false)
+  // The one-click accept path bypasses the sheet entirely - just ratifies
+  // the projected amount/date as-is, for the common case where what
+  // actually landed matches the projection exactly.
   let acceptingPlaceholderKey = $state<string | null>(null)
 
   type ExpenseEditMode =
@@ -176,89 +175,81 @@
   }
 
   async function handleDeleteEntry(entry: IncomeEntry) {
+    const confirmed = await confirmDestructive({
+      title: `Delete ${entryRowLabel(entry)}?`,
+      description: 'This cannot be undone.',
+    })
+    if (!confirmed) return
     error = null
     try {
       await deleteIncomeEntry(entry.id)
       await refreshIncome()
+      toast.success('Income entry deleted')
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete entry'
     }
   }
 
-  function startEditEntry(entry: IncomeEntry) {
-    editingEntryId = entry.id
-    editEntryUserId = entry.userId !== null ? String(entry.userId) : ''
-    editEntryTaxWithheld = entry.taxWithheld ?? false
-    editEntryAmount = entry.amount
-    editEntryReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : ''
-    editEntryNote = entry.note ?? ''
+  function openEditEntry(entry: IncomeEntry) {
+    entryEditTarget = { type: 'entry', entry }
+    entryEditError = null
+    entryEditOpen = true
   }
 
-  function cancelEditEntry() {
-    editingEntryId = null
+  function openEditPlaceholder(
+    line: StandardMonthIncomeLine,
+    row: Extract<IncomeRow, { type: 'placeholder' }>
+  ) {
+    entryEditTarget = {
+      type: 'placeholder',
+      sourceId: line.sourceId,
+      label: line.label,
+      date: row.date,
+      projectedAmount: row.projected,
+    }
+    entryEditError = null
+    entryEditOpen = true
   }
 
-  async function saveEntryEdit(entry: IncomeEntry) {
-    if (Number.isNaN(editEntryAmount) || editEntryAmount === null) {
-      error = 'Amount is required'
+  async function saveEntryEditValues(values: IncomeEntryEditValues) {
+    if (!entryEditTarget) return
+    if (Number.isNaN(values.amount) || values.amount === null) {
+      entryEditError = 'Amount is required'
       return
     }
-    if (entry.incomeSourceId === null && editEntryUserId === '') {
-      error = 'A person is required for other income'
-      return
-    }
-    savingEntryEdit = true
-    error = null
+    entryEditSubmitting = true
+    entryEditError = null
     try {
-      await updateIncomeEntry(entry.id, {
-        userId: entry.incomeSourceId === null ? Number(editEntryUserId) : undefined,
-        amount: editEntryAmount,
-        receivedOn: editEntryReceivedOn === '' ? null : editEntryReceivedOn,
-        note: editEntryNote.trim() === '' ? null : editEntryNote.trim(),
-        taxWithheld: entry.incomeSourceId === null ? editEntryTaxWithheld : undefined,
-      })
-      editingEntryId = null
+      if (entryEditTarget.type === 'entry') {
+        const entry = entryEditTarget.entry
+        if (entry.incomeSourceId === null && values.userId === null) {
+          entryEditError = 'A person is required for other income'
+          return
+        }
+        await updateIncomeEntry(entry.id, {
+          userId: entry.incomeSourceId === null ? (values.userId ?? undefined) : undefined,
+          amount: values.amount,
+          receivedOn: values.receivedOn === '' ? null : values.receivedOn,
+          note: values.note === '' ? null : values.note,
+          taxWithheld: entry.incomeSourceId === null ? values.taxWithheld : undefined,
+        })
+      } else {
+        await createIncomeEntry({
+          incomeSourceId: entryEditTarget.sourceId,
+          year,
+          month,
+          amount: values.amount,
+          receivedOn: values.receivedOn === '' ? null : values.receivedOn,
+          note: values.note === '' ? null : values.note,
+        })
+      }
+      entryEditOpen = false
       await refreshIncome()
+      toast.success('Income entry saved')
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save changes'
+      entryEditError = err instanceof ApiError ? err.message : 'Failed to save changes'
     } finally {
-      savingEntryEdit = false
-    }
-  }
-
-  function startEditPlaceholder(row: Extract<IncomeRow, { type: 'placeholder' }>) {
-    editingPlaceholderKey = row.key
-    editPlaceholderAmount = row.projected
-    editPlaceholderReceivedOn = row.date.slice(0, 10)
-    editPlaceholderNote = ''
-  }
-
-  function cancelEditPlaceholder() {
-    editingPlaceholderKey = null
-  }
-
-  async function saveNewEntryFromPlaceholder(line: StandardMonthIncomeLine) {
-    if (Number.isNaN(editPlaceholderAmount) || editPlaceholderAmount === null) {
-      error = 'Amount is required'
-      return
-    }
-    savingPlaceholderEdit = true
-    error = null
-    try {
-      await createIncomeEntry({
-        incomeSourceId: line.sourceId,
-        year,
-        month,
-        amount: editPlaceholderAmount,
-        receivedOn: editPlaceholderReceivedOn === '' ? null : editPlaceholderReceivedOn,
-        note: editPlaceholderNote.trim() === '' ? null : editPlaceholderNote.trim(),
-      })
-      editingPlaceholderKey = null
-      await refreshIncome()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save entry'
-    } finally {
-      savingPlaceholderEdit = false
+      entryEditSubmitting = false
     }
   }
 
@@ -280,6 +271,7 @@
         receivedOn: row.date.slice(0, 10),
       })
       await refreshIncome()
+      toast.success('Income entry saved')
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to accept pay date'
     } finally {
@@ -529,27 +521,21 @@
     {users}
     projectedTotal={data.income.projectedTotal}
     actualTotal={data.income.actualTotal}
-    {editingEntryId}
-    bind:editEntryUserId
-    bind:editEntryTaxWithheld
-    bind:editEntryAmount
-    bind:editEntryReceivedOn
-    bind:editEntryNote
-    {savingEntryEdit}
-    {editingPlaceholderKey}
-    bind:editPlaceholderAmount
-    bind:editPlaceholderReceivedOn
-    bind:editPlaceholderNote
-    {savingPlaceholderEdit}
     {acceptingPlaceholderKey}
-    onStartEditEntry={startEditEntry}
-    onCancelEditEntry={cancelEditEntry}
-    onSaveEditEntry={saveEntryEdit}
+    onEditEntry={openEditEntry}
     onDeleteEntry={handleDeleteEntry}
-    onStartEditPlaceholder={startEditPlaceholder}
-    onCancelEditPlaceholder={cancelEditPlaceholder}
-    onSavePlaceholder={saveNewEntryFromPlaceholder}
+    onEditPlaceholder={openEditPlaceholder}
     onAcceptPlaceholder={acceptPlaceholder}
+  />
+
+  <IncomeEntryEditRow
+    open={entryEditOpen}
+    onOpenChange={(next) => (entryEditOpen = next)}
+    target={entryEditTarget}
+    {users}
+    submitting={entryEditSubmitting}
+    error={entryEditError}
+    onSave={saveEntryEditValues}
   />
 
   <Card class="mt-4 p-4">
