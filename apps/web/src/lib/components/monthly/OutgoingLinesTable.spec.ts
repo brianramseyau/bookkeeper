@@ -28,17 +28,8 @@ function baseProps(overrides: Partial<Record<string, unknown>> = {}) {
     lines: [makeLine()],
     projectedTotal: 80,
     actualTotal: 75,
-    editingExpenseKey: null,
-    editExpenseMode: null,
-    editActualsExpenseId: null,
-    editExpenseAmount: NaN,
-    editExpenseReceivedOn: '',
-    savingExpense: false,
     savingPaidKey: null,
     onStartEdit: vi.fn(),
-    onCancelEdit: vi.fn(),
-    onSaveEdit: vi.fn(),
-    onRemoveActual: vi.fn(),
     onTogglePaid: vi.fn(),
     ...overrides,
   }
@@ -75,43 +66,14 @@ describe('OutgoingLinesTable', () => {
     )
   })
 
-  it('shows edit inputs and calls onSaveEdit/onCancelEdit while editing', async () => {
-    const onSaveEdit = vi.fn()
-    const onCancelEdit = vi.fn()
-    const user = userEvent.setup()
+  it('does not show an edit button for a non-editable line', () => {
     render(
       OutgoingLinesTable,
       baseProps({
-        editingExpenseKey: 'recurring-bill-1',
-        editExpenseMode: 'recurring-bill',
-        editExpenseAmount: 80,
-        onSaveEdit,
-        onCancelEdit,
+        lines: [makeLine({ key: 'utility-2', label: 'Water (shared)', editable: false })],
       })
     )
 
-    expect(screen.getByDisplayValue('80')).toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: 'Save Internet' })[0]!)
-    expect(onSaveEdit).toHaveBeenCalledOnce()
-    await user.click(screen.getAllByRole('button', { name: 'Cancel editing Internet' })[0]!)
-    expect(onCancelEdit).toHaveBeenCalledOnce()
-  })
-
-  it('shows a delete button and calls onRemoveActual for an expense-edit line', async () => {
-    const onRemoveActual = vi.fn()
-    const user = userEvent.setup()
-    render(
-      OutgoingLinesTable,
-      baseProps({
-        lines: [makeLine({ key: 'expense-1', label: 'Groceries' })],
-        editingExpenseKey: 'expense-1',
-        editExpenseMode: 'expense-edit',
-        editExpenseAmount: 200,
-        onRemoveActual,
-      })
-    )
-
-    await user.click(screen.getAllByRole('button', { name: 'Delete Groceries entry' })[0]!)
-    expect(onRemoveActual).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'Edit Water (shared)' })).toBeNull()
   })
 })

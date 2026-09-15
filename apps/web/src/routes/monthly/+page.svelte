@@ -48,6 +48,10 @@
   } from '$lib/components/IncomeEntryEditRow.svelte'
   import MonthSummary from '$lib/components/monthly/MonthSummary.svelte'
   import OutgoingLinesTable from '$lib/components/monthly/OutgoingLinesTable.svelte'
+  import OutgoingLineEditSheet, {
+    type OutgoingLineEditTarget,
+    type OutgoingLineEditValues,
+  } from '$lib/components/monthly/OutgoingLineEditSheet.svelte'
   import CarryoverCard from '$lib/components/monthly/CarryoverCard.svelte'
   import IncomingTable from '$lib/components/monthly/IncomingTable.svelte'
 
@@ -77,20 +81,13 @@
   // actually landed matches the projection exactly.
   let acceptingPlaceholderKey = $state<string | null>(null)
 
-  type ExpenseEditMode =
-    | 'utility'
-    | 'recurring-bill'
-    | 'subscription'
-    | 'expense-add'
-    | 'expense-edit'
-    | 'expense-multiple'
-  let editingExpenseKey = $state<string | null>(null)
-  let editExpenseMode = $state<ExpenseEditMode | null>(null)
-  let editExpenseTargetId = $state<number | null>(null)
-  let editActualsExpenseId = $state<number | null>(null)
-  let editExpenseAmount = $state<number>(NaN)
-  let editExpenseReceivedOn = $state('')
-  let savingExpense = $state(false)
+  // An outgoing line's monthly actual is edited in a sheet, never inline -
+  // see OutgoingLineEditSheet. The target is only known once an expense's
+  // actuals have been loaded (none / one / several choose the mode).
+  let expenseEditOpen = $state(false)
+  let expenseEditTarget = $state<OutgoingLineEditTarget | null>(null)
+  let expenseEditSubmitting = $state(false)
+  let expenseEditError = $state<string | null>(null)
   let savingPaidKey = $state<string | null>(null)
 
   onMount(load)
@@ -340,121 +337,126 @@
       : []
   )
 
-  function cancelEditExpense() {
-    editingExpenseKey = null
-    editExpenseMode = null
-    editExpenseTargetId = null
-    editActualsExpenseId = null
-    editExpenseReceivedOn = ''
+  function closeExpenseEdit() {
+    expenseEditOpen = false
+    expenseEditTarget = null
+    expenseEditError = null
   }
 
-  async function startEditExpense(line: StandardMonthLine) {
+  async function openEditExpense(line: StandardMonthLine) {
     error = null
     if (line.key.startsWith('utility-')) {
-      editingExpenseKey = line.key
-      editExpenseMode = 'utility'
-      editExpenseTargetId = Number(line.key.slice('utility-'.length))
-      editActualsExpenseId = null
-      editExpenseAmount = line.actual ?? NaN
-      editExpenseReceivedOn = line.receivedOn?.slice(0, 10) ?? ''
+      expenseEditError = null
+      expenseEditTarget = { mode: 'utility', line }
+      expenseEditOpen = true
       return
     }
     if (line.key.startsWith('recurring-bill-')) {
-      editingExpenseKey = line.key
-      editExpenseMode = 'recurring-bill'
-      editExpenseTargetId = Number(line.key.slice('recurring-bill-'.length))
-      editActualsExpenseId = null
-      editExpenseAmount = line.actual ?? line.projected ?? NaN
+      expenseEditError = null
+      expenseEditTarget = { mode: 'recurring-bill', line }
+      expenseEditOpen = true
       return
     }
     if (line.key.startsWith('subscription-')) {
-      editingExpenseKey = line.key
-      editExpenseMode = 'subscription'
-      editExpenseTargetId = Number(line.key.slice('subscription-'.length))
-      editActualsExpenseId = null
-      editExpenseAmount = line.actual ?? line.projected ?? NaN
+      expenseEditError = null
+      expenseEditTarget = { mode: 'subscription', line }
+      expenseEditOpen = true
       return
     }
     if (line.key.startsWith('expense-')) {
       const expenseId = Number(line.key.slice('expense-'.length))
       try {
         const actuals = await listExpenseActuals(expenseId, year, month)
-        editingExpenseKey = line.key
-        editActualsExpenseId = expenseId
         if (actuals.length === 0) {
-          editExpenseMode = 'expense-add'
-          editExpenseTargetId = expenseId
-          editExpenseAmount = NaN
+          expenseEditTarget = { mode: 'expense-add', line, expenseId }
         } else if (actuals.length === 1) {
-          editExpenseMode = 'expense-edit'
-          editExpenseTargetId = actuals[0]!.id
-          editExpenseAmount = actuals[0]!.amount
+          expenseEditTarget = {
+            mode: 'expense-edit',
+            line,
+            expenseId,
+            actualId: actuals[0]!.id,
+          }
         } else {
-          editExpenseMode = 'expense-multiple'
-          editExpenseTargetId = expenseId
+          expenseEditTarget = { mode: 'expense-multiple', line, expenseId }
         }
+        expenseEditError = null
+        expenseEditOpen = true
       } catch (err) {
         error = err instanceof ApiError ? err.message : 'Failed to load actuals'
       }
     }
   }
 
-  async function saveExpenseEdit() {
-    if (editExpenseMode === 'expense-multiple' || editExpenseTargetId === null) return
-    if (Number.isNaN(editExpenseAmount) || editExpenseAmount === null) return
-
-    savingExpense = true
-    error = null
+  async function saveExpenseEditValues(values: OutgoingLineEditValues) {
+    const target = expenseEditTarget
+    if (!target) return
+    if (Number.isNaN(values.amount) || values.amount === null) {
+      expenseEditError = 'Enter an amount'
+      return
+    }
+    expenseEditSubmitting = true
+    expenseEditError = null
     try {
-      if (editExpenseMode === 'utility') {
+      const amount = values.amount
+      if (target.mode === 'utility') {
         await upsertUtilityBill(
-          editExpenseTargetId,
+          Number(target.line.key.slice('utility-'.length)),
           year,
           month,
-          editExpenseAmount,
+          amount,
           undefined,
-          editExpenseReceivedOn === '' ? null : editExpenseReceivedOn
+          values.receivedOn === '' ? null : values.receivedOn
         )
-      } else if (editExpenseMode === 'recurring-bill') {
+      } else if (target.mode === 'recurring-bill') {
         await upsertRecurringBillPayment(
-          editExpenseTargetId,
+          Number(target.line.key.slice('recurring-bill-'.length)),
           year,
           month,
           undefined,
-          editExpenseAmount
+          amount
         )
-      } else if (editExpenseMode === 'subscription') {
+      } else if (target.mode === 'subscription') {
         await upsertSubscriptionPayment(
-          editExpenseTargetId,
+          Number(target.line.key.slice('subscription-'.length)),
           year,
           month,
           undefined,
-          editExpenseAmount
+          amount
         )
-      } else if (editExpenseMode === 'expense-add') {
-        await createExpenseActual(editExpenseTargetId, {
+      } else if (target.mode === 'expense-add' && target.expenseId !== undefined) {
+        await createExpenseActual(target.expenseId, {
           occurredOn: lastDayOfMonthIso(year, month),
-          amount: editExpenseAmount,
+          amount,
         })
-      } else if (editExpenseMode === 'expense-edit') {
-        await updateExpenseActual(editExpenseTargetId, { amount: editExpenseAmount })
+      } else if (target.mode === 'expense-edit' && target.actualId !== undefined) {
+        await updateExpenseActual(target.actualId, { amount })
+      } else {
+        return
       }
-      cancelEditExpense()
+      closeExpenseEdit()
       await refreshMonth()
+      toast.success(target.mode === 'expense-add' ? 'Entry added' : 'Changes saved')
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save actual'
+      expenseEditError = err instanceof ApiError ? err.message : 'Failed to save actual'
     } finally {
-      savingExpense = false
+      expenseEditSubmitting = false
     }
   }
 
   async function removeExpenseActual() {
-    if (editExpenseMode !== 'expense-edit' || editExpenseTargetId === null) return
+    const target = expenseEditTarget
+    if (!target || target.mode !== 'expense-edit' || target.actualId === undefined) return
+    const confirmed = await confirmDestructive({
+      title: `Delete this ${target.line.label} entry?`,
+      description: 'This cannot be undone.',
+    })
+    if (!confirmed) return
     error = null
     try {
-      await deleteExpenseActual(editExpenseTargetId)
-      cancelEditExpense()
+      await deleteExpenseActual(target.actualId)
+      closeExpenseEdit()
       await refreshMonth()
+      toast.success('Entry deleted')
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }
@@ -484,18 +486,22 @@
     lines={sortedExpenseLines}
     projectedTotal={data.expenses.projectedTotal}
     actualTotal={data.expenses.actualTotal}
-    {editingExpenseKey}
-    {editExpenseMode}
-    {editActualsExpenseId}
-    bind:editExpenseAmount
-    bind:editExpenseReceivedOn
-    {savingExpense}
     {savingPaidKey}
-    onStartEdit={startEditExpense}
-    onCancelEdit={cancelEditExpense}
-    onSaveEdit={saveExpenseEdit}
-    onRemoveActual={removeExpenseActual}
+    onStartEdit={openEditExpense}
     onTogglePaid={togglePaid}
+  />
+
+  <OutgoingLineEditSheet
+    open={expenseEditOpen}
+    onOpenChange={(next) => {
+      expenseEditOpen = next
+      if (!next) expenseEditTarget = null
+    }}
+    target={expenseEditTarget}
+    submitting={expenseEditSubmitting}
+    error={expenseEditError}
+    onSave={saveExpenseEditValues}
+    onRemove={removeExpenseActual}
   />
 
   <div class="mt-8 flex items-center justify-between">
@@ -504,7 +510,7 @@
       href="/income"
       class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
     >
-      Manage income sources →
+      Manage income sources
     </a>
   </div>
 

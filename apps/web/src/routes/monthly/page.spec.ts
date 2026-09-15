@@ -1329,10 +1329,9 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Netflix (Brian)' }))[0]!)
-    const amountInput = screen.getByDisplayValue('22.99')
-    await user.clear(amountInput)
-    await user.type(amountInput, '24.99')
-    await user.click(screen.getAllByRole('button', { name: 'Save Netflix (Brian)' })[0]!)
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.input(within(dialog).getByLabelText('Amount'), { target: { value: '24.99' } })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, undefined, 24.99)
@@ -1424,10 +1423,9 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    const amountInput = screen.getByDisplayValue('110')
-    await user.clear(amountInput)
-    await user.type(amountInput, '120')
-    await user.click(screen.getAllByRole('button', { name: 'Save Electricity' })[0]!)
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.input(within(dialog).getByLabelText('Amount'), { target: { value: '120' } })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 120, undefined, null)
@@ -1475,10 +1473,11 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    const receivedInput = screen.getByDisplayValue('2026-03-14')
-    await user.clear(receivedInput)
-    await user.type(receivedInput, '2026-03-21')
-    await user.click(screen.getAllByRole('button', { name: 'Save Electricity' })[0]!)
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.input(within(dialog).getByLabelText('Received on'), {
+      target: { value: '2026-03-21' },
+    })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 110, undefined, '2026-03-21')
@@ -1493,15 +1492,9 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    expect(
-      (await screen.findAllByRole('button', { name: 'Save Groceries' }))[0]!
-    ).toBeInTheDocument()
-    // The expense row's amount input is now the first spinbutton on the
-    // page (Expenses renders above the Income section's "Log income" form,
-    // whose Amount field is the other spinbutton).
-    const amountInputs = screen.getAllByRole('spinbutton')
-    await user.type(amountInputs[0]!, '650')
-    await user.click(screen.getAllByRole('button', { name: 'Save Groceries' })[0]!)
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.input(within(dialog).getByLabelText('Amount'), { target: { value: '650' } })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Add entry' }))
 
     await waitFor(() =>
       expect(createExpenseActual).toHaveBeenCalledWith(1, {
@@ -1530,14 +1523,15 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    await user.click((await screen.findAllByRole('button', { name: 'Save Groceries' }))[0]!)
+    let dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(updateExpenseActual).toHaveBeenCalledWith(5, { amount: 620 }))
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    const expensesTable = (await screen.findAllByRole('table'))[0]!
-    await user.click(
-      within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!
-    )
+    // fireEvent - the row can sit under the closing sheet's pointer-events:
+    // none overlay for a tick, which userEvent's pointer simulation rejects.
+    await fireEvent.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete entry' }))
     await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
   })
 
@@ -1567,11 +1561,12 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    const dialog = screen.getByRole('dialog', { hidden: true })
 
-    expect(await screen.findByText('Multiple entries')).toBeInTheDocument()
-    const viewAll = screen.getAllByRole('link', { name: 'View all →' })[0]!
-    expect(viewAll.getAttribute('href')).toBe('/expenses/1')
-    expect(screen.queryByRole('button', { name: 'Save Groceries' })).toBeNull()
+    expect(within(dialog).getByText(/multiple entries for Groceries/i)).toBeInTheDocument()
+    const manage = within(dialog).getByRole('link', { name: 'Open Groceries' })
+    expect(manage.getAttribute('href')).toBe('/expenses/1')
+    expect(within(dialog).queryByRole('button', { name: 'Save changes' })).toBeNull()
   })
 
   it('cancels editing an expense line', async () => {
@@ -1581,9 +1576,8 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Cancel editing Electricity' }))[0]!
-    )
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
     expect(upsertUtilityBill).not.toHaveBeenCalled()
   })
@@ -1606,7 +1600,8 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    await user.click(screen.getAllByRole('button', { name: 'Save Electricity' })[0]!)
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save actual')).toBeInTheDocument()
   })
@@ -1629,10 +1624,8 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    const expensesTable = (await screen.findAllByRole('table'))[0]!
-    await user.click(
-      within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!
-    )
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete entry' }))
 
     expect(await screen.findByText('Could not remove actual')).toBeInTheDocument()
   })

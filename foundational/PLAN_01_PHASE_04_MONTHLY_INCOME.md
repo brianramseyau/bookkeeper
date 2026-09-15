@@ -40,12 +40,13 @@ chunks 2-4.
         and use them for Monthly's income rows (logged entries and
         placeholder pay dates both now edit via `IncomeEntryEditRow`'s
         sheet, not an inline row).
-  - [ ] Replace Outgoing lines' inline row editing (utility/recurring
-        bill/subscription/expense actual) with the sheet.
+  - [x] Replace Outgoing lines' inline row editing (utility/recurring
+        bill/subscription/expense actual) with a sheet
+        (`OutgoingLineEditSheet`).
   - [x] `ActionMenu` for rows with more than two actions - not needed:
-        every row in Monthly has at most two always-visible actions (Edit +
-        Delete, or Accept + Edit for a placeholder), so this is satisfied
-        trivially rather than built.
+        every row in Monthly has at most one action once editing moved off
+        the row (Edit; the Paid checkbox is a field, not an action), so
+        this is satisfied trivially rather than built.
 - **Chunk 4:**
   - [ ] Income:
     - [ ] Sources are edited in a sheet.
@@ -142,6 +143,37 @@ chunks 2-4.
   `userEvent` for interactions inside a `ResponsiveFormSheet`'s body
   (`IncomeEntryEditRow.spec.ts`, matching `OutgoingFormSheet.spec.ts`'s
   existing convention) rather than `userEvent`.
+- Chunk 3's second sub-pass (`OutgoingLineEditSheet`) collapsed six inline
+  edit modes into one sheet driven by a discriminator (`utility`,
+  `recurring-bill`, `subscription`, `expense-add`, `expense-edit`,
+  `expense-multiple`). Only the first two of those are "real" modes with
+  extra fields - a utility adds a Received-on date on top of Amount, every
+  other mode is Amount alone - so the sheet is mostly one Amount input plus
+  conditional extras. `expense-multiple` is the odd one out: with more than
+  one actual logged in the month there is nothing sensible to collapse to a
+  single Amount, so the sheet renders no form at all, just a sentence and a
+  button through to the expense's own detail page. `expense-edit` (exactly
+  one actual) is the only mode with a delete action, matching the old
+  inline behaviour; Delete now confirms through `confirmDestructive` and
+  every save/add/remove toasts, which the inline version didn't.
+- Monthly's outgoing rows no longer render an inline edit state at all, so
+  `OutgoingLinesTable` lost its `editingExpenseKey`/`editExpenseMode`/
+  `$bindable` amount+date props and its Save/Cancel/Delete buttons - the
+  table is now purely a table again, and the page owns one
+  `expenseEditTarget` instead of the six-field state cluster. `+page.svelte`
+  is 557 lines after both chunk 3 sub-passes (down from 1497, still over the
+  ~500 target - the remainder is the orchestration script). Two known
+  jsdom quirks recurred here and are worked around in `page.spec.ts` rather
+  than the app: interactions inside the sheet need `fireEvent` (the
+  vaul-svelte pointer-capture issue above), and re-opening the same row's
+  sheet in the same test needs `fireEvent.click` too, because the row
+  briefly sits under the closing sheet's `pointer-events: none` overlay.
+- Two copy fixes rode along in files this sub-pass already touched: Monthly's
+  "Manage income sources →" lost its arrow (DESIGN.md forbids `→` suffixes
+  on links), and the multi-actual expense row's "View all →" is gone
+  entirely, replaced by the sheet's "Open {line}" button. The same `→`
+  pattern still exists on `routes/+page.svelte`'s "View all recurring bills
+  →" - out of scope for this phase, flag if the dashboard is touched later.
 - Chunk 2 was a pure markup extraction: all editing state and handlers
   (carryover, expense lines, income entries, placeholders) stay in
   `+page.svelte`, passed down to the four new components as props/callbacks
