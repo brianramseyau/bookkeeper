@@ -49,7 +49,9 @@
   <LoadingSkeleton rows={4} />
 {:else if selectedUserId === undefined}
   <PageHeader title="Subscriptions" description={subscriptionsAdapter.description} />
-  <EmptyState message="No people to show subscriptions for." />
+  <EmptyState
+    message="No household members found. A subscription needs a person to belong to."
+  />
 {:else}
   {#key selectedUserId}
     <OutgoingsList
