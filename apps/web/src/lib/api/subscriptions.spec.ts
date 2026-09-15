@@ -3,7 +3,11 @@ import { api } from '$lib/api'
 import {
   createSubscription,
   deleteSubscription,
+  deleteSubscriptionPayment,
+  getSubscription,
   getSubscriptionsSummary,
+  getSubscriptionTrend,
+  listSubscriptionPayments,
   listSubscriptions,
   updateSubscription,
   upsertSubscriptionPayment,
@@ -67,5 +71,25 @@ describe('subscriptions api', () => {
       paid: undefined,
       amount: 24.99,
     })
+  })
+
+  it('gets a single subscription', () => {
+    getSubscription(2)
+    expect(api.get).toHaveBeenCalledWith('/subscriptions/2')
+  })
+
+  it('lists a subscription payment history', () => {
+    listSubscriptionPayments(2)
+    expect(api.get).toHaveBeenCalledWith('/subscriptions/2/payments')
+  })
+
+  it('gets a subscription trend', () => {
+    getSubscriptionTrend(2)
+    expect(api.get).toHaveBeenCalledWith('/subscriptions/2/trend')
+  })
+
+  it('deletes a subscription payment row', () => {
+    deleteSubscriptionPayment(9)
+    expect(api.delete).toHaveBeenCalledWith('/subscription-payments/9')
   })
 })

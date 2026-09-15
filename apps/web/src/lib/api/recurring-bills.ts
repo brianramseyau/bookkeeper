@@ -1,12 +1,7 @@
 import { api } from '$lib/api'
 
 export type RecurringBillFrequency =
-  | 'monthly'
-  | 'quarterly'
-  | 'biannual'
-  | 'annual'
-  | 'biennial'
-  | 'triennial'
+  'monthly' | 'quarterly' | 'biannual' | 'annual' | 'biennial' | 'triennial'
 
 export interface RecurringBill {
   id: number
@@ -43,6 +38,15 @@ export interface RecurringBillPayment {
   updatedAt: string
 }
 
+export interface RecurringBillTrend {
+  average: number | null
+  latestAmount: number | null
+  latestYear: number | null
+  latestMonth: number | null
+  trend: 'up' | 'down' | 'flat' | null
+  months: { year: number; month: number; amount: number }[]
+}
+
 export interface RecurringBillInput {
   name: string
   categoryId?: number | null
@@ -59,6 +63,22 @@ export interface RecurringBillInput {
 export function listUpcomingRecurringBills(opts?: { includeHidden?: boolean }) {
   const query = opts?.includeHidden ? '?includeHidden=true' : ''
   return api.get<UpcomingRecurringBill[]>(`/recurring-bills/upcoming${query}`)
+}
+
+export function getRecurringBill(id: number) {
+  return api.get<UpcomingRecurringBill>(`/recurring-bills/${id}`)
+}
+
+export function listRecurringBillPayments(id: number) {
+  return api.get<RecurringBillPayment[]>(`/recurring-bills/${id}/payments`)
+}
+
+export function getRecurringBillTrend(id: number) {
+  return api.get<RecurringBillTrend>(`/recurring-bills/${id}/trend`)
+}
+
+export function deleteRecurringBillPayment(id: number) {
+  return api.delete<void>(`/recurring-bill-payments/${id}`)
 }
 
 export function createRecurringBill(input: RecurringBillInput) {

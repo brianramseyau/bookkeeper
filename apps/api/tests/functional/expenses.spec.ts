@@ -257,3 +257,27 @@ test.group('Expenses / upsertPayment', () => {
     response.assertStatus(422)
   })
 })
+
+test.group('Expenses / show', () => {
+  test('returns a single expense with its budgetItemCount', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const expense = await Expense.create({ name: 'Groceries', budgetAmount: 800 })
+    await ExpenseBudgetItem.create({ expenseId: expense.id, name: 'Food', amount: 500 })
+    await ExpenseBudgetItem.create({ expenseId: expense.id, name: 'Household', amount: 300 })
+
+    const response = await client.get(`/api/expenses/${expense.id}`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.name, 'Groceries')
+    assert.equal(response.body().data.budgetAmount, 800)
+    assert.equal(response.body().data.budgetItemCount, 2)
+  })
+
+  test('returns 404 for a non-existent expense', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/expenses/999999').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})

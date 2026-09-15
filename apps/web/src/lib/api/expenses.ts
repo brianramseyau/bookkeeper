@@ -33,6 +33,10 @@ export function listExpenses(opts?: { includeHidden?: boolean }) {
   return api.get<Expense[]>(`/expenses${query}`)
 }
 
+export function getExpense(id: number) {
+  return api.get<Expense>(`/expenses/${id}`)
+}
+
 export function createExpense(input: ExpenseInput) {
   return api.post<Expense>('/expenses', input)
 }

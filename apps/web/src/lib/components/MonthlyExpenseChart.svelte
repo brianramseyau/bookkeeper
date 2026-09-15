@@ -24,10 +24,12 @@
   let showTable = $state(false)
   let hoverIndex = $state<number | null>(null)
 
-  const LINE_COLOR = $derived(themeState.current === 'dark' ? '#818cf8' : '#4f46e5')
-  const RING_COLOR = $derived(themeState.current === 'dark' ? '#1e293b' : '#ffffff')
-  const GRID_COLOR = $derived(themeState.current === 'dark' ? '#334155' : '#e2e8f0')
-  const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#94a3b8' : '#64748b')
+  // Polymer tokens (see DESIGN.md → Colour): money going out is plain ink,
+  // the grid is the rule colour and the axis text is muted - no indigo.
+  const LINE_COLOR = $derived(themeState.current === 'dark' ? '#E5ECE8' : '#16201B')
+  const RING_COLOR = $derived(themeState.current === 'dark' ? '#18201C' : '#ffffff')
+  const GRID_COLOR = $derived(themeState.current === 'dark' ? '#27322C' : '#DAE1DC')
+  const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#93A299' : '#5C6A63')
 
   const width = 720
   const height = 240

@@ -390,3 +390,161 @@ test.group('Subscriptions / summary', () => {
     assert.equal(adamSummary.count, 1)
   })
 })
+
+test.group('Subscriptions / show', () => {
+  test('returns a single subscription', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const subscription = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+
+    const response = await client.get(`/api/subscriptions/${subscription.id}`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.name, 'Netflix')
+    assert.equal(response.body().data.amount, 22.99)
+    assert.equal(response.body().data.userId, adam.id)
+  })
+
+  test('returns 404 for a non-existent subscription', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/subscriptions/999999').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})
+
+test.group('Subscriptions / payments', () => {
+  test('lists payments newest first', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const subscription = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2026,
+      month: 1,
+      paid: true,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2025,
+      month: 12,
+      paid: true,
+    })
+
+    const response = await client
+      .get(`/api/subscriptions/${subscription.id}/payments`)
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    assert.deepEqual(
+      response.body().data.map((p: { year: number; month: number }) => `${p.year}-${p.month}`),
+      ['2026-3', '2026-1', '2025-12']
+    )
+  })
+
+  test('returns 404 for a non-existent subscription', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/subscriptions/999999/payments').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})
+
+test.group('Subscriptions / trend', () => {
+  test('falls back to the subscription amount for a payment with no stored amount', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const subscription = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Netflix',
+      amount: 20,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2026,
+      month: 1,
+      paid: true,
+      amount: null,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2026,
+      month: 2,
+      paid: true,
+      amount: 25,
+    })
+
+    const response = await client.get(`/api/subscriptions/${subscription.id}/trend`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.equal(response.body().months.length, 2)
+    assert.equal(response.body().months[0].amount, 20)
+    assert.equal(response.body().months[1].amount, 25)
+    assert.equal(response.body().average, 22.5)
+    assert.equal(response.body().trend, 'up')
+  })
+
+  test('returns 404 for a non-existent subscription', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/subscriptions/999999/trend').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})
+
+test.group('Subscriptions / destroyPayment', () => {
+  test('deletes a single payment row without touching the subscription', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const subscription = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Netflix',
+      amount: 22.99,
+    })
+    const payment = await SubscriptionPayment.create({
+      userSubscriptionId: subscription.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+
+    const response = await client
+      .delete(`/api/subscription-payments/${payment.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+
+    response.assertStatus(204)
+    assert.isNull(await SubscriptionPayment.find(payment.id))
+    assert.isNotNull(await UserSubscription.find(subscription.id))
+  })
+
+  test('returns 404 for a non-existent payment', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client
+      .delete('/api/subscription-payments/999999')
+      .withCsrfToken()
+      .loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})

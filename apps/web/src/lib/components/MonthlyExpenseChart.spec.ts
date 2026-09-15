@@ -122,7 +122,7 @@ describe('MonthlyExpenseChart', () => {
     themeState.current = 'dark'
     render(MonthlyExpenseChart, { data })
     const path = document.querySelector('path:last-of-type')
-    expect(path?.getAttribute('stroke')).toBe('#818cf8')
+    expect(path?.getAttribute('stroke')).toBe('#E5ECE8')
   })
 
   it('renders a single-point series without a line-step division by zero', () => {
