@@ -249,6 +249,33 @@ describe('eventsFromStandardMonth', () => {
     expect(events.every((e) => e.estimated)).toBe(true)
   })
 
+  it('marks a past-unlogged income line (estimated) as estimated', () => {
+    // A backfilled past month: actual is filled from projected but
+    // `estimated` is true. This exercises the `line.estimated || ...` side
+    // of the flag.
+    const data = makeResult({
+      income: {
+        lines: [
+          {
+            key: 'income-source-1',
+            label: 'Salary',
+            sourceId: 1,
+            userId: 1,
+            projected: 3000,
+            actual: 3000,
+            estimated: true,
+            payDates: ['2026-03-05T00:00:00.000Z', '2026-03-19T00:00:00.000Z'],
+          },
+        ],
+        projectedTotal: 3000,
+        actualTotal: 3000,
+      },
+    })
+    const events = eventsFromStandardMonth(data, 2026, 3)
+    expect(events.every((e) => e.amount === 1500)).toBe(true)
+    expect(events.every((e) => e.estimated)).toBe(true)
+  })
+
   it('splits an income source projected total evenly across its pay dates', () => {
     const data = makeResult({
       income: {

@@ -154,9 +154,11 @@ export function eventsFromStandardMonth(
     // Prefer the really-logged total over the projection, but `line.actual`
     // is a non-nullable number that the API returns as `0` (not null) for a
     // current/future month with nothing logged yet - so a zero means "not
-    // logged", not a real $0, and the projection still applies. Only a
-    // non-zero actual is a real logged figure.
-    const amount = line.actual > 0 ? line.actual : line.projected
+    // logged", not a real $0, and the projection still applies. One
+    // predicate drives both the amount and the `estimated` flag so they
+    // can't drift apart.
+    const usingProjection = line.actual <= 0
+    const amount = usingProjection ? line.projected : line.actual
     const perPeriod = round2(amount / line.payDates.length)
     for (const date of line.payDates) {
       const day = dayOfMonthFromIso(date, year, month)
@@ -167,11 +169,10 @@ export function eventsFromStandardMonth(
         day,
         amount: perPeriod,
         kind: 'income',
-        // Same test that picked the amount: a `$0` actual means the
-        // projection is on screen, so the tick is estimated regardless of
-        // what `line.estimated` says (it's only true for a past unlogged
-        // month, not a current/future one).
-        estimated: line.estimated || line.actual === 0,
+        // The projection being on screen makes the tick estimated, whatever
+        // `line.estimated` says (it's only true for a past unlogged month,
+        // not a current/future one).
+        estimated: line.estimated || usingProjection,
         href: null,
       })
     }
