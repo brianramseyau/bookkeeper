@@ -44,14 +44,25 @@ describe('Subscriptions page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(SubscriptionsPage)
 
-    expect(await screen.findByText(/No household members found/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(
+        'No household members found. A subscription needs a person to belong to.'
+      )
+    ).toBeInTheDocument()
     expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument()
   })
 
-  it('shows an error when loading fails', async () => {
+  it('shows an API error message when loading fails', async () => {
     vi.mocked(listUsers).mockRejectedValue(new ApiError(500, 'Boom'))
     render(SubscriptionsPage)
 
     expect(await screen.findByText('Boom')).toBeInTheDocument()
+  })
+
+  it('falls back to a generic message for a non-API failure', async () => {
+    vi.mocked(listUsers).mockRejectedValue(new TypeError('Failed to fetch'))
+    render(SubscriptionsPage)
+
+    expect(await screen.findByText('Failed to load subscriptions')).toBeInTheDocument()
   })
 })
