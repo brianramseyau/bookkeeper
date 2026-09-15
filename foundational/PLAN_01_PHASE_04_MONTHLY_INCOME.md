@@ -30,9 +30,11 @@ chunks 2-4.
         owner reviewed, approved to proceed (see Notes and deviations for
         the layout rework that came out of this review).
 - **Chunk 2:**
-  - [ ] Split Monthly into `MonthSummary`, `OutgoingLinesTable`,
+  - [x] Split Monthly into `MonthSummary`, `OutgoingLinesTable`,
         `IncomingTable` and `CarryoverCard` under `$lib/components/monthly/`,
-        behaviour unchanged, existing specs ported.
+        behaviour unchanged, existing specs ported (unmodified - see Notes
+        and deviations). `+page.svelte`: 1497 -> 565 lines (470 of it is
+        still orchestration script, not markup - see Notes).
 - **Chunk 3:**
   - [ ] Replace inline row editing with the sheet. Use `ActionMenu` for rows
         with more than two actions.
@@ -82,6 +84,20 @@ chunks 2-4.
   (`daysInMonth * 28px`, min 480px) so the below-`sm` horizontal scroll has
   legible per-day spacing instead of a fixed guess. Logged in DESIGN.md's
   decisions log too.
+- Chunk 2 was a pure markup extraction: all editing state and handlers
+  (carryover, expense lines, income entries, placeholders) stay in
+  `+page.svelte`, passed down to the four new components as props/callbacks
+  (two-way-bound editing fields use Svelte 5 `$bindable()`; `CarryoverCard`
+  takes the `EditState` instance directly by reference rather than
+  unpacking it, since that's the pattern `edit-state.svelte.ts` is designed
+  for). Because the page's own behaviour never changed, `page.spec.ts` -
+  which renders the full composed page - needed no changes at all and
+  still passes unmodified; each new component also got its own lighter
+  colocated spec. `+page.svelte` is 565 lines, still over the ~500 target -
+  470 of that is the orchestration script (load/save/edit-state handlers),
+  which chunk 3's move from ad hoc state trios to `EditState` + sheets
+  should shrink further; revisit the exact number once chunk 3 is done
+  rather than force it down prematurely here.
 - Given the size of Monthly (~1.5k lines) and Income (~1.9k lines) and the
   amount of interlocking inline-edit state each holds (utility bills,
   recurring bill/subscription payments, expense actuals, income
