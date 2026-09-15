@@ -23,9 +23,7 @@
   let { open, onOpenChange, adapter, categories, users, item, defaults, onSubmit }: Props = $props()
 
   const fields = $derived(
-    item
-      ? (adapter.editFieldsFor?.(item) ?? adapter.editFields ?? adapter.fields)
-      : adapter.fields
+    item ? (adapter.editFieldsFor?.(item) ?? adapter.editFields ?? adapter.fields) : adapter.fields
   )
   const isEdit = $derived(item !== null)
 
@@ -51,6 +49,13 @@
     error = null
   })
 
+  // Selects are the one place this stringification matters beyond display:
+  // Svelte stores each <option>'s raw JS value in `option.__value` and matches
+  // it against the select's raw `value` with `Object.is`, so a numeric option
+  // value (user ids, category ids) never matches this string and the select
+  // renders with nothing selected (`selectedIndex === -1`), and clears again
+  // the moment the user picks one. Every option value below is therefore
+  // stringified to match - don't drop the `String(...)`.
   function display(field: OutgoingField): string {
     const value = values[field.key]
     if (value === null || value === undefined) return ''
@@ -147,12 +152,12 @@
               onchange={(event) => setValue(field.key, event.currentTarget.value)}
             >
               {#each field.options ?? [] as option (option.value)}
-                <option value={option.value}>{option.label}</option>
+                <option value={String(option.value)}>{option.label}</option>
               {/each}
             </select>
           {:else if field.type === 'category'}
             <CategorySelect
-              categories={categories}
+              {categories}
               value={(values[field.key] as number | string | null) ?? ''}
               onchange={(value) => setValue(field.key, value)}
             />
@@ -165,7 +170,7 @@
             >
               <option value="">Choose a person</option>
               {#each users as user (user.id)}
-                <option value={user.id}>{user.fullName ?? user.email}</option>
+                <option value={String(user.id)}>{user.fullName ?? user.email}</option>
               {/each}
             </select>
           {:else}

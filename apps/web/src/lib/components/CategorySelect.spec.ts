@@ -58,6 +58,14 @@ describe('CategorySelect', () => {
     expect((container.querySelector('select') as HTMLSelectElement).value).toBe('2')
   })
 
+  it('reflects a string value against numeric option values', () => {
+    // The caller's own form state stores the string an <input>/<select>
+    // change produces, while the options are built from numeric ids - both
+    // sides must be normalised to match (see Svelte's `select_option`).
+    const { container } = render(CategorySelect, { categories, value: '2', onchange: vi.fn() })
+    expect((container.querySelector('select') as HTMLSelectElement).value).toBe('2')
+  })
+
   it('falls back to the empty option when value is null', () => {
     const { container } = render(CategorySelect, { categories, value: null, onchange: vi.fn() })
     expect((container.querySelector('select') as HTMLSelectElement).value).toBe('')

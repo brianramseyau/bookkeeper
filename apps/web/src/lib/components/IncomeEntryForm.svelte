@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack, type Snippet } from 'svelte'
+  import { untrack } from 'svelte'
   import type { IncomeSource } from '$lib/api/income'
   import type { UserSummary } from '$lib/api/users'
   import { todayISO } from '$lib/format'
@@ -21,10 +21,11 @@
     submitting: boolean
     class?: string
     onSubmit: (values: IncomeEntryFormValues) => Promise<boolean>
-    // Move the submit button off the inline field row onto its own line
-    // below it, where it sits alongside the caller's `footerActions`.
-    submitOnOwnLine?: boolean
-    footerActions?: Snippet
+    /** Set on the `<form>` so a caller's own footer button can submit it. */
+    formId?: string
+    /** Hide the form's own submit button - for when the caller renders one
+        in a sheet/dialog footer instead (see MonthlyLogIncomeSheet). */
+    showSubmit?: boolean
     // Pre-fill the received-on date with today (and re-default to it after a
     // successful submit). Kept opt-in because the Monthly page logs income
     // against a viewed month that may be in the past - stamping today's date
@@ -39,8 +40,8 @@
     submitting,
     class: className = 'flex flex-wrap items-end gap-3',
     onSubmit,
-    submitOnOwnLine = false,
-    footerActions,
+    formId,
+    showSubmit = true,
     defaultReceivedOnToday = false,
   }: Props = $props()
 
@@ -104,7 +105,7 @@
   }
 </script>
 
-<form onsubmit={handleSubmit} class={className}>
+<form id={formId} onsubmit={handleSubmit} class={className}>
   {#if allowUnattributed}
     <label class="flex flex-col gap-1">
       <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
@@ -115,7 +116,7 @@
       >
         <option value="">Select person</option>
         {#each users as u (u.id)}
-          <option value={u.id}>{u.fullName ?? u.email}</option>
+          <option value={String(u.id)}>{u.fullName ?? u.email}</option>
         {/each}
       </select>
     </label>
@@ -131,7 +132,7 @@
           <option value="">Other</option>
         {/if}
         {#each availableSources as source (source.id)}
-          <option value={source.id}>{source.name}</option>
+          <option value={String(source.id)}>{source.name}</option>
         {/each}
       </select>
     </label>
@@ -173,14 +174,7 @@
       Tax withheld
     </label>
   {/if}
-  {#if submitOnOwnLine}
-    <div class="mt-3 flex basis-full items-center gap-3">
-      <Button type="submit" disabled={submitting || (!allowUnattributed && sources.length === 0)}>
-        {submitting ? 'Logging…' : 'Log income'}
-      </Button>
-      {@render footerActions?.()}
-    </div>
-  {:else}
+  {#if showSubmit}
     <Button type="submit" disabled={submitting || (!allowUnattributed && sources.length === 0)}>
       {submitting ? 'Logging…' : 'Log income'}
     </Button>
