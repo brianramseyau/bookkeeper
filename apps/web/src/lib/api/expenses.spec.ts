@@ -3,6 +3,7 @@ import { api } from '$lib/api'
 import {
   createExpense,
   deleteExpense,
+  getExpense,
   listExpenses,
   updateExpense,
   upsertExpensePayment,
@@ -41,5 +42,10 @@ describe('expenses api', () => {
   it('upserts an expense payment', () => {
     upsertExpensePayment(3, 2026, 7, true)
     expect(api.put).toHaveBeenCalledWith('/expenses/3/payments/2026/7', { paid: true })
+  })
+
+  it('gets a single expense', () => {
+    getExpense(1)
+    expect(api.get).toHaveBeenCalledWith('/expenses/1')
   })
 })

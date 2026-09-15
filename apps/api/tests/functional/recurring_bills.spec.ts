@@ -612,3 +612,179 @@ test.group('RecurringBills / upcoming', () => {
     assert.lengthOf(hiddenResponse.body().data, 2)
   })
 })
+
+test.group('RecurringBills / show', () => {
+  test('returns a single bill with its computed next due date', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+
+    const response = await client.get(`/api/recurring-bills/${bill.id}`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.equal(response.body().data.name, 'Kayo')
+    assert.equal(response.body().data.amount, 45.99)
+    // `show` shares its due-info computation with `upcoming` - assert the
+    // actual next date (a monthly bill's day 5, rolled to next month once
+    // this month's has passed), not just the shape of the fields.
+    const today = DateTime.local().startOf('day')
+    const thisMonth = today.set({ day: 5 })
+    const expected = thisMonth >= today ? thisMonth : thisMonth.plus({ months: 1 })
+    assert.equal(response.body().data.nextDueOn, expected.toISODate())
+    assert.equal(response.body().data.daysUntilDue, Math.floor(expected.diff(today, 'days').days))
+    assert.isBoolean(response.body().data.dueSoon)
+  })
+
+  test('returns 404 for a non-existent bill', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/recurring-bills/999999').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})
+
+test.group('RecurringBills / payments', () => {
+  test('lists payments newest first', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2026,
+      month: 1,
+      paid: true,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2025,
+      month: 12,
+      paid: true,
+    })
+
+    const response = await client.get(`/api/recurring-bills/${bill.id}/payments`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.deepEqual(
+      response.body().data.map((p: { year: number; month: number }) => `${p.year}-${p.month}`),
+      ['2026-3', '2026-1', '2025-12']
+    )
+  })
+
+  test('returns 404 for a non-existent bill', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/recurring-bills/999999/payments').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})
+
+test.group('RecurringBills / trend', () => {
+  test('falls back to the bill amount for a payment with no stored amount', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 50,
+      frequency: 'monthly',
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2026,
+      month: 1,
+      paid: true,
+      amount: null,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2026,
+      month: 2,
+      paid: true,
+      amount: 60,
+    })
+
+    const response = await client.get(`/api/recurring-bills/${bill.id}/trend`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.equal(response.body().months.length, 2)
+    assert.equal(response.body().months[0].amount, 50)
+    assert.equal(response.body().months[1].amount, 60)
+    assert.equal(response.body().average, 55)
+    assert.equal(response.body().trend, 'up')
+  })
+
+  test('returns nulls and an empty window when there are no payments', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const bill = await RecurringBill.create({ name: 'Kayo', amount: 50, frequency: 'monthly' })
+
+    const response = await client.get(`/api/recurring-bills/${bill.id}/trend`).loginAs(adam)
+
+    response.assertStatus(200)
+    assert.isNull(response.body().average)
+    assert.lengthOf(response.body().months, 0)
+  })
+
+  test('returns 404 for a non-existent bill', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client.get('/api/recurring-bills/999999/trend').loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})
+
+test.group('RecurringBills / destroyPayment', () => {
+  test('deletes a single payment row without touching the bill', async ({ client, assert }) => {
+    const adam = await loginAsAdam()
+    const bill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+    })
+    const payment = await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+
+    const response = await client
+      .delete(`/api/recurring-bill-payments/${payment.id}`)
+      .withCsrfToken()
+      .loginAs(adam)
+
+    response.assertStatus(204)
+    assert.isNull(await RecurringBillPayment.find(payment.id))
+    assert.isNotNull(await RecurringBill.find(bill.id))
+  })
+
+  test('returns 404 for a non-existent payment', async ({ client }) => {
+    const adam = await loginAsAdam()
+
+    const response = await client
+      .delete('/api/recurring-bill-payments/999999')
+      .withCsrfToken()
+      .loginAs(adam)
+
+    response.assertStatus(404)
+  })
+})

@@ -9,6 +9,7 @@ import {
   updateUserSubscriptionValidator,
 } from '#validators/user_subscription'
 import { upsertSubscriptionPaymentValidator } from '#validators/subscription_payment'
+import { RollingAverageService } from '#services/rolling_average_service'
 
 export default class SubscriptionsController {
   async index({ request, serialize }: HttpContext) {
@@ -24,6 +25,11 @@ export default class SubscriptionsController {
 
     const subscriptions = await query
     return serialize(UserSubscriptionTransformer.transform(subscriptions))
+  }
+
+  async show({ params, serialize }: HttpContext) {
+    const subscription = await UserSubscription.findOrFail(params.id)
+    return serialize(UserSubscriptionTransformer.transform(subscription))
   }
 
   async store({ request, response, serialize }: HttpContext) {
@@ -61,6 +67,45 @@ export default class SubscriptionsController {
     await subscription.delete()
 
     return response.noContent()
+  }
+
+  async payments({ params, serialize }: HttpContext) {
+    const userSubscriptionId = Number(params.id)
+    await UserSubscription.findOrFail(userSubscriptionId)
+
+    const payments = await SubscriptionPayment.query()
+      .where('userSubscriptionId', userSubscriptionId)
+      .orderBy('year', 'desc')
+      .orderBy('month', 'desc')
+
+    return serialize(SubscriptionPaymentTransformer.transform(payments))
+  }
+
+  async destroyPayment({ params, response }: HttpContext) {
+    const payment = await SubscriptionPayment.findOrFail(params.id)
+    await payment.delete()
+    return response.noContent()
+  }
+
+  async trend({ params, response }: HttpContext) {
+    const userSubscriptionId = Number(params.id)
+    const subscription = await UserSubscription.findOrFail(userSubscriptionId)
+    const payments = await SubscriptionPayment.query().where(
+      'userSubscriptionId',
+      userSubscriptionId
+    )
+
+    const service = new RollingAverageService()
+    return response.json(
+      service.computeTrendWithFallback(
+        payments.map((payment) => ({
+          year: payment.year,
+          month: payment.month,
+          amount: payment.amount,
+        })),
+        subscription.amount
+      )
+    )
   }
 
   async upsertPayment({ params, request, serialize }: HttpContext) {

@@ -33,6 +33,13 @@ export default class ExpensesController {
     return { data: results }
   }
 
+  async show({ params, serialize }: HttpContext) {
+    const expense = await Expense.findOrFail(params.id)
+    const budgetItems = await ExpenseBudgetItem.query().where('expenseId', expense.id)
+    const data = await serialize.withoutWrapping(ExpenseTransformer.transform(expense))
+    return { data: { ...data, budgetItemCount: budgetItems.length } }
+  }
+
   async store({ request, response, serialize }: HttpContext) {
     const payload = await request.validateUsing(createExpenseValidator)
     const expense = await Expense.create(payload)

@@ -4,6 +4,13 @@ export interface MonthlyAmount {
   amount: number
 }
 
+/** Like `MonthlyAmount`, but the amount may be missing (e.g. a bill paid without a figure). */
+export interface NullableMonthlyAmount {
+  year: number
+  month: number
+  amount: number | null
+}
+
 export interface TrendResult {
   average: number | null
   latestAmount: number | null
@@ -22,6 +29,27 @@ export class RollingAverageService {
   private static readonly WINDOW_SIZE = 12
 
   computeTrend(entries: MonthlyAmount[]): TrendResult {
+    return this.summarize(entries)
+  }
+
+  /**
+   * For sources where a logged month may not carry an explicit amount - a
+   * recurring bill or subscription marked paid without a figure entered -
+   * a missing amount falls back to the item's configured `fallbackAmount`
+   * instead of the month being treated as a gap the way `computeTrend`
+   * would. Months with no entry at all are still gaps.
+   */
+  computeTrendWithFallback(entries: NullableMonthlyAmount[], fallbackAmount: number): TrendResult {
+    return this.summarize(
+      entries.map((entry) => ({
+        year: entry.year,
+        month: entry.month,
+        amount: entry.amount ?? fallbackAmount,
+      }))
+    )
+  }
+
+  private summarize(entries: MonthlyAmount[]): TrendResult {
     // A non-monthly utility whose billed periods overlap (e.g. two quarterly
     // bills entered a month apart instead of a full quarter apart) can
     // expand into more than one share for the same calendar month - merge

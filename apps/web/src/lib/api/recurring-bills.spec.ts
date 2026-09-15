@@ -3,6 +3,10 @@ import { api } from '$lib/api'
 import {
   createRecurringBill,
   deleteRecurringBill,
+  deleteRecurringBillPayment,
+  getRecurringBill,
+  getRecurringBillTrend,
+  listRecurringBillPayments,
   listUpcomingRecurringBills,
   updateRecurringBill,
   upsertRecurringBillPayment,
@@ -62,5 +66,25 @@ describe('recurring bills api', () => {
       paid: undefined,
       amount: 70,
     })
+  })
+
+  it('gets a single recurring bill', () => {
+    getRecurringBill(4)
+    expect(api.get).toHaveBeenCalledWith('/recurring-bills/4')
+  })
+
+  it('lists a bill payment history', () => {
+    listRecurringBillPayments(4)
+    expect(api.get).toHaveBeenCalledWith('/recurring-bills/4/payments')
+  })
+
+  it('gets a bill trend', () => {
+    getRecurringBillTrend(4)
+    expect(api.get).toHaveBeenCalledWith('/recurring-bills/4/trend')
+  })
+
+  it('deletes a bill payment row', () => {
+    deleteRecurringBillPayment(9)
+    expect(api.delete).toHaveBeenCalledWith('/recurring-bill-payments/9')
   })
 })

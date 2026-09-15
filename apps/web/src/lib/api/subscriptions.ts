@@ -34,6 +34,15 @@ export interface SubscriptionPayment {
   updatedAt: string
 }
 
+export interface SubscriptionTrend {
+  average: number | null
+  latestAmount: number | null
+  latestYear: number | null
+  latestMonth: number | null
+  trend: 'up' | 'down' | 'flat' | null
+  months: { year: number; month: number; amount: number }[]
+}
+
 export interface SubscriptionInput {
   userId: number
   name: string
@@ -56,6 +65,22 @@ export function listSubscriptions(opts?: { userId?: number; includeHidden?: bool
 
 export function getSubscriptionsSummary() {
   return api.get<SubscriptionSummary[]>('/subscriptions/summary')
+}
+
+export function getSubscription(id: number) {
+  return api.get<UserSubscription>(`/subscriptions/${id}`)
+}
+
+export function listSubscriptionPayments(id: number) {
+  return api.get<SubscriptionPayment[]>(`/subscriptions/${id}/payments`)
+}
+
+export function getSubscriptionTrend(id: number) {
+  return api.get<SubscriptionTrend>(`/subscriptions/${id}/trend`)
+}
+
+export function deleteSubscriptionPayment(id: number) {
+  return api.delete<void>(`/subscription-payments/${id}`)
 }
 
 export function createSubscription(input: SubscriptionInput) {

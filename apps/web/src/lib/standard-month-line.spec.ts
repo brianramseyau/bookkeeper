@@ -174,12 +174,12 @@ describe('viewHref', () => {
     expect(viewHref(makeLine({ key: 'utility-5' }))).toBe('/utilities/5')
   })
 
-  it('links a recurring bill to its anchor on the Bills page', () => {
-    expect(viewHref(makeLine({ key: 'recurring-bill-7' }))).toBe('/bills#bill-7')
+  it('links a recurring bill to its detail page', () => {
+    expect(viewHref(makeLine({ key: 'recurring-bill-7' }))).toBe('/bills/7')
   })
 
-  it('links a subscription to the list page', () => {
-    expect(viewHref(makeLine({ key: 'subscription-2' }))).toBe('/subscriptions')
+  it('links a subscription to its detail page', () => {
+    expect(viewHref(makeLine({ key: 'subscription-2' }))).toBe('/subscriptions/2')
   })
 
   it('links an expense to its detail page', () => {

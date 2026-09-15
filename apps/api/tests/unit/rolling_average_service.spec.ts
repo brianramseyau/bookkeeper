@@ -141,3 +141,48 @@ test.group('RollingAverageService', () => {
     assert.equal(result.average, 125)
   })
 })
+
+test.group('RollingAverageService / computeTrendWithFallback', () => {
+  test('substitutes the fallback amount for entries with a null amount', ({ assert }) => {
+    const service = new RollingAverageService()
+
+    const result = service.computeTrendWithFallback(
+      [
+        { year: 2026, month: 1, amount: null },
+        { year: 2026, month: 2, amount: 60 },
+      ],
+      50
+    )
+
+    assert.lengthOf(result.months, 2)
+    assert.equal(result.months[0]?.amount, 50)
+    assert.equal(result.months[1]?.amount, 60)
+    assert.equal(result.average, 55)
+    assert.equal(result.trend, 'up')
+  })
+
+  test('still treats months with no entry at all as gaps', ({ assert }) => {
+    const service = new RollingAverageService()
+
+    const result = service.computeTrendWithFallback(
+      [
+        { year: 2026, month: 1, amount: null },
+        { year: 2026, month: 3, amount: 60 },
+      ],
+      50
+    )
+
+    assert.lengthOf(result.months, 2)
+    assert.equal(result.months[0]?.month, 1)
+    assert.equal(result.months[1]?.month, 3)
+  })
+
+  test('returns nulls and an empty window for no entries', ({ assert }) => {
+    const service = new RollingAverageService()
+
+    const result = service.computeTrendWithFallback([], 50)
+
+    assert.isNull(result.average)
+    assert.lengthOf(result.months, 0)
+  })
+})

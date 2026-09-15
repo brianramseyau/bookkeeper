@@ -29,6 +29,7 @@ router
         router.delete('categories/:id', [controllers.Categories, 'destroy'])
 
         router.get('expenses', [controllers.Expenses, 'index'])
+        router.get('expenses/:id', [controllers.Expenses, 'show'])
         router.post('expenses', [controllers.Expenses, 'store'])
         router.patch('expenses/:id', [controllers.Expenses, 'update'])
         router.delete('expenses/:id', [controllers.Expenses, 'destroy'])
@@ -62,9 +63,13 @@ router
 
         router.get('recurring-bills/upcoming', [controllers.RecurringBills, 'upcoming'])
         router.get('recurring-bills', [controllers.RecurringBills, 'index'])
+        router.get('recurring-bills/:id', [controllers.RecurringBills, 'show'])
         router.post('recurring-bills', [controllers.RecurringBills, 'store'])
         router.patch('recurring-bills/:id', [controllers.RecurringBills, 'update'])
         router.delete('recurring-bills/:id', [controllers.RecurringBills, 'destroy'])
+        router.get('recurring-bills/:id/payments', [controllers.RecurringBills, 'payments'])
+        router.get('recurring-bills/:id/trend', [controllers.RecurringBills, 'trend'])
+        router.delete('recurring-bill-payments/:id', [controllers.RecurringBills, 'destroyPayment'])
         router.put('recurring-bills/:id/payments/:year/:month', [
           controllers.RecurringBills,
           'upsertPayment',
@@ -72,9 +77,13 @@ router
 
         router.get('subscriptions/summary', [controllers.Subscriptions, 'summary'])
         router.get('subscriptions', [controllers.Subscriptions, 'index'])
+        router.get('subscriptions/:id', [controllers.Subscriptions, 'show'])
         router.post('subscriptions', [controllers.Subscriptions, 'store'])
         router.patch('subscriptions/:id', [controllers.Subscriptions, 'update'])
         router.delete('subscriptions/:id', [controllers.Subscriptions, 'destroy'])
+        router.get('subscriptions/:id/payments', [controllers.Subscriptions, 'payments'])
+        router.get('subscriptions/:id/trend', [controllers.Subscriptions, 'trend'])
+        router.delete('subscription-payments/:id', [controllers.Subscriptions, 'destroyPayment'])
         router.put('subscriptions/:id/payments/:year/:month', [
           controllers.Subscriptions,
           'upsertPayment',

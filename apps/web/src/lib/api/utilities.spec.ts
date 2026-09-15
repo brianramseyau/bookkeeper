@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { api } from '$lib/api'
 import {
   createUtility,
+  deleteUtility,
   deleteUtilityBill,
   getUtilityBills,
   getUtilityTrend,
@@ -80,5 +81,10 @@ describe('utilities api', () => {
   it('deletes a utility bill', () => {
     deleteUtilityBill(9)
     expect(api.delete).toHaveBeenCalledWith('/utility-bills/9')
+  })
+
+  it('deletes a utility', () => {
+    deleteUtility(7)
+    expect(api.delete).toHaveBeenCalledWith('/utilities/7')
   })
 })

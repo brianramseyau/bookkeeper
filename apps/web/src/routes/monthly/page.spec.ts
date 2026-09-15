@@ -278,7 +278,9 @@ describe('month page', () => {
     await user.click(
       (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
     )
-    await user.click(screen.getAllByRole('button', { name: 'Cancel editing carried over balance' })[0]!)
+    await user.click(
+      screen.getAllByRole('button', { name: 'Cancel editing carried over balance' })[0]!
+    )
 
     expect(screen.queryByDisplayValue('500')).toBeNull()
     expect(setMonthCarryover).not.toHaveBeenCalled()
@@ -1436,7 +1438,9 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
-    expect((await screen.findAllByRole('button', { name: 'Save Groceries' }))[0]!).toBeInTheDocument()
+    expect(
+      (await screen.findAllByRole('button', { name: 'Save Groceries' }))[0]!
+    ).toBeInTheDocument()
     // The expense row's amount input is now the first spinbutton on the
     // page (Expenses renders above the Income section's "Log income" form,
     // whose Amount field is the other spinbutton).
@@ -1476,7 +1480,9 @@ describe('month page', () => {
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const expensesTable = (await screen.findAllByRole('table'))[0]!
-    await user.click(within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!)
+    await user.click(
+      within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!
+    )
     await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
   })
 
@@ -1520,7 +1526,9 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
-    await user.click((await screen.findAllByRole('button', { name: 'Cancel editing Electricity' }))[0]!)
+    await user.click(
+      (await screen.findAllByRole('button', { name: 'Cancel editing Electricity' }))[0]!
+    )
 
     expect(upsertUtilityBill).not.toHaveBeenCalled()
   })
@@ -1567,7 +1575,9 @@ describe('month page', () => {
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
     const expensesTable = (await screen.findAllByRole('table'))[0]!
-    await user.click(within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!)
+    await user.click(
+      within(expensesTable).getAllByRole('button', { name: 'Delete Groceries entry' })[0]!
+    )
 
     expect(await screen.findByText('Could not remove actual')).toBeInTheDocument()
   })
@@ -1692,11 +1702,9 @@ describe('month page', () => {
       '/utilities/1'
     )
     expect(screen.getByRole('link', { name: 'Groceries' }).getAttribute('href')).toBe('/expenses/1')
-    expect(screen.getByRole('link', { name: 'Internet' }).getAttribute('href')).toBe(
-      '/bills#bill-3'
-    )
+    expect(screen.getByRole('link', { name: 'Internet' }).getAttribute('href')).toBe('/bills/3')
     expect(screen.getByRole('link', { name: 'Netflix (Brian)' }).getAttribute('href')).toBe(
-      '/subscriptions'
+      '/subscriptions/4'
     )
   })
 })

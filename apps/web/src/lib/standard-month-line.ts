@@ -129,17 +129,17 @@ export function paidTooltip(
     : 'No due date to reconcile against this month'
 }
 
-// Maps an expense line back to the page where it's actually managed, so its
-// label can link there - a recurring bill's row on that page carries a
-// matching `bill-{id}` anchor (see bills/+page.svelte). Subscriptions have
-// no per-item detail view and are filtered by a person tab with no owner on
-// this line to pre-select, so they link to the list page only.
+// Maps a line back to the item's own detail page (Phase 3 gave every
+// outgoing kind one), so its label can link straight there. The bills list
+// still carries `bill-{id}` anchors for older `#bill-{id}` links.
 export function viewHref(line: StandardMonthLine): string | null {
   if (line.key.startsWith('utility-')) return `/utilities/${line.key.slice('utility-'.length)}`
   if (line.key.startsWith('recurring-bill-')) {
-    return `/bills#bill-${line.key.slice('recurring-bill-'.length)}`
+    return `/bills/${line.key.slice('recurring-bill-'.length)}`
   }
-  if (line.key.startsWith('subscription-')) return '/subscriptions'
+  if (line.key.startsWith('subscription-')) {
+    return `/subscriptions/${line.key.slice('subscription-'.length)}`
+  }
   if (line.key.startsWith('expense-')) return `/expenses/${line.key.slice('expense-'.length)}`
   return null
 }

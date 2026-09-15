@@ -81,6 +81,10 @@ export function updateUtility(
   return api.patch<Utility>(`/utilities/${id}`, input)
 }
 
+export function deleteUtility(id: number) {
+  return api.delete<void>(`/utilities/${id}`)
+}
+
 export function getUtilityBills(utilityId: number) {
   return api.get<UtilityBillsResponse>(`/utilities/${utilityId}/bills`)
 }

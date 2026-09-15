@@ -14,7 +14,7 @@ const DIRECT_PAGES: { navLabel: string; path: string; heading: string | RegExp }
 const OUTGOINGS_PAGES: { navLabel: string; path: string; heading: string | RegExp }[] = [
   { navLabel: 'Utilities', path: '/utilities', heading: 'Utilities' },
   { navLabel: 'Bills', path: '/bills', heading: 'Bills' },
-  { navLabel: 'Subscriptions', path: '/subscriptions', heading: 'Personal Subscriptions' },
+  { navLabel: 'Subscriptions', path: '/subscriptions', heading: 'Subscriptions' },
   { navLabel: 'Expenses', path: '/expenses', heading: 'Expenses' },
 ]
 

@@ -9,12 +9,47 @@ import {
   updateRecurringBillValidator,
 } from '#validators/recurring_bill'
 import { upsertRecurringBillPaymentValidator } from '#validators/recurring_bill_payment'
+import { RollingAverageService } from '#services/rolling_average_service'
 import {
   compareByDaysUntilDue,
   nextUnpaidRecurringBillDueDate,
 } from '#services/recurring_bill_due_date'
 
 const DUE_SOON_WINDOW_DAYS = 30
+
+/**
+ * Builds a lookup for a set of bills' computed next-due info, shared by the
+ * `show` and `upcoming` actions so a bill's next due date can't disagree
+ * between the detail page and the list. The lookup is built once (not per
+ * bill) since it needs every bill's paid periods up front.
+ */
+async function dueInfoFor(bills: RecurringBill[]) {
+  const billIds = bills.map((bill) => bill.id)
+  const paidPayments = billIds.length
+    ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)
+    : []
+  const paidPeriods = new Set(
+    paidPayments.map((payment) => `${payment.recurringBillId}-${payment.year}-${payment.month}`)
+  )
+  const today = DateTime.local().startOf('day')
+
+  return (bill: RecurringBill) => {
+    const nextOccurrence = nextUnpaidRecurringBillDueDate(
+      bill.frequency,
+      bill.dueDay,
+      bill.dueMonth,
+      bill.dueYear,
+      today,
+      (year, month) => paidPeriods.has(`${bill.id}-${year}-${month}`)
+    )
+    const daysUntilDue = nextOccurrence ? Math.floor(nextOccurrence.diff(today, 'days').days) : null
+    return {
+      nextDueOn: nextOccurrence?.toISODate() ?? null,
+      daysUntilDue,
+      dueSoon: daysUntilDue !== null && daysUntilDue <= DUE_SOON_WINDOW_DAYS,
+    }
+  }
+}
 
 export default class RecurringBillsController {
   async index({ request, serialize }: HttpContext) {
@@ -24,6 +59,13 @@ export default class RecurringBillsController {
     }
     const bills = await query
     return serialize(RecurringBillTransformer.transform(bills))
+  }
+
+  async show({ params, serialize }: HttpContext) {
+    const bill = await RecurringBill.findOrFail(params.id)
+    const due = await dueInfoFor([bill])
+    const data = await serialize.withoutWrapping(RecurringBillTransformer.transform(bill))
+    return { data: { ...data, ...due(bill) } }
   }
 
   async store({ request, response, serialize }: HttpContext) {
@@ -81,6 +123,42 @@ export default class RecurringBillsController {
     return response.noContent()
   }
 
+  async payments({ params, serialize }: HttpContext) {
+    const recurringBillId = Number(params.id)
+    await RecurringBill.findOrFail(recurringBillId)
+
+    const payments = await RecurringBillPayment.query()
+      .where('recurringBillId', recurringBillId)
+      .orderBy('year', 'desc')
+      .orderBy('month', 'desc')
+
+    return serialize(RecurringBillPaymentTransformer.transform(payments))
+  }
+
+  async destroyPayment({ params, response }: HttpContext) {
+    const payment = await RecurringBillPayment.findOrFail(params.id)
+    await payment.delete()
+    return response.noContent()
+  }
+
+  async trend({ params, response }: HttpContext) {
+    const recurringBillId = Number(params.id)
+    const bill = await RecurringBill.findOrFail(recurringBillId)
+    const payments = await RecurringBillPayment.query().where('recurringBillId', recurringBillId)
+
+    const service = new RollingAverageService()
+    return response.json(
+      service.computeTrendWithFallback(
+        payments.map((payment) => ({
+          year: payment.year,
+          month: payment.month,
+          amount: payment.amount,
+        })),
+        bill.amount
+      )
+    )
+  }
+
   async upsertPayment({ params, request, serialize }: HttpContext) {
     const recurringBillId = Number(params.id)
     await RecurringBill.findOrFail(recurringBillId)
@@ -118,42 +196,17 @@ export default class RecurringBillsController {
     }
     const bills = await query
 
-    const today = DateTime.local().startOf('day')
-    const billIds = bills.map((bill) => bill.id)
-    const paidPayments = billIds.length
-      ? await RecurringBillPayment.query().whereIn('recurringBillId', billIds).where('paid', true)
-      : []
-    const paidPeriods = new Set(
-      paidPayments.map((payment) => `${payment.recurringBillId}-${payment.year}-${payment.month}`)
-    )
-
+    // Shared with show (and the dashboard/notification scheduler via
+    // nextUnpaidRecurringBillDueDate's own docs) so "next due" can't disagree
+    // - marking the current occurrence paid here jumps straight to the next
+    // unpaid one, rather than waiting for the due date to lapse.
+    const due = await dueInfoFor(bills)
     const serialized = await serialize.withoutWrapping(RecurringBillTransformer.transform(bills))
 
-    const results = serialized.map((item, index) => {
-      const bill = bills[index]!
-      // Shared with the dashboard's upcoming-bills card and the notification
-      // scheduler (see nextUnpaidRecurringBillDueDate's own docs) so "next
-      // due" can't disagree between this page and either of those - marking
-      // the current occurrence paid here jumps straight to the next unpaid
-      // one, rather than waiting for the due date to lapse.
-      const nextOccurrence = nextUnpaidRecurringBillDueDate(
-        bill.frequency,
-        bill.dueDay,
-        bill.dueMonth,
-        bill.dueYear,
-        today,
-        (year, month) => paidPeriods.has(`${bill.id}-${year}-${month}`)
-      )
-      const daysUntilDue = nextOccurrence
-        ? Math.floor(nextOccurrence.diff(today, 'days').days)
-        : null
-      return {
-        ...item,
-        nextDueOn: nextOccurrence?.toISODate() ?? null,
-        daysUntilDue,
-        dueSoon: daysUntilDue !== null && daysUntilDue <= DUE_SOON_WINDOW_DAYS,
-      }
-    })
+    const results = serialized.map((item, index) => ({
+      ...item,
+      ...due(bills[index]!),
+    }))
 
     // Sorted here (rather than in the query) because `daysUntilDue` is
     // computed, not a stored column.
