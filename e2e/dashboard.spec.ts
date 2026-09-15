@@ -11,8 +11,10 @@ test('shows the dashboard with the month strip and upcoming bills', async ({ pag
 
   // demo:seed always has a recurring bill due in the future, so the upcoming
   // bills card lists at least one bill, each linking to its detail page.
+  // Scoped to the card - month-strip ticks also link to /bills/{id}.
+  const upcomingBills = page.getByRole('heading', { name: 'Upcoming bills' }).locator('..')
   await expect(page.getByRole('heading', { name: 'Upcoming bills' })).toBeVisible()
-  await expect(page.locator('a[href^="/bills/"]').first()).toBeVisible()
+  await expect(upcomingBills.locator('a[href^="/bills/"]').first()).toBeVisible()
 
   // demo:seed logs Groceries/Transport actuals every month, so the category
   // breakdown should never fall back to its empty state either.

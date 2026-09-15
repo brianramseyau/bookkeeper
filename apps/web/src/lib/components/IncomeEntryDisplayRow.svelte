@@ -75,7 +75,7 @@
   <td
     class="text-foreground font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
   >
-    <span class="shrink-0 text-xs font-medium sm:hidden">{amountLabel}</span>
+    <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">{amountLabel}</span>
     {formatCurrency(entry.amount)}
   </td>
   {#if showNote}

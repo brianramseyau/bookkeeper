@@ -104,6 +104,17 @@ describe('dashboard page', () => {
     expect(screen.getByText('$500.00')).toBeInTheDocument()
   })
 
+  it('still shows the summary when the month strip fails to load', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
+    vi.mocked(getStandardMonth).mockRejectedValue(new ApiError(500, 'strip boom'))
+    render(DashboardPage)
+
+    expect(
+      await screen.findByText('Could not load the month strip for this month.')
+    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Upcoming bills' })).toBeInTheDocument()
+  })
+
   it('links each upcoming bill to its detail page', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,

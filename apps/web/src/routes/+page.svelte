@@ -27,16 +27,20 @@
   // Only shows the full-page loading state on the very first load - once
   // there's data on screen, changing month should re-fetch quietly rather
   // than tearing the whole dashboard down to a spinner and back.
+  // The strip's `/standard-month` fetch is secondary: the summary carries the
+  // charts, upcoming bills and breakdown, so a strip failure degrades to an
+  // inline message rather than blanking the whole page.
   async function load() {
     if (!data) loading = true
     error = null
     try {
-      const [summary, month] = await Promise.all([
+      const [summaryResult, monthResult] = await Promise.allSettled([
         getDashboardSummary(nav.year, nav.month),
         getStandardMonth(nav.year, nav.month),
       ])
-      data = summary
-      standardMonth = month
+      if (summaryResult.status === 'rejected') throw summaryResult.reason
+      data = summaryResult.value
+      standardMonth = monthResult.status === 'fulfilled' ? monthResult.value : null
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load dashboard'
     } finally {
@@ -86,10 +90,14 @@
   <div class="mt-6">
     <LoadingSkeleton rows={5} />
   </div>
-{:else if data && standardMonth}
-  <div class="mt-6">
-    <MonthStrip year={nav.year} month={nav.month} data={standardMonth} />
-  </div>
+{:else if data}
+  {#if standardMonth}
+    <div class="mt-6">
+      <MonthStrip year={nav.year} month={nav.month} data={standardMonth} />
+    </div>
+  {:else}
+    <p class="text-over mt-4 text-sm">Could not load the month strip for this month.</p>
+  {/if}
 
   {#snippet positionCenter()}
     <span

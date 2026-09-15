@@ -6,10 +6,6 @@
   const subscriptionId = $derived(Number(page.params.subscriptionId))
 </script>
 
-<svelte:head>
-  <title>Subscription · Bookkeeper</title>
-</svelte:head>
-
 {#key subscriptionId}
   <OutgoingDetail adapter={subscriptionsAdapter} id={subscriptionId} />
 {/key}

@@ -8,10 +8,6 @@
   const expenseId = $derived(Number(page.params.expenseId))
 </script>
 
-<svelte:head>
-  <title>Expense · Bookkeeper</title>
-</svelte:head>
-
 {#key expenseId}
   <OutgoingDetail adapter={expensesAdapter} id={expenseId}>
     {#snippet extra(item, refresh)}

@@ -520,7 +520,7 @@
 {/if}
 
 {#if loading}
-  <LoadingSkeleton rows={6} />
+  <LoadingSkeleton rows={6} class="mt-6" />
 {:else if data}
   <MonthSummary {year} {month} {data} />
 

@@ -66,7 +66,7 @@
       entry.incomeSourceId !== null ? 'text-muted-foreground' : 'text-foreground',
     ]}
   >
-    <span class="shrink-0 text-xs font-medium sm:hidden">Tax</span>
+    <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Tax</span>
     {formatCurrency(entryTax(entry, marginalRate))}
   </td>
   <td
@@ -75,7 +75,7 @@
       entry.incomeSourceId !== null ? 'text-muted-foreground' : 'text-foreground',
     ]}
   >
-    <span class="shrink-0 text-xs font-medium sm:hidden">Gain</span>
+    <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Gain</span>
     {formatCurrency(entryGain(entry, marginalRate))}
   </td>
 {/snippet}

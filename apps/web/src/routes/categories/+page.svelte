@@ -280,7 +280,7 @@
         onreorderTop={reorderNonSystem}
         onreorderChildren={reorderChildren}
       />
-    {:else if orderedSystem.length === 0 && archivedCategories.length === 0 && removedCategories.length === 0}
+    {:else if orderedSystem.length === 0}
       <p class="text-muted-foreground px-3 py-6 text-center text-sm">No categories yet.</p>
     {/if}
 

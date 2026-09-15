@@ -60,7 +60,7 @@ describe('CategoryLifecycleRows', () => {
     expect(screen.queryByRole('button', { name: 'Delete Old Tag' })).toBeNull()
   })
 
-  it('shows the parent caption when a parent name resolves', () => {
+  it('shows the parent caption when the parent name resolves', () => {
     render(
       CategoryLifecycleRows,
       baseProps({
@@ -70,5 +70,17 @@ describe('CategoryLifecycleRows', () => {
     )
 
     expect(screen.getByText('under Rent')).toBeInTheDocument()
+  })
+
+  it('skips the parent caption when the parent cannot be resolved', () => {
+    render(
+      CategoryLifecycleRows,
+      baseProps({
+        categories: [{ ...groceries, parentId: 2 }],
+        parentNameFor: vi.fn().mockReturnValue(null),
+      })
+    )
+
+    expect(screen.queryByText(/^under/)).toBeNull()
   })
 })

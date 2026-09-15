@@ -113,25 +113,27 @@
         class="border-input h-9 w-16 cursor-pointer rounded-md border bg-transparent p-1"
       />
     </div>
-    <div class="flex flex-col gap-2">
-      <Label for="category-parent">Parent</Label>
-      <select
-        id="category-parent"
-        bind:value={parentId}
-        disabled={hasChildren}
-        class="border-input h-8 rounded-lg border bg-transparent px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <option value="">Top level</option>
-        {#each parentOptions as parent (parent.id)}
-          <option value={String(parent.id)}>{parent.name}</option>
-        {/each}
-      </select>
-      {#if hasChildren}
-        <p class="text-muted-foreground text-xs">
-          A category with children stays at the top level.
-        </p>
-      {/if}
-    </div>
+    {#if !isSystem}
+      <div class="flex flex-col gap-2">
+        <Label for="category-parent">Parent</Label>
+        <select
+          id="category-parent"
+          bind:value={parentId}
+          disabled={hasChildren}
+          class="border-input h-8 rounded-lg border bg-transparent px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">Top level</option>
+          {#each parentOptions as parent (parent.id)}
+            <option value={String(parent.id)}>{parent.name}</option>
+          {/each}
+        </select>
+        {#if hasChildren}
+          <p class="text-muted-foreground text-xs">
+            A category with children stays at the top level.
+          </p>
+        {/if}
+      </div>
+    {/if}
   </form>
 
   {#snippet footer()}

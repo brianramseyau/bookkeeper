@@ -16,6 +16,7 @@
 </script>
 
 {#each categories as category (category.id)}
+  {@const parentName = category.parentId === null ? null : parentNameFor(category.parentId)}
   <div
     class="border-rule flex flex-wrap items-center gap-2 border-b px-3 py-1.5 last:border-0"
   >
@@ -25,8 +26,8 @@
       style="background-color: {category.color ?? '#94a3b8'}"
     ></span>
     <span class="text-foreground font-medium">{category.name}</span>
-    {#if category.parentId !== null}
-      <span class="text-muted-foreground text-xs">under {parentNameFor(category.parentId)}</span>
+    {#if parentName}
+      <span class="text-muted-foreground text-xs">under {parentName}</span>
     {/if}
     <div class="ml-auto flex shrink-0 items-center gap-1">
       {#if lifecycleState(category) === 'archived'}
