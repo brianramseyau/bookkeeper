@@ -215,7 +215,7 @@
   <Tabs bind:value={activeState} class="mt-4">
     <TabsList>
       {#each groups as group (group.state)}
-        <TabsTrigger value={group.state}>
+        <TabsTrigger value={group.state} class="text-muted-ink dark:text-muted-ink">
           {group.label}
           <span class="text-muted-foreground ml-1 text-xs">{group.items.length}</span>
         </TabsTrigger>

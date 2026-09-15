@@ -345,7 +345,7 @@
   <h2 class="text-foreground text-lg font-semibold">Notifications</h2>
   <p class="text-muted-foreground mt-1 text-sm">
     Get a push notification for bills due soon or overdue. Opt-in per device and per bill type - the
-    overall check schedule is set instance-wide on the <a href="/tasks" class="text-primary underline-offset-4 hover:underline">Tasks</a>
+    overall check schedule is set instance-wide on the <a href="/tasks" class="text-primary underline underline-offset-4">Tasks</a>
     page.
   </p>
 
