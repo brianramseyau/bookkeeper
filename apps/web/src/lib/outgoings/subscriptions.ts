@@ -20,15 +20,16 @@ import type {
 } from './types'
 
 function toSubscriptionInput(values: OutgoingFormValues): SubscriptionInput {
+  const notes = values.notes
   return {
     userId: Number(values.userId),
-    name: String(values.name),
+    name: String(values.name ?? ''),
     amount: Number(values.amount),
     dayOfMonth:
       values.dayOfMonth === '' || values.dayOfMonth === null ? null : Number(values.dayOfMonth),
     categoryId:
       values.categoryId === '' || values.categoryId === null ? null : Number(values.categoryId),
-    notes: values.notes === '' ? null : String(values.notes),
+    notes: notes === null || notes === undefined || notes === '' ? null : String(notes),
   }
 }
 

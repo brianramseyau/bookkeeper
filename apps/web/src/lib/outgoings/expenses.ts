@@ -38,7 +38,7 @@ const EXPENSE_FIELDS: OutgoingField[] = [
 
 function toExpenseInput(values: OutgoingFormValues, item?: ExpenseRow): ExpenseInput {
   const input: ExpenseInput = {
-    name: String(values.name),
+    name: String(values.name ?? ''),
     categoryId:
       values.categoryId === '' || values.categoryId === null ? null : Number(values.categoryId),
     isRecurring: Boolean(values.isRecurring),

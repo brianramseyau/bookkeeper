@@ -629,9 +629,13 @@ test.group('RecurringBills / show', () => {
     assert.equal(response.body().data.name, 'Kayo')
     assert.equal(response.body().data.amount, 45.99)
     // `show` shares its due-info computation with `upcoming` - assert the
-    // computed values, not just that the keys exist.
-    assert.match(response.body().data.nextDueOn, /^\d{4}-\d{2}-\d{2}$/)
-    assert.isNumber(response.body().data.daysUntilDue)
+    // actual next date (a monthly bill's day 5, rolled to next month once
+    // this month's has passed), not just the shape of the fields.
+    const today = DateTime.local().startOf('day')
+    const thisMonth = today.set({ day: 5 })
+    const expected = thisMonth >= today ? thisMonth : thisMonth.plus({ months: 1 })
+    assert.equal(response.body().data.nextDueOn, expected.toISODate())
+    assert.equal(response.body().data.daysUntilDue, Math.floor(expected.diff(today, 'days').days))
     assert.isBoolean(response.body().data.dueSoon)
   })
 

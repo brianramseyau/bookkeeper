@@ -5,6 +5,7 @@
   import { ApiError } from '$lib/api'
   import { formatCurrency } from '$lib/format'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import EmptyState from '$lib/components/app/EmptyState.svelte'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import PageHeader from '$lib/components/app/PageHeader.svelte'
   import OutgoingsList from '$lib/outgoings/OutgoingsList.svelte'
@@ -13,6 +14,7 @@
   let users = $state<UserSummary[]>([])
   let summaries = $state<SubscriptionSummary[]>([])
   let selectedUserId = $state<number | undefined>(undefined)
+  let loaded = $state(false)
   let error = $state<string | null>(null)
 
   onMount(load)
@@ -26,6 +28,8 @@
       selectedUserId = userList[0]?.id
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load subscriptions'
+    } finally {
+      loaded = true
     }
   }
 
@@ -41,8 +45,11 @@
 {#if error}
   <PageHeader title="Subscriptions" description={subscriptionsAdapter.description} />
   <ErrorMessage message={error} />
-{:else if selectedUserId === undefined}
+{:else if !loaded}
   <LoadingSkeleton rows={4} />
+{:else if selectedUserId === undefined}
+  <PageHeader title="Subscriptions" description={subscriptionsAdapter.description} />
+  <EmptyState message="No people to show subscriptions for." />
 {:else}
   {#key selectedUserId}
     <OutgoingsList

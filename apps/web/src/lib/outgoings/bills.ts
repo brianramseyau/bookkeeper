@@ -49,14 +49,15 @@ function isoDueDate(item: RecurringBill): string {
 }
 
 function toBillInput(values: OutgoingFormValues): RecurringBillInput {
+  const notes = values.notes
   return {
-    name: String(values.name),
+    name: String(values.name ?? ''),
     amount: Number(values.amount),
     frequency: values.frequency as RecurringBillFrequency,
-    nextDueOn: String(values.nextDueOn),
+    nextDueOn: String(values.nextDueOn ?? ''),
     categoryId:
       values.categoryId === '' || values.categoryId === null ? null : Number(values.categoryId),
-    notes: values.notes === '' ? null : String(values.notes),
+    notes: notes === null || notes === undefined || notes === '' ? null : String(notes),
   }
 }
 
