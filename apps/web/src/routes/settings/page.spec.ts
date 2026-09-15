@@ -306,14 +306,14 @@ describe('settings page', () => {
     expect(toast.success).toHaveBeenCalledWith('Notifications enabled on this device')
   })
 
-  it('reports when notification permission was denied', async () => {
+  it('reports when notification permission was not granted', async () => {
     const user = userEvent.setup()
     render(SettingsPage)
 
     await user.click(await screen.findByRole('button', { name: 'Enable on this device' }))
 
     expect(toast.error).toHaveBeenCalledWith(
-      'Notifications were not enabled - permission was denied.'
+      "Notifications were not enabled - check this browser's notification permission."
     )
   })
 
