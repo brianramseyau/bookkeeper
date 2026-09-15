@@ -104,42 +104,24 @@ describe('+layout.svelte', () => {
   })
 
   it('logs out and redirects to /login', async () => {
+    // Log out now lives inside the desktop AccountMenu's dropdown (see
+    // AccountMenu.spec.ts for its own behaviour in isolation) - this test
+    // is only about the wiring +layout.svelte owns: handleLogout actually
+    // calls the logout API and redirects. Two AccountMenu instances render
+    // simultaneously (desktop nav + MobileTabBar's "More" tab, both always
+    // in the DOM under jsdom regardless of viewport), so target the
+    // desktop one by its distinct accessible name.
     vi.mocked(api.get).mockResolvedValue(brian)
     vi.mocked(api.post).mockResolvedValue(undefined)
     setPageUrl('http://localhost/')
 
     render(Layout, { children: childrenSnippet })
 
-    await fireEvent.click(await screen.findByRole('button', { name: 'Log out' }))
+    await fireEvent.click(await screen.findByRole('button', { name: 'Account menu for Brian' }))
+    await fireEvent.click(await screen.findByText('Log out'))
 
     expect(api.post).toHaveBeenCalledWith('/logout')
     expect(authState.user).toBeNull()
     await waitFor(() => expect(goto).toHaveBeenCalledWith('/login'))
-  })
-
-  it('toggles dark mode', async () => {
-    vi.mocked(api.get).mockResolvedValue(brian)
-    setPageUrl('http://localhost/')
-
-    render(Layout, { children: childrenSnippet })
-
-    await fireEvent.click(await screen.findByRole('button', { name: 'Toggle dark mode' }))
-
-    expect(themeState.current).toBe('dark')
-    expect(document.documentElement.classList.contains('dark')).toBe(true)
-  })
-
-  it('opens and closes the mobile menu', async () => {
-    vi.mocked(api.get).mockResolvedValue(brian)
-    setPageUrl('http://localhost/')
-
-    render(Layout, { children: childrenSnippet })
-    const toggle = await screen.findByRole('button', { name: 'Toggle menu' })
-
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    await fireEvent.click(toggle)
-    expect(toggle.getAttribute('aria-expanded')).toBe('true')
-    await fireEvent.click(toggle)
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
   })
 })

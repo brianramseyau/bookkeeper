@@ -6,30 +6,25 @@
   import { page } from '$app/state'
   import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte'
   import { registerServiceWorker } from '$lib/stores/push.svelte'
-  import ThemeToggleButton from '$lib/components/ThemeToggleButton.svelte'
-  import SettingsLink from '$lib/components/SettingsLink.svelte'
-  import LogoutButton from '$lib/components/LogoutButton.svelte'
+  import { themeState } from '$lib/stores/theme.svelte'
+  import { Toaster } from '$lib/components/ui/sonner'
+  import OutgoingsMenu from '$lib/components/nav/OutgoingsMenu.svelte'
+  import AccountMenu from '$lib/components/nav/AccountMenu.svelte'
+  import MobileTabBar from '$lib/components/nav/MobileTabBar.svelte'
+  import { isRouteActive } from '$lib/components/nav/route-active'
   import PullToRefresh from '$lib/components/PullToRefresh.svelte'
 
   let { children } = $props()
 
-  let mobileMenuOpen = $state(false)
-
+  // Dashboard, Monthly and Income each answer a distinct question in
+  // DESIGN.md's screen table and stay top-level; Bills/Subscriptions/
+  // Expenses/Utilities all answer the same one ("what do we pay for?"), so
+  // they're grouped behind OutgoingsMenu instead of four more flat links.
   const navLinks = [
-    { href: '/', label: 'Dashboard', exact: true },
+    { href: '/', label: 'Dashboard' },
     { href: '/monthly', label: 'Monthly' },
     { href: '/income', label: 'Income' },
-    { href: '/utilities', label: 'Utilities' },
-    { href: '/bills', label: 'Bills' },
-    { href: '/subscriptions', label: 'Subscriptions' },
-    { href: '/expenses', label: 'Expenses' },
-    { href: '/categories', label: 'Categories' },
-    { href: '/tasks', label: 'Tasks' },
   ]
-
-  function isActive(link: (typeof navLinks)[number]): boolean {
-    return link.exact ? page.url.pathname === link.href : page.url.pathname.startsWith(link.href)
-  }
 
   onMount(() => {
     void loadCurrentUser()
@@ -47,12 +42,6 @@
     }
   })
 
-  $effect(() => {
-    // Close the mobile menu whenever the route changes.
-    void page.url.pathname
-    mobileMenuOpen = false
-  })
-
   async function handleLogout() {
     await logout()
     await goto('/login')
@@ -65,101 +54,61 @@
 
 <PullToRefresh />
 
+<!-- Overrides the vendored Sonner wrapper's own mode-watcher-driven theme
+     (see ui/sonner/sonner.svelte) with this app's theme store - passed
+     after the wrapper's default so it wins (see DESIGN.md's decisions log
+     from Phase 1). top-center keeps toasts clear of the mobile bottom tab
+     bar, which a bottom position would collide with. -->
+<Toaster theme={themeState.current} position="top-center" />
+
 {#if authState.loading}
-  <div class="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+  <div class="bg-background text-muted-foreground flex min-h-screen items-center justify-center">
     Loading…
   </div>
 {:else if authState.user}
-  <div class="min-h-screen bg-background">
-    <nav class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+  <div class="bg-background min-h-screen">
+    <nav aria-label="Primary" class="bg-surface border-rule border-b">
       <div class="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 sm:px-6">
-        <a href="/" class="font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</a>
+        <a href="/" class="font-display text-foreground text-lg">Bookkeeper</a>
 
         <div class="hidden items-center gap-6 lg:flex">
           {#each navLinks as link (link.href)}
+            {@const active = isRouteActive(page.url.pathname, link.href)}
             <a
               href={link.href}
-              class="text-sm font-medium whitespace-nowrap transition-colors {isActive(link)
-                ? 'text-indigo-600 dark:text-indigo-400'
-                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}"
+              aria-current={active ? 'page' : undefined}
+              class={[
+                'text-sm font-medium whitespace-nowrap transition-colors',
+                active ? 'text-violet' : 'text-muted-ink hover:text-ink',
+              ]}
             >
               {link.label}
             </a>
           {/each}
+          <OutgoingsMenu />
         </div>
 
         <div class="flex-1"></div>
 
-        <div class="hidden items-center gap-3 lg:flex">
-          <ThemeToggleButton />
-          <SettingsLink user={authState.user} />
-          <LogoutButton onLogout={handleLogout} />
+        <div class="hidden lg:flex">
+          <AccountMenu user={authState.user} onLogout={handleLogout} />
         </div>
-
-        <button
-          onclick={() => (mobileMenuOpen = !mobileMenuOpen)}
-          aria-label="Toggle menu"
-          aria-expanded={mobileMenuOpen}
-          class="rounded-md p-2.5 text-slate-500 hover:bg-slate-100 lg:hidden dark:text-slate-400 dark:hover:bg-slate-800"
-        >
-          {#if mobileMenuOpen}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="size-6"
-            >
-              <path
-                d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z"
-              />
-            </svg>
-          {:else}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              class="size-6"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M2 4.75A.75.75 0 0 1 2.75 4h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 4.75Zm0 5A.75.75 0 0 1 2.75 9h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 9.75ZM2.75 14a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5H2.75Z"
-                clip-rule="evenodd"
-              />
-            </svg>
-          {/if}
-        </button>
       </div>
-
-      {#if mobileMenuOpen}
-        <div class="border-t border-slate-200 px-4 py-3 lg:hidden dark:border-slate-800">
-          <div class="flex flex-col gap-1">
-            {#each navLinks as link (link.href)}
-              <a
-                href={link.href}
-                class="rounded-md px-2 py-2 text-sm font-medium transition-colors {isActive(link)
-                  ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'}"
-              >
-                {link.label}
-              </a>
-            {/each}
-          </div>
-          <div
-            class="mt-3 flex items-center justify-between border-t border-slate-200 pt-3 dark:border-slate-800"
-          >
-            <div class="flex items-center gap-3">
-              <ThemeToggleButton padding="p-2.5" />
-              <SettingsLink user={authState.user} padding="p-2.5" />
-            </div>
-            <LogoutButton onLogout={handleLogout} padding="p-2.5" />
-          </div>
-        </div>
-      {/if}
     </nav>
 
-    <main class="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+    <!-- pb-16 clears the fixed MobileTabBar below `lg`, plus the bar's own
+         safe-area padding (see MobileTabBar.svelte) so the two move
+         together - a no-op sum today (no `viewport-fit=cover` in app.html
+         yet, so the env() term is 0), but correct the moment that's added.
+         sm:py-8's own bottom padding is enough at lg+, where the tab bar is
+         hidden. -->
+    <main
+      class="mx-auto max-w-5xl px-4 pt-6 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:pb-8"
+    >
       {@render children()}
     </main>
+
+    <MobileTabBar user={authState.user} onLogout={handleLogout} />
   </div>
 {:else}
   {@render children()}
