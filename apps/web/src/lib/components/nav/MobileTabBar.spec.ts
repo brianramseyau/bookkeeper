@@ -40,10 +40,12 @@ describe('MobileTabBar', () => {
     render(MobileTabBar, { user: brian, onLogout: vi.fn() })
 
     expect(screen.getByRole('link', { name: 'Home' })).toHaveClass('text-muted-ink')
+    expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
     expect(screen.getByRole('link', { name: 'Monthly' })).toHaveClass('text-violet')
+    expect(screen.getByRole('link', { name: 'Monthly' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it("opens the Outgoings menu and links to a sub-page", async () => {
+  it('opens the Outgoings menu and links to a sub-page', async () => {
     setPageUrl('http://localhost/')
     const user = userEvent.setup()
     render(MobileTabBar, { user: brian, onLogout: vi.fn() })
@@ -58,6 +60,17 @@ describe('MobileTabBar', () => {
     render(MobileTabBar, { user: brian, onLogout: vi.fn() })
 
     expect(screen.getByRole('button', { name: 'Outgoings' })).toHaveClass('text-violet')
+    expect(screen.getByRole('button', { name: 'Outgoings' })).toHaveAttribute(
+      'aria-current',
+      'true'
+    )
+  })
+
+  it('does not mark the Outgoings tab active on a route that merely shares a prefix', () => {
+    setPageUrl('http://localhost/bills-archive')
+    render(MobileTabBar, { user: brian, onLogout: vi.fn() })
+
+    expect(screen.getByRole('button', { name: 'Outgoings' })).not.toHaveClass('text-violet')
   })
 
   it('opens the More menu and links to Settings', async () => {
@@ -67,10 +80,7 @@ describe('MobileTabBar', () => {
 
     await user.click(screen.getByRole('button', { name: 'More' }))
 
-    expect(screen.getByText('Settings').closest('a')).toHaveAttribute(
-      'href',
-      '/settings'
-    )
+    expect(screen.getByText('Settings').closest('a')).toHaveAttribute('href', '/settings')
   })
 
   it('marks the More tab active on the Categories/Tasks/Settings routes', () => {

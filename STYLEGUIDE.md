@@ -32,16 +32,13 @@ variant can't express (see "Ad hoc buttons" below).
   This replaced a text-only `TextActionButton` (removed) specifically
   because text links are a hover/mouse-first pattern — see that section for
   why and what changed.
-- **Nav icon button** — no shared component; `ThemeToggleButton.svelte`,
-  `LogoutButton.svelte`, and `SettingsLink.svelte`
-  (`apps/web/src/lib/components/`) each hard-code the same shape: a 20px
-  heroicon-style inline SVG (`class="size-5"`) inside a button/link with
-  `class={[padding, 'rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-200']}`,
-  `padding` prop `p-1.5` (desktop nav, default) or `p-2.5` (mobile nav —
-  bigger tap target). Distinct from `IconActionButton` (top-level nav
-  chrome, not a table/row action) — don't merge the two, but note
-  `IconActionButton`'s hover/color treatment was deliberately modeled on
-  this pattern for visual consistency.
+- **Nav chrome** — top-level nav chrome (theme toggle, settings, log out,
+  the desktop/mobile nav shell) has fully moved onto the Polymer design
+  system as of Phase 2; see [DESIGN.md](foundational/DESIGN.md)'s decisions
+  log and `$lib/components/nav/` (`OutgoingsMenu.svelte`,
+  `AccountMenu.svelte`, `MobileTabBar.svelte`) rather than this file. The
+  `ThemeToggleButton`/`LogoutButton`/`SettingsLink` components this bullet
+  used to describe are deleted.
 
 ### Icon action buttons
 

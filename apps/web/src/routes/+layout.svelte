@@ -11,6 +11,7 @@
   import OutgoingsMenu from '$lib/components/nav/OutgoingsMenu.svelte'
   import AccountMenu from '$lib/components/nav/AccountMenu.svelte'
   import MobileTabBar from '$lib/components/nav/MobileTabBar.svelte'
+  import { isRouteActive } from '$lib/components/nav/route-active'
   import PullToRefresh from '$lib/components/PullToRefresh.svelte'
 
   let { children } = $props()
@@ -20,14 +21,10 @@
   // Expenses/Utilities all answer the same one ("what do we pay for?"), so
   // they're grouped behind OutgoingsMenu instead of four more flat links.
   const navLinks = [
-    { href: '/', label: 'Dashboard', exact: true },
+    { href: '/', label: 'Dashboard' },
     { href: '/monthly', label: 'Monthly' },
     { href: '/income', label: 'Income' },
   ]
-
-  function isActive(link: (typeof navLinks)[number]): boolean {
-    return link.exact ? page.url.pathname === link.href : page.url.pathname.startsWith(link.href)
-  }
 
   onMount(() => {
     void loadCurrentUser()
@@ -65,22 +62,24 @@
 <Toaster theme={themeState.current} position="top-center" />
 
 {#if authState.loading}
-  <div class="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+  <div class="bg-background text-muted-foreground flex min-h-screen items-center justify-center">
     Loading…
   </div>
 {:else if authState.user}
-  <div class="min-h-screen bg-background">
-    <nav class="bg-surface border-rule border-b">
+  <div class="bg-background min-h-screen">
+    <nav aria-label="Primary" class="bg-surface border-rule border-b">
       <div class="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 sm:px-6">
-        <a href="/" class="font-display text-lg text-foreground">Bookkeeper</a>
+        <a href="/" class="font-display text-foreground text-lg">Bookkeeper</a>
 
         <div class="hidden items-center gap-6 lg:flex">
           {#each navLinks as link (link.href)}
+            {@const active = isRouteActive(page.url.pathname, link.href)}
             <a
               href={link.href}
+              aria-current={active ? 'page' : undefined}
               class={[
                 'text-sm font-medium whitespace-nowrap transition-colors',
-                isActive(link) ? 'text-violet' : 'text-muted-ink hover:text-ink',
+                active ? 'text-violet' : 'text-muted-ink hover:text-ink',
               ]}
             >
               {link.label}
@@ -97,9 +96,15 @@
       </div>
     </nav>
 
-    <!-- pb-16 clears the fixed MobileTabBar below `lg`; sm:py-8's own
-         bottom padding is enough at lg+, where the tab bar is hidden. -->
-    <main class="mx-auto max-w-5xl px-4 pt-6 pb-16 sm:px-6 sm:pt-8 lg:pb-8">
+    <!-- pb-16 clears the fixed MobileTabBar below `lg`, plus the bar's own
+         safe-area padding (see MobileTabBar.svelte) so the two move
+         together - a no-op sum today (no `viewport-fit=cover` in app.html
+         yet, so the env() term is 0), but correct the moment that's added.
+         sm:py-8's own bottom padding is enough at lg+, where the tab bar is
+         hidden. -->
+    <main
+      class="mx-auto max-w-5xl px-4 pt-6 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:pb-8"
+    >
       {@render children()}
     </main>
 

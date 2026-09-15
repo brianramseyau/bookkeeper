@@ -9,6 +9,7 @@
     DropdownMenuTrigger,
   } from '$lib/components/ui/dropdown-menu'
   import { cn } from '$lib/utils'
+  import { isRouteActive } from './route-active'
 
   // "Outgoings" groups every "what do we pay for?" screen (DESIGN.md's own
   // screen-question table) behind one nav entry - Bills/Subscriptions/
@@ -22,17 +23,19 @@
   ]
 
   interface Props {
-    /** Custom trigger - receives bits-ui's trigger props to spread onto the
-        element that should open the menu, and whether the current route is
-        one of the four Outgoings pages (for active-state styling). Omit for
-        the default text+chevron nav link. */
-    trigger?: Snippet<[triggerProps: Record<string, unknown>, active: boolean]>
+    /** Custom trigger - receives bits-ui's own `child`-snippet payload
+        (spread `{...props}` onto the element that should open the menu,
+        matching bits-ui's own `WithChild` contract so it's a drop-in for
+        anyone used to that shape), and whether the current route is one of
+        the four Outgoings pages (for active-state styling). Omit for the
+        default text+chevron nav link. */
+    trigger?: Snippet<[{ props: Record<string, unknown> }, active: boolean]>
   }
 
   let { trigger }: Props = $props()
 
   const isActive = $derived(
-    OUTGOINGS_LINKS.some((link) => page.url.pathname.startsWith(link.href))
+    OUTGOINGS_LINKS.some((link) => isRouteActive(page.url.pathname, link.href))
   )
 </script>
 
@@ -40,11 +43,12 @@
   <DropdownMenuTrigger>
     {#snippet child({ props }: { props: Record<string, unknown> })}
       {#if trigger}
-        {@render trigger(props, isActive)}
+        {@render trigger({ props }, isActive)}
       {:else}
         <button
           type="button"
           {...props}
+          aria-current={isActive ? 'true' : undefined}
           class={cn(
             'flex items-center gap-1 text-sm font-medium whitespace-nowrap transition-colors',
             isActive ? 'text-violet' : 'text-muted-ink hover:text-ink'
@@ -60,15 +64,18 @@
   </DropdownMenuTrigger>
   <DropdownMenuContent align="start" class="w-44">
     {#each OUTGOINGS_LINKS as link (link.href)}
+      {@const linkActive = isRouteActive(page.url.pathname, link.href)}
       <DropdownMenuItem>
         {#snippet child({ props }: { props: Record<string, unknown> })}
           <a
             href={link.href}
             {...props}
-            class={[
-              'data-highlighted:bg-accent block w-full rounded-md px-3 py-1.5 text-sm transition-colors',
-              page.url.pathname.startsWith(link.href) ? 'text-violet' : 'text-ink',
-            ]}
+            aria-current={linkActive ? 'page' : undefined}
+            class={cn(
+              props.class as string,
+              'block w-full',
+              linkActive ? 'text-violet' : 'text-ink'
+            )}
           >
             {link.label}
           </a>
