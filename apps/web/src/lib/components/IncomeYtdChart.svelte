@@ -17,10 +17,14 @@
 
   let { data, ariaLabel = 'Estimated vs actual income by month' }: Props = $props()
 
-  const ACTUAL_COLOR = $derived(themeState.current === 'dark' ? '#818cf8' : '#4f46e5')
-  const PROJECTED_COLOR = $derived(themeState.current === 'dark' ? '#334155' : '#cbd5e1')
-  const GRID_COLOR = $derived(themeState.current === 'dark' ? '#334155' : '#e2e8f0')
-  const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#94a3b8' : '#64748b')
+  // Polymer tokens (DESIGN.md → Colour): both series are money coming in, so
+  // neither takes a semantic colour - actual reads as ink, estimated recedes
+  // to muted, and the grid/axis use the rule/muted neutrals the other charts
+  // already use.
+  const ACTUAL_COLOR = $derived(themeState.current === 'dark' ? '#E5ECE8' : '#16201B')
+  const PROJECTED_COLOR = $derived(themeState.current === 'dark' ? '#93A299' : '#5C6A63')
+  const GRID_COLOR = $derived(themeState.current === 'dark' ? '#27322C' : '#DAE1DC')
+  const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#93A299' : '#5C6A63')
 
   const width = 720
   const height = 240
@@ -68,7 +72,7 @@
 </script>
 
 {#if bars.length > 0}
-  <div class="mb-2 flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+  <div class="text-muted-foreground mb-2 flex items-center gap-4 text-xs">
     <span class="flex items-center gap-1.5">
       <span class="size-2.5 rounded-sm" style="background: {ACTUAL_COLOR}"></span>
       Actual
@@ -123,5 +127,5 @@
     {/each}
   </svg>
 {:else}
-  <p class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Not enough data yet</p>
+  <p class="text-muted-foreground py-8 text-center text-sm">Not enough data yet</p>
 {/if}

@@ -8,39 +8,33 @@
     type Category,
   } from '$lib/api/categories'
   import { reorderedSortOrders } from '$lib/dnd'
+  import { lifecyclePatch, LIFECYCLE_ACTION_TOASTS, type LifecycleAction } from '$lib/lifecycle'
   import { ApiError } from '$lib/api'
+  import { toast } from 'svelte-sonner'
+  import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
   import Card from '$lib/components/Card.svelte'
   import CategoryTree from '$lib/components/CategoryTree.svelte'
+  import CategoryLifecycleRows from '$lib/components/CategoryLifecycleRows.svelte'
+  import CategoryFormSheet, {
+    type CategoryFormValues,
+  } from '$lib/components/CategoryFormSheet.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
-  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
-  import PageHead from '$lib/components/PageHead.svelte'
+  import PageHeader from '$lib/components/app/PageHeader.svelte'
+  import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import { Button } from '$lib/components/ui/button'
-  import StatusBadge from '$lib/components/StatusBadge.svelte'
-  import IconActionButton from '$lib/components/IconActionButton.svelte'
-  import {
-    mdiPencil,
-    mdiCloseThick,
-    mdiContentSave,
-    mdiPackageUp,
-    mdiDelete,
-    mdiRestore,
-  } from '@mdi/js'
 
   let categories = $state<Category[]>([])
   let loading = $state(true)
   let error = $state<string | null>(null)
   let showHidden = $state(false)
-
-  let newName = $state('')
-  let newParentId = $state('')
-  let creating = $state(false)
-
-  let editingId = $state<number | null>(null)
-  let editName = $state('')
-  let editColor = $state('#64748b')
-  let editParentId = $state('')
-  let savingEdit = $state(false)
   let reordering = $state(false)
+
+  // Adding and editing both happen in CategoryFormSheet - the target is null
+  // when adding, the category being edited otherwise.
+  let formOpen = $state(false)
+  let formTarget = $state<Category | null>(null)
+  let formSubmitting = $state(false)
+  let formError = $state<string | null>(null)
 
   /** Parent ids currently collapsed - empty means everything is open. */
   let collapsedIds = $state<Set<number>>(new Set())
@@ -92,17 +86,19 @@
 
   /** Top-level categories offered as parents (excludes the row being edited). */
   const parentOptions = $derived.by(() => {
-    const options = buildTopLevel(categories).filter((c) => c.id !== editingId)
-    if (editingId !== null) {
-      const editing = categories.find((c) => c.id === editingId)
+    const target = formTarget
+    const options = buildTopLevel(categories).filter((c) => c.id !== target?.id)
+    if (target !== null) {
       const currentParent =
-        editing?.parentId != null ? categories.find((c) => c.id === editing.parentId) : undefined
+        target.parentId != null ? categories.find((c) => c.id === target.parentId) : undefined
       if (currentParent && !options.some((c) => c.id === currentParent.id)) {
         options.push(currentParent)
       }
     }
     return options
   })
+
+  const formHasChildren = $derived(formTarget !== null && nestedParentIds.has(formTarget.id))
 
   onMount(load)
 
@@ -117,8 +113,8 @@
   }
 
   // Re-fetches without touching `loading` - toggling `loading` swaps the
-  // whole page to a "Loading…" placeholder, which unmounts the tree and
-  // resets scroll position on every add/edit/archive/reorder action.
+  // whole page to a loading placeholder, which unmounts the tree and resets
+  // scroll position on every add/edit/archive/reorder action.
   async function refresh() {
     try {
       categories = await listCategories({ includeHidden: true })
@@ -138,101 +134,69 @@
     collapsedIds = allExpanded ? new Set(nestedParentIds) : new Set()
   }
 
-  async function handleAdd(event: SubmitEvent) {
-    event.preventDefault()
-    if (!newName.trim()) return
-    creating = true
+  function openAdd() {
+    formTarget = null
+    formError = null
+    formOpen = true
+  }
+
+  function openEdit(category: Category) {
+    formTarget = category
+    formError = null
+    formOpen = true
+  }
+
+  async function saveCategory(values: CategoryFormValues) {
+    const target = formTarget
+    formSubmitting = true
+    formError = null
     error = null
     try {
-      await createCategory({
-        name: newName.trim(),
-        ...(newParentId === '' ? {} : { parentId: Number(newParentId) }),
-      })
-      newName = ''
-      newParentId = ''
-      await refresh()
+      if (target) {
+        await updateCategory(target.id, {
+          // The system category can't be renamed - only its color/sortOrder.
+          ...(target.isSystem ? {} : { name: values.name }),
+          color: values.color,
+          // Only send the parent when it actually changed, so a no-op edit of a
+          // top-level category doesn't churn the payload.
+          ...(target.parentId !== values.parentId ? { parentId: values.parentId } : {}),
+        })
+      } else {
+        await createCategory({
+          name: values.name,
+          color: values.color,
+          ...(values.parentId === null ? {} : { parentId: values.parentId }),
+        })
+      }
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to add category'
-    } finally {
-      creating = false
-    }
-  }
-
-  function startEdit(category: Category) {
-    editingId = category.id
-    editName = category.name
-    editColor = category.color ?? '#64748b'
-    editParentId = category.parentId === null ? '' : String(category.parentId)
-  }
-
-  function cancelEdit() {
-    editingId = null
-  }
-
-  async function saveEdit(category: Category) {
-    if (!editName.trim()) {
-      error = 'Name is required'
+      formError = err instanceof ApiError ? err.message : 'Failed to save category'
+      formSubmitting = false
       return
     }
-    savingEdit = true
-    error = null
-    try {
-      const newParent = editParentId === '' ? null : Number(editParentId)
-      await updateCategory(category.id, {
-        // The system category can't be renamed - only its color/sortOrder.
-        ...(category.isSystem ? {} : { name: editName.trim() }),
-        color: editColor,
-        // Only send the parent when it actually changed, so a no-op edit of a
-        // top-level category doesn't churn the payload.
-        ...(category.parentId !== newParent ? { parentId: newParent } : {}),
-      })
-      editingId = null
-      await refresh()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save changes'
-    } finally {
-      savingEdit = false
-    }
+    formOpen = false
+    formTarget = null
+    formSubmitting = false
+    toast.success(target ? 'Category saved' : 'Category added')
+    await refresh()
   }
 
-  async function handleRemove(category: Category) {
-    if (!confirm(`Permanently delete "${category.name}"? This cannot be undone.`)) return
+  async function runLifecycle(category: Category, action: LifecycleAction) {
     error = null
     try {
-      await deleteCategory(category.id)
+      if (action === 'delete') {
+        const confirmed = await confirmDestructive({
+          title: `Delete ${category.name}?`,
+          description: 'This cannot be undone.',
+        })
+        if (!confirmed) return
+        await deleteCategory(category.id)
+      } else {
+        await updateCategory(category.id, lifecyclePatch(action))
+      }
+      toast.success(`${category.name} ${LIFECYCLE_ACTION_TOASTS[action]}`)
       await refresh()
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to remove'
-    }
-  }
-
-  async function handleArchive(category: Category) {
-    error = null
-    try {
-      await updateCategory(category.id, { isArchived: true })
-      await refresh()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to archive'
-    }
-  }
-
-  async function handleUnarchive(category: Category) {
-    error = null
-    try {
-      await updateCategory(category.id, { isArchived: false })
-      await refresh()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to unarchive'
-    }
-  }
-
-  async function handleRestore(category: Category) {
-    error = null
-    try {
-      await updateCategory(category.id, { isActive: true })
-      await refresh()
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to restore'
+      error = err instanceof ApiError ? err.message : `Failed to ${action}`
     }
   }
 
@@ -273,264 +237,109 @@
   }
 </script>
 
-{#snippet hiddenEditRow(category: Category)}
-  <div
-    class="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-indigo-50/40 px-3 py-1.5 last:border-0 dark:border-slate-700/60 dark:bg-indigo-900/20"
-  >
-    <span class="w-6 shrink-0"></span>
-    <input
-      type="color"
-      bind:value={editColor}
-      class="h-7 w-7 shrink-0 cursor-pointer rounded border border-slate-300 bg-transparent p-0 dark:border-slate-600"
-    />
-    <input
-      type="text"
-      bind:value={editName}
-      class="w-40 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-    />
-    <select
-      bind:value={editParentId}
-      aria-label="Parent for {category.name}"
-      class="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-    >
-      <option value="">Top level</option>
-      {#each parentOptions as parent (parent.id)}
-        <option value={String(parent.id)}>{parent.name}</option>
-      {/each}
-    </select>
-    <div class="ml-auto flex shrink-0 items-center gap-1">
-      <IconActionButton
-        variant="primary"
-        disabled={savingEdit}
-        label="Save {category.name}"
-        path={mdiContentSave}
-        onclick={() => saveEdit(category)}
-      />
-      <IconActionButton
-        variant="cancel"
-        label="Cancel editing {category.name}"
-        path={mdiCloseThick}
-        onclick={cancelEdit}
-      />
-    </div>
-  </div>
-{/snippet}
-
-<PageHead title="Categories" />
-
-<div class="flex items-center justify-between">
-  <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Categories</h1>
-  <div class="flex items-center gap-4">
-    {#if nestedParentIds.size > 0}
-      <button
-        type="button"
-        onclick={toggleAll}
-        class="text-xs font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
-      >
-        {allExpanded ? 'Unfold less' : 'Unfold more'}
-      </button>
-    {/if}
-    <button
-      type="button"
-      onclick={() => (showHidden = !showHidden)}
-      class="text-xs font-medium text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
-    >
-      {showHidden ? 'Hide' : 'Show'} archived / removed
-    </button>
-  </div>
-</div>
-
-<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-  Tags for bucketing bills, subscriptions, and expenses - useful for reporting later. They don't
-  track spend or budget themselves; see <a
-    href="/expenses"
-    class="font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-    >Expenses</a
-  > for that. Drag a category to reorder it within its group; move it under another category (or back
-  to the top level) from its edit form.
-</p>
+<PageHeader
+  title="Categories"
+  description="Tags for bucketing bills, subscriptions, and expenses. Drag a category to reorder it within its group; move it under another category from its edit form."
+>
+  {#snippet actions()}
+    <Button onclick={openAdd}>Add category</Button>
+  {/snippet}
+</PageHeader>
 
 {#if error}
   <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <LoadingIndicator />
+  <div class="mt-6">
+    <LoadingSkeleton rows={5} />
+  </div>
 {:else}
-  <Card class="mt-6 overflow-x-auto">
+  <div class="mt-6 flex items-center justify-end gap-2">
+    {#if nestedParentIds.size > 0}
+      <Button variant="ghost" size="sm" onclick={toggleAll}>
+        {allExpanded ? 'Unfold less' : 'Unfold more'}
+      </Button>
+    {/if}
+    <Button variant="ghost" size="sm" onclick={() => (showHidden = !showHidden)}>
+      {showHidden ? 'Hide' : 'Show'} archived / removed
+    </Button>
+  </div>
+
+  <Card class="mt-3 overflow-x-auto">
     {#if orderedNonSystem.length > 0}
       <CategoryTree
         top={orderedNonSystem}
         childrenById={orderedChildren}
-        {parentOptions}
         {collapsedIds}
-        {editingId}
         {reordering}
-        {savingEdit}
         zoneType="top"
-        bind:editName
-        bind:editColor
-        bind:editParentId
         ontoggleCollapse={toggleCollapse}
-        onstartEdit={startEdit}
-        oncancelEdit={cancelEdit}
-        onsaveEdit={saveEdit}
-        onarchive={handleArchive}
+        onstartEdit={openEdit}
+        onlifecycle={runLifecycle}
         onreorderTop={reorderNonSystem}
         onreorderChildren={reorderChildren}
       />
-    {:else if orderedSystem.length === 0}
-      <p class="px-3 py-6 text-center text-sm text-slate-400 dark:text-slate-500">
-        No categories yet.
-      </p>
+    {:else if orderedSystem.length === 0 && archivedCategories.length === 0 && removedCategories.length === 0}
+      <p class="text-muted-foreground px-3 py-6 text-center text-sm">No categories yet.</p>
     {/if}
 
     {#if showHidden}
       {#if archivedCategories.length > 0}
-        <div class="bg-slate-50 px-3 py-1.5 dark:bg-slate-900/40">
-          <span
-            class="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
-            >Archived</span
-          >
+        <div class="bg-muted/40 px-3 py-1.5">
+          <span class="text-muted-foreground text-xs font-semibold">Archived</span>
         </div>
-        {#each archivedCategories as category (category.id)}
-          {#if editingId === category.id}
-            {@render hiddenEditRow(category)}
-          {:else}
-            <div
-              class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-1.5 opacity-70 last:border-0 dark:border-slate-700/60"
-            >
-              <span class="w-6 shrink-0"></span>
-              <span
-                class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                style="background-color: {category.color ?? '#94a3b8'}"
-              ></span>
-              <span class="font-medium text-slate-700 dark:text-slate-300">{category.name}</span>
-              {#if category.parentId !== null}
-                <span class="text-xs text-slate-400 dark:text-slate-500"
-                  >under {parentName(category.parentId)}</span
-                >
-              {/if}
-              <StatusBadge label="Archived" tone="slate" />
-              <div class="ml-auto flex shrink-0 items-center gap-1">
-                <IconActionButton
-                  variant="neutral"
-                  label="Edit {category.name}"
-                  path={mdiPencil}
-                  onclick={() => startEdit(category)}
-                />
-                <IconActionButton
-                  variant="success"
-                  label="Unarchive {category.name}"
-                  path={mdiPackageUp}
-                  onclick={() => handleUnarchive(category)}
-                />
-                <IconActionButton
-                  variant="danger"
-                  label="Delete {category.name}"
-                  path={mdiDelete}
-                  onclick={() => handleRemove(category)}
-                />
-              </div>
-            </div>
-          {/if}
-        {/each}
+        <CategoryLifecycleRows
+          categories={archivedCategories}
+          parentNameFor={parentName}
+          onEdit={openEdit}
+          onLifecycle={runLifecycle}
+        />
       {/if}
 
       {#if removedCategories.length > 0}
-        <div class="bg-slate-50 px-3 py-1.5 dark:bg-slate-900/40">
-          <span
-            class="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
-            >Removed</span
-          >
+        <div class="bg-muted/40 px-3 py-1.5">
+          <span class="text-muted-foreground text-xs font-semibold">Removed</span>
         </div>
-        {#each removedCategories as category (category.id)}
-          {#if editingId === category.id}
-            {@render hiddenEditRow(category)}
-          {:else}
-            <div
-              class="flex flex-wrap items-center gap-2 border-b border-slate-100 px-3 py-1.5 opacity-60 last:border-0 dark:border-slate-700/60"
-            >
-              <span class="w-6 shrink-0"></span>
-              <span
-                class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"
-                style="background-color: {category.color ?? '#94a3b8'}"
-              ></span>
-              <span class="font-medium text-slate-700 dark:text-slate-300">{category.name}</span>
-              {#if category.parentId !== null}
-                <span class="text-xs text-slate-400 dark:text-slate-500"
-                  >under {parentName(category.parentId)}</span
-                >
-              {/if}
-              <StatusBadge label="Removed" tone="slate" />
-              <div class="ml-auto flex shrink-0 items-center gap-1">
-                <IconActionButton
-                  variant="success"
-                  label="Restore {category.name}"
-                  path={mdiRestore}
-                  onclick={() => handleRestore(category)}
-                />
-              </div>
-            </div>
-          {/if}
-        {/each}
+        <CategoryLifecycleRows
+          categories={removedCategories}
+          parentNameFor={parentName}
+          onEdit={openEdit}
+          onLifecycle={runLifecycle}
+        />
       {/if}
     {/if}
 
     {#if orderedSystem.length > 0}
-      <div class="bg-slate-50 px-3 py-1.5 dark:bg-slate-900/40">
-        <span
-          class="text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
-          >System categories</span
-        >
+      <div class="bg-muted/40 px-3 py-1.5">
+        <span class="text-muted-foreground text-xs font-semibold">System categories</span>
       </div>
       <CategoryTree
         top={orderedSystem}
         childrenById={orderedChildren}
-        {parentOptions}
         {collapsedIds}
-        {editingId}
         {reordering}
-        {savingEdit}
         zoneType="system-top"
-        bind:editName
-        bind:editColor
-        bind:editParentId
         ontoggleCollapse={toggleCollapse}
-        onstartEdit={startEdit}
-        oncancelEdit={cancelEdit}
-        onsaveEdit={saveEdit}
-        onarchive={handleArchive}
+        onstartEdit={openEdit}
+        onlifecycle={runLifecycle}
         onreorderTop={reorderSystem}
         onreorderChildren={reorderChildren}
       />
     {/if}
   </Card>
-
-  <form onsubmit={handleAdd} class="mt-6 flex flex-wrap items-end gap-3">
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Name</span>
-      <input
-        type="text"
-        placeholder="Add a category (e.g. Household)"
-        bind:value={newName}
-        class="w-64 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-      />
-    </label>
-    <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Parent (optional)</span>
-      <select
-        bind:value={newParentId}
-        class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-      >
-        <option value="">Top level</option>
-        {#each parentOptions as parent (parent.id)}
-          <option value={String(parent.id)}>{parent.name}</option>
-        {/each}
-      </select>
-    </label>
-    <Button type="submit" size="lg" disabled={creating}>
-      {creating ? 'Adding…' : 'Add category'}
-    </Button>
-  </form>
 {/if}
+
+<CategoryFormSheet
+  open={formOpen}
+  onOpenChange={(next) => {
+    formOpen = next
+    if (!next) formTarget = null
+  }}
+  category={formTarget}
+  {parentOptions}
+  hasChildren={formHasChildren}
+  submitting={formSubmitting}
+  error={formError}
+  onSubmit={saveCategory}
+/>

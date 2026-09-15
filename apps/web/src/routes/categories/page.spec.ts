@@ -1,6 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'svelte-sonner'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import {
   listCategories,
   createCategory,
@@ -16,6 +18,10 @@ vi.mock('$lib/api/categories', () => ({
   createCategory: vi.fn(),
   updateCategory: vi.fn(),
   deleteCategory: vi.fn(),
+}))
+vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
 }))
 
 const groceries: Category = {
@@ -67,19 +73,30 @@ const bakery: Category = {
   parentId: 1,
 }
 
+// The Sheet/Drawer the form opens into is portalled onto `document.body`.
+function openSheet() {
+  return screen.getByRole('dialog', { hidden: true })
+}
+
+function waitForBodyInteractive() {
+  return waitFor(() => expect(getComputedStyle(document.body).pointerEvents).not.toBe('none'))
+}
+
 describe('categories page', () => {
   beforeEach(() => {
     vi.mocked(listCategories).mockReset()
     vi.mocked(createCategory).mockReset()
     vi.mocked(updateCategory).mockReset()
     vi.mocked(deleteCategory).mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(confirmDestructive).mockReset().mockResolvedValue(true)
   })
 
   it('shows a loading state, then an error on failure', async () => {
     vi.mocked(listCategories).mockRejectedValue(new ApiError(500, 'Could not load categories'))
     render(CategoriesPage)
 
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
     expect(await screen.findByText('Could not load categories')).toBeInTheDocument()
   })
 
@@ -93,9 +110,8 @@ describe('categories page', () => {
     vi.mocked(listCategories).mockResolvedValue([])
     render(CategoriesPage)
 
-    await screen.findByPlaceholderText('Add a category (e.g. Household)')
+    expect(await screen.findByText('No categories yet.')).toBeInTheDocument()
     expect(screen.queryByText('Groceries')).toBeNull()
-    expect(screen.getByText('No categories yet.')).toBeInTheDocument()
   })
 
   it('renders active categories', async () => {
@@ -159,19 +175,24 @@ describe('categories page', () => {
     expect(screen.getByRole('button', { name: 'Archive Groceries' })).toBeInTheDocument()
   })
 
-  it('adds a new category and reloads the list', async () => {
+  it('adds a new category in a sheet and reloads the list', async () => {
     vi.mocked(listCategories).mockResolvedValue([])
     vi.mocked(createCategory).mockResolvedValue(groceries)
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await screen.findByPlaceholderText('Add a category (e.g. Household)')
+    await screen.findByText('No categories yet.')
     vi.mocked(listCategories).mockResolvedValue([groceries])
 
-    await user.type(screen.getByPlaceholderText('Add a category (e.g. Household)'), 'Groceries')
     await user.click(screen.getByRole('button', { name: 'Add category' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Groceries' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add category' }))
 
-    expect(createCategory).toHaveBeenCalledWith({ name: 'Groceries' })
+    await waitFor(() =>
+      expect(createCategory).toHaveBeenCalledWith({ name: 'Groceries', color: '#64748b' })
+    )
+    expect(toast.success).toHaveBeenCalledWith('Category added')
     expect(await screen.findByRole('button', { name: 'Edit Groceries' })).toBeInTheDocument()
   })
 
@@ -181,23 +202,34 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await screen.findByPlaceholderText('Add a category (e.g. Household)')
-    await user.type(screen.getByPlaceholderText('Add a category (e.g. Household)'), 'Produce')
-    await user.selectOptions(screen.getByLabelText('Parent (optional)'), '1')
+    await screen.findByRole('button', { name: 'Edit Groceries' })
     await user.click(screen.getByRole('button', { name: 'Add category' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Produce' } })
+    await fireEvent.change(within(sheet).getByLabelText('Parent'), { target: { value: '1' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add category' }))
 
-    expect(createCategory).toHaveBeenCalledWith({ name: 'Produce', parentId: 1 })
+    await waitFor(() =>
+      expect(createCategory).toHaveBeenCalledWith({
+        name: 'Produce',
+        color: '#64748b',
+        parentId: 1,
+      })
+    )
   })
 
-  it('does not submit an empty or whitespace-only category name', async () => {
+  it('requires a name to add a category', async () => {
     vi.mocked(listCategories).mockResolvedValue([])
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await screen.findByPlaceholderText('Add a category (e.g. Household)')
-    await user.type(screen.getByPlaceholderText('Add a category (e.g. Household)'), '   ')
+    await screen.findByText('No categories yet.')
     await user.click(screen.getByRole('button', { name: 'Add category' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: '   ' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add category' }))
 
+    expect(await screen.findByText('Name is required')).toBeInTheDocument()
     expect(createCategory).not.toHaveBeenCalled()
   })
 
@@ -207,53 +239,57 @@ describe('categories page', () => {
     const user = userEvent.setup()
     render(CategoriesPage)
 
-    await user.type(
-      await screen.findByPlaceholderText('Add a category (e.g. Household)'),
-      'Groceries'
-    )
+    await screen.findByText('No categories yet.')
     await user.click(screen.getByRole('button', { name: 'Add category' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Groceries' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add category' }))
 
     expect(await screen.findByText('Name already exists')).toBeInTheDocument()
   })
 
-  it('edits a category, saving its name and color', async () => {
+  it('edits a category in a sheet, saving its name and color', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries])
     vi.mocked(updateCategory).mockResolvedValue({ ...groceries, name: 'Food' })
     const user = userEvent.setup()
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
-
-    const nameInput = screen.getByDisplayValue('Groceries')
-    await user.clear(nameInput)
-    await user.type(nameInput, 'Food')
+    const sheet = openSheet()
+    const nameInput = within(sheet).getByLabelText('Name')
+    await fireEvent.input(nameInput, { target: { value: 'Food' } })
 
     vi.mocked(listCategories).mockResolvedValue([{ ...groceries, name: 'Food' }])
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
-
-    expect(updateCategory).toHaveBeenCalledWith(1, {
-      name: 'Food',
-      color: '#22c55e',
-    })
+    await waitFor(() =>
+      expect(updateCategory).toHaveBeenCalledWith(1, {
+        name: 'Food',
+        color: '#22c55e',
+      })
+    )
+    expect(toast.success).toHaveBeenCalledWith('Category saved')
     expect(await screen.findByRole('button', { name: 'Edit Food' })).toBeInTheDocument()
   })
 
-  it('moves a category under a parent from the edit form', async () => {
+  it('moves a category under a parent from the edit sheet', async () => {
     vi.mocked(listCategories).mockResolvedValue([groceries, rent])
     vi.mocked(updateCategory).mockResolvedValue({ ...groceries, parentId: 2 })
     const user = userEvent.setup()
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
-    await user.selectOptions(screen.getByLabelText('Parent for Groceries'), '2')
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    const sheet = openSheet()
+    await fireEvent.change(within(sheet).getByLabelText('Parent'), { target: { value: '2' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
-    expect(updateCategory).toHaveBeenCalledWith(1, {
-      name: 'Groceries',
-      color: '#22c55e',
-      parentId: 2,
-    })
+    await waitFor(() =>
+      expect(updateCategory).toHaveBeenCalledWith(1, {
+        name: 'Groceries',
+        color: '#22c55e',
+        parentId: 2,
+      })
+    )
   })
 
   it('edits a nested child category', async () => {
@@ -263,15 +299,18 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Produce' }))
-    const nameInput = screen.getByDisplayValue('Produce')
-    await user.clear(nameInput)
-    await user.type(nameInput, 'Fresh Produce')
-    await user.click(screen.getByRole('button', { name: 'Save Produce' }))
-
-    expect(updateCategory).toHaveBeenCalledWith(4, {
-      name: 'Fresh Produce',
-      color: '#22c55e',
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), {
+      target: { value: 'Fresh Produce' },
     })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(updateCategory).toHaveBeenCalledWith(4, {
+        name: 'Fresh Produce',
+        color: '#22c55e',
+      })
+    )
   })
 
   it('does not render a rename input for the system category, only saving its color', async () => {
@@ -281,12 +320,13 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Utilities' }))
+    const sheet = openSheet()
 
-    expect(screen.queryByDisplayValue('Utilities')).toBeNull()
+    expect(within(sheet).queryByLabelText('Name')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: 'Save Utilities' }))
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
-    expect(updateCategory).toHaveBeenCalledWith(3, { color: '#0066b2' })
+    await waitFor(() => expect(updateCategory).toHaveBeenCalledWith(3, { color: '#0066b2' }))
   })
 
   it('cancels an in-progress edit without saving', async () => {
@@ -295,10 +335,12 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
-    const nameInput = screen.getByDisplayValue('Groceries')
-    await user.clear(nameInput)
-    await user.type(nameInput, 'Should not save')
-    await user.click(screen.getByRole('button', { name: 'Cancel editing Groceries' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), {
+      target: { value: 'Should not save' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+    await waitForBodyInteractive()
 
     expect(updateCategory).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: 'Edit Groceries' })).toBeInTheDocument()
@@ -310,9 +352,9 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
-    const nameInput = screen.getByDisplayValue('Groceries')
-    await user.clear(nameInput)
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: '' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Name is required')).toBeInTheDocument()
     expect(updateCategory).not.toHaveBeenCalled()
@@ -325,7 +367,8 @@ describe('categories page', () => {
     render(CategoriesPage)
 
     await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
-    await user.click(screen.getByRole('button', { name: 'Save Groceries' }))
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save changes')).toBeInTheDocument()
   })
@@ -344,7 +387,6 @@ describe('categories page', () => {
     const archived = { ...groceries, isArchived: true }
     vi.mocked(listCategories).mockResolvedValue([archived, rent])
     vi.mocked(deleteCategory).mockResolvedValue(undefined)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const user = userEvent.setup()
     render(CategoriesPage)
 
@@ -353,17 +395,18 @@ describe('categories page', () => {
     vi.mocked(listCategories).mockResolvedValue([rent])
     await user.click(screen.getByRole('button', { name: 'Delete Groceries' }))
 
-    expect(window.confirm).toHaveBeenCalledWith(
-      'Permanently delete "Groceries"? This cannot be undone.'
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Delete Groceries?' })
     )
     expect(deleteCategory).toHaveBeenCalledWith(1)
+    expect(toast.success).toHaveBeenCalledWith('Groceries deleted')
     await waitFor(() => expect(screen.queryByText('Groceries')).toBeNull())
   })
 
   it('does not remove an archived category when the confirmation is declined', async () => {
     const archived = { ...groceries, isArchived: true }
     vi.mocked(listCategories).mockResolvedValue([archived])
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(confirmDestructive).mockResolvedValue(false)
     const user = userEvent.setup()
     render(CategoriesPage)
 
@@ -377,7 +420,6 @@ describe('categories page', () => {
     const archived = { ...groceries, isArchived: true }
     vi.mocked(listCategories).mockResolvedValue([archived])
     vi.mocked(deleteCategory).mockRejectedValue(new ApiError(500, 'Failed to remove'))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const user = userEvent.setup()
     render(CategoriesPage)
 
@@ -398,7 +440,8 @@ describe('categories page', () => {
     vi.mocked(listCategories).mockResolvedValue([{ ...groceries, isArchived: true }])
     await user.click(screen.getByRole('button', { name: 'Archive Groceries' }))
 
-    expect(updateCategory).toHaveBeenCalledWith(1, { isArchived: true })
+    await waitFor(() => expect(updateCategory).toHaveBeenCalledWith(1, { isArchived: true }))
+    expect(toast.success).toHaveBeenCalledWith('Groceries archived')
     await waitFor(() => expect(screen.getAllByText('Archived').length).toBeGreaterThan(0))
 
     vi.mocked(updateCategory).mockResolvedValue({ ...groceries, isArchived: false })

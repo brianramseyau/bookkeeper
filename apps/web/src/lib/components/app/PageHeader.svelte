@@ -11,13 +11,21 @@
     description?: string
     /** A detail page's "← Back to X" link, shown above the title. */
     back?: { href: string; label: string }
+    /** The document/tab title, when it differs from the visible h1 (the
+        Dashboard's h1 greets the signed-in person, but the tab should read
+        "Dashboard"). Defaults to `title`. */
+    documentTitle?: string
     /** Buttons/menus for this page, right-aligned next to the title on
         desktop and wrapped below it on mobile. */
     actions?: Snippet
   }
 
-  let { title, description, back, actions }: Props = $props()
+  let { title, description, back, documentTitle, actions }: Props = $props()
 </script>
+
+<svelte:head>
+  <title>{documentTitle ?? title} · Bookkeeper</title>
+</svelte:head>
 
 <div>
   {#if back}

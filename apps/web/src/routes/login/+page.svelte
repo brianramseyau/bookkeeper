@@ -6,6 +6,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
 
   let email = $state('')
   let password = $state('')
@@ -33,29 +34,17 @@
 
 <PageHead title="Log in" />
 
-<div class="flex min-h-screen items-center justify-center bg-slate-50 px-4 dark:bg-slate-900">
+<div class="bg-ground flex min-h-screen items-center justify-center px-4">
   <Card class="w-full max-w-sm p-8">
-    <h1 class="mb-6 text-xl font-semibold text-slate-900 dark:text-slate-100">Bookkeeper</h1>
+    <h1 class="font-display text-foreground mb-6 text-2xl">Bookkeeper</h1>
     <form onsubmit={handleSubmit} class="flex flex-col gap-4">
       <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Email</span>
-        <input
-          type="email"
-          bind:value={email}
-          autocomplete="email"
-          required
-          class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-        />
+        <span class="text-foreground text-sm font-medium">Email</span>
+        <Input type="email" bind:value={email} autocomplete="email" required />
       </label>
       <label class="flex flex-col gap-1">
-        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Password</span>
-        <input
-          type="password"
-          bind:value={password}
-          autocomplete="current-password"
-          required
-          class="rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-        />
+        <span class="text-foreground text-sm font-medium">Password</span>
+        <Input type="password" bind:value={password} autocomplete="current-password" required />
       </label>
       {#if error}
         <ErrorMessage message={error} class="" />

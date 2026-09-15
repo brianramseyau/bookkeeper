@@ -14,7 +14,7 @@
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
-  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import PieChart, { type PieSlice } from '$lib/components/PieChart.svelte'
   import IncomeYtdChart from '$lib/components/IncomeYtdChart.svelte'
   import YearlyIncomeLineChart from '$lib/components/YearlyIncomeLineChart.svelte'
@@ -32,9 +32,12 @@
 
   let { userId, financialYear, users, sources, refreshToken = 0 }: Props = $props()
 
+  // Both figures are money coming in, so neither gets a semantic colour -
+  // they're distinguished by weight (ink vs muted), the same neutral choice
+  // MonthlyExpenseChart makes for money going out. See DESIGN.md → Colour.
   const CHART_COLORS = {
-    salary: { light: '#4f46e5', dark: '#818cf8' },
-    other: { light: '#94a3b8', dark: '#94a3b8' },
+    salary: { light: '#16201B', dark: '#E5ECE8' },
+    other: { light: '#5C6A63', dark: '#93A299' },
   }
   const PERSON_FALLBACK_COLORS = ['#f59e0b', '#10b981', '#ec4899', '#0ea5e9']
 
@@ -180,14 +183,14 @@
     class="flex w-full items-center justify-between gap-3 text-left"
   >
     <span>
-      <span class="block text-base font-semibold text-slate-900 dark:text-slate-100">Charts</span>
-      <span class="block text-sm text-slate-500 dark:text-slate-400">
+      <span class="text-foreground block text-base font-semibold">Charts</span>
+      <span class="text-muted-foreground block text-sm">
         Estimated vs actual, year-by-year income, and how income splits between people and sources
       </span>
     </span>
     <svg
       viewBox="0 0 24 24"
-      class={['size-5 shrink-0 text-slate-400 transition-transform', open && 'rotate-180']}
+      class={['text-muted-foreground size-5 shrink-0 transition-transform', open && 'rotate-180']}
       fill="currentColor"
       aria-hidden="true"
     >
@@ -198,18 +201,18 @@
   {#if open}
     <div class="mt-4">
       {#if loading && allEntries.length === 0}
-        <LoadingIndicator />
+        <LoadingSkeleton rows={4} />
       {:else if error}
         <ErrorMessage message={error} />
       {:else}
         <div class="grid gap-4">
           <div class="grid gap-4 sm:grid-cols-2">
-            <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <section class="border-border rounded-xl border p-4">
+              <h3 class="text-foreground text-sm font-semibold">
                 Income by person
               </h3>
-              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Net income by household member · {financialYearLabel(financialYear)}
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                Net income by household member for {financialYearLabel(financialYear)}.
               </p>
               <div class="mt-3">
                 <PieChart
@@ -220,12 +223,12 @@
               </div>
             </section>
 
-            <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <section class="border-border rounded-xl border p-4">
+              <h3 class="text-foreground text-sm font-semibold">
                 Salary vs other income
               </h3>
-              <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                Net income by source type · {financialYearLabel(financialYear)}
+              <p class="text-muted-foreground mt-0.5 text-xs">
+                Net income by source type for {financialYearLabel(financialYear)}.
               </p>
               <div class="mt-3">
                 <PieChart
@@ -237,12 +240,12 @@
             </section>
           </div>
 
-          <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <section class="border-border rounded-xl border p-4">
+            <h3 class="text-foreground text-sm font-semibold">
               Estimated vs actual income
             </h3>
-            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              {selectedUserLabel} · {financialYearLabel(financialYear)}. Estimated is what sources
+            <p class="text-muted-foreground mt-0.5 text-xs">
+              {selectedUserLabel} in {financialYearLabel(financialYear)}. Estimated is what sources
               should have paid so far; actual is what's been logged.
             </p>
             <div class="mt-3">
@@ -250,9 +253,9 @@
             </div>
           </section>
 
-          <section class="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
-            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Year by year</h3>
-            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          <section class="border-border rounded-xl border p-4">
+            <h3 class="text-foreground text-sm font-semibold">Year by year</h3>
+            <p class="text-muted-foreground mt-0.5 text-xs">
               Cumulative net income for the household across each financial year.
             </p>
             <div class="mt-3">

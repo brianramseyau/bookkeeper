@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { goto, replaceState } from '$app/navigation'
 import { page } from '$app/state'
 import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
+import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
 import { ApiError } from '$lib/api'
 import { authState } from '$lib/stores/auth.svelte'
 import DashboardPage from './+page.svelte'
@@ -11,6 +12,7 @@ import DashboardPage from './+page.svelte'
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/') } }))
 vi.mock('$lib/api/dashboard', () => ({ getDashboardSummary: vi.fn() }))
+vi.mock('$lib/api/standard-month', () => ({ getStandardMonth: vi.fn() }))
 
 // SvelteKit's real `Page.url` type brands `pathname` with a union of the
 // app's known routes - the mock above is a plain URL, so route it through a
@@ -27,6 +29,16 @@ const baseSummary: DashboardSummary = {
   totalIncome: 0,
 }
 
+const baseStandardMonth: StandardMonthResult = {
+  year: 2026,
+  month: 3,
+  carryover: 0,
+  income: { lines: [], projectedTotal: 0, actualTotal: 0 },
+  expenses: { lines: [], projectedTotal: 0, actualTotal: 0 },
+  projectedNet: 500,
+  actualNet: -50,
+}
+
 describe('dashboard page', () => {
   beforeEach(() => {
     // Fixes "now" so isCurrentMonth/"This Month" behave deterministically -
@@ -34,6 +46,8 @@ describe('dashboard page', () => {
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
     setPageUrl('http://localhost/')
     vi.mocked(getDashboardSummary).mockReset()
+    vi.mocked(getStandardMonth).mockReset()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseStandardMonth)
     vi.mocked(replaceState).mockReset()
     authState.user = {
       id: 1,
@@ -65,8 +79,9 @@ describe('dashboard page', () => {
 
   it('shows a loading state before data arrives', () => {
     vi.mocked(getDashboardSummary).mockReturnValue(new Promise(() => {}))
+    vi.mocked(getStandardMonth).mockReturnValue(new Promise(() => {}))
     render(DashboardPage)
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
   })
 
   it('shows an API error message on failure', async () => {
@@ -81,24 +96,15 @@ describe('dashboard page', () => {
     expect(await screen.findByText('Failed to load dashboard')).toBeInTheDocument()
   })
 
-  it('shows projected/actual net tiles with color classes for positive and negative values', async () => {
+  it('renders the month strip hero with the projected surplus', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     render(DashboardPage)
 
-    const projected = await screen.findByText('$500.00')
-    expect(projected.className).toContain('text-emerald-600')
-    const actual = screen.getByText('-$50.00')
-    expect(actual.className).toContain('text-red-600')
+    expect(await screen.findByText('projected surplus')).toBeInTheDocument()
+    expect(screen.getByText('$500.00')).toBeInTheDocument()
   })
 
-  it('shows "Nothing scheduled" when there are no upcoming bills', async () => {
-    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
-    render(DashboardPage)
-    expect(await screen.findByText('Nothing scheduled')).toBeInTheDocument()
-    expect(screen.getByText('Nothing scheduled.')).toBeInTheDocument()
-  })
-
-  it('shows the next bill and "Nothing else scheduled" with exactly one upcoming bill', async () => {
+  it('links each upcoming bill to its detail page', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
       upcomingBills: [
@@ -107,12 +113,19 @@ describe('dashboard page', () => {
     })
     render(DashboardPage)
 
-    expect(await screen.findByText('$2,000.00')).toBeInTheDocument()
-    expect(screen.getByText(/Rent/)).toBeInTheDocument()
-    expect(screen.getByText('Nothing else scheduled.')).toBeInTheDocument()
+    const link = await screen.findByRole('link', { name: 'Rent' })
+    expect(link).toHaveAttribute('href', '/bills/1')
+    expect(screen.getByText('$2,000.00')).toBeInTheDocument()
+    expect(screen.queryByText('Nothing scheduled.')).toBeNull()
   })
 
-  it('lists remaining upcoming bills, highlighting overdue ones', async () => {
+  it('shows "Nothing scheduled." when there are no upcoming bills', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
+    render(DashboardPage)
+    expect(await screen.findByText('Nothing scheduled.')).toBeInTheDocument()
+  })
+
+  it('highlights overdue upcoming bills', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
       upcomingBills: [
@@ -123,7 +136,7 @@ describe('dashboard page', () => {
     render(DashboardPage)
 
     const overdueText = await screen.findByText('Overdue by 2 days')
-    expect(overdueText.className).toContain('text-red-600')
+    expect(overdueText.className).toContain('text-over')
   })
 
   it('calls goto from the monthly expense chart', async () => {
@@ -182,7 +195,7 @@ describe('dashboard page', () => {
     })
     render(DashboardPage)
 
-    await screen.findByText('November 2025')
+    await screen.findByText('Nov 2025')
     expect(getDashboardSummary).toHaveBeenCalledWith(2025, 11)
   })
 
@@ -190,10 +203,10 @@ describe('dashboard page', () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     const user = userEvent.setup()
     render(DashboardPage)
-    await screen.findByText('March 2026')
+    await screen.findByText('Mar 2026')
 
     await user.click(screen.getByRole('button', { name: '← Prev' }))
-    expect(await screen.findByText('February 2026')).toBeInTheDocument()
+    expect(await screen.findByText('Feb 2026')).toBeInTheDocument()
     expect(replaceState).toHaveBeenCalledWith('/?year=2026&month=2', {})
     expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2)
 
@@ -201,7 +214,7 @@ describe('dashboard page', () => {
       await user.click(screen.getByRole('button', { name: '← Prev' }))
     }
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2025, 12))
-    expect(await screen.findByText('December 2025')).toBeInTheDocument()
+    expect(await screen.findByText('Dec 2025')).toBeInTheDocument()
   })
 
   it('jumps back to the current month', async () => {
@@ -209,7 +222,7 @@ describe('dashboard page', () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     const user = userEvent.setup()
     render(DashboardPage)
-    await screen.findByText('January 2020')
+    await screen.findByText('Jan 2020')
 
     await user.click(screen.getByRole('button', { name: 'This Month' }))
 
