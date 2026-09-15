@@ -57,12 +57,23 @@ const COLLISION_THRESHOLD = 0.05
  */
 export function layoutTicks(events: MonthStripEvent[], daysInMonth: number): MonthStripTick[] {
   const sorted = [...events].sort((a, b) => a.day - b.day || a.key.localeCompare(b.key))
-  const activeXByKind: Record<MonthStripEvent['kind'], number[]> = { income: [], outgoing: [] }
+  const placedByKind: Record<MonthStripEvent['kind'], { x: number; stack: number }[]> = {
+    income: [],
+    outgoing: [],
+  }
   return sorted.map((event) => {
     const x = dayToX(event.day, daysInMonth)
-    const active = activeXByKind[event.kind]
-    const stack = active.filter((px) => Math.abs(px - x) < COLLISION_THRESHOLD).length
-    active.push(x)
+    const placed = placedByKind[event.kind]
+    // The next free row among this tick's colliding neighbours, not simply
+    // how many collide: three ticks each within the threshold of their
+    // predecessor (e.g. days 10/11/12) must take rows 0/1/2, or the first
+    // and third would land on the same row and overlap.
+    const usedRows = new Set(
+      placed.filter((p) => Math.abs(p.x - x) < COLLISION_THRESHOLD).map((p) => p.stack)
+    )
+    let stack = 0
+    while (usedRows.has(stack)) stack++
+    placed.push({ x, stack })
     return { ...event, x, stack }
   })
 }
@@ -140,7 +151,11 @@ export function eventsFromStandardMonth(
 
   for (const line of data.income.lines) {
     if (line.payDates.length === 0) continue
-    const perPeriod = round2(line.projected / line.payDates.length)
+    // Prefer the really-logged total (what the Monthly table's Actual column
+    // shows) over the projection, same as the outgoing loop below - the
+    // strip's own comment promises it never disagrees with the table.
+    const amount = line.actual ?? line.projected
+    const perPeriod = round2(amount / line.payDates.length)
     for (const date of line.payDates) {
       const day = dayOfMonthFromIso(date, year, month)
       if (day === null) continue

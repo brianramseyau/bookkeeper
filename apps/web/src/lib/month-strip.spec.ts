@@ -79,6 +79,28 @@ describe('layoutTicks', () => {
     expect(ticks.find((t) => t.key === 'c')?.stack).toBe(0)
   })
 
+  it('never puts two colliding ticks on the same row', () => {
+    // Days 10/11/12 of a 30-day month are a chain: each is within the
+    // threshold of its predecessor. The bug was counting colliding
+    // neighbours rather than finding the next free row, so days 11 and 12
+    // both landed on row 1 and overlapped.
+    const ticks = layoutTicks(
+      [
+        makeEvent({ key: 'a', day: 10, kind: 'outgoing' }),
+        makeEvent({ key: 'b', day: 11, kind: 'outgoing' }),
+        makeEvent({ key: 'c', day: 12, kind: 'outgoing' }),
+      ],
+      30
+    )
+    for (let i = 0; i < ticks.length; i++) {
+      for (let j = i + 1; j < ticks.length; j++) {
+        const close = Math.abs(ticks[i]!.x - ticks[j]!.x) < 0.05
+        if (close) expect(ticks[i]!.stack).not.toBe(ticks[j]!.stack)
+      }
+    }
+    expect(new Set(ticks.map((t) => t.stack)).size).toBeGreaterThan(1)
+  })
+
   it('breaks a same-day tie deterministically by key', () => {
     const ticks = layoutTicks(
       [makeEvent({ key: 'b', day: 10 }), makeEvent({ key: 'a', day: 10 })],
@@ -175,6 +197,29 @@ describe('eventsFromStandardMonth', () => {
       ...overrides,
     }
   }
+
+  it('prefers a logged income actual over the projection', () => {
+    const data = makeResult({
+      income: {
+        lines: [
+          {
+            key: 'income-source-1',
+            label: 'Salary',
+            sourceId: 1,
+            userId: 1,
+            projected: 3000,
+            actual: 3200,
+            estimated: false,
+            payDates: ['2026-09-05T00:00:00.000Z', '2026-09-19T00:00:00.000Z'],
+          },
+        ],
+        projectedTotal: 3000,
+        actualTotal: 3200,
+      },
+    })
+    const events = eventsFromStandardMonth(data, 2026, 9)
+    expect(events.every((e) => e.amount === 1600)).toBe(true)
+  })
 
   it('splits an income source projected total evenly across its pay dates', () => {
     const data = makeResult({

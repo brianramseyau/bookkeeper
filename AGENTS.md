@@ -249,16 +249,17 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
     trio — the Monthly page's carryover editor is the reference example.
   - **Markup shared between Monthly and Income** (e.g. an income-entry
     display/edit row) should be a component in `$lib/components/`.
-    `IncomeEntryDisplayRow.svelte` (the read-only `<tr>`) and
-    `IncomeEntryEditRow.svelte` (the edit **sheet** — despite the "-Row"
-    name it renders a `ResponsiveFormSheet`, per DESIGN.md's
-    edit-in-a-sheet rule) are shared by both the Monthly page's
-    `monthly/IncomingTable.svelte` and the Income page's
-    `income/IncomeEntriesTable.svelte`; reach for them rather than
-    hand-rolling another entry row. `IncomeEntryDisplayRow` carries the
-    column shape via props: `leading`/`trailing` snippets for extra
-    `<td>`s, `projected` (omit to hide), `showNote` (Income folds the note
-    into its leading cell instead), and `amountLabel` (Monthly calls the
+    `IncomeEntryDisplayRow.svelte` (the read-only `<tr>`) is imported by the
+    two table components (`monthly/IncomingTable.svelte`,
+    `income/IncomeEntriesTable.svelte`); `IncomeEntryEditRow.svelte` (the
+    edit **sheet** — despite the "-Row" name it renders a
+    `ResponsiveFormSheet`, per DESIGN.md's edit-in-a-sheet rule) is opened by
+    the two **pages** (`monthly/+page.svelte`, `income/+page.svelte`), which
+    own the sheet's target/error state, not by the tables. Reach for them
+    rather than hand-rolling another entry row. `IncomeEntryDisplayRow`
+    carries the column shape via props: `leading`/`trailing` snippets for
+    extra `<td>`s, `projected` (omit to hide), `showNote` (Income folds the
+    note into its leading cell instead), and `amountLabel` (Monthly calls the
     figure "Actual", Income "Amount").
   - When you find near-duplicate code while working nearby, extracting it
     is in scope for that change even if it wasn't the original ask — leave

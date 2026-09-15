@@ -49,10 +49,23 @@
     users: UserSummary[]
     submitting: boolean
     error?: string | null
+    /** The caller requires the note as an item name for unattributed
+        entries (the Income page does) - relabels the field "Item" and drops
+        the "optional" hint, matching the caller's own validation. */
+    noteRequired?: boolean
     onSave: (values: IncomeEntryEditValues) => void
   }
 
-  let { open, onOpenChange, target, users, submitting, error, onSave }: Props = $props()
+  let {
+    open,
+    onOpenChange,
+    target,
+    users,
+    submitting,
+    error,
+    noteRequired = false,
+    onSave,
+  }: Props = $props()
 
   // A placeholder pay date and a salary entry both belong to a known income
   // source, so they never need the owner/tax fields an unattributed entry
@@ -188,8 +201,15 @@
       <Input id="entry-edit-amount" type="number" step="0.01" min="0" bind:value={amount} />
     </div>
     <div class="flex flex-col gap-1">
-      <label class="text-muted-foreground text-xs font-medium" for="entry-edit-note">Note</label>
-      <Input id="entry-edit-note" type="text" placeholder="optional" bind:value={note} />
+      <label class="text-muted-foreground text-xs font-medium" for="entry-edit-note"
+        >{unattributed && noteRequired ? 'Item' : 'Note'}</label
+      >
+      <Input
+        id="entry-edit-note"
+        type="text"
+        placeholder={unattributed && noteRequired ? undefined : 'optional'}
+        bind:value={note}
+      />
     </div>
     {#if unattributed}
       <label class="flex items-center gap-2">

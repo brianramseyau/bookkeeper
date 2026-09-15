@@ -111,7 +111,9 @@
     </p>
   </div>
 
-  <div class="mt-8 overflow-x-auto overflow-y-hidden pb-2">
+  <!-- `pb-8` (not `pb-2`) so the "Today" caption hanging ~21px below the
+       track stays inside this overflow-y-hidden clip region. -->
+  <div class="mt-8 overflow-x-auto overflow-y-hidden pb-8">
     <div class="relative" style="height: {stripHeight}px; min-width: {trackWidth}px">
       <!-- Establishes its own containing block, inset from the scroll
            track's true edges, so a tick at day 1 or the month's last day
@@ -163,11 +165,13 @@
           {:else}
             <div
               title={tickTitle(t)}
-              aria-label={tickTitle(t)}
               class="absolute flex -translate-x-1/2 flex-col items-center gap-0.5 text-center"
               style="left: {t.x * 100}%; {tickOffset(t)}"
             >
               {@render tick(t)}
+              <!-- `aria-label` isn't exposed on this roleless <div>, so the
+                   name has to be real (visually hidden) content. -->
+              <span class="sr-only">{tickTitle(t)}</span>
             </div>
           {/if}
         {/each}

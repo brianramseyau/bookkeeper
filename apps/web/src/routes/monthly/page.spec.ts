@@ -548,6 +548,8 @@ describe('month page', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
+        year: 2026,
+        month: 3,
         amount: 5000,
         receivedOn: '2026-03-14',
         note: 'March pay',
@@ -567,6 +569,32 @@ describe('month page', () => {
       expect.objectContaining({ title: 'Delete entry from 14 Mar 2026?' })
     )
     expect(toast.success).toHaveBeenCalledWith('Income entry deleted')
+  })
+
+  it('surfaces a failed reload after a successful save on the page, not the sheet', async () => {
+    setDefaultMocks()
+    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
+    // The initial load resolves; the post-save refresh (a second
+    // listIncomeEntries) rejects.
+    let calls = 0
+    vi.mocked(listIncomeEntries).mockImplementation(async () => {
+      calls++
+      if (calls > 1) throw new ApiError(500, 'Could not reload income')
+      return [salaryEntry]
+    })
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await screen.findByText('March pay')
+    await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }).at(-1)!)
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() => expect(updateIncomeEntry).toHaveBeenCalled())
+    // The save succeeded (toast), and the refresh failure reaches the page
+    // banner rather than the now-closed sheet's own error.
+    expect(toast.success).toHaveBeenCalledWith('Income entry saved')
+    expect(await screen.findByText('Could not reload income')).toBeInTheDocument()
   })
 
   it('does not delete an entry when the confirmation is declined', async () => {

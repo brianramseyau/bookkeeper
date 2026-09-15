@@ -368,10 +368,13 @@ describe('income page', () => {
         frequency: 'monthly',
         payDayOfMonth: 1,
         weekendRollback: false,
-        anchorDate: null,
         taxWithheld: true,
       })
     )
+    // The inactive cadence field must be `undefined`, not `null`: the create
+    // validator is `.optional()` but not `.nullable()` (unlike update), and
+    // JSON.stringify drops an `undefined` key entirely.
+    expect(vi.mocked(createIncomeSource).mock.calls[0]![0].anchorDate).toBeUndefined()
     expect(listIncomeSources).toHaveBeenCalledTimes(2)
     expect(toast.success).toHaveBeenCalledWith('Income source added')
     await waitFor(() =>
@@ -980,7 +983,7 @@ describe('income page', () => {
 
     await chooseAddOption(user, 'Other income')
     const sheet = openSheet()
-    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: 'Share sale' } })
+    await fireEvent.input(within(sheet).getByLabelText('Item'), { target: { value: 'Share sale' } })
     await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '1000' } })
     await fireEvent.input(within(sheet).getByLabelText('Received on'), {
       target: { value: '2025-08-13' },
@@ -1012,7 +1015,7 @@ describe('income page', () => {
 
     await chooseAddOption(user, 'Other income')
     const sheet = openSheet()
-    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: 'Share sale' } })
+    await fireEvent.input(within(sheet).getByLabelText('Item'), { target: { value: 'Share sale' } })
     await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '1000' } })
     await fireEvent.click(within(sheet).getByRole('button', { name: 'Add entry' }))
 
@@ -1086,10 +1089,26 @@ describe('income page', () => {
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
     const sheet = openSheet()
-    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: '' } })
+    await fireEvent.input(within(sheet).getByLabelText('Item'), { target: { value: '' } })
     await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Enter an item')).toBeInTheDocument()
+    expect(updateIncomeEntry).not.toHaveBeenCalled()
+  })
+
+  it('requires a person when saving an other-income edit with no owner', async () => {
+    setDefaultMocks()
+    setEntries(otherEntry)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await screen.findByText('Share sale')
+    await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
+    const sheet = openSheet()
+    await fireEvent.change(within(sheet).getByLabelText('Owner'), { target: { value: '' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+
+    expect(await screen.findByText('A person is required for other income')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 

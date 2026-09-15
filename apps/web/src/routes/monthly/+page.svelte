@@ -217,44 +217,65 @@
   }
 
   async function saveEntryEditValues(values: IncomeEntryEditValues) {
-    if (!entryEditTarget) return
+    const target = entryEditTarget
+    if (!target) return
     if (Number.isNaN(values.amount) || values.amount === null) {
       entryEditError = 'Amount is required'
       return
     }
+    if (target.type === 'entry' && target.entry.incomeSourceId === null && values.userId === null) {
+      entryEditError = 'A person is required for other income'
+      return
+    }
     entryEditSubmitting = true
     entryEditError = null
+    error = null
+    const receivedOn = values.receivedOn === '' ? null : values.receivedOn
+    // A received-on date determines the entry's financial year, so re-stamp
+    // year/month from it - the API's update leaves them untouched otherwise,
+    // and a date moved across a month boundary would otherwise stay filed
+    // under the old month/year.
+    const [entryYear, entryMonth] =
+      receivedOn === null
+        ? [undefined, undefined]
+        : (receivedOn.split('-').map(Number) as [number, number])
     try {
-      if (entryEditTarget.type === 'entry') {
-        const entry = entryEditTarget.entry
-        if (entry.incomeSourceId === null && values.userId === null) {
-          entryEditError = 'A person is required for other income'
-          return
-        }
+      if (target.type === 'entry') {
+        const entry = target.entry
         await updateIncomeEntry(entry.id, {
+          year: entryYear,
+          month: entryMonth,
           userId: entry.incomeSourceId === null ? (values.userId ?? undefined) : undefined,
           amount: values.amount,
-          receivedOn: values.receivedOn === '' ? null : values.receivedOn,
+          receivedOn,
           note: values.note === '' ? null : values.note,
           taxWithheld: entry.incomeSourceId === null ? values.taxWithheld : undefined,
         })
-      } else if (entryEditTarget.type === 'placeholder') {
+      } else if (target.type === 'placeholder') {
         await createIncomeEntry({
-          incomeSourceId: entryEditTarget.sourceId,
-          year,
-          month,
+          incomeSourceId: target.sourceId,
+          year: entryYear ?? year,
+          month: entryMonth ?? month,
           amount: values.amount,
-          receivedOn: values.receivedOn === '' ? null : values.receivedOn,
+          receivedOn,
           note: values.note === '' ? null : values.note,
         })
       }
-      entryEditOpen = false
-      await refreshIncome()
-      toast.success('Income entry saved')
     } catch (err) {
       entryEditError = err instanceof ApiError ? err.message : 'Failed to save changes'
-    } finally {
       entryEditSubmitting = false
+      return
+    }
+    entryEditOpen = false
+    entryEditTarget = null
+    entryEditSubmitting = false
+    toast.success('Income entry saved')
+    // The sheet is closed now, so a failed re-fetch has to surface on the
+    // page rather than in the sheet's own (now unmounted) error.
+    try {
+      await refreshIncome()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to reload income'
     }
   }
 
@@ -404,6 +425,7 @@
     }
     expenseEditSubmitting = true
     expenseEditError = null
+    error = null
     try {
       const amount = values.amount
       if (target.mode === 'utility') {
@@ -439,15 +461,23 @@
       } else if (target.mode === 'expense-edit' && target.actualId !== undefined) {
         await updateExpenseActual(target.actualId, { amount })
       } else {
+        expenseEditSubmitting = false
         return
       }
-      closeExpenseEdit()
-      await refreshMonth()
-      toast.success(target.mode === 'expense-add' ? 'Entry added' : 'Changes saved')
     } catch (err) {
       expenseEditError = err instanceof ApiError ? err.message : 'Failed to save actual'
-    } finally {
       expenseEditSubmitting = false
+      return
+    }
+    closeExpenseEdit()
+    expenseEditSubmitting = false
+    toast.success(target.mode === 'expense-add' ? 'Entry added' : 'Changes saved')
+    // The sheet is closed now, so a failed re-fetch has to surface on the
+    // page rather than in the sheet's own (now unmounted) error.
+    try {
+      await refreshMonth()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to reload the month'
     }
   }
 

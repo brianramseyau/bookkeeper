@@ -246,21 +246,35 @@
     const target = sourceFormTarget
     sourceFormSubmitting = true
     sourceFormError = null
+    error = null
     try {
       if (target) {
         await updateIncomeSource(target.id, values)
       } else {
         if (selectedUserId === null) return
-        await createIncomeSource({ userId: selectedUserId, ...values })
+        // The create validator's cadence fields are `.optional()` but not
+        // `.nullable()` (unlike update), so the field that doesn't apply must
+        // be omitted entirely rather than sent as `null`.
+        await createIncomeSource({
+          userId: selectedUserId,
+          ...values,
+          payDayOfMonth: values.payDayOfMonth ?? undefined,
+          anchorDate: values.anchorDate ?? undefined,
+        })
       }
-      sourceFormOpen = false
-      sourceFormTarget = null
-      await refresh()
-      toast.success(target ? 'Income source saved' : 'Income source added')
     } catch (err) {
       sourceFormError = err instanceof ApiError ? err.message : 'Failed to save income source'
-    } finally {
       sourceFormSubmitting = false
+      return
+    }
+    sourceFormOpen = false
+    sourceFormTarget = null
+    sourceFormSubmitting = false
+    toast.success(target ? 'Income source saved' : 'Income source added')
+    try {
+      await refresh()
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to reload income sources'
     }
   }
 
@@ -329,8 +343,9 @@
         ? target.entry.incomeSourceId !== null
         : isNew && target.kind === 'salary'
     // A brand-new salary entry needs a date and a source; "other income"
-    // (new or edited) needs a date and an item name. A salary entry's note
-    // is always optional, and an older entry's date may be missing.
+    // (new or edited) needs a date, a person and an item name. A salary
+    // entry's note is always optional, and an older entry's date may be
+    // missing.
     if (isNew && values.receivedOn === '') {
       entryEditError = 'Pick a date'
       return
@@ -344,16 +359,23 @@
       entryEditError = 'Pick a source'
       return
     }
-    if (!isSalary && values.note.trim() === '') {
+    if (!isSalary) {
       if (values.receivedOn === '') {
         entryEditError = 'Pick a date'
         return
       }
-      entryEditError = 'Enter an item'
-      return
+      if (values.userId === null) {
+        entryEditError = 'A person is required for other income'
+        return
+      }
+      if (values.note.trim() === '') {
+        entryEditError = 'Enter an item'
+        return
+      }
     }
     entryEditSubmitting = true
     entryEditError = null
+    error = null
     try {
       if (target.type === 'entry') {
         const entry = target.entry
@@ -396,15 +418,18 @@
         })
         toast.success(target.type === 'placeholder' ? 'Income entry saved' : 'Income entry added')
       }
-      entryEditOpen = false
-      entryEditTarget = null
-      await loadEntries()
-      chartsRefreshToken++
     } catch (err) {
       entryEditError = err instanceof ApiError ? err.message : 'Failed to save changes'
-    } finally {
       entryEditSubmitting = false
+      return
     }
+    entryEditOpen = false
+    entryEditTarget = null
+    entryEditSubmitting = false
+    // `loadEntries()` surfaces its own failure on the page banner, but only
+    // while the sheet is closed - which it now is, so the user sees it.
+    await loadEntries()
+    chartsRefreshToken++
   }
 
   async function handleDeleteEntry(entry: IncomeEntry) {
@@ -651,6 +676,7 @@
       }}
       target={entryEditTarget}
       {users}
+      noteRequired
       submitting={entryEditSubmitting}
       error={entryEditError}
       onSave={saveEntryEditValues}

@@ -9,7 +9,8 @@
   } from '$lib/api/income'
   import { getIncomeTaxSetting } from '$lib/api/income_tax_settings'
   import { themeState } from '$lib/stores/theme.svelte'
-  import { financialYearFor, financialYearLabel, financialYearMonths, round2 } from '$lib/format'
+  import { financialYearFor, financialYearLabel, round2 } from '$lib/format'
+  import { buildYearlySeries } from '$lib/income-charts'
   import { ApiError } from '$lib/api'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -36,7 +37,6 @@
     other: { light: '#94a3b8', dark: '#94a3b8' },
   }
   const PERSON_FALLBACK_COLORS = ['#f59e0b', '#10b981', '#ec4899', '#0ea5e9']
-  const YEAR_COLORS = ['#4f46e5', '#10b981', '#f59e0b', '#ec4899', '#0ea5e9', '#8b5cf6']
 
   let open = $state(false)
   let loading = $state(false)
@@ -111,36 +111,7 @@
       }))
   })
 
-  const yearlySeries = $derived.by(() => {
-    const byYear = new Map<number, IncomeEntry[]>()
-    for (const entry of allEntries) {
-      const fy = financialYearFor(entry.year, entry.month)
-      const bucket = byYear.get(fy) ?? []
-      bucket.push(entry)
-      byYear.set(fy, bucket)
-    }
-    const fys = [...byYear.keys()].sort((a, b) => a - b)
-    const now = new Date()
-    const nowIndex = now.getFullYear() * 12 + now.getMonth()
-    return fys.map((fy, index) => {
-      let running = 0
-      const points: { month: number; total: number }[] = []
-      for (const { year, month } of financialYearMonths(fy)) {
-        if (year * 12 + month > nowIndex) break
-        const net = byYear
-          .get(fy)!
-          .filter((e) => e.year === year && e.month === month)
-          .reduce((sum, e) => sum + netOf(e), 0)
-        running += net
-        points.push({ month, total: round2(running) })
-      }
-      return {
-        label: financialYearLabel(fy),
-        color: YEAR_COLORS[index % YEAR_COLORS.length],
-        points,
-      }
-    })
-  })
+  const yearlySeries = $derived(buildYearlySeries(allEntries, netOf))
 
   const ytdChartData = $derived(
     ytdMonths.map((m) => ({
