@@ -10,6 +10,7 @@
   } from '$lib/components/ui/dropdown-menu'
   import { cn } from '$lib/utils'
   import { isRouteActive } from './route-active'
+  import { TOUCH_MENU_ITEM } from './menu-touch'
 
   // "Outgoings" groups every "what do we pay for?" screen (DESIGN.md's own
   // screen-question table) behind one nav entry - Bills/Subscriptions/
@@ -65,7 +66,7 @@
   <DropdownMenuContent align="start" class="w-44">
     {#each OUTGOINGS_LINKS as link (link.href)}
       {@const linkActive = isRouteActive(page.url.pathname, link.href)}
-      <DropdownMenuItem>
+      <DropdownMenuItem class={TOUCH_MENU_ITEM}>
         {#snippet child({ props }: { props: Record<string, unknown> })}
           <a
             href={link.href}
@@ -73,7 +74,7 @@
             aria-current={linkActive ? 'page' : undefined}
             class={cn(
               props.class as string,
-              'block w-full',
+              'block w-full pointer-coarse:flex pointer-coarse:items-center',
               linkActive ? 'text-violet' : 'text-ink'
             )}
           >
