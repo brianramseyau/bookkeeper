@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'svelte-sonner'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import { changeEmail, changePassword, updateUser } from '$lib/api/users'
 import {
   getNotificationPreferences,
@@ -36,6 +38,10 @@ vi.mock('$lib/stores/push.svelte', () => ({
   pushState: { supported: true, secureContext: true, subscribed: false, loading: false },
   subscribeToPush: vi.fn(),
   unsubscribeFromPush: vi.fn(),
+}))
+vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
 }))
 
 const brian = {
@@ -79,6 +85,9 @@ describe('settings page', () => {
     vi.mocked(sendTestPushNotification).mockReset()
     vi.mocked(subscribeToPush).mockReset()
     vi.mocked(unsubscribeFromPush).mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(toast.error).mockReset()
+    vi.mocked(confirmDestructive).mockReset().mockResolvedValue(true)
   })
 
   it('saves the display color', async () => {
@@ -89,7 +98,7 @@ describe('settings page', () => {
     await user.click(screen.getAllByRole('button', { name: 'Save' })[0]!)
 
     expect(updateUser).toHaveBeenCalledWith(1, { displayColor: '#4f46e5' })
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith('Display color saved')
   })
 
   it('shows an error when saving the display color fails', async () => {
@@ -129,7 +138,7 @@ describe('settings page', () => {
       currentPassword: 'hunter2',
       newEmail: 'new@example.com',
     })
-    expect(await screen.findByText('Email updated.')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith('Email updated')
     expect(authState.user?.email).toBe('new@example.com')
   })
 
@@ -183,7 +192,7 @@ describe('settings page', () => {
       currentPassword: 'oldpass',
       newPassword: 'longenough1',
     })
-    expect(await screen.findByText('Password changed.')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith('Password changed')
   })
 
   it('shows an API error when changing password fails', async () => {
@@ -244,7 +253,7 @@ describe('settings page', () => {
       notifyRecurringBills: true,
       notifySubscriptions: true,
     })
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith('Notification preferences saved')
   })
 
   it('shows an error when saving notification preferences fails', async () => {
@@ -284,6 +293,9 @@ describe('settings page', () => {
   })
 
   it('enables notifications on this device', async () => {
+    vi.mocked(subscribeToPush).mockImplementation(async () => {
+      pushState.subscribed = true
+    })
     const user = userEvent.setup()
     render(SettingsPage)
 
@@ -291,6 +303,18 @@ describe('settings page', () => {
 
     expect(subscribeToPush).toHaveBeenCalled()
     expect(unsubscribeFromPush).not.toHaveBeenCalled()
+    expect(toast.success).toHaveBeenCalledWith('Notifications enabled on this device')
+  })
+
+  it('reports when notification permission was not granted', async () => {
+    const user = userEvent.setup()
+    render(SettingsPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Enable on this device' }))
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Notifications were not enabled - check this browser's notification permission."
+    )
   })
 
   it('disables notifications on this device', async () => {
@@ -318,7 +342,7 @@ describe('settings page', () => {
 
     expect(await screen.findByText('Test Browser')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Delete Test Browser' }))
+    await user.click(screen.getAllByRole('button', { name: 'Delete Test Browser' })[0]!)
 
     expect(deletePushSubscription).toHaveBeenCalledWith(7)
     expect(await screen.findByText('No devices registered yet')).toBeInTheDocument()
@@ -330,7 +354,7 @@ describe('settings page', () => {
     const user = userEvent.setup()
     render(SettingsPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Delete Test Browser' }))
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Test Browser' }))[0]!)
 
     expect(await screen.findByText('Remove failed')).toBeInTheDocument()
   })

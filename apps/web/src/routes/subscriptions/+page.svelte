@@ -38,10 +38,6 @@
   }
 </script>
 
-<svelte:head>
-  <title>Subscriptions · Bookkeeper</title>
-</svelte:head>
-
 {#if error}
   <PageHeader title="Subscriptions" description={subscriptionsAdapter.description} />
   <ErrorMessage message={error} />

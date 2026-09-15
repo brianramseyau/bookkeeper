@@ -16,9 +16,9 @@
 
   let { series, ariaLabel = 'Cumulative income by financial year' }: Props = $props()
 
-  const GRID_COLOR = $derived(themeState.current === 'dark' ? '#334155' : '#e2e8f0')
-  const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#94a3b8' : '#64748b')
-  const RING_COLOR = $derived(themeState.current === 'dark' ? '#1e293b' : '#ffffff')
+  const GRID_COLOR = $derived(themeState.current === 'dark' ? '#27322C' : '#DAE1DC')
+  const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#93A299' : '#5C6A63')
+  const RING_COLOR = $derived(themeState.current === 'dark' ? '#18201C' : '#FFFFFF')
 
   const width = 720
   const height = 240
@@ -61,7 +61,7 @@
 
 {#if lines.some((s) => s.points.length > 0)}
   <div
-    class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400"
+    class="text-muted-foreground mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
   >
     {#each lines as line (line.label)}
       <span class="flex items-center gap-1.5">
@@ -124,5 +124,5 @@
     {/each}
   </svg>
 {:else}
-  <p class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Not enough data yet</p>
+  <p class="text-muted-foreground py-8 text-center text-sm">Not enough data yet</p>
 {/if}

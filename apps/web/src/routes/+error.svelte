@@ -12,10 +12,10 @@
 
 <div class="mt-12 flex flex-col items-center gap-3 text-center">
   <LostPiggyIllustration class="h-40 w-40" />
-  <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+  <h1 class="font-display text-foreground text-2xl">
     {notFound ? 'Page not found' : `Something went wrong (${page.status})`}
   </h1>
-  <p class="max-w-sm text-sm text-slate-500 dark:text-slate-400">
+  <p class="text-muted-foreground max-w-sm text-sm">
     {notFound
       ? "The page you're looking for doesn't exist or has moved."
       : (page.error?.message ?? 'An unexpected error occurred.')}

@@ -223,7 +223,7 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
     expect(getStandardMonth).toHaveBeenCalledWith(2026, 3)
     expect(await screen.findByRole('heading', { name: 'Mar 2026' })).toBeInTheDocument()
   })

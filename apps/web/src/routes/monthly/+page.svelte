@@ -37,7 +37,7 @@
   import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import { Button } from '$lib/components/ui/button'
-  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
+  import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
   import type { IncomeEntryFormValues } from '$lib/components/IncomeEntryForm.svelte'
   import MonthlyLogIncomeSheet from '$lib/components/monthly/MonthlyLogIncomeSheet.svelte'
@@ -520,7 +520,7 @@
 {/if}
 
 {#if loading}
-  <LoadingIndicator />
+  <LoadingSkeleton rows={6} class="mt-6" />
 {:else if data}
   <MonthSummary {year} {month} {data} />
 

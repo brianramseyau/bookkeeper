@@ -149,7 +149,7 @@ function setEntries(...entries: IncomeEntry[]) {
 // computation `getByRole(..., { name })` relies on. `getByText` matches raw
 // text content instead, unaffected by that.
 async function chooseAddOption(user: ReturnType<typeof userEvent.setup>, option: string) {
-  await user.click(await screen.findByRole('button', { name: 'Add' }))
+  await user.click(await screen.findByRole('button', { name: 'Add income' }))
   // Scoped to the open menu, not a page-wide findByText - Income's own
   // All/Salary/Other filter tabs already put a "Salary" text node on the
   // page, so an unscoped query matches both.
@@ -203,7 +203,7 @@ describe('income page', () => {
     vi.mocked(getIncomeSourcesSummary).mockResolvedValue([])
     render(IncomePage)
 
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
     expect(await screen.findByText('Could not load users')).toBeInTheDocument()
   })
 
@@ -219,8 +219,8 @@ describe('income page', () => {
     setDefaultMocks()
     render(IncomePage)
 
-    expect(await screen.findByText('$5,000.00/mo · 1 source')).toBeInTheDocument()
-    expect(screen.getByText('$5,650.60/mo · 1 source')).toBeInTheDocument()
+    expect(await screen.findByText('$5,000.00/mo')).toBeInTheDocument()
+    expect(screen.getByText('$5,650.60/mo')).toBeInTheDocument()
     expect(screen.getByText('Brian Income')).toBeInTheDocument()
     expect(screen.queryByText('Ariel Income')).toBeNull()
   })
@@ -421,7 +421,7 @@ describe('income page', () => {
       expect.objectContaining({ title: 'Delete Brian Income?' })
     )
     expect(toast.success).toHaveBeenCalledWith('Income source deleted')
-    expect(await screen.findByText('$0.00/mo · 0 sources')).toBeInTheDocument()
+    expect(await screen.findByText('$0.00/mo')).toBeInTheDocument()
   })
 
   it('does not delete a source when the confirmation is declined', async () => {
@@ -519,13 +519,7 @@ describe('income page', () => {
     render(IncomePage)
 
     expect(await screen.findByText('Share sale')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        (content) =>
-          content.includes(financialYearLabel(currentFinancialYear())) &&
-          content.includes('to date:')
-      )
-    ).toBeInTheDocument()
+    expect(screen.getByText('To date')).toBeInTheDocument()
     expect(screen.getAllByText('$6,000.00').length).toBeGreaterThan(0)
     expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0)
     expect(screen.getAllByText('$1,000.00').length).toBeGreaterThan(0)
@@ -1139,7 +1133,7 @@ describe('income page', () => {
     render(IncomePage)
 
     await screen.findByText('Share sale')
-    const entriesTable = screen.getAllByRole('table')[1]!
+    const entriesTable = screen.getAllByRole('table')[0]!
     expect(within(entriesTable).getAllByText('$6,000.00').length).toBeGreaterThan(0)
     expect(within(entriesTable).getAllByText('$370.00').length).toBeGreaterThan(0)
     expect(within(entriesTable).getAllByText('$630.00').length).toBeGreaterThan(0)

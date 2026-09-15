@@ -36,13 +36,13 @@
 
 {#snippet itemLeading(entry: IncomeEntry)}
   <td
-    class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+    class="text-foreground flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell sm:min-h-0"
   >
     {#if entry.incomeSourceId !== null}
       <div class="min-w-0">
         <div class="truncate">{sourceName(entry.incomeSourceId)}</div>
         {#if entry.note}
-          <div class="mt-0.5 truncate text-xs font-normal text-slate-400 dark:text-slate-500">
+          <div class="text-muted-foreground mt-0.5 truncate text-xs font-normal">
             {entry.note}
           </div>
         {/if}
@@ -55,40 +55,27 @@
 
 {#snippet taxCells(entry: IncomeEntry)}
   <td
-    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+    class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
   >
-    <span
-      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-      >Tax withheld</span
-    >
+    <span class="shrink-0 text-xs font-medium sm:hidden">Tax withheld</span>
     {taxWithheld(entry) ? 'Yes' : 'No'}
   </td>
   <td
     class={[
-      'flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right',
-      entry.incomeSourceId !== null
-        ? 'text-slate-400 dark:text-slate-500'
-        : 'text-slate-900 dark:text-slate-100',
+      'font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right',
+      entry.incomeSourceId !== null ? 'text-muted-foreground' : 'text-foreground',
     ]}
   >
-    <span
-      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-      >Tax</span
-    >
+    <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Tax</span>
     {formatCurrency(entryTax(entry, marginalRate))}
   </td>
   <td
     class={[
-      'flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right',
-      entry.incomeSourceId !== null
-        ? 'text-slate-400 dark:text-slate-500'
-        : 'text-slate-900 dark:text-slate-100',
+      'font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right',
+      entry.incomeSourceId !== null ? 'text-muted-foreground' : 'text-foreground',
     ]}
   >
-    <span
-      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-      >Gain</span
-    >
+    <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Gain</span>
     {formatCurrency(entryGain(entry, marginalRate))}
   </td>
 {/snippet}
@@ -96,16 +83,13 @@
 <Card class="mt-3 sm:overflow-x-auto" pivotTable>
   <table class="block w-full border-collapse text-sm sm:table">
     <thead class="hidden sm:table-header-group">
-      <tr class="border-b border-slate-200 dark:border-slate-700">
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Item</th>
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Amount</th
-        >
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400"
-          >Tax withheld</th
-        >
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Tax</th>
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Gain</th>
+      <tr class="border-border border-b">
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Item</th>
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Date</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Amount</th>
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Tax withheld</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Tax</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Gain</th>
         <th class="px-3 py-2"></th>
       </tr>
     </thead>
@@ -124,7 +108,7 @@
         <tr class="block sm:table-row">
           <td
             colspan="7"
-            class="block px-3 py-6 text-center text-sm text-slate-400 sm:table-cell dark:text-slate-500"
+            class="text-muted-foreground block px-3 py-6 text-center text-sm sm:table-cell"
           >
             {emptyMessage}
           </td>
@@ -133,36 +117,26 @@
     </tbody>
     <tfoot class="block sm:table-footer-group">
       <tr
-        class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
+        class="border-border mt-1 block border-t pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0"
       >
-        <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100" colspan="2">Total</td
-        >
+        <td class="text-foreground px-3 py-2 sm:table-cell" colspan="2">Total</td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-            >Amount</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Amount</span>
           {formatCurrency(totals.amount)}
         </td>
         <td class="hidden px-3 py-2 sm:table-cell"></td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-            >Tax</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Tax</span>
           {hasOther ? formatCurrency(totals.tax) : '—'}
         </td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-            >Gain</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs font-medium sm:hidden">Gain</span>
           {hasOther ? formatCurrency(totals.gain) : '—'}
         </td>
         <td class="hidden px-3 py-2 sm:table-cell"></td>

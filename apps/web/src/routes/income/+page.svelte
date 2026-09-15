@@ -20,7 +20,6 @@
   import {
     currentFinancialYear,
     financialYearLabel,
-    formatCurrency,
     round2,
     todayISO,
   } from '$lib/format'
@@ -31,9 +30,12 @@
   import { toast } from 'svelte-sonner'
   import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
-  import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
-  import PageHead from '$lib/components/PageHead.svelte'
+  import Card from '$lib/components/Card.svelte'
+  import PageHeader from '$lib/components/app/PageHeader.svelte'
+  import EmptyState from '$lib/components/app/EmptyState.svelte'
+  import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import { Button } from '$lib/components/ui/button'
+  import { Input } from '$lib/components/ui/input'
   import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
   import { mdiPlus, mdiChevronDown, mdiBriefcase, mdiBank } from '@mdi/js'
@@ -47,6 +49,9 @@
   import IncomeSourcesTable from '$lib/components/income/IncomeSourcesTable.svelte'
   import IncomeEntriesTable from '$lib/components/income/IncomeEntriesTable.svelte'
   import IncomeChartsSection from '$lib/components/income/IncomeChartsSection.svelte'
+  import IncomeUserChips from '$lib/components/income/IncomeUserChips.svelte'
+  import IncomeYearNav from '$lib/components/income/IncomeYearNav.svelte'
+  import IncomeYtdSummary from '$lib/components/income/IncomeYtdSummary.svelte'
 
   type EntryFilter = 'all' | 'salary' | 'other'
 
@@ -479,92 +484,75 @@
   }
 </script>
 
-<PageHead title="Income" />
-
-<h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Income</h1>
-<p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-  Manage income sources and log salary and other income. Each person's projected income still feeds
-  the <a href="/monthly" class="text-indigo-600 hover:underline dark:text-indigo-400">Monthly</a> page.
-</p>
+<PageHeader
+  title="Income"
+  description="Salary and other income, net of tax. Each person's income feeds the Monthly projection."
+>
+  {#snippet actions()}
+    <ActionMenu
+      label="Add income"
+      actions={[
+        { label: 'Salary', path: mdiBriefcase, onclick: openAddSalary },
+        { label: 'Other income', path: mdiBank, onclick: openAddOther },
+      ]}
+    >
+      {#snippet trigger(triggerProps)}
+        <button
+          type="button"
+          {...triggerProps}
+          class={cn(
+            'bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
+            triggerProps.class as string | undefined
+          )}
+        >
+          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+            <path d={mdiPlus} />
+          </svg>
+          Add income
+          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+            <path d={mdiChevronDown} />
+          </svg>
+        </button>
+      {/snippet}
+    </ActionMenu>
+  {/snippet}
+</PageHeader>
 
 {#if error}
   <ErrorMessage message={error} />
 {/if}
 
 {#if loading}
-  <LoadingIndicator />
+  <div class="mt-6">
+    <LoadingSkeleton rows={4} />
+  </div>
+{:else if selectedUserId === null}
+  {#if !error}
+    <Card class="mt-6">
+      <EmptyState
+        message="No household members found. Income needs a person to belong to."
+      />
+    </Card>
+  {/if}
 {:else}
-  <div class="mt-6 flex gap-2">
-    {#each users as user (user.id)}
-      {@const summary = summaries.find((s) => s.userId === user.id)}
-      <button
-        type="button"
-        onclick={() => selectUser(user.id)}
-        class={[
-          'rounded-lg border px-4 py-2 text-left transition-colors',
-          selectedUserId === user.id
-            ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-900/30'
-            : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-800 dark:hover:border-slate-600',
-        ]}
-      >
-        <span class="block text-sm font-semibold text-slate-900 dark:text-slate-100">
-          {user.fullName ?? user.email}
-        </span>
-        <span class="block text-xs text-slate-500 dark:text-slate-400">
-          {formatCurrency(summary?.total ?? 0)}/mo · {summary?.count ?? 0} source{summary?.count ===
-          1
-            ? ''
-            : 's'}
-        </span>
-      </button>
-    {/each}
+  <div class="mt-6">
+    <IncomeUserChips {users} {summaries} {selectedUserId} onSelect={selectUser} />
   </div>
 
-  {#if selectedUserId !== null}
-    <div class="mt-6 flex items-center justify-between">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income sources</h2>
-      <Button variant="outline" onclick={openAddSource}>Add source</Button>
-    </div>
-
-    <IncomeSourcesTable sources={visibleSources} onEdit={openEditSource} onDelete={handleDelete} />
-
-    <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+  <section class="mt-8">
+    <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Income entries</h2>
-        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-          {financialYearLabel(selectedFinancialYear)} to date:
-          <span class="font-medium text-slate-900 dark:text-slate-100"
-            >{formatCurrency(ytdSummary.total)}</span
-          >
-          <span class="mx-1 text-slate-300 dark:text-slate-600">·</span>
-          Salary {formatCurrency(ytdSummary.salary)}
-          <span class="mx-1 text-slate-300 dark:text-slate-600">·</span>
-          Other {formatCurrency(ytdSummary.other)}
+        <h2 class="text-foreground text-lg font-semibold">Income entries</h2>
+        <p class="text-muted-foreground mt-0.5 text-sm">
+          What came in during the financial year.
         </p>
       </div>
-      <div class="flex items-center gap-3">
-        <button
-          type="button"
-          onclick={() => changeYear(-1)}
-          class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          ← Prev
-        </button>
-        <span class="w-28 text-center text-sm font-medium text-slate-700 dark:text-slate-300">
-          {financialYearLabel(selectedFinancialYear)}
-        </span>
-        <button
-          type="button"
-          onclick={() => changeYear(1)}
-          disabled={selectedFinancialYear >= currentFinancialYear()}
-          class="rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Next →
-        </button>
-      </div>
+      <IncomeYearNav financialYear={selectedFinancialYear} onChange={changeYear} />
     </div>
 
-    <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+    <IncomeYtdSummary total={ytdSummary.total} salary={ytdSummary.salary} other={ytdSummary.other} />
+
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
       <ToggleGroup
         type="single"
         value={filter}
@@ -579,65 +567,35 @@
           </ToggleGroupItem>
         {/each}
       </ToggleGroup>
-      <div class="flex flex-wrap items-center gap-3">
-        {#if filter !== 'salary'}
-          <div class="flex items-center gap-2">
-            <label
-              class="flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-slate-400"
-            >
-              Marginal rate
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                bind:value={marginalRatePercent}
-                class="w-20 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-              />
-            </label>
-            <Button size="sm" onclick={saveMarginalRate} disabled={savingMarginalRate}>
-              {savingMarginalRate ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
-        {/if}
-        <ActionMenu
-          label="Add income"
-          actions={[
-            { label: 'Salary', path: mdiBriefcase, onclick: openAddSalary },
-            { label: 'Other income', path: mdiBank, onclick: openAddOther },
-          ]}
-        >
-          {#snippet trigger(triggerProps)}
-            <button
-              type="button"
-              {...triggerProps}
-              class={cn(
-                'inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400',
-                triggerProps.class as string | undefined
-              )}
-            >
-              <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
-                <path d={mdiPlus} />
-              </svg>
-              Add
-              <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
-                <path d={mdiChevronDown} />
-              </svg>
-            </button>
-          {/snippet}
-        </ActionMenu>
-      </div>
+      {#if filter !== 'salary'}
+        <div class="flex items-center gap-2">
+          <label class="text-muted-foreground flex items-center gap-2 text-xs font-medium">
+            Marginal rate
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              class="w-20"
+              bind:value={marginalRatePercent}
+            />
+          </label>
+          <Button size="sm" onclick={saveMarginalRate} disabled={savingMarginalRate}>
+            {savingMarginalRate ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      {/if}
     </div>
 
     {#if filter !== 'salary' && savedMarginalRate === null}
-      <p class="mt-2 text-xs text-slate-400 dark:text-slate-500">
+      <p class="text-muted-foreground mt-2 text-xs">
         No marginal rate set for {financialYearLabel(selectedFinancialYear)} yet - Tax/Gain will show
         as "—" until one is saved.
       </p>
     {/if}
 
     {#if entriesLoading && !entriesLoaded}
-      <LoadingIndicator class="mt-3" />
+      <LoadingSkeleton class="mt-3" rows={3} />
     {:else}
       <IncomeEntriesTable
         entries={visibleEntries}
@@ -650,39 +608,53 @@
         onDelete={handleDeleteEntry}
       />
     {/if}
+  </section>
 
-    <IncomeChartsSection
-      userId={selectedUserId}
-      financialYear={selectedFinancialYear}
-      {users}
-      {sources}
-      refreshToken={chartsRefreshToken}
-    />
+  <IncomeChartsSection
+    userId={selectedUserId}
+    financialYear={selectedFinancialYear}
+    {users}
+    {sources}
+    refreshToken={chartsRefreshToken}
+  />
 
-    <IncomeSourceFormSheet
-      open={sourceFormOpen}
-      onOpenChange={(next) => {
-        sourceFormOpen = next
-        if (!next) sourceFormTarget = null
-      }}
-      source={sourceFormTarget}
-      submitting={sourceFormSubmitting}
-      error={sourceFormError}
-      onSubmit={saveSource}
-    />
+  <section class="mt-8">
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 class="text-foreground text-lg font-semibold">Income sources</h2>
+        <p class="text-muted-foreground mt-0.5 text-sm">
+          Salary and regular payments for this person. These feed the Monthly projection.
+        </p>
+      </div>
+      <Button variant="outline" onclick={openAddSource}>Add source</Button>
+    </div>
 
-    <IncomeEntryEditRow
-      open={entryEditOpen}
-      onOpenChange={(next) => {
-        entryEditOpen = next
-        if (!next) entryEditTarget = null
-      }}
-      target={entryEditTarget}
-      {users}
-      noteRequired
-      submitting={entryEditSubmitting}
-      error={entryEditError}
-      onSave={saveEntryEditValues}
-    />
-  {/if}
+    <IncomeSourcesTable sources={visibleSources} onEdit={openEditSource} onDelete={handleDelete} />
+  </section>
+
+  <IncomeSourceFormSheet
+    open={sourceFormOpen}
+    onOpenChange={(next) => {
+      sourceFormOpen = next
+      if (!next) sourceFormTarget = null
+    }}
+    source={sourceFormTarget}
+    submitting={sourceFormSubmitting}
+    error={sourceFormError}
+    onSubmit={saveSource}
+  />
+
+  <IncomeEntryEditRow
+    open={entryEditOpen}
+    onOpenChange={(next) => {
+      entryEditOpen = next
+      if (!next) entryEditTarget = null
+    }}
+    target={entryEditTarget}
+    {users}
+    noteRequired
+    submitting={entryEditSubmitting}
+    error={entryEditError}
+    onSave={saveEntryEditValues}
+  />
 {/if}

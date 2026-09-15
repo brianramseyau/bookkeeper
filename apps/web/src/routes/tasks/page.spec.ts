@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'svelte-sonner'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import {
   getBackupSettings,
   updateBackupSettings,
@@ -29,6 +31,10 @@ vi.mock('$lib/api/backups', () => ({
 vi.mock('$lib/api/notification-schedule', () => ({
   getNotificationSchedule: vi.fn(),
   updateNotificationSchedule: vi.fn(),
+}))
+vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
 }))
 
 const defaultSettings: BackupSettings = {
@@ -72,6 +78,8 @@ describe('tasks page', () => {
     vi.mocked(deleteBackup).mockReset()
     vi.mocked(getNotificationSchedule).mockReset().mockResolvedValue(defaultNotificationSchedule)
     vi.mocked(updateNotificationSchedule).mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(confirmDestructive).mockReset().mockResolvedValue(true)
   })
 
   it('loads and shows the backup schedule and existing backups', async () => {
@@ -148,7 +156,7 @@ describe('tasks page', () => {
       timeOfDay: '03:30',
       retentionCount: 30,
     })
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith('Backup schedule saved')
   })
 
   it('shows an error when saving the schedule fails', async () => {
@@ -196,7 +204,6 @@ describe('tasks page', () => {
     vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
     vi.mocked(listBackups).mockResolvedValue([backupA])
     vi.mocked(deleteBackup).mockResolvedValue(undefined)
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const user = userEvent.setup()
     render(TasksPage)
 
@@ -206,8 +213,8 @@ describe('tasks page', () => {
       })
     )
 
-    expect(window.confirm).toHaveBeenCalledWith(
-      `Permanently delete "${backupA.filename}"? This cannot be undone.`
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      expect.objectContaining({ title: `Delete "${backupA.filename}"?` })
     )
     expect(deleteBackup).toHaveBeenCalledWith(backupA.filename)
     expect(await screen.findByText('No automated backups yet')).toBeInTheDocument()
@@ -216,7 +223,7 @@ describe('tasks page', () => {
   it('does not delete a backup when the confirmation is declined', async () => {
     vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
     vi.mocked(listBackups).mockResolvedValue([backupA])
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.mocked(confirmDestructive).mockResolvedValue(false)
     const user = userEvent.setup()
     render(TasksPage)
 
@@ -233,7 +240,6 @@ describe('tasks page', () => {
     vi.mocked(getBackupSettings).mockResolvedValue(defaultSettings)
     vi.mocked(listBackups).mockResolvedValue([backupA])
     vi.mocked(deleteBackup).mockRejectedValue(new ApiError(500, 'Delete failed'))
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
     const user = userEvent.setup()
     render(TasksPage)
 
@@ -308,7 +314,7 @@ describe('tasks page', () => {
     await user.click(screen.getAllByRole('button', { name: 'Save' })[1]!)
 
     expect(updateNotificationSchedule).toHaveBeenCalledWith({ sendHour: 18 })
-    expect(await screen.findByText('Saved.')).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith('Notification schedule saved')
   })
 
   it('shows an error when saving the notification schedule fails', async () => {

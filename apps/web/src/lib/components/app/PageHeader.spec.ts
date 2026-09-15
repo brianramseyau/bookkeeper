@@ -37,4 +37,17 @@ describe('PageHeader', () => {
 
     expect(screen.getByRole('button', { name: 'Add bill' })).toBeInTheDocument()
   })
+
+  it('sets the document title from the visible title by default', () => {
+    render(PageHeader, { title: 'Bills' })
+
+    expect(document.title).toBe('Bills · Bookkeeper')
+  })
+
+  it('uses documentTitle for the tab when it differs from the h1', () => {
+    render(PageHeader, { title: 'Welcome, Brian', documentTitle: 'Dashboard' })
+
+    expect(document.title).toBe('Dashboard · Bookkeeper')
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome, Brian' })).toBeInTheDocument()
+  })
 })

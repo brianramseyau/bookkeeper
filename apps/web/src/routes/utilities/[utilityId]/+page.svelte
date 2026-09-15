@@ -8,10 +8,6 @@
   const utilityId = $derived(Number(page.params.utilityId))
 </script>
 
-<svelte:head>
-  <title>Utility · Bookkeeper</title>
-</svelte:head>
-
 {#key utilityId}
   <OutgoingDetail adapter={utilitiesAdapter} id={utilityId}>
     {#snippet extra(item, refresh)}

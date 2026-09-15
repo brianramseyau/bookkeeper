@@ -3,8 +3,4 @@
   import { utilitiesAdapter } from '$lib/outgoings/utilities'
 </script>
 
-<svelte:head>
-  <title>Utilities · Bookkeeper</title>
-</svelte:head>
-
 <OutgoingsList adapter={utilitiesAdapter} />

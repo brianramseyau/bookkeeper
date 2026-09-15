@@ -95,14 +95,14 @@
         {#if center}
           {@render center()}
         {:else}
-          <span class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+          <span class="font-figures text-foreground text-lg font-semibold">
             {formatValue(total)}
           </span>
-          <span class="text-xs text-slate-400 dark:text-slate-500">{centerLabel}</span>
+          <span class="text-muted-foreground text-xs">{centerLabel}</span>
         {/if}
       </div>
     {:else}
-      <p class="py-8 text-sm text-slate-400 dark:text-slate-500">{emptyMessage}</p>
+      <p class="text-muted-foreground py-8 text-sm">{emptyMessage}</p>
     {/if}
   </div>
 
@@ -112,13 +112,13 @@
         <li class="flex items-center justify-between gap-3 text-sm">
           <span class="flex min-w-0 flex-1 items-center gap-2">
             <span class="size-2.5 shrink-0 rounded-full" style="background: {slice.color}"></span>
-            <span class="truncate text-slate-700 dark:text-slate-300">{slice.label}</span>
+            <span class="text-foreground truncate">{slice.label}</span>
           </span>
           <span class="flex shrink-0 items-center gap-2">
-            <span class="text-xs text-slate-400 dark:text-slate-500">
+            <span class="text-muted-foreground text-xs">
               {Math.round((slice.value / total) * 100)}%
             </span>
-            <span class="font-medium text-slate-900 dark:text-slate-100">
+            <span class="font-figures text-foreground font-medium">
               {formatValue(slice.value)}
             </span>
           </span>

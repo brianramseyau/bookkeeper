@@ -8,10 +8,6 @@
   const billId = $derived(Number(page.params.billId))
 </script>
 
-<svelte:head>
-  <title>Bill · Bookkeeper</title>
-</svelte:head>
-
 {#key billId}
   <OutgoingDetail adapter={billsAdapter} id={billId} />
 {/key}
