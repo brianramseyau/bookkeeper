@@ -21,8 +21,7 @@
   import { themeState, toggleTheme } from '$lib/stores/theme.svelte'
   import { isRouteActive } from './route-active'
   import { TOUCH_MENU_ITEM } from './menu-touch'
-  import { readableTextColor } from '$lib/color'
-
+  import { avatarColors } from '$lib/color'
   // Categories and Tasks are setup/admin screens, not one of DESIGN.md's
   // "answers one question" screens - grouped here with Settings rather than
   // sitting in primary nav alongside Dashboard/Monthly/Income/Outgoings.
@@ -46,6 +45,7 @@
   let { user, onLogout, trigger }: Props = $props()
 
   const isActive = $derived(LINKS.some((link) => isRouteActive(page.url.pathname, link.href)))
+  const avatar = $derived(avatarColors(user.displayColor, themeState.current))
 </script>
 
 <DropdownMenu>
@@ -61,8 +61,7 @@
           aria-current={isActive ? 'true' : undefined}
           title={user.fullName ?? user.email}
           class="flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
-          style="background-color: {user.displayColor ??
-            'var(--muted-ink)'}; color: {readableTextColor(user.displayColor)}"
+          style="background-color: {avatar.background}; color: {avatar.foreground}"
         >
           {user.initials}
         </button>

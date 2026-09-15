@@ -95,7 +95,7 @@
             title={dueTitle(line, year, month)}
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Due</span
             >
             {#if dueChipClass(line, year, month)}
@@ -108,7 +108,7 @@
             {:else if line.dueDateEstimated}
               <span
                 >{dueLabel(line, year, month)}<span
-                  class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500">(est.)</span
+                  class="ml-1 text-xs font-normal text-muted-ink">(est.)</span
                 ></span
               >
             {:else}
@@ -119,7 +119,7 @@
             class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Projected</span
             >
             {formatCurrency(line.projected)}
@@ -128,7 +128,7 @@
             class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Actual</span
             >
             <span>
@@ -151,7 +151,7 @@
             class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Paid</span
             >
             <input
@@ -192,7 +192,7 @@
           class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
         >
           <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
             >Projected</span
           >
           {formatCurrency(projectedTotal)}
@@ -201,7 +201,7 @@
           class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
         >
           <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
             >Actual</span
           >
           {formatCurrency(actualTotal)}

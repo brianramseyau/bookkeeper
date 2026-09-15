@@ -64,7 +64,7 @@
           <td class="hidden px-3 py-2 sm:table-cell"></td>
           <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right">
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Actual</span
             >
             <input
@@ -98,7 +98,7 @@
             class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Actual</span
             >
             {formatCurrency(carryover)}

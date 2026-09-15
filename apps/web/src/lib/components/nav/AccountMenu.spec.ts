@@ -41,6 +41,41 @@ describe('AccountMenu', () => {
     expect(trigger.style.backgroundColor).toBe('rgb(79, 70, 229)')
   })
 
+  it('picks a readable foreground for the user colour', () => {
+    render(AccountMenu, { user: brian, onLogout: vi.fn() })
+
+    const trigger = screen.getByRole('button', { name: 'Account menu for Brian' })
+    // #4f46e5 is dark enough that white is the higher-contrast choice.
+    expect(trigger.style.color).toBe('rgb(255, 255, 255)')
+  })
+
+  it('uses a theme-aware muted fill and foreground when the colour is missing', () => {
+    render(AccountMenu, { user: { ...brian, displayColor: null }, onLogout: vi.fn() })
+
+    const trigger = screen.getByRole('button', { name: 'Account menu for Brian' })
+    expect(trigger.getAttribute('style')).toContain('var(--muted-ink)')
+    // --muted-ink is dark in light mode, so white initials.
+    expect(trigger.style.color).toBe('rgb(255, 255, 255)')
+  })
+
+  it('uses black initials on the muted fill in dark mode', () => {
+    themeState.current = 'dark'
+    render(AccountMenu, { user: { ...brian, displayColor: null }, onLogout: vi.fn() })
+
+    expect(screen.getByRole('button', { name: 'Account menu for Brian' }).style.color).toBe(
+      'rgb(0, 0, 0)'
+    )
+  })
+
+  it('falls back to the muted fill for an unparseable colour', () => {
+    render(AccountMenu, { user: { ...brian, displayColor: 'yellow' }, onLogout: vi.fn() })
+
+    // Never paint the raw string with white text on top.
+    expect(
+      screen.getByRole('button', { name: 'Account menu for Brian' }).getAttribute('style')
+    ).toContain('var(--muted-ink)')
+  })
+
   it('falls back to the email when the user has no full name', () => {
     render(AccountMenu, { user: { ...brian, fullName: null }, onLogout: vi.fn() })
 

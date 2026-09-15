@@ -48,7 +48,7 @@
       class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
     >
       <span
-        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
         >Owner</span
       >
       {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
@@ -93,7 +93,7 @@
             class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Owner</span
             >
             {line.userId !== null
@@ -108,7 +108,7 @@
             class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Projected</span
             >
             {formatCurrency(line.projected)}
@@ -117,14 +117,14 @@
             class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
           >
             <span
-              class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
               >Actual</span
             >
             <span>
               {formatCurrency(line.actual)}
               {#if line.estimated}
                 <span
-                  class="ml-1 text-xs font-normal text-slate-400 dark:text-slate-500"
+                  class="ml-1 text-xs font-normal text-muted-ink"
                   title="No entry logged this month - showing the projected amount"
                 >
                   (est.)
@@ -149,7 +149,7 @@
             >
               <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
               <td
-                class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:min-h-0 dark:text-slate-500"
+                class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell sm:min-h-0"
               >
                 <span class="min-w-0 truncate">{formatDate(row.date)}</span>
                 <span class="flex shrink-0 items-center gap-1 not-italic sm:hidden">
@@ -169,28 +169,28 @@
                 </span>
               </td>
               <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                class="flex items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell sm:text-right"
               >
                 <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
                   >Projected</span
                 >
                 {formatCurrency(row.projected)}
               </td>
               <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell sm:text-right dark:text-slate-500"
+                class="flex items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell sm:text-right"
               >
                 <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
                   >Actual</span
                 >
                 —
               </td>
               <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-slate-400 sm:table-cell dark:text-slate-500"
+                class="flex items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell"
               >
                 <span
-                  class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+                  class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
                   >Note</span
                 >
                 Not yet logged
@@ -228,7 +228,7 @@
           class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
         >
           <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
             >Projected</span
           >
           {formatCurrency(projectedTotal)}
@@ -237,7 +237,7 @@
           class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
         >
           <span
-            class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
             >Actual</span
           >
           {formatCurrency(actualTotal)}
