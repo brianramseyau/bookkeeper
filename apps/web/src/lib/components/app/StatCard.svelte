@@ -25,8 +25,7 @@
   // DESIGN.md: "Status is never shown by colour alone" - a positive/negative
   // tone also gets a glyph, not just the colour (a value pre-formatted by
   // the caller doesn't necessarily carry its own +/- sign, and the label
-  // doesn't necessarily imply a direction either; see /_design's
-  // "$1,240.00" with tone="positive" under the label "Projected net"). The
+  // doesn't necessarily imply a direction either). The
   // glyph itself is aria-hidden (it's a sighted-user affordance - a
   // screen reader doesn't need "up triangle"), but paired with a visually-
   // hidden TONE_LABEL text so the tone itself still reaches the

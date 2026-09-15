@@ -196,12 +196,11 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   runs in the browser after mount.
 - Tailwind CSS v4 via `@tailwindcss/vite` (no separate `tailwind.config.js`
   — config lives in CSS via the Vite plugin).
-- **UI/CSS conventions**: [STYLEGUIDE.md](STYLEGUIDE.md) documents the
-  current, pre-overhaul button/form/checkbox/card patterns (being migrated
-  away from — see Plans above) and [foundational/DESIGN.md](foundational/DESIGN.md)
-  is the target design system ("Polymer") the overhaul is moving the app
-  onto — check whichever a given page has already moved to before adding a
-  new UI pattern.
+- **UI/CSS conventions**: [foundational/DESIGN.md](foundational/DESIGN.md)
+  is the design system ("Polymer") — colour/type tokens, layout, interaction
+  rules, and the implementation patterns (charts, drag-and-drop, responsive
+  tables, placeholder rows) the app follows. Read it before adding a new UI
+  pattern.
 - **Load the `/frontend-design` skill before any UI work** (design/copy/
   layout decisions, not a pure logic or API change) and follow DESIGN.md.
   Avoid the templated tells it calls out: all-caps eyebrows, middle-dot

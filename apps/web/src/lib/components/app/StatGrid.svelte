@@ -2,8 +2,7 @@
   import type { Snippet } from 'svelte'
 
   interface Props {
-    /** How many columns at `sm` and up - one column below that regardless.
-        See STYLEGUIDE's stat/summary card grid convention. */
+    /** How many columns at `sm` and up - one column below that regardless. */
     cols?: 2 | 3 | 4
     children: Snippet
   }

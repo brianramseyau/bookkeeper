@@ -11,8 +11,11 @@ dependency, one SQLite file holds everything.
 ## Stack
 
 - **API**: AdonisJS 7 + Lucid ORM + SQLite
-- **Web**: SvelteKit (Svelte 5) + Tailwind CSS, built as a static SPA and
-  served by the API as a single process
+- **Web**: SvelteKit (Svelte 5) + Tailwind CSS v4 + shadcn-svelte, built as
+  a static SPA and served by the API as a single process. The "Polymer"
+  design system (colour/type tokens, layout, interaction rules and component
+  patterns) is documented in
+  [foundational/DESIGN.md](foundational/DESIGN.md).
 - **Auth**: session/cookie-based, one account per person
 
 ## Local development
