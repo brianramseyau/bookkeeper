@@ -548,8 +548,6 @@ describe('month page', () => {
     await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
-        year: 2026,
-        month: 3,
         amount: 5000,
         receivedOn: '2026-03-14',
         note: 'March pay',
@@ -595,6 +593,28 @@ describe('month page', () => {
     // banner rather than the now-closed sheet's own error.
     expect(toast.success).toHaveBeenCalledWith('Income entry saved')
     expect(await screen.findByText('Could not reload income')).toBeInTheDocument()
+  })
+
+  it('re-stamps year/month only when an entry edit changes its date', async () => {
+    setDefaultMocks()
+    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await screen.findByText('March pay')
+    await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }).at(-1)!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Received on'), {
+      target: { value: '2026-02-10' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
+
+    await waitFor(() =>
+      expect(updateIncomeEntry).toHaveBeenCalledWith(
+        10,
+        expect.objectContaining({ year: 2026, month: 2, receivedOn: '2026-02-10' })
+      )
+    )
   })
 
   it('does not delete an entry when the confirmation is declined', async () => {

@@ -221,6 +221,31 @@ describe('eventsFromStandardMonth', () => {
     expect(events.every((e) => e.amount === 1600)).toBe(true)
   })
 
+  it('falls back to the projection when income has not been logged yet (actual 0)', () => {
+    // The API returns `actual: 0` (not null) for a current/future month with
+    // nothing logged, so the strip must still show the projection.
+    const data = makeResult({
+      income: {
+        lines: [
+          {
+            key: 'income-source-1',
+            label: 'Salary',
+            sourceId: 1,
+            userId: 1,
+            projected: 3000,
+            actual: 0,
+            estimated: false,
+            payDates: ['2026-09-05T00:00:00.000Z', '2026-09-19T00:00:00.000Z'],
+          },
+        ],
+        projectedTotal: 3000,
+        actualTotal: 0,
+      },
+    })
+    const events = eventsFromStandardMonth(data, 2026, 9)
+    expect(events.every((e) => e.amount === 1500)).toBe(true)
+  })
+
   it('splits an income source projected total evenly across its pay dates', () => {
     const data = makeResult({
       income: {

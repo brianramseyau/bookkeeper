@@ -151,10 +151,12 @@ export function eventsFromStandardMonth(
 
   for (const line of data.income.lines) {
     if (line.payDates.length === 0) continue
-    // Prefer the really-logged total (what the Monthly table's Actual column
-    // shows) over the projection, same as the outgoing loop below - the
-    // strip's own comment promises it never disagrees with the table.
-    const amount = line.actual ?? line.projected
+    // Prefer the really-logged total over the projection, but `line.actual`
+    // is a non-nullable number that the API returns as `0` (not null) for a
+    // current/future month with nothing logged yet - so a zero means "not
+    // logged", not a real $0, and the projection still applies. Only a
+    // non-zero actual is a real logged figure.
+    const amount = line.actual > 0 ? line.actual : line.projected
     const perPeriod = round2(amount / line.payDates.length)
     for (const date of line.payDates) {
       const day = dayOfMonthFromIso(date, year, month)

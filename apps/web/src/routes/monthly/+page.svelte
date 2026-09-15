@@ -231,17 +231,20 @@
     entryEditError = null
     error = null
     const receivedOn = values.receivedOn === '' ? null : values.receivedOn
-    // A received-on date determines the entry's financial year, so re-stamp
-    // year/month from it - the API's update leaves them untouched otherwise,
-    // and a date moved across a month boundary would otherwise stay filed
-    // under the old month/year.
-    const [entryYear, entryMonth] =
-      receivedOn === null
-        ? [undefined, undefined]
-        : (receivedOn.split('-').map(Number) as [number, number])
     try {
       if (target.type === 'entry') {
         const entry = target.entry
+        // Only re-stamp year/month when the date actually changed: an entry
+        // can be deliberately filed under the viewed month while carrying a
+        // received-on date outside it (the create paths below do exactly
+        // that), and re-stamping on an amount-only edit would move it out
+        // from under the table the user is looking at.
+        const originalReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : null
+        const dateChanged = receivedOn !== originalReceivedOn
+        const [entryYear, entryMonth] =
+          !dateChanged || receivedOn === null
+            ? [undefined, undefined]
+            : (receivedOn.split('-').map(Number) as [number, number])
         await updateIncomeEntry(entry.id, {
           year: entryYear,
           month: entryMonth,
@@ -252,10 +255,14 @@
           taxWithheld: entry.incomeSourceId === null ? values.taxWithheld : undefined,
         })
       } else if (target.type === 'placeholder') {
+        // File under the viewed month, same as `acceptPlaceholder` - a
+        // weekend-rolled pay date can fall in the previous month, and filing
+        // it there would create an entry the current month's list never
+        // shows.
         await createIncomeEntry({
           incomeSourceId: target.sourceId,
-          year: entryYear ?? year,
-          month: entryMonth ?? month,
+          year,
+          month,
           amount: values.amount,
           receivedOn,
           note: values.note === '' ? null : values.note,

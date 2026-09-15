@@ -251,7 +251,10 @@
       if (target) {
         await updateIncomeSource(target.id, values)
       } else {
-        if (selectedUserId === null) return
+        if (selectedUserId === null) {
+          sourceFormSubmitting = false
+          return
+        }
         // The create validator's cadence fields are `.optional()` but not
         // `.nullable()` (unlike update), so the field that doesn't apply must
         // be omitted entirely rather than sent as `null`.
