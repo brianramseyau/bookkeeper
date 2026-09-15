@@ -628,9 +628,11 @@ test.group('RecurringBills / show', () => {
     response.assertStatus(200)
     assert.equal(response.body().data.name, 'Kayo')
     assert.equal(response.body().data.amount, 45.99)
-    assert.property(response.body().data, 'nextDueOn')
-    assert.property(response.body().data, 'daysUntilDue')
-    assert.property(response.body().data, 'dueSoon')
+    // `show` shares its due-info computation with `upcoming` - assert the
+    // computed values, not just that the keys exist.
+    assert.match(response.body().data.nextDueOn, /^\d{4}-\d{2}-\d{2}$/)
+    assert.isNumber(response.body().data.daysUntilDue)
+    assert.isBoolean(response.body().data.dueSoon)
   })
 
   test('returns 404 for a non-existent bill', async ({ client }) => {

@@ -5,29 +5,48 @@ import {
   listExpenses,
   updateExpense,
   type Expense,
+  type ExpenseInput,
 } from '$lib/api/expenses'
 import { getExpenseTrend, type ExpenseTrend } from '$lib/api/expense-actuals'
 import { formatCurrency } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
 import { reorderedSortOrders } from '$lib/dnd'
-import type { OutgoingAdapter, OutgoingFormValues, OutgoingTrend } from './types'
+import type {
+  OutgoingAdapter,
+  OutgoingField,
+  OutgoingFormValues,
+  OutgoingTrend,
+} from './types'
 
 /** An expense plus the trailing trend the list attaches, for latest/average columns. */
 export interface ExpenseRow extends Expense {
   trend?: ExpenseTrend | null
 }
 
-function toExpenseInput(values: OutgoingFormValues, item?: ExpenseRow) {
-  const input: Record<string, unknown> = {
-    name: values.name,
+const EXPENSE_FIELDS: OutgoingField[] = [
+  { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'e.g. Groceries' },
+  { key: 'categoryId', label: 'Category', type: 'category' },
+  { key: 'budgetAmount', label: 'Budget amount', type: 'number', step: '0.01', min: 0 },
+  { key: 'isRecurring', label: 'Recurring', type: 'checkbox' },
+  {
+    key: 'excludeFromBudget',
+    label: 'Exclude from Monthly',
+    type: 'checkbox',
+    hint: 'Use for an expense whose spend already shows under another category, like a credit card.',
+  },
+]
+
+function toExpenseInput(values: OutgoingFormValues, item?: ExpenseRow): ExpenseInput {
+  const input: ExpenseInput = {
+    name: String(values.name),
     categoryId:
       values.categoryId === '' || values.categoryId === null ? null : Number(values.categoryId),
     isRecurring: Boolean(values.isRecurring),
     excludeFromBudget: Boolean(values.excludeFromBudget),
   }
   // A budget with itemized lines owns its amount - the API derives it from
-  // the items, so the edit form must not stomp it (see ExpensesController's
-  // budget-item sync).
+  // the items (see ExpensesController's budget-item sync), and the edit form
+  // drops the field entirely for those, so don't send it.
   if (!item || item.budgetItemCount === 0) {
     input.budgetAmount =
       values.budgetAmount === '' || values.budgetAmount === null
@@ -53,18 +72,14 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
     { key: 'average', label: '12-month average', align: 'right', money: true },
     { key: 'category', label: 'Category' },
   ],
-  fields: [
-    { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'e.g. Groceries' },
-    { key: 'categoryId', label: 'Category', type: 'category' },
-    { key: 'budgetAmount', label: 'Budget amount', type: 'number', step: '0.01', min: 0 },
-    { key: 'isRecurring', label: 'Recurring', type: 'checkbox' },
-    {
-      key: 'excludeFromBudget',
-      label: 'Exclude from Monthly',
-      type: 'checkbox',
-      hint: 'Use for an expense whose spend already shows under another category, like a credit card.',
-    },
-  ],
+  fields: EXPENSE_FIELDS,
+  // An expense with itemized budget lines derives its budget from them, so
+  // the manual amount field would be silently discarded on save - drop it
+  // rather than accept input that goes nowhere.
+  editFieldsFor: (item) =>
+    item.budgetItemCount > 0
+      ? EXPENSE_FIELDS.filter((field) => field.key !== 'budgetAmount')
+      : EXPENSE_FIELDS,
 
   async list(opts) {
     const expenses = await listExpenses({ includeHidden: opts?.includeHidden })
@@ -74,9 +89,9 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
     return expenses.map((expense, index) => ({ ...expense, trend: trends[index] ?? null }))
   },
   get: (id) => getExpense(id),
-  create: (values) => createExpense(toExpenseInput(values) as never),
-  update: (id, values, item) => updateExpense(id, toExpenseInput(values, item) as never),
-  setLifecycle: (id, patch) => updateExpense(id, patch as never),
+  create: (values) => createExpense(toExpenseInput(values)),
+  update: (id, values, item) => updateExpense(id, toExpenseInput(values, item)),
+  setLifecycle: (id, patch) => updateExpense(id, patch),
   remove: (id) => deleteExpense(id),
   trend: (id) => getExpenseTrend(id) as Promise<OutgoingTrend>,
   async reorder(items) {

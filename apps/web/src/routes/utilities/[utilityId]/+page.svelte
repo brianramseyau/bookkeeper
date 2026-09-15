@@ -5,15 +5,17 @@
   import UtilityBillsGrid from '$lib/outgoings/UtilityBillsGrid.svelte'
   import { utilitiesAdapter } from '$lib/outgoings/utilities'
 
-  const utilityId = Number(page.params.utilityId)
+  const utilityId = $derived(Number(page.params.utilityId))
 </script>
 
 <svelte:head>
   <title>Utility · Bookkeeper</title>
 </svelte:head>
 
-<OutgoingDetail adapter={utilitiesAdapter} id={utilityId}>
-  {#snippet extra(item, refresh)}
-    <UtilityBillsGrid utility={item as Utility} onChanged={refresh} />
-  {/snippet}
-</OutgoingDetail>
+{#key utilityId}
+  <OutgoingDetail adapter={utilitiesAdapter} id={utilityId}>
+    {#snippet extra(item, refresh)}
+      <UtilityBillsGrid utility={item as Utility} onChanged={refresh} />
+    {/snippet}
+  </OutgoingDetail>
+{/key}

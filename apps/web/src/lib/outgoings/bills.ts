@@ -9,6 +9,7 @@ import {
   updateRecurringBill,
   type RecurringBill,
   type RecurringBillFrequency,
+  type RecurringBillInput,
 } from '$lib/api/recurring-bills'
 import { formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
@@ -47,15 +48,15 @@ function isoDueDate(item: RecurringBill): string {
   return `${year}-${month}-${day}`
 }
 
-function toBillInput(values: OutgoingFormValues) {
+function toBillInput(values: OutgoingFormValues): RecurringBillInput {
   return {
-    name: values.name,
+    name: String(values.name),
     amount: Number(values.amount),
-    frequency: values.frequency,
-    nextDueOn: values.nextDueOn,
+    frequency: values.frequency as RecurringBillFrequency,
+    nextDueOn: String(values.nextDueOn),
     categoryId:
       values.categoryId === '' || values.categoryId === null ? null : Number(values.categoryId),
-    notes: values.notes === '' ? null : values.notes,
+    notes: values.notes === '' ? null : String(values.notes),
   }
 }
 
@@ -98,9 +99,9 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
 
   list: (opts) => listUpcomingRecurringBills({ includeHidden: opts?.includeHidden }),
   get: (id) => getRecurringBill(id),
-  create: (values) => createRecurringBill(toBillInput(values) as never),
-  update: (id, values) => updateRecurringBill(id, toBillInput(values) as never),
-  setLifecycle: (id, patch) => updateRecurringBill(id, patch as never),
+  create: (values) => createRecurringBill(toBillInput(values)),
+  update: (id, values) => updateRecurringBill(id, toBillInput(values)),
+  setLifecycle: (id, patch) => updateRecurringBill(id, patch),
   remove: (id) => deleteRecurringBill(id),
   trend: (id) => getRecurringBillTrend(id) as Promise<OutgoingTrend>,
   async history(id): Promise<OutgoingHistoryEntry[]> {

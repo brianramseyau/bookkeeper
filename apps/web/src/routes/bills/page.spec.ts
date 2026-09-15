@@ -22,6 +22,8 @@ describe('Bills page', () => {
     render(BillsPage)
 
     expect(await screen.findByRole('heading', { name: 'Bills' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Add bill' })).toBeInTheDocument()
+    // Two "Add bill" buttons once loaded (page header + empty state) - assert
+    // at least one rather than matching ambiguously mid-load.
+    expect((await screen.findAllByRole('button', { name: 'Add bill' })).length).toBeGreaterThan(0)
   })
 })

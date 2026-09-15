@@ -110,6 +110,8 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
   fields: OutgoingField[]
   /** Overrides `fields` when editing (e.g. a utility's add is name-only, its edit is billing settings). */
   editFields?: OutgoingField[]
+  /** Like `editFields`, but computed per item - e.g. a budget owned by itemized lines is dropped from the form entirely. */
+  editFieldsFor?(item: T): OutgoingField[]
 
   list(opts?: OutgoingListOptions): Promise<T[]>
   get(id: number): Promise<T>

@@ -164,6 +164,10 @@ describe('OutgoingsList', () => {
     await user.click(screen.getAllByRole('button', { name: 'Actions for Old' })[0]!)
     await user.click(screen.getByText('Delete'))
 
+    // `confirmDestructive` is awaited, so the declined branch resolves a
+    // microtask later - wait for it to have been consulted before asserting
+    // the removal never happened.
+    await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
     expect(adapter.remove).not.toHaveBeenCalled()
   })
 

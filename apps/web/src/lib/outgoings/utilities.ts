@@ -8,6 +8,7 @@ import {
   type UtilityFrequency,
   type UtilityTrend,
 } from '$lib/api/utilities'
+import { ApiError } from '$lib/api'
 import { formatCurrency, formatDate } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
 import type { OutgoingAdapter, OutgoingFormValues, OutgoingTrend } from './types'
@@ -100,7 +101,7 @@ export const utilitiesAdapter: OutgoingAdapter<UtilityRow> = {
   async get(id) {
     const utilities = await listUtilities()
     const utility = utilities.find((u) => u.id === id)
-    if (!utility) throw new Error('Utility not found')
+    if (!utility) throw new ApiError(404, 'Utility not found')
     return utility
   },
   create: (values) => createUtility(String(values.name)),

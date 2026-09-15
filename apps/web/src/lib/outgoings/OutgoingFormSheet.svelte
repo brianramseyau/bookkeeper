@@ -22,7 +22,11 @@
 
   let { open, onOpenChange, adapter, categories, users, item, defaults, onSubmit }: Props = $props()
 
-  const fields = $derived(item ? (adapter.editFields ?? adapter.fields) : adapter.fields)
+  const fields = $derived(
+    item
+      ? (adapter.editFieldsFor?.(item) ?? adapter.editFields ?? adapter.fields)
+      : adapter.fields
+  )
   const isEdit = $derived(item !== null)
 
   let values = $state<OutgoingFormValues>({})
@@ -148,9 +152,9 @@
             </select>
           {:else if field.type === 'category'}
             <CategorySelect
-              {categories}
-              value={(values.categoryId as number | string | null) ?? ''}
-              onchange={(value) => setValue('categoryId', value)}
+              categories={categories}
+              value={(values[field.key] as number | string | null) ?? ''}
+              onchange={(value) => setValue(field.key, value)}
             />
           {:else if field.type === 'user'}
             <select

@@ -7,6 +7,7 @@ import {
   listSubscriptionPayments,
   listSubscriptions,
   updateSubscription,
+  type SubscriptionInput,
   type UserSubscription,
 } from '$lib/api/subscriptions'
 import { formatCurrency } from '$lib/format'
@@ -18,16 +19,16 @@ import type {
   OutgoingTrend,
 } from './types'
 
-function toSubscriptionInput(values: OutgoingFormValues) {
+function toSubscriptionInput(values: OutgoingFormValues): SubscriptionInput {
   return {
     userId: Number(values.userId),
-    name: values.name,
+    name: String(values.name),
     amount: Number(values.amount),
     dayOfMonth:
       values.dayOfMonth === '' || values.dayOfMonth === null ? null : Number(values.dayOfMonth),
     categoryId:
       values.categoryId === '' || values.categoryId === null ? null : Number(values.categoryId),
-    notes: values.notes === '' ? null : values.notes,
+    notes: values.notes === '' ? null : String(values.notes),
   }
 }
 
@@ -57,9 +58,9 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
 
   list: (opts) => listSubscriptions({ includeHidden: opts?.includeHidden, userId: opts?.userId }),
   get: (id) => getSubscription(id),
-  create: (values) => createSubscription(toSubscriptionInput(values) as never),
-  update: (id, values) => updateSubscription(id, toSubscriptionInput(values) as never),
-  setLifecycle: (id, patch) => updateSubscription(id, patch as never),
+  create: (values) => createSubscription(toSubscriptionInput(values)),
+  update: (id, values) => updateSubscription(id, toSubscriptionInput(values)),
+  setLifecycle: (id, patch) => updateSubscription(id, patch),
   remove: (id) => deleteSubscription(id),
   trend: (id) => getSubscriptionTrend(id) as Promise<OutgoingTrend>,
   async history(id): Promise<OutgoingHistoryEntry[]> {
