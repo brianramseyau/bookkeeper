@@ -167,7 +167,11 @@ export function eventsFromStandardMonth(
         day,
         amount: perPeriod,
         kind: 'income',
-        estimated: line.estimated,
+        // Same test that picked the amount: a `$0` actual means the
+        // projection is on screen, so the tick is estimated regardless of
+        // what `line.estimated` says (it's only true for a past unlogged
+        // month, not a current/future one).
+        estimated: line.estimated || line.actual === 0,
         href: null,
       })
     }

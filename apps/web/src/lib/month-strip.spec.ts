@@ -219,6 +219,7 @@ describe('eventsFromStandardMonth', () => {
     })
     const events = eventsFromStandardMonth(data, 2026, 9)
     expect(events.every((e) => e.amount === 1600)).toBe(true)
+    expect(events.every((e) => !e.estimated)).toBe(true)
   })
 
   it('falls back to the projection when income has not been logged yet (actual 0)', () => {
@@ -244,6 +245,8 @@ describe('eventsFromStandardMonth', () => {
     })
     const events = eventsFromStandardMonth(data, 2026, 9)
     expect(events.every((e) => e.amount === 1500)).toBe(true)
+    // Showing the projection means the tick must be styled as estimated.
+    expect(events.every((e) => e.estimated)).toBe(true)
   })
 
   it('splits an income source projected total evenly across its pay dates', () => {
