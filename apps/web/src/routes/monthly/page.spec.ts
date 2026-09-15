@@ -59,6 +59,14 @@ function setPageUrl(url: string) {
   page.url = new URL(url) as unknown as typeof page.url
 }
 
+// MonthStrip's own headline is now the page's one "Month Year" label
+// (MonthNavHeader's copy is hidden via `showLabel={false}` to avoid
+// repeating it) - a heading query keeps these assertions from also
+// matching a tick's own day-level date text.
+function monthHeading(label: string) {
+  return screen.findByRole('heading', { name: label })
+}
+
 const brian: UserSummary = {
   id: 1,
   fullName: 'Brian',
@@ -203,7 +211,7 @@ describe('month page', () => {
 
     expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(getStandardMonth).toHaveBeenCalledWith(2026, 3)
-    expect(await screen.findByText('March 2026')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Mar 2026' })).toBeInTheDocument()
   })
 
   it('defaults to the current month when the URL has no valid params', async () => {
@@ -238,12 +246,14 @@ describe('month page', () => {
     render(MonthPage)
 
     expect(await screen.findByText('$500.00')).toBeInTheDocument()
+    // Projected net is now the month strip's headline figure, positive-toned.
     const projected = screen.getByText('$4,300.00')
-    expect(projected.className).toContain('text-emerald-600')
+    expect(projected.className).toContain('text-in')
+    expect(screen.getByText('projected surplus')).toBeInTheDocument()
     const actual = screen.getByText('$4,270.00')
-    expect(actual.className).toContain('text-emerald-600')
+    expect(actual.className).toContain('text-in')
     const variance = screen.getByText('-$30.00')
-    expect(variance.className).toContain('text-red-600')
+    expect(variance.className).toContain('text-over')
   })
 
   it('edits and saves the carried-over balance', async () => {
@@ -304,10 +314,10 @@ describe('month page', () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(MonthPage)
-    await screen.findByText('March 2026')
+    await monthHeading('Mar 2026')
 
     await user.click(screen.getByRole('button', { name: '← Prev' }))
-    expect(await screen.findByText('February 2026')).toBeInTheDocument()
+    expect(await monthHeading('Feb 2026')).toBeInTheDocument()
     expect(replaceState).toHaveBeenCalledWith('/monthly?year=2026&month=2', {})
     expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2)
 
@@ -315,7 +325,7 @@ describe('month page', () => {
       await user.click(screen.getByRole('button', { name: '← Prev' }))
     }
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2025, 12))
-    expect(await screen.findByText('December 2025')).toBeInTheDocument()
+    expect(await monthHeading('Dec 2025')).toBeInTheDocument()
 
     for (let i = 0; i < 13; i++) {
       await user.click(screen.getByRole('button', { name: 'Next →' }))
@@ -328,7 +338,7 @@ describe('month page', () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(MonthPage)
-    await screen.findByText('January 2020')
+    await monthHeading('Jan 2020')
 
     const now = new Date()
     await user.click(screen.getByRole('button', { name: 'This Month' }))
@@ -381,8 +391,11 @@ describe('month page', () => {
     expect(await screen.findByText('4 Mar 2026')).toBeInTheDocument()
     expect(screen.getByText('18 Mar 2026')).toBeInTheDocument()
     expect(screen.getByText('1 Apr 2026')).toBeInTheDocument()
-    // 2600 / 3 pay dates = 866.67 projected per placeholder row.
-    expect(screen.getAllByText('$866.67')).toHaveLength(3)
+    // 2600 / 3 pay dates = 866.67 projected per placeholder row. The month
+    // strip also renders one tick per pay date that falls within the
+    // viewed month (2 of the 3 - the third rolls into April), so scope to
+    // table rows to count only the Incoming table's placeholders.
+    expect(screen.getAllByText('$866.67').filter((el) => el.closest('tr'))).toHaveLength(3)
     expect(screen.getAllByRole('button', { name: /^Accept projected pay for/ })).toHaveLength(6)
   })
 
@@ -609,7 +622,7 @@ describe('month page', () => {
     vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
     const user = userEvent.setup()
     render(MonthPage)
-    await screen.findByText('March 2026')
+    await monthHeading('Mar 2026')
 
     await user.selectOptions(screen.getByLabelText('Person'), '1')
     await user.selectOptions(screen.getByLabelText('Source'), '1')
@@ -653,7 +666,7 @@ describe('month page', () => {
     })
     const user = userEvent.setup()
     render(MonthPage)
-    await screen.findByText('March 2026')
+    await monthHeading('Mar 2026')
 
     await user.type(screen.getByLabelText('Amount'), '250')
     await user.selectOptions(screen.getByLabelText('Person'), '1')
@@ -923,7 +936,12 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const dueCell = (await screen.findByText('Water')).closest('tr')!.children[1] as HTMLElement
+    // The month strip also renders a "Water" tick label - scope to the table row.
+    await screen.findAllByText('Water')
+    const dueCell = screen
+      .getAllByText('Water')
+      .find((el) => el.closest('tr'))!
+      .closest('tr')!.children[1] as HTMLElement
     expect(dueCell.textContent).toBe('Due In 13 days(est.)')
     expect(dueCell.querySelector('.rounded-full')).toBeNull()
     expect(dueCell.getAttribute('title')).toBe(

@@ -54,6 +54,9 @@
   import IncomeEntryForm, {
     type IncomeEntryFormValues,
   } from '$lib/components/IncomeEntryForm.svelte'
+  import MonthStrip from '$lib/components/app/MonthStrip.svelte'
+  import StatGrid from '$lib/components/app/StatGrid.svelte'
+  import StatCard from '$lib/components/app/StatCard.svelte'
 
   const nav = new MonthNav('/monthly', () => void load())
   const year = $derived(nav.year)
@@ -482,8 +485,8 @@
 <PageHead title="Monthly" />
 
 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <h1 class="text-2xl font-semibold text-slate-900 dark:text-slate-100">Monthly</h1>
-  <MonthNavHeader {nav} />
+  <h1 class="font-display text-ink text-2xl">Monthly</h1>
+  <MonthNavHeader {nav} showLabel={false} />
 </div>
 
 {#if error}
@@ -493,66 +496,30 @@
 {#if loading}
   <LoadingIndicator />
 {:else if data}
-  <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <Card class="flex flex-col p-4">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Cash on hand</p>
-      <p class="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-        {formatCurrency(data.carryover + data.income.actualTotal)}
-      </p>
-      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
-        Carried over ({formatCurrency(data.carryover)}) plus actual income received so far ({formatCurrency(
-          data.income.actualTotal
-        )}), before this month's expenses.
-      </p>
-    </Card>
-    <Card class="flex flex-col p-4">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Projected net</p>
-      <p
-        class={[
-          'mt-1 text-2xl font-semibold',
-          data.projectedNet >= 0
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-red-600 dark:text-red-400',
-        ]}
-      >
-        {formatCurrency(data.projectedNet)}
-      </p>
-      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
-        Carried over plus projected income, minus projected expenses for the whole month.
-      </p>
-    </Card>
-    <Card class="flex flex-col p-4">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Actual net (so far)</p>
-      <p
-        class={[
-          'mt-1 text-2xl font-semibold',
-          data.actualNet >= 0
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-red-600 dark:text-red-400',
-        ]}
-      >
-        {formatCurrency(data.actualNet)}
-      </p>
-      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
-        Carried over plus actual income received, minus actual expenses paid so far.
-      </p>
-    </Card>
-    <Card class="flex flex-col p-4">
-      <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Variance</p>
-      <p
-        class={[
-          'mt-1 text-2xl font-semibold',
-          data.actualNet - data.projectedNet >= 0
-            ? 'text-emerald-600 dark:text-emerald-400'
-            : 'text-red-600 dark:text-red-400',
-        ]}
-      >
-        {formatCurrency(data.actualNet - data.projectedNet)}
-      </p>
-      <p class="mt-auto pt-2 text-xs text-slate-400 dark:text-slate-500">
-        Actual net (so far) minus projected net.
-      </p>
-    </Card>
+  <div class="mt-6">
+    <MonthStrip {year} {month} {data} />
+  </div>
+
+  <div class="mt-4">
+    <StatGrid cols={3}>
+      <StatCard
+        label="Cash on hand"
+        value={formatCurrency(data.carryover + data.income.actualTotal)}
+        hint={`Carried over (${formatCurrency(data.carryover)}) plus actual income received so far (${formatCurrency(data.income.actualTotal)}), before this month's expenses.`}
+      />
+      <StatCard
+        label="Actual net (so far)"
+        value={formatCurrency(data.actualNet)}
+        tone={data.actualNet >= 0 ? 'positive' : 'negative'}
+        hint="Carried over plus actual income received, minus actual expenses paid so far."
+      />
+      <StatCard
+        label="Variance"
+        value={formatCurrency(data.actualNet - data.projectedNet)}
+        tone={data.actualNet - data.projectedNet >= 0 ? 'positive' : 'negative'}
+        hint="Actual net (so far) minus projected net."
+      />
+    </StatGrid>
   </div>
 
   <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Outgoing</h2>
