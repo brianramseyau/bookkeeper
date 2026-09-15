@@ -66,6 +66,45 @@ describe('IncomeEntryDisplayRow', () => {
     expect(screen.getByText('Owner: 10')).toBeInTheDocument()
   })
 
+  it('hides the note column when showNote is false', () => {
+    render(IncomeEntryDisplayRow, {
+      entry: makeEntry(),
+      showNote: false,
+      onEdit: vi.fn(),
+      onDelete: vi.fn(),
+    })
+
+    expect(screen.queryByText('Note')).toBeNull()
+    // The note still reaches an accessible cell elsewhere only if the caller
+    // renders it - here it's gone entirely.
+    expect(screen.queryByText('March pay')).toBeNull()
+  })
+
+  it('uses a custom amount label', () => {
+    render(IncomeEntryDisplayRow, {
+      entry: makeEntry(),
+      amountLabel: 'Amount',
+      onEdit: vi.fn(),
+      onDelete: vi.fn(),
+    })
+
+    expect(screen.getAllByText('Amount').length).toBeGreaterThan(0)
+  })
+
+  it('renders a trailing snippet after the amount', () => {
+    const trailing = createRawSnippet((entry: () => IncomeEntry) => ({
+      render: () => `<td>Trail: ${entry().amount}</td>`,
+    }))
+    render(IncomeEntryDisplayRow, {
+      entry: makeEntry(),
+      trailing,
+      onEdit: vi.fn(),
+      onDelete: vi.fn(),
+    })
+
+    expect(screen.getByText('Trail: 5000')).toBeInTheDocument()
+  })
+
   it('calls onEdit/onDelete with the entry', async () => {
     const onEdit = vi.fn()
     const onDelete = vi.fn()

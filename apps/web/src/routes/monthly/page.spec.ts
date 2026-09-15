@@ -73,6 +73,11 @@ function monthHeading(label: string) {
   return screen.findByRole('heading', { name: label })
 }
 
+// The Sheet/Drawer a form opens into is portalled onto `document.body`.
+function openSheet() {
+  return screen.getByRole('dialog', { hidden: true })
+}
+
 const brian: UserSummary = {
   id: 1,
   fullName: 'Brian',
@@ -646,6 +651,8 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click(await screen.findByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('Amount is required')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
@@ -658,11 +665,13 @@ describe('month page', () => {
     render(MonthPage)
     await monthHeading('Mar 2026')
 
-    await user.selectOptions(screen.getByLabelText('Person'), '1')
-    await user.selectOptions(screen.getByLabelText('Source'), '1')
-    await user.type(screen.getByLabelText('Amount'), '100')
-    await user.type(screen.getByLabelText('Note'), 'extra')
     await user.click(screen.getByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.change(within(sheet).getByLabelText('Person'), { target: { value: '1' } })
+    await fireEvent.change(within(sheet).getByLabelText('Source'), { target: { value: '1' } })
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '100' } })
+    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: 'extra' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log income' }))
 
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
@@ -676,6 +685,7 @@ describe('month page', () => {
         taxWithheld: null,
       })
     )
+    expect(toast.success).toHaveBeenCalledWith('Income entry added')
   })
 
   it('requires a person when logging unattributed income', async () => {
@@ -683,8 +693,10 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.type(await screen.findByLabelText('Amount'), '100')
-    await user.click(screen.getByRole('button', { name: 'Log income' }))
+    await user.click(await screen.findByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '100' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('A person is required for other income')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
@@ -702,10 +714,12 @@ describe('month page', () => {
     render(MonthPage)
     await monthHeading('Mar 2026')
 
-    await user.type(screen.getByLabelText('Amount'), '250')
-    await user.selectOptions(screen.getByLabelText('Person'), '1')
-    await user.click(screen.getByLabelText('Tax withheld'))
     await user.click(screen.getByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '250' } })
+    await fireEvent.change(within(sheet).getByLabelText('Person'), { target: { value: '1' } })
+    await fireEvent.click(within(sheet).getByLabelText('Tax withheld'))
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log income' }))
 
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
@@ -727,9 +741,11 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.type(await screen.findByLabelText('Amount'), '100')
-    await user.selectOptions(screen.getByLabelText('Person'), '1')
-    await user.click(screen.getByRole('button', { name: 'Log income' }))
+    await user.click(await screen.findByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '100' } })
+    await fireEvent.change(within(sheet).getByLabelText('Person'), { target: { value: '1' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log income' }))
 
     expect(await screen.findByText('Could not log income')).toBeInTheDocument()
   })

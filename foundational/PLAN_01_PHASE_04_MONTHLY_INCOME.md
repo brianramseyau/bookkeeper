@@ -48,16 +48,31 @@ chunks 2-4.
         the row (Edit; the Paid checkbox is a field, not an action), so
         this is satisfied trivially rather than built.
 - **Chunk 4:**
-  - [ ] Income:
-    - [ ] Sources are edited in a sheet.
-    - [ ] Entry rows use the shared components (from chunk 3).
-    - [ ] Filters use `ToggleGroup`.
+  - [x] Income:
+    - [x] Sources are edited in a sheet (`IncomeSourceFormSheet`, add +
+          edit).
+    - [x] Entry rows use the shared components from chunk 3
+          (`IncomeEntryDisplayRow` for the read-only `<tr>`,
+          `IncomeEntryEditRow` for the edit sheet).
+    - [x] Filters use `ToggleGroup`.
 
 ## Acceptance criteria
 
-- [ ] Each page is under about 500 lines. Behaviour is unchanged, and the existing specs are ported, not dropped.
-- [ ] Screenshots reviewed at 390px and 1440px, light and dark.
-- [ ] `pnpm verify` and `pnpm test:e2e` pass.
+- [ ] Each page is under about 500 lines. **Not fully met.** `monthly/+page.svelte`
+      is 567 (from 1497) and `income/+page.svelte` is 659 (from 1926) - both
+      still over, though the structural goal (section components, shared
+      entry rows, add/edit in sheets) is done. The remainder is orchestration
+      script (load/refresh/mutate) plus the user-tiles/year-nav/filter
+      toolbar; extracting further would mean splitting cohesive handlers for
+      a line count rather than a real seam (see Notes).
+- [x] The existing specs are ported, not dropped - every spec still runs
+      (updated for the sheet/ToggleGroup interactions), plus new colocated
+      specs for each extracted component and pure `$lib` helper.
+- [x] Screenshots reviewed at 390px and 1440px, light and dark.
+- [x] `pnpm verify` and `pnpm test:e2e` pass (API 670 + web 849 unit tests,
+      20 Playwright specs).
+- [x] Behaviour preserved, with deliberate additions logged below (delete
+      confirmations, mutation toasts, year/month re-stamp on entry edit).
 
 ## Notes and deviations
 
@@ -182,6 +197,62 @@ chunks 2-4.
   entirely, replaced by the sheet's "Open {line}" button. The same `→`
   pattern still exists on `routes/+page.svelte`'s "View all recurring bills
   →" - out of scope for this phase, flag if the dashboard is touched later.
+- Chunk 4 (Income) split the page's sections out under
+  `$lib/components/income/`: `IncomeSourceFormSheet` (add + edit in one
+  sheet), `IncomeSourcesTable`, `IncomeEntriesTable`, `IncomeChartsSection`.
+  Two pure helpers moved to `$lib` too - `income-sources.ts`
+  (`cadenceLabel`) and `income-entries.ts`
+  (`entryTax`/`entryGain`/`sumEntryTotals`), the latter replacing the page's
+  own `computeItemTax`/`computeItemGain`/inline `visibleTotals` loop.
+  `+page.svelte` went 1926 -> 659 lines; the remainder is orchestration
+  script (load/refresh/mutations), the user tiles, the year nav and the
+  filter/marginal-rate/Add toolbar - still over the ~500 target, see the
+  acceptance criteria note.
+- `IncomeChartsSection` owns its own fetch/derived/markup, so the page no
+  longer holds ten chart props; it takes `userId`/`financialYear`/`users`/
+  `sources` and a `refreshToken` the page bumps after an entry mutation
+  (replacing the old `refreshChartsIfOpen()`), refetching while open.
+- `IncomeEntryDisplayRow` grew two props to serve both pages from one
+  component: `trailing` (Income's Tax withheld/Tax/Gain columns, after the
+  amount) and `showNote` (Income folds the note into its own leading Item
+  cell instead of a separate Note column), plus `amountLabel` (Monthly says
+  "Actual", Income "Amount").
+- `IncomeEntryEditRow` gained a third `new` target variant (alongside
+  `entry` and `placeholder`) so Income could drop its two inline **add**
+  forms and open the same sheet instead - `kind: 'salary'` renders an extra
+  Source picker (from a passed `sources` list), `kind: 'other'` reuses the
+  owner/tax fields an unattributed entry already had. This was a
+  correction after review: DESIGN.md says "Adding and editing happen in a
+  Sheet … never in an inline table row", and `Add source` had already been
+  moved into a sheet, so leaving `Add > Salary`/`Other income` inline was an
+  inconsistency (not a deliberate deferral). The two add flows now share the
+  entry sheet as "Log salary" / "Add other income"; the intermediate
+  `IncomeAddForms` component was removed.
+- Monthly's own inline "Log income" form moved into a sheet too
+  (`monthly/MonthlyLogIncomeSheet`), reached from a "Log income" button in
+  the Incoming section header - so there is now no add/edit form anywhere
+  that isn't a sheet. `IncomeEntryForm` was built to be embeddable there
+  (it gained `formId`/`showSubmit` so the sheet can own the footer buttons,
+  and lost its old `submitOnOwnLine`/`footerActions` inline-button props);
+  Monthly is its only consumer. This is why the Monthly page is still 567
+  lines - the form markup moved into the sheet component, but its own
+  script (load/save/edit handlers) is unchanged.
+- Chunk 4's toolbar/filter/marginal-rate row and the user tiles/year nav
+  remain in `income/+page.svelte` (a further extraction would split cohesive
+  handlers rather than find a real seam).
+- Deleting a source or an entry on Income now confirms through
+  `confirmDestructive` (AlertDialog) and every source/entry add/edit/delete
+  toasts, matching the Monthly page's chunk-3 treatment. Previously Income
+  deleted immediately with no confirmation and had no toasts at all - a
+  real behaviour addition, not just presentation.
+- An entry's `year`/`month` are now re-stamped from its received-on date on
+  edit (both salary and other income). The old salary edit path sent none,
+  so changing a salary entry's date across the Jun/Jul boundary left it
+  filed in the wrong financial year (the API's update merges and leaves
+  year/month alone when absent) - a latent bug this fixed. Add an item
+  validation ("Enter an item"/"Pick a date") is enforced in the page's
+  `saveEntryEditValues` for unattributed entries, preserving the old
+  requirement now that the shared sheet is the editor.
 - Chunk 2 was a pure markup extraction: all editing state and handlers
   (carryover, expense lines, income entries, placeholders) stay in
   `+page.svelte`, passed down to the four new components as props/callbacks

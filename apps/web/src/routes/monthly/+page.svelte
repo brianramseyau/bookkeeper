@@ -35,13 +35,12 @@
   import { type IncomeRow, entryRowLabel } from '$lib/income-rows'
   import { toast } from 'svelte-sonner'
   import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
-  import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
+  import { Button } from '$lib/components/ui/button'
   import LoadingIndicator from '$lib/components/LoadingIndicator.svelte'
   import PageHead from '$lib/components/PageHead.svelte'
-  import IncomeEntryForm, {
-    type IncomeEntryFormValues,
-  } from '$lib/components/IncomeEntryForm.svelte'
+  import type { IncomeEntryFormValues } from '$lib/components/IncomeEntryForm.svelte'
+  import MonthlyLogIncomeSheet from '$lib/components/monthly/MonthlyLogIncomeSheet.svelte'
   import IncomeEntryEditRow, {
     type IncomeEntryEditTarget,
     type IncomeEntryEditValues,
@@ -67,7 +66,10 @@
 
   const carryoverEdit = new EditState<true, { amount: number }>()
 
+  // Logging a new entry against the viewed month - see MonthlyLogIncomeSheet.
+  let logIncomeOpen = $state(false)
   let loggingEntry = $state(false)
+  let logIncomeError = $state<string | null>(null)
 
   // Backs both an existing entry's edit sheet and a placeholder pay date's
   // "adjust before logging" sheet - see IncomeEntryEditRow.
@@ -139,17 +141,22 @@
     }
   }
 
+  function openLogIncome() {
+    logIncomeError = null
+    logIncomeOpen = true
+  }
+
   async function handleLogEntry(values: IncomeEntryFormValues): Promise<boolean> {
     if (Number.isNaN(values.amount) || values.amount === null) {
-      error = 'Amount is required'
+      logIncomeError = 'Amount is required'
       return false
     }
     if (values.incomeSourceId === null && values.userId === null) {
-      error = 'A person is required for other income'
+      logIncomeError = 'A person is required for other income'
       return false
     }
     loggingEntry = true
-    error = null
+    logIncomeError = null
     try {
       await createIncomeEntry({
         incomeSourceId: values.incomeSourceId,
@@ -162,9 +169,10 @@
         taxWithheld: values.incomeSourceId === null ? values.taxWithheld : null,
       })
       await refreshIncome()
+      toast.success('Income entry added')
       return true
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to log income'
+      logIncomeError = err instanceof ApiError ? err.message : 'Failed to log income'
       return false
     } finally {
       loggingEntry = false
@@ -230,7 +238,7 @@
           note: values.note === '' ? null : values.note,
           taxWithheld: entry.incomeSourceId === null ? values.taxWithheld : undefined,
         })
-      } else {
+      } else if (entryEditTarget.type === 'placeholder') {
         await createIncomeEntry({
           incomeSourceId: entryEditTarget.sourceId,
           year,
@@ -504,14 +512,17 @@
     onRemove={removeExpenseActual}
   />
 
-  <div class="mt-8 flex items-center justify-between">
+  <div class="mt-8 flex items-center justify-between gap-3">
     <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Incoming</h2>
-    <a
-      href="/income"
-      class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-    >
-      Manage income sources
-    </a>
+    <div class="flex items-center gap-3">
+      <a
+        href="/income"
+        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+      >
+        Manage income sources
+      </a>
+      <Button size="sm" onclick={openLogIncome}>Log income</Button>
+    </div>
   </div>
 
   <CarryoverCard
@@ -544,14 +555,13 @@
     onSave={saveEntryEditValues}
   />
 
-  <Card class="mt-4 p-4">
-    <IncomeEntryForm
-      {sources}
-      {users}
-      allowUnattributed
-      submitting={loggingEntry}
-      class="flex flex-wrap items-end gap-3"
-      onSubmit={handleLogEntry}
-    />
-  </Card>
+  <MonthlyLogIncomeSheet
+    open={logIncomeOpen}
+    onOpenChange={(next) => (logIncomeOpen = next)}
+    {sources}
+    {users}
+    submitting={loggingEntry}
+    error={logIncomeError}
+    onSubmit={handleLogEntry}
+  />
 {/if}

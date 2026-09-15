@@ -238,22 +238,28 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
     duplicate across routes if it stays inline (e.g. `round`/`round2` used
     to exist separately in both `monthly` and `income` — now
     `formatCurrency`'s neighbour `round2` in `$lib/format.ts`).
-  - **Repeated "start editing this row / cancel / track its draft state"
-    logic** — the same start/cancel-edit pair recurs for every editable
-    entity (carryover, income entries, placeholders, expenses, income
-    sources, non-PAYG items, …). Use the generic helper in
-    `src/lib/edit-state.svelte.ts` (`createEditState`) rather than adding
-    another bespoke `editingXId`/`startEditX`/`cancelEditX` trio — it's
-    applied to the Monthly page's carryover editor as the reference
-    example; extend it to the other edit flows on `monthly`/`income` as you
-    touch them, rather than copying the old pattern to new code.
+  - **Adding and editing** happens in a Sheet/Drawer, never inline
+    (DESIGN.md) — the Monthly/Income entry editors, the outgoing-line
+    editor and the Income source form are all sheet components now
+    (`IncomeEntryEditRow`, `OutgoingLineEditSheet`, `IncomeSourceFormSheet`,
+    `MonthlyLogIncomeSheet`). For the remaining inline card editors, a
+    repeated "start editing / cancel / track draft state" trio should use
+    the generic helper in `src/lib/edit-state.svelte.ts` (`createEditState`)
+    rather than another bespoke `editingXId`/`startEditX`/`cancelEditX`
+    trio — the Monthly page's carryover editor is the reference example.
   - **Markup shared between Monthly and Income** (e.g. an income-entry
-    display/edit row) should be a component in `$lib/components/`, as
-    `IncomeEntryDisplayRow.svelte`/`IncomeEntryEditRow.svelte` already are
-    for the Income page — Monthly's own hand-rolled entry rows are a known
-    gap to close (see `IncomeEntryDisplayRow`'s `leading` snippet prop,
-    designed so a caller can slot in whatever extra leading columns it
-    needs, e.g. Monthly's Owner/Projected columns).
+    display/edit row) should be a component in `$lib/components/`.
+    `IncomeEntryDisplayRow.svelte` (the read-only `<tr>`) and
+    `IncomeEntryEditRow.svelte` (the edit **sheet** — despite the "-Row"
+    name it renders a `ResponsiveFormSheet`, per DESIGN.md's
+    edit-in-a-sheet rule) are shared by both the Monthly page's
+    `monthly/IncomingTable.svelte` and the Income page's
+    `income/IncomeEntriesTable.svelte`; reach for them rather than
+    hand-rolling another entry row. `IncomeEntryDisplayRow` carries the
+    column shape via props: `leading`/`trailing` snippets for extra
+    `<td>`s, `projected` (omit to hide), `showNote` (Income folds the note
+    into its leading cell instead), and `amountLabel` (Monthly calls the
+    figure "Actual", Income "Amount").
   - When you find near-duplicate code while working nearby, extracting it
     is in scope for that change even if it wasn't the original ask — leave
     the file more DRY than you found it rather than adding a third copy.

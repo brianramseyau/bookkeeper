@@ -1,6 +1,8 @@
-import { render, screen, waitFor, within } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { toast } from 'svelte-sonner'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import {
   createIncomeSource,
   deleteIncomeSource,
@@ -42,6 +44,10 @@ vi.mock('$lib/api/income_tax_settings', () => ({
   setIncomeTaxSetting: vi.fn(),
 }))
 vi.mock('$lib/api/users', () => ({ listUsers: vi.fn() }))
+vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
+}))
 
 const brian: UserSummary = {
   id: 1,
@@ -149,12 +155,21 @@ async function chooseAddOption(user: ReturnType<typeof userEvent.setup>, option:
   // page, so an unscoped query matches both.
   const menu = await screen.findByRole('menu', { hidden: true })
   await user.click(within(menu).getByText(option))
-  // Selecting the option closes the dropdown, but bits-ui's body-scroll-lock
-  // only lifts `<body>`'s `pointer-events: none` after a real, debounced
-  // timer (see src/tests/setup.ts) - wait it out before the caller interacts
-  // with the form the click just revealed, or userEvent refuses to click/type
-  // into it (it correctly won't act through an inherited pointer-events:none).
-  await waitFor(() => expect(getComputedStyle(document.body).pointerEvents).not.toBe('none'))
+}
+
+// bits-ui's body-scroll-lock leaves `<body>`'s `pointer-events: none` in
+// place (resetting it only after a debounced timer, see src/tests/setup.ts)
+// while any menu/sheet is open. Call this after closing one, before
+// interacting with the page again with userEvent, or its clicks refuse to
+// fire through the inherited pointer-events:none. Interactions *inside* an
+// open sheet use `fireEvent` instead, which ignores it.
+function waitForBodyInteractive() {
+  return waitFor(() => expect(getComputedStyle(document.body).pointerEvents).not.toBe('none'))
+}
+
+// The Sheet/Drawer a form opens into is portalled onto `document.body`.
+function openSheet() {
+  return screen.getByRole('dialog', { hidden: true })
 }
 
 describe('income page', () => {
@@ -173,6 +188,9 @@ describe('income page', () => {
     vi.mocked(getIncomeYtd).mockReset()
     vi.mocked(getIncomeTaxSetting).mockReset()
     vi.mocked(setIncomeTaxSetting).mockReset()
+    vi.mocked(toast.success).mockReset()
+    vi.mocked(confirmDestructive).mockReset()
+    vi.mocked(confirmDestructive).mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -281,9 +299,10 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click(await screen.findByRole('button', { name: 'Add source' }))
-    await user.click(screen.getByRole('button', { name: 'Add income source' }))
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add income source' }))
 
-    expect(await screen.findByText('Name and expected amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Enter a name')).toBeInTheDocument()
     expect(createIncomeSource).not.toHaveBeenCalled()
   })
 
@@ -293,14 +312,14 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click(await screen.findByRole('button', { name: 'Add source' }))
-    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Bonus')
-    const amountInputs = screen.getAllByRole('spinbutton')
-    await user.type(amountInputs[0]!, '100')
-    await user.click(screen.getByRole('button', { name: 'Add income source' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Bonus' } })
+    await fireEvent.input(within(sheet).getByLabelText('Expected per pay'), {
+      target: { value: '100' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add income source' }))
 
-    expect(
-      await screen.findByText('Pay day of month is required for a monthly source')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Enter a pay day of the month')).toBeInTheDocument()
     expect(createIncomeSource).not.toHaveBeenCalled()
   })
 
@@ -310,14 +329,17 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click(await screen.findByRole('button', { name: 'Add source' }))
-    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Side gig')
-    await user.type(screen.getAllByRole('spinbutton')[0]!, '100')
-    await user.selectOptions(screen.getByLabelText('Frequency'), 'fortnightly')
-    await user.click(screen.getByRole('button', { name: 'Add income source' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Side gig' } })
+    await fireEvent.input(within(sheet).getByLabelText('Expected per pay'), {
+      target: { value: '100' },
+    })
+    await fireEvent.change(within(sheet).getByLabelText('Frequency'), {
+      target: { value: 'fortnightly' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add income source' }))
 
-    expect(
-      await screen.findByText('An anchor pay date is required for a fortnightly source')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Pick an anchor pay date')).toBeInTheDocument()
     expect(createIncomeSource).not.toHaveBeenCalled()
   })
 
@@ -328,10 +350,15 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click(await screen.findByRole('button', { name: 'Add source' }))
-    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Bonus')
-    await user.type(screen.getAllByRole('spinbutton')[0]!, '250')
-    await user.type(screen.getByLabelText('Pay day'), '1')
-    await user.click(screen.getByRole('button', { name: 'Add income source' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Bonus' } })
+    await fireEvent.input(within(sheet).getByLabelText('Expected per pay'), {
+      target: { value: '250' },
+    })
+    await fireEvent.input(within(sheet).getByLabelText('Pay day of month'), {
+      target: { value: '1' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add income source' }))
 
     await waitFor(() =>
       expect(createIncomeSource).toHaveBeenCalledWith({
@@ -341,11 +368,12 @@ describe('income page', () => {
         frequency: 'monthly',
         payDayOfMonth: 1,
         weekendRollback: false,
-        anchorDate: undefined,
+        anchorDate: null,
         taxWithheld: true,
       })
     )
     expect(listIncomeSources).toHaveBeenCalledTimes(2)
+    expect(toast.success).toHaveBeenCalledWith('Income source added')
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Add income source' })).toBeNull()
     )
@@ -358,10 +386,15 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click(await screen.findByRole('button', { name: 'Add source' }))
-    await user.type(screen.getByPlaceholderText('e.g. Salary'), 'Bonus')
-    await user.type(screen.getAllByRole('spinbutton')[0]!, '250')
-    await user.type(screen.getByLabelText('Pay day'), '1')
-    await user.click(screen.getByRole('button', { name: 'Add income source' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: 'Bonus' } })
+    await fireEvent.input(within(sheet).getByLabelText('Expected per pay'), {
+      target: { value: '250' },
+    })
+    await fireEvent.input(within(sheet).getByLabelText('Pay day of month'), {
+      target: { value: '1' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add income source' }))
 
     expect(await screen.findByText('Name already exists')).toBeInTheDocument()
   })
@@ -380,8 +413,24 @@ describe('income page', () => {
 
     await user.click((await screen.findAllByRole('button', { name: 'Delete Brian Income' }))[0]!)
 
-    expect(deleteIncomeSource).toHaveBeenCalledWith(1)
+    await waitFor(() => expect(deleteIncomeSource).toHaveBeenCalledWith(1))
+    expect(confirmDestructive).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Delete Brian Income?' })
+    )
+    expect(toast.success).toHaveBeenCalledWith('Income source deleted')
     expect(await screen.findByText('$0.00/mo · 0 sources')).toBeInTheDocument()
+  })
+
+  it('does not delete a source when the confirmation is declined', async () => {
+    setDefaultMocks()
+    vi.mocked(confirmDestructive).mockResolvedValue(false)
+    const user = userEvent.setup()
+    render(IncomePage)
+
+    await user.click((await screen.findAllByRole('button', { name: 'Delete Brian Income' }))[0]!)
+    await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
+
+    expect(deleteIncomeSource).not.toHaveBeenCalled()
   })
 
   it('edits a source: switching cadence, saving, and reloading', async () => {
@@ -391,10 +440,11 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
-    const nameInput = screen.getByDisplayValue('Brian Income')
-    await user.clear(nameInput)
-    await user.type(nameInput, 'Brian Salary')
-    await user.click(screen.getAllByRole('button', { name: 'Save Brian Income' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), {
+      target: { value: 'Brian Salary' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(updateIncomeSource).toHaveBeenCalledWith(1, {
@@ -408,6 +458,7 @@ describe('income page', () => {
       })
     )
     expect(listIncomeSources).toHaveBeenCalledTimes(2)
+    expect(toast.success).toHaveBeenCalledWith('Income source saved')
   })
 
   it('cancels an edit without saving', async () => {
@@ -416,7 +467,9 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
-    await user.click(screen.getAllByRole('button', { name: 'Cancel editing Brian Income' })[0]!)
+    const sheet = openSheet()
+    expect(within(sheet).getByLabelText('Name')).toHaveValue('Brian Income')
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByDisplayValue('Brian Income')).toBeNull()
     expect(updateIncomeSource).not.toHaveBeenCalled()
@@ -428,10 +481,11 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
-    await user.clear(screen.getByDisplayValue('Brian Income'))
-    await user.click(screen.getAllByRole('button', { name: 'Save Brian Income' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Name'), { target: { value: '' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
-    expect(await screen.findByText('Name and expected amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Enter a name')).toBeInTheDocument()
     expect(updateIncomeSource).not.toHaveBeenCalled()
   })
 
@@ -442,7 +496,8 @@ describe('income page', () => {
     render(IncomePage)
 
     await user.click((await screen.findAllByRole('button', { name: 'Edit Brian Income' }))[0]!)
-    await user.click(screen.getAllByRole('button', { name: 'Save Brian Income' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save')).toBeInTheDocument()
   })
@@ -530,15 +585,15 @@ describe('income page', () => {
     await screen.findByText('Share sale')
     expect(screen.getByText('Payslip')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /Salary/ }))
+    await user.click(screen.getByRole('radio', { name: /Salary/ }))
     expect(screen.getByText('Payslip')).toBeInTheDocument()
     expect(screen.queryByText('Share sale')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: /Other/ }))
+    await user.click(screen.getByRole('radio', { name: /Other/ }))
     expect(screen.queryByText('Payslip')).toBeNull()
     expect(screen.getByText('Share sale')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /^All/ }))
+    await user.click(screen.getByRole('radio', { name: /^All/ }))
     expect(screen.getByText('Payslip')).toBeInTheDocument()
     expect(screen.getByText('Share sale')).toBeInTheDocument()
   })
@@ -550,15 +605,15 @@ describe('income page', () => {
     render(IncomePage)
 
     await screen.findByText('Share sale')
-    await user.click(screen.getByRole('button', { name: /Salary/ }))
+    await user.click(screen.getByRole('radio', { name: /Salary/ }))
     expect(
       await screen.findByText(
         `No salary income logged for ${financialYearLabel(currentFinancialYear())}.`
       )
     ).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /^All/ }))
-    await user.click(screen.getByRole('button', { name: /Other/ }))
+    await user.click(screen.getByRole('radio', { name: /^All/ }))
+    await user.click(screen.getByRole('radio', { name: /Other/ }))
     expect(screen.queryByText('No other income logged')).toBeNull()
   })
 
@@ -658,49 +713,61 @@ describe('income page', () => {
     expect(within(row).getAllByText('—').length).toBeGreaterThanOrEqual(2)
   })
 
-  it('keeps the add-salary form hidden until it is chosen from the Add menu', async () => {
+  it('keeps the add-salary sheet closed until it is chosen from the Add menu', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
 
     await screen.findByText('Brian Income')
-    expect(screen.queryByRole('button', { name: 'Log income' })).toBeNull()
+    expect(screen.queryByRole('dialog', { hidden: true })).toBeNull()
 
     await chooseAddOption(user, 'Salary')
-    expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
+    const sheet = openSheet()
+    expect(
+      within(sheet).getByRole('heading', { name: 'Log salary', hidden: true })
+    ).toBeInTheDocument()
   })
 
-  it('only opens one add form at a time', async () => {
+  it('only opens one sheet at a time', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
     await screen.findByText('Brian Income')
 
     await chooseAddOption(user, 'Salary')
-    expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
+    let sheet = openSheet()
+    expect(
+      within(sheet).getByRole('heading', { name: 'Log salary', hidden: true })
+    ).toBeInTheDocument()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+    await waitForBodyInteractive()
 
     await chooseAddOption(user, 'Other income')
-    expect(screen.queryByRole('button', { name: 'Log income' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Add item' })).toBeInTheDocument()
+    sheet = openSheet()
+    expect(
+      within(sheet).getByRole('heading', { name: 'Add other income', hidden: true })
+    ).toBeInTheDocument()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
+    await waitForBodyInteractive()
 
+    // Opening the source sheet replaces the entry sheet.
     await user.click(screen.getByRole('button', { name: 'Add source' }))
-    expect(screen.queryByRole('button', { name: 'Add item' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Add income source' })).toBeInTheDocument()
-
-    await chooseAddOption(user, 'Salary')
-    expect(screen.queryByRole('button', { name: 'Add income source' })).toBeNull()
-    expect(screen.getByRole('button', { name: 'Log income' })).toBeInTheDocument()
+    const sourceSheet = openSheet()
+    expect(
+      within(sourceSheet).getByRole('button', { name: 'Add income source' })
+    ).toBeInTheDocument()
   })
 
-  it('requires a source and amount to log a salary entry', async () => {
+  it('requires an amount to log a salary entry', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
 
     await chooseAddOption(user, 'Salary')
-    await user.click(screen.getByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log entry' }))
 
-    expect(await screen.findByText('Source and amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Amount is required')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
   })
 
@@ -710,35 +777,37 @@ describe('income page', () => {
     render(IncomePage)
 
     await chooseAddOption(user, 'Salary')
-    await user.type(screen.getByLabelText('Amount'), '5000')
-    await user.clear(screen.getByLabelText('Received on'))
-    await user.click(screen.getByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '5000' } })
+    await fireEvent.input(within(sheet).getByLabelText('Received on'), { target: { value: '' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log entry' }))
 
-    expect(await screen.findByText('A received-on date is required')).toBeInTheDocument()
+    expect(await screen.findByText('Pick a date')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('pre-fills the salary form’s received-on date with today', async () => {
+  it('pre-fills the salary sheet’s received-on date with today', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
 
     await chooseAddOption(user, 'Salary')
-    expect(screen.getByLabelText('Received on')).toHaveValue(todayISO())
+    expect(within(openSheet()).getByLabelText('Received on')).toHaveValue(todayISO())
   })
 
-  it('logs a new salary entry, closes the form, and reloads', async () => {
+  it('logs a new salary entry, closes the sheet, and reloads', async () => {
     setDefaultMocks()
     vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
     await chooseAddOption(user, 'Salary')
-    await user.type(screen.getByLabelText('Amount'), '5000')
-    const receivedOn = screen.getByLabelText('Received on')
-    await user.clear(receivedOn)
-    await user.type(receivedOn, '2026-01-14')
-    await user.click(screen.getByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '5000' } })
+    await fireEvent.input(within(sheet).getByLabelText('Received on'), {
+      target: { value: '2026-01-14' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log entry' }))
 
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
@@ -751,7 +820,8 @@ describe('income page', () => {
       })
     )
     expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Log income' })).toBeNull())
+    expect(toast.success).toHaveBeenCalledWith('Income entry added')
+    await waitFor(() => expect(screen.queryByRole('dialog', { hidden: true })).toBeNull())
   })
 
   it('shows an API error when logging a salary entry fails', async () => {
@@ -761,14 +831,14 @@ describe('income page', () => {
     render(IncomePage)
 
     await chooseAddOption(user, 'Salary')
-    await user.type(screen.getByLabelText('Amount'), '5000')
-    await user.type(screen.getByLabelText('Received on'), '2026-01-14')
-    await user.click(screen.getByRole('button', { name: 'Log income' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '5000' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Log entry' }))
 
     expect(await screen.findByText('Could not log income')).toBeInTheDocument()
   })
 
-  it('edits a salary entry inline and cancels without saving', async () => {
+  it('edits a salary entry in a sheet and cancels without saving', async () => {
     setDefaultMocks()
     setEntries(salaryEntry)
     const user = userEvent.setup()
@@ -776,8 +846,9 @@ describe('income page', () => {
 
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
-    expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
-    await user.click(screen.getAllByRole('button', { name: 'Cancel editing income entry' })[0]!)
+    const sheet = openSheet()
+    expect(within(sheet).getByLabelText('Amount')).toHaveValue(5000)
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByDisplayValue('5000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -792,19 +863,21 @@ describe('income page', () => {
 
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
-    const amountInput = screen.getByDisplayValue('5000')
-    await user.clear(amountInput)
-    await user.type(amountInput, '5200')
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '5200' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
+        year: 2026,
+        month: 1,
         amount: 5200,
         receivedOn: '2026-01-14',
         note: 'Payslip',
       })
     )
     expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
+    expect(toast.success).toHaveBeenCalledWith('Income entry saved')
   })
 
   it('shows an API error when saving a salary entry edit fails', async () => {
@@ -816,7 +889,8 @@ describe('income page', () => {
 
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
   })
@@ -829,8 +903,9 @@ describe('income page', () => {
 
     await screen.findByText('Payslip')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Jan 2026' }).at(-1)!)
-    await user.clear(screen.getByDisplayValue('5000'))
-    await user.click(screen.getAllByRole('button', { name: 'Save income entry' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Amount is required')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -867,46 +942,54 @@ describe('income page', () => {
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
   })
 
-  it('keeps the add-other-income form hidden until it is chosen from the Add menu', async () => {
+  it('keeps the add-other-income sheet closed until it is chosen from the Add menu', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
 
     await screen.findByText('Brian Income')
-    expect(screen.queryByRole('button', { name: 'Add item' })).toBeNull()
+    expect(screen.queryByRole('dialog', { hidden: true })).toBeNull()
 
     await chooseAddOption(user, 'Other income')
-    expect(screen.getByRole('button', { name: 'Add item' })).toBeInTheDocument()
+    const sheet = openSheet()
+    expect(
+      within(sheet).getByRole('heading', { name: 'Add other income', hidden: true })
+    ).toBeInTheDocument()
   })
 
-  it('requires date, item and amount to add an other-income entry', async () => {
+  it('requires a date and item to add an other-income entry', async () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(IncomePage)
 
     await chooseAddOption(user, 'Other income')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Received on'), { target: { value: '' } })
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '1000' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add entry' }))
 
-    expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Pick a date')).toBeInTheDocument()
     expect(createIncomeEntry).not.toHaveBeenCalled()
   })
 
-  it('adds an other-income entry, closes the form, and reloads', async () => {
+  it('adds an other-income entry, closes the sheet, and reloads', async () => {
     setDefaultMocks()
     vi.mocked(createIncomeEntry).mockResolvedValue(otherEntry)
     const user = userEvent.setup()
     render(IncomePage)
 
     await chooseAddOption(user, 'Other income')
-    await user.type(screen.getByLabelText('Item'), 'Share sale')
-    await user.type(screen.getByLabelText('Sale amount'), '1000')
-    const dateInput = screen.getByLabelText('Date')
-    await user.clear(dateInput)
-    await user.type(dateInput, '2025-08-13')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: 'Share sale' } })
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '1000' } })
+    await fireEvent.input(within(sheet).getByLabelText('Received on'), {
+      target: { value: '2025-08-13' },
+    })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add entry' }))
 
     await waitFor(() =>
       expect(createIncomeEntry).toHaveBeenCalledWith({
+        incomeSourceId: null,
         userId: 1,
         year: 2025,
         month: 8,
@@ -917,7 +1000,8 @@ describe('income page', () => {
       })
     )
     expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Add item' })).toBeNull())
+    expect(toast.success).toHaveBeenCalledWith('Income entry added')
+    await waitFor(() => expect(screen.queryByRole('dialog', { hidden: true })).toBeNull())
   })
 
   it('shows an API error when adding an other-income entry fails', async () => {
@@ -927,15 +1011,15 @@ describe('income page', () => {
     render(IncomePage)
 
     await chooseAddOption(user, 'Other income')
-    await user.type(screen.getByLabelText('Item'), 'Share sale')
-    await user.type(screen.getByLabelText('Sale amount'), '1000')
-    await user.type(screen.getByLabelText('Date'), '2025-08-13')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: 'Share sale' } })
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '1000' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Add entry' }))
 
     expect(await screen.findByText('Could not add item')).toBeInTheDocument()
   })
 
-  it('edits an other-income entry inline and cancels without saving', async () => {
+  it('edits an other-income entry in a sheet and cancels without saving', async () => {
     setDefaultMocks()
     setEntries(otherEntry)
     const user = userEvent.setup()
@@ -943,10 +1027,9 @@ describe('income page', () => {
 
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
-    expect(screen.getByDisplayValue('1000')).toBeInTheDocument()
-    await user.click(
-      screen.getAllByRole('button', { name: 'Cancel editing entry from 13 Aug 2025' })[0]!
-    )
+    const sheet = openSheet()
+    expect(within(sheet).getByLabelText('Amount')).toHaveValue(1000)
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Cancel' }))
 
     expect(screen.queryByDisplayValue('1000')).toBeNull()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
@@ -961,10 +1044,9 @@ describe('income page', () => {
 
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
-    const amountInput = screen.getByDisplayValue('1000')
-    await user.clear(amountInput)
-    await user.type(amountInput, '1200')
-    await user.click(screen.getAllByRole('button', { name: 'Save entry from 13 Aug 2025' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Amount'), { target: { value: '1200' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(20, {
@@ -974,6 +1056,7 @@ describe('income page', () => {
         receivedOn: '2025-08-13',
         note: 'Share sale',
         taxWithheld: false,
+        userId: 1,
       })
     )
     expect(listAllIncomeEntriesForFinancialYear).toHaveBeenCalledTimes(2)
@@ -988,12 +1071,13 @@ describe('income page', () => {
 
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
-    await user.click(screen.getAllByRole('button', { name: 'Save entry from 13 Aug 2025' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save item')).toBeInTheDocument()
   })
 
-  it('requires date, item and amount when saving an other-income edit', async () => {
+  it('requires an item when saving an other-income edit', async () => {
     setDefaultMocks()
     setEntries(otherEntry)
     const user = userEvent.setup()
@@ -1001,10 +1085,11 @@ describe('income page', () => {
 
     await screen.findByText('Share sale')
     await user.click(screen.getAllByRole('button', { name: 'Edit entry from 13 Aug 2025' }).at(-1)!)
-    await user.clear(screen.getByDisplayValue('Share sale'))
-    await user.click(screen.getAllByRole('button', { name: 'Save entry from 13 Aug 2025' })[0]!)
+    const sheet = openSheet()
+    await fireEvent.input(within(sheet).getByLabelText('Note'), { target: { value: '' } })
+    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
-    expect(await screen.findByText('Date, item and amount are required')).toBeInTheDocument()
+    expect(await screen.findByText('Enter an item')).toBeInTheDocument()
     expect(updateIncomeEntry).not.toHaveBeenCalled()
   })
 

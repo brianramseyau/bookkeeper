@@ -16,11 +16,29 @@
         the prop entirely (not just pass `null`) to hide the column outright
         for a page with no per-pay-period projection to show it against. */
     projected?: number | null
+    /** Extra `<td>`(s) after the Amount column, e.g. Income's Tax
+        withheld/Tax/Gain columns. */
+    trailing?: Snippet<[IncomeEntry]>
+    /** Set false when the caller's leading cell already carries the note
+        (Income's Item column does), so it isn't shown twice. */
+    showNote?: boolean
+    /** The amount column's under-`sm` label - Monthly reads it as "Actual",
+        Income's own header calls the same figure "Amount". */
+    amountLabel?: string
     onEdit: (entry: IncomeEntry) => void
     onDelete: (entry: IncomeEntry) => void
   }
 
-  let { entry, leading, projected, onEdit, onDelete }: Props = $props()
+  let {
+    entry,
+    leading,
+    projected,
+    trailing,
+    showNote = true,
+    amountLabel = 'Actual',
+    onEdit,
+    onDelete,
+  }: Props = $props()
 </script>
 
 <tr
@@ -62,19 +80,22 @@
   >
     <span
       class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-      >Actual</span
+      >{amountLabel}</span
     >
     {formatCurrency(entry.amount)}
   </td>
-  <td
-    class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
-  >
-    <span
-      class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
-      >Note</span
+  {#if showNote}
+    <td
+      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
     >
-    {entry.note ?? '—'}
-  </td>
+      <span
+        class="shrink-0 text-xs font-medium text-slate-400 uppercase sm:hidden dark:text-slate-500"
+        >Note</span
+      >
+      {entry.note ?? '—'}
+    </td>
+  {/if}
+  {@render trailing?.(entry)}
   <td class="hidden justify-end gap-1 px-3 py-2 whitespace-nowrap sm:table-cell sm:text-right">
     <IconActionButton
       variant="neutral"
