@@ -39,7 +39,7 @@ vi.mock('$lib/stores/push.svelte', () => ({
   subscribeToPush: vi.fn(),
   unsubscribeFromPush: vi.fn(),
 }))
-vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn() } }))
+vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
   confirmDestructive: vi.fn(),
 }))
@@ -86,6 +86,7 @@ describe('settings page', () => {
     vi.mocked(subscribeToPush).mockReset()
     vi.mocked(unsubscribeFromPush).mockReset()
     vi.mocked(toast.success).mockReset()
+    vi.mocked(toast.error).mockReset()
     vi.mocked(confirmDestructive).mockReset().mockResolvedValue(true)
   })
 
@@ -292,6 +293,9 @@ describe('settings page', () => {
   })
 
   it('enables notifications on this device', async () => {
+    vi.mocked(subscribeToPush).mockImplementation(async () => {
+      pushState.subscribed = true
+    })
     const user = userEvent.setup()
     render(SettingsPage)
 
@@ -299,6 +303,18 @@ describe('settings page', () => {
 
     expect(subscribeToPush).toHaveBeenCalled()
     expect(unsubscribeFromPush).not.toHaveBeenCalled()
+    expect(toast.success).toHaveBeenCalledWith('Notifications enabled on this device')
+  })
+
+  it('reports when notification permission was denied', async () => {
+    const user = userEvent.setup()
+    render(SettingsPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Enable on this device' }))
+
+    expect(toast.error).toHaveBeenCalledWith(
+      'Notifications were not enabled - permission was denied.'
+    )
   })
 
   it('disables notifications on this device', async () => {

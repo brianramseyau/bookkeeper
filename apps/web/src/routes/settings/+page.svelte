@@ -123,8 +123,12 @@
       } else {
         await subscribeToPush()
         // subscribeToPush returns silently when the permission prompt is
-        // denied, so only claim success if it actually subscribed.
-        if (pushState.subscribed) toast.success('Notifications enabled on this device')
+        // denied, so report the outcome either way.
+        if (pushState.subscribed) {
+          toast.success('Notifications enabled on this device')
+        } else {
+          toast.error('Notifications were not enabled - permission was denied.')
+        }
       }
       await loadDevices()
     } catch (err) {
