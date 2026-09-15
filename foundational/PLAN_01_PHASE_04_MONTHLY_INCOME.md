@@ -117,22 +117,30 @@ chunks 2-4.
   (`daysInMonth * 28px`, min 480px) so the below-`sm` horizontal scroll has
   legible per-day spacing instead of a fixed guess. Logged in DESIGN.md's
   decisions log too.
-- A `<select>` whose `<option>`s come from an `{#each}` block does not
-  reliably apply a value set programmatically on the same render pass its
-  options are created - it stays on the first option regardless, in this
-  Svelte 5.56.7/jsdom combination. Reproduced in isolation outside any app
-  code: fails whether the value is set via `bind:value` or a plain
-  `value={}`, via `$effect`, via a synchronous `$state()` initializer, with
-  `{#key}` forcing a full remount, keyed or unkeyed each blocks, or an
-  `<option selected={...}>` attribute instead - the only fix found is
-  setting `.value` imperatively through a real element reference
-  (`bind:this` + an `$effect` that does `el.value = value`), kept alongside
-  `bind:value` so the user's own selection still flows back normally. See
-  `IncomeEntryEditRow.svelte`'s `ownerSelectEl` for the pattern - reuse it
-  for any future `<select>` that needs a pre-filled value from an
-  each-block option list (`OutgoingFormSheet`'s own selects may have the
-  same latent bug; no existing test asserts a pre-filled select value
-  there to have caught it).
+- **Corrected (was misdiagnosed as a jsdom/Svelte render-order bug):** a
+  `<select>` that renders empty despite having a matching `<option>` - and
+  that clears again the moment the user picks one - is a **value-type
+  mismatch**. Svelte's `select_option` compares the select's raw `value`
+  against each option's raw JS value (stashed as `option.__value` from the
+  template expression) with `Object.is`, so a `String(id)` select value
+  never matches a numeric `id` option (or vice versa) and nothing gets
+  selected. This hit every select whose option values are numbers:
+  Subscriptions' "For" (user id) rendered blank on open and went blank on
+  choose, and the shared `CategorySelect` blanked out once the caller's
+  form state had stored the **string** that a DOM change produces (the
+  numeric `categoryId` from `toFormValues` had matched by luck). The fix is
+  to normalise both sides to strings - `String(...)` on every numeric
+  option value, and a string select `value`. The earlier diagnosis (that
+  the value simply wasn't applied on the options' render pass, requiring a
+  `bind:this` + `$effect` imperative `.value =` workaround, as
+  `IncomeEntryEditRow`'s old `ownerSelectEl` did) was wrong: that workaround
+  only appeared to fix it because assigning the DOM `value` property
+  coerces types. `IncomeEntryEditRow` is now plain `bind:value` +
+  `String(u.id)` options, with no workaround. Regression tests pin this in
+  `OutgoingFormSheet.spec.ts` (numeric user/select options prefill) and
+  `CategorySelect.spec.ts` (string value against numeric options) - the old
+  specs passed because none asserted a _pre-filled_ select against numeric
+  option values.
 - Drawer content in this stack (vaul-svelte) attaches a `pointerdown`
   handler needing `setPointerCapture`, unimplemented in jsdom - clicking
   anything inside a `ResponsiveFormSheet` with `@testing-library/user-event`

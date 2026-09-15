@@ -53,20 +53,6 @@
   let receivedOn = $state('')
   let note = $state('')
 
-  // A `<select>` whose `<option>`s come from an `{#each}` block doesn't
-  // reliably pick up a value set programmatically (bind:value, or a plain
-  // `value={}`) on the same render pass its options are created - it stays
-  // on the first option regardless, in this Svelte/jsdom combination
-  // (reproduced in isolation outside this component too, unrelated to the
-  // `$effect` below - even a value set synchronously at `$state`
-  // declaration time hits it). Setting `.value` imperatively via a real
-  // element reference sidesteps it; `bind:value` is kept alongside it so
-  // the user's own selection still flows back into `userId` normally.
-  let ownerSelectEl = $state<HTMLSelectElement | undefined>(undefined)
-  $effect(() => {
-    if (ownerSelectEl) ownerSelectEl.value = userId
-  })
-
   // Re-seed the draft whenever the sheet opens for a (possibly new) target,
   // mirroring OutgoingFormSheet's own re-seed effect.
   $effect(() => {
@@ -122,13 +108,12 @@
         >
         <select
           id="entry-edit-owner"
-          bind:this={ownerSelectEl}
           class="border-input h-9 rounded-md border bg-transparent px-2 text-sm"
           bind:value={userId}
         >
           <option value="">Select person</option>
           {#each users as u (u.id)}
-            <option value={u.id}>{u.fullName ?? u.email}</option>
+            <option value={String(u.id)}>{u.fullName ?? u.email}</option>
           {/each}
         </select>
       </div>

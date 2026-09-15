@@ -162,6 +162,39 @@ describe('OutgoingFormSheet', () => {
     expect(screen.getByLabelText('Frequency')).toBeInTheDocument()
   })
 
+  it('prefills selects whose option values are numbers (user id, numeric select options)', () => {
+    // Regression: Svelte compares the select's raw `value` against each
+    // option's raw JS value with `Object.is`, so a stringified `value` (the
+    // component's `display()`) never matched a numeric option value and the
+    // select rendered empty (`selectedIndex === -1`) - and cleared again the
+    // moment the user picked one.
+    renderSheet({
+      item: { id: 1, name: 'Existing', isActive: true },
+      adapter: makeAdapter({
+        fields: [
+          { key: 'userId', label: 'For', type: 'user', required: true },
+          {
+            key: 'frequency',
+            label: 'Frequency',
+            type: 'select',
+            options: [
+              { value: 1, label: 'Monthly' },
+              { value: 12, label: 'Annual' },
+            ],
+          },
+        ],
+        toFormValues: () => ({ userId: 2, frequency: 12 }),
+      }),
+      users: [
+        { id: 1, fullName: 'Adam', email: 'a@test.local', displayColor: null, initials: 'A' },
+        { id: 2, fullName: 'Bea', email: 'b@test.local', displayColor: null, initials: 'B' },
+      ],
+    })
+
+    expect(screen.getByLabelText('For')).toHaveValue('2')
+    expect(screen.getByLabelText('Frequency')).toHaveValue('12')
+  })
+
   it('closes via the footer cancel button', async () => {
     const onOpenChange = vi.fn()
     renderSheet({ onOpenChange })

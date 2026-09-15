@@ -115,7 +115,7 @@
       >
         <option value="">Select person</option>
         {#each users as u (u.id)}
-          <option value={u.id}>{u.fullName ?? u.email}</option>
+          <option value={String(u.id)}>{u.fullName ?? u.email}</option>
         {/each}
       </select>
     </label>
@@ -131,7 +131,7 @@
           <option value="">Other</option>
         {/if}
         {#each availableSources as source (source.id)}
-          <option value={source.id}>{source.name}</option>
+          <option value={String(source.id)}>{source.name}</option>
         {/each}
       </select>
     </label>

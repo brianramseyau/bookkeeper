@@ -407,6 +407,15 @@ been merged:
   `Number.isNaN(x)` silently lets a blank field through. All web forms use
   `Number.isNaN(x) || x === null` at the call site for this reason — match
   that pattern for any new required numeric field guard.
+- **`<select>` value/option type mismatch**: Svelte matches a select's raw
+  `value` against each option's raw JS value (`option.__value`, taken from
+  the template expression) with `Object.is`, so a `String(id)` select value
+  never matches a numeric `id` option (or vice versa). The select renders
+  with nothing selected (`selectedIndex === -1`) and clears again the moment
+  the user picks a value — it looks like a Svelte/jsdom render-order bug but
+  isn't. Normalise both sides to strings: `String(...)` on any numeric
+  option value. Regression tests: `OutgoingFormSheet.spec.ts`,
+  `CategorySelect.spec.ts`.
 - **Single currency, hardcoded AUD formatting, no multi-tenant support, no
   general SSO/OIDC integration** — these are deliberate non-goals, not gaps
   to fill in. The one exception is Authentik proxy-header auto-login (see
