@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Category } from '$lib/api/categories'
 import type { UserSummary } from '$lib/api/users'
 
@@ -80,6 +80,10 @@ const trend = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('billsAdapter', () => {
@@ -365,8 +369,6 @@ describe('utilitiesAdapter', () => {
       hint: 'Due in 2 days',
       tone: 'due',
     })
-
-    vi.useRealTimers()
   })
 })
 

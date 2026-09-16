@@ -40,21 +40,21 @@
   // screen reader doesn't need "up triangle"), paired with a visually-
   // hidden TONE_LABEL text so the tone itself still reaches the
   // accessibility tree, per Kilo Code Review's follow-up on the first fix.
-  const TONE_GLYPH: Record<string, string | null> = {
+  const TONE_GLYPH: Record<NonNullable<Props['tone']>, string | null> = {
     default: null,
     positive: '▲',
     negative: '▼',
     due: null,
     over: null,
   }
-  const TONE_ICON: Record<string, string | null> = {
+  const TONE_ICON: Record<NonNullable<Props['tone']>, string | null> = {
     default: null,
     positive: null,
     negative: null,
     due: mdiClockOutline,
     over: mdiAlertCircle,
   }
-  const TONE_LABEL: Record<string, string | null> = {
+  const TONE_LABEL: Record<NonNullable<Props['tone']>, string | null> = {
     default: null,
     positive: 'Positive:',
     negative: 'Negative:',

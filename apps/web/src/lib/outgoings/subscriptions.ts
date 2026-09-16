@@ -104,7 +104,7 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
       { label: 'Billed on', value: item.dayOfMonth ? `Day ${item.dayOfMonth}` : 'Any day' },
       {
         label: 'Owner',
-        value: owner?.fullName ?? owner?.email ?? 'Unknown',
+        value: owner?.fullName || owner?.email || 'Unknown',
         dot: owner?.displayColor ?? null,
       },
       {
