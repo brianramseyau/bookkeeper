@@ -42,7 +42,7 @@ describe('StatCard', () => {
     expect(screen.getByText('$1,240.00')).toHaveClass('text-in')
     // DESIGN.md: status is never shown by colour alone - the glyph is the
     // non-colour signal, since `value` is pre-formatted by the caller and
-    // doesn't necessarily carry its own +/- sign (see /_design's specimen).
+    // doesn't necessarily carry its own +/- sign.
     expect(screen.getByText('▲')).toHaveClass('text-in')
     // The glyph itself is aria-hidden (decorative for sighted users), so the
     // tone also needs a screen-reader-only equivalent - otherwise a screen

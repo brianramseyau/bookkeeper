@@ -20,7 +20,8 @@
   import type { CurrentUser } from '$lib/stores/auth.svelte'
   import { themeState, toggleTheme } from '$lib/stores/theme.svelte'
   import { isRouteActive } from './route-active'
-
+  import { TOUCH_MENU_ITEM } from '../menu-touch'
+  import { avatarColors } from '$lib/color'
   // Categories and Tasks are setup/admin screens, not one of DESIGN.md's
   // "answers one question" screens - grouped here with Settings rather than
   // sitting in primary nav alongside Dashboard/Monthly/Income/Outgoings.
@@ -44,6 +45,7 @@
   let { user, onLogout, trigger }: Props = $props()
 
   const isActive = $derived(LINKS.some((link) => isRouteActive(page.url.pathname, link.href)))
+  const avatar = $derived(avatarColors(user.displayColor, themeState.current))
 </script>
 
 <DropdownMenu>
@@ -58,8 +60,8 @@
           aria-label="Account menu for {user.fullName ?? user.email}"
           aria-current={isActive ? 'true' : undefined}
           title={user.fullName ?? user.email}
-          class="flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-          style="background-color: {user.displayColor ?? 'var(--muted-ink)'}"
+          class="flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+          style="background-color: {avatar.background}; color: {avatar.foreground}"
         >
           {user.initials}
         </button>
@@ -69,7 +71,7 @@
   <DropdownMenuContent align="end" class="w-48">
     {#each LINKS as link (link.href)}
       {@const linkActive = isRouteActive(page.url.pathname, link.href)}
-      <DropdownMenuItem>
+      <DropdownMenuItem class={TOUCH_MENU_ITEM}>
         {#snippet child({ props }: { props: Record<string, unknown> })}
           <a
             href={link.href}
@@ -92,7 +94,10 @@
     <DropdownMenuSeparator />
     <DropdownMenuItem
       onSelect={toggleTheme}
-      class="data-highlighted:bg-accent text-ink flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors"
+      class={cn(
+        'data-highlighted:bg-accent text-ink flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
+        TOUCH_MENU_ITEM
+      )}
     >
       <svg viewBox="0 0 24 24" class="size-4 shrink-0" fill="currentColor" aria-hidden="true">
         <path d={themeState.current === 'dark' ? mdiWeatherSunny : mdiWeatherNight} />
@@ -102,7 +107,10 @@
     <DropdownMenuSeparator />
     <DropdownMenuItem
       onSelect={onLogout}
-      class="data-highlighted:bg-accent text-ink flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors"
+      class={cn(
+        'data-highlighted:bg-accent text-ink flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors',
+        TOUCH_MENU_ITEM
+      )}
     >
       <svg viewBox="0 0 24 24" class="size-4 shrink-0" fill="currentColor" aria-hidden="true">
         <path d={mdiLogout} />

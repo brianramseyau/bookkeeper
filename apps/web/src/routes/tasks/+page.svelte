@@ -335,7 +335,7 @@
   <p class="text-muted-foreground mt-1 text-sm">
     What time of day the shared bill-reminder check runs. Each person opts in and picks which bill
     types to be notified about from their own
-    <a href="/settings" class="text-primary underline-offset-4 hover:underline">Settings</a> page.
+    <a href="/settings" class="text-primary underline underline-offset-4">Settings</a> page.
   </p>
 
   {#if notificationScheduleLoading}

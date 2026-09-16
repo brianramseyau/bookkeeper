@@ -199,8 +199,12 @@
 
 /* iOS Safari auto-zooms the viewport when focusing a text field with a
    computed font-size under 16px. Most form fields use Tailwind's text-sm
-   (14px), which triggers that "phantom zoom" on every tap into a form. */
-@media (max-width: 639px) {
+   (14px), which triggers that "phantom zoom" on every tap into a form. The
+   guard is keyed to the pointer, not the viewport width, so it still holds
+   in landscape or on a wide touch device - where the page is now free to
+   zoom because the viewport meta no longer sets maximum-scale (see
+   app.html; WCAG 1.4.4). Mouse users keep the compact 14px fields. */
+@media (pointer: coarse) {
   input,
   select,
   textarea {

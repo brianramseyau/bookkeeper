@@ -206,27 +206,27 @@
     {#if hovered}
       {@const left = (hovered.x / width) * 100}
       <div
-        class="pointer-events-none absolute top-0 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs shadow-sm dark:border-slate-700 dark:bg-slate-900"
+        class="border-border bg-popover pointer-events-none absolute top-0 -translate-x-1/2 rounded-md border px-2 py-1 text-xs shadow-sm"
         style="left: {left}%"
       >
-        <p class="font-semibold text-slate-900 dark:text-slate-100">
+        <p class="text-ink font-semibold">
           {formatCurrency(hovered.entry.total)}
         </p>
-        <p class="text-slate-500 dark:text-slate-400">
+        <p class="text-muted-ink">
           {monthShortName(hovered.entry.month)}
           {hovered.entry.year}
         </p>
       </div>
     {/if}
   {:else}
-    <p class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Not enough data yet</p>
+    <p class="text-muted-ink py-8 text-center text-sm">Not enough data yet</p>
   {/if}
 </div>
 
 <button
   type="button"
   onclick={() => (showTable = !showTable)}
-  class="mt-2 text-xs font-medium text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400"
+  class="text-muted-ink hover:text-violet mt-2 text-xs font-medium"
 >
   {showTable ? 'Hide table' : 'View as table'}
 </button>
@@ -235,28 +235,25 @@
   <div class="overflow-x-auto">
     <table class="mt-2 w-full border-collapse text-sm">
       <thead>
-        <tr class="border-b border-slate-200 dark:border-slate-700">
-          <th class="px-2 py-1 text-left font-semibold text-slate-500 dark:text-slate-400">Month</th
-          >
-          <th class="px-2 py-1 text-right font-semibold text-slate-500 dark:text-slate-400"
-            >Total</th
-          >
+        <tr class="border-border border-b">
+          <th class="text-muted-ink px-2 py-1 text-left font-semibold">Month</th>
+          <th class="text-muted-ink px-2 py-1 text-right font-semibold">Total</th>
         </tr>
       </thead>
       <tbody>
         {#each data as entry (entry.year + '-' + entry.month)}
           <tr
             class={[
-              'border-b border-slate-100 last:border-0 dark:border-slate-700/60',
-              onSelectMonth && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/40',
+              'border-rule border-b last:border-0',
+              onSelectMonth && 'hover:bg-accent cursor-pointer',
             ]}
             onclick={() => onSelectMonth?.(entry.year, entry.month)}
           >
-            <td class="px-2 py-1 text-slate-700 dark:text-slate-300">
+            <td class="text-ink px-2 py-1">
               {monthShortName(entry.month)}
               {entry.year}
             </td>
-            <td class="px-2 py-1 text-right text-slate-900 dark:text-slate-100">
+            <td class="text-ink px-2 py-1 text-right">
               {formatCurrency(entry.total)}
             </td>
           </tr>
