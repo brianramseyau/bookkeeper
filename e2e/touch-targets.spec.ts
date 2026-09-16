@@ -60,14 +60,30 @@ test('a tap on page content while a tab bar menu is open only dismisses it', asy
 
   // Tap at a row link's location: the menu's scroll lock keeps the tap from
   // reaching the link, so it dismisses rather than navigating. Assert the
-  // coordinates are on-screen first, or a miss would pass for the wrong reason.
+  // coordinates are on-screen and not covered by the menu/tab bar, or a click
+  // on one of those could pass the test without exercising the content path.
   const link = page.getByRole('link', { name: 'Childcare' })
   await link.scrollIntoViewIfNeeded()
   const row = await link.boundingBox()
   if (!row) throw new Error('Childcare row has no bounding box')
   expect(row.y).toBeGreaterThanOrEqual(0)
   expect(row.y + row.height).toBeLessThanOrEqual(844)
-  await page.mouse.click(row.x + row.width / 2, row.y + row.height / 2)
+
+  const x = row.x + row.width / 2
+  const y = row.y + row.height / 2
+  const overlays = await page.evaluate(
+    ([px, py]) => {
+      const element = document.elementFromPoint(px, py)
+      return {
+        menu: Boolean(element?.closest('[data-mobile-bottom-menu]')),
+        tabBar: Boolean(element?.closest('[data-mobile-tab-bar]')),
+      }
+    },
+    [x, y]
+  )
+  expect(overlays).toEqual({ menu: false, tabBar: false })
+
+  await page.mouse.click(x, y)
 
   await expect(page.getByRole('menuitem')).toHaveCount(0)
   await expect(page).toHaveURL(/\/bills$/)

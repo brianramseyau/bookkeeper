@@ -260,6 +260,10 @@ describe('expensesAdapter', () => {
     expect(grouping.key({ id: 3, name: 'C', categoryId: 99 } as never, ctx)).toBe('__uncategorized')
     expect(grouping.label!('5', ctx)).toBe('Insurance')
     expect(grouping.label!('__uncategorized', ctx)).toBe('Uncategorized')
+    // `key()` folds unknown ids into UNCATEGORIZED, so this is a guard for if
+    // `key`/`order` ever drift rather than a path `OutgoingsList` reaches -
+    // assert it directly so the branch stays covered.
+    expect(grouping.label!('99', ctx)).toBe('Uncategorized')
 
     const order = (grouping.order as (context: typeof ctx) => string[])(ctx)
     expect(order).toEqual(['5', '__uncategorized'])
