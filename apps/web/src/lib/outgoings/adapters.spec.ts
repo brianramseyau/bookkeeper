@@ -237,7 +237,7 @@ describe('subscriptionsAdapter', () => {
 })
 
 describe('expensesAdapter', () => {
-  it('attaches trends on list and reorders changed rows only', async () => {
+  it('attaches trends on list', async () => {
     vi.mocked(expensesApi.listExpenses).mockResolvedValue([
       { id: 1, name: 'A', sortOrder: 0 } as never,
       { id: 2, name: 'B', sortOrder: 1 } as never,
@@ -247,15 +247,23 @@ describe('expensesAdapter', () => {
 
     const rows = await expensesAdapter.list({ includeHidden: true })
     expect(rows[0]?.trend).toEqual(trend)
+  })
 
-    vi.mocked(expensesApi.updateExpense).mockResolvedValue({} as never)
-    await expensesAdapter.reorder!([
-      { id: 3, name: 'C', sortOrder: 2 } as never,
-      { id: 2, name: 'B', sortOrder: 1 } as never,
-      { id: 1, name: 'A', sortOrder: 0 } as never,
-    ])
-    expect(expensesApi.updateExpense).toHaveBeenCalledWith(3, { sortOrder: 0 })
-    expect(expensesApi.updateExpense).toHaveBeenCalledWith(1, { sortOrder: 2 })
+  it('groups by category, resolving the label and order from the lookups', () => {
+    expect(expensesAdapter.group!({ id: 1, name: 'A', categoryId: 5 } as never)).toBe('5')
+    expect(expensesAdapter.group!({ id: 2, name: 'B', categoryId: null } as never)).toBe(
+      '__uncategorized'
+    )
+    expect(expensesAdapter.groupLabel!('5', ctx)).toBe('Insurance')
+    expect(expensesAdapter.groupLabel!('99', ctx)).toBe('Uncategorized')
+    expect(expensesAdapter.groupLabel!('__uncategorized', ctx)).toBe('Uncategorized')
+
+    const order = (expensesAdapter.groupOrder as (context: typeof ctx) => string[])(ctx)
+    expect(order).toEqual(['5', '__uncategorized'])
+  })
+
+  it('sorts by name by default', () => {
+    expect(expensesAdapter.defaultSort).toBe('name')
   })
 
   it('omits budgetAmount when the expense has itemized items', async () => {

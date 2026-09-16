@@ -44,7 +44,6 @@ function makeAdapter(overrides: Partial<OutgoingAdapter<OutgoingRecord>> = {}) {
     emptyMessage: '',
     supportsLifecycle: true,
     supportsGrouping: false,
-    supportsReorder: false,
     hasHistory: true,
     columns: [],
     fields: [{ key: 'name', label: 'Name', type: 'text', required: true }],

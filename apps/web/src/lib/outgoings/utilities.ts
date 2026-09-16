@@ -11,6 +11,7 @@ import {
 import { ApiError } from '$lib/api'
 import { formatCurrency, formatDate } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
+import { byName, byValueAsc, byValueDesc } from './sort'
 import type { OutgoingAdapter, OutgoingFormValues, OutgoingTrend } from './types'
 
 /** A utility plus the trailing trend the list attaches, for latest/average columns. */
@@ -25,7 +26,7 @@ export const UTILITY_FREQUENCIES: { value: UtilityFrequency; label: string }[] =
   { value: 'annual', label: 'Annual' },
 ]
 
-function utilityFrequencyLabel(frequency: string): string {
+export function utilityFrequencyLabel(frequency: string): string {
   return UTILITY_FREQUENCIES.find((f) => f.value === frequency)?.label ?? frequency
 }
 
@@ -51,9 +52,28 @@ export const utilitiesAdapter: OutgoingAdapter<UtilityRow> = {
   // show (see PLAN_01_PHASE_03_UNIFIED_OUTGOINGS.md - adding one would need a
   // migration).
   supportsLifecycle: false,
-  supportsGrouping: false,
-  supportsReorder: false,
+  supportsGrouping: true,
+  groupByLabel: 'frequency',
   hasHistory: false,
+  sorts: [
+    { value: 'name', label: 'Name (A-Z)', compare: byName },
+    {
+      value: 'latest',
+      label: 'Latest bill (high to low)',
+      compare: byValueDesc((item) => item.trend?.latestAmount),
+    },
+    {
+      value: 'average',
+      label: '12-month average (high to low)',
+      compare: byValueDesc((item) => item.trend?.average),
+    },
+    {
+      value: 'nextDue',
+      label: 'Next due',
+      compare: byValueAsc((item) => item.trend?.nextDueOn),
+    },
+  ],
+  defaultSort: 'name',
   columns: [
     { key: 'latest', label: 'Latest bill', align: 'right', money: true },
     { key: 'average', label: '12-month average', align: 'right', money: true },
@@ -114,6 +134,9 @@ export const utilitiesAdapter: OutgoingAdapter<UtilityRow> = {
 
   href: (item) => `/utilities/${item.id}`,
   subtitle: (item) => utilityFrequencyLabel(item.frequency),
+  group: (item) => item.frequency,
+  groupOrder: UTILITY_FREQUENCIES.map((frequency) => frequency.value),
+  groupLabel: (key) => utilityFrequencyLabel(key),
   state: (item) => lifecycleState(item),
   rowValues: (item) => ({
     latest: formatCurrency(item.trend?.latestAmount ?? null),

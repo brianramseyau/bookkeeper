@@ -13,7 +13,6 @@ function makeAdapter(
     emptyMessage: '',
     supportsLifecycle: true,
     supportsGrouping: false,
-    supportsReorder: false,
     hasHistory: false,
     columns: [],
     fields: [

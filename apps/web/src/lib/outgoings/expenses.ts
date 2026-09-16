@@ -10,7 +10,7 @@ import {
 import { getExpenseTrend, type ExpenseTrend } from '$lib/api/expense-actuals'
 import { formatCurrency } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
-import { reorderedSortOrders } from '$lib/dnd'
+import { byName, byValueDesc } from './sort'
 import type {
   OutgoingAdapter,
   OutgoingField,
@@ -22,6 +22,9 @@ import type {
 export interface ExpenseRow extends Expense {
   trend?: ExpenseTrend | null
 }
+
+/** Group key for an expense with no category (never a real category id). */
+const UNCATEGORIZED = '__uncategorized'
 
 const EXPENSE_FIELDS: OutgoingField[] = [
   { key: 'name', label: 'Name', type: 'text', required: true, placeholder: 'e.g. Groceries' },
@@ -63,9 +66,28 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
   singular: 'Expense',
   emptyMessage: 'No expenses yet. Add the first one to start tracking spend.',
   supportsLifecycle: true,
-  supportsGrouping: false,
-  supportsReorder: true,
+  supportsGrouping: true,
+  groupByLabel: 'category',
   hasHistory: false,
+  sorts: [
+    { value: 'name', label: 'Name (A-Z)', compare: byName },
+    {
+      value: 'budget',
+      label: 'Budget (high to low)',
+      compare: byValueDesc((item) => item.budgetAmount),
+    },
+    {
+      value: 'latest',
+      label: 'Latest (high to low)',
+      compare: byValueDesc((item) => item.trend?.latestAmount),
+    },
+    {
+      value: 'average',
+      label: '12-month average (high to low)',
+      compare: byValueDesc((item) => item.trend?.average),
+    },
+  ],
+  defaultSort: 'name',
   columns: [
     { key: 'budget', label: 'Budget', align: 'right', money: true },
     { key: 'latest', label: 'Latest', align: 'right', money: true },
@@ -94,12 +116,6 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
   setLifecycle: (id, patch) => updateExpense(id, patch),
   remove: (id) => deleteExpense(id),
   trend: (id) => getExpenseTrend(id) as Promise<OutgoingTrend>,
-  async reorder(items) {
-    const changes = reorderedSortOrders(items)
-    await Promise.all(
-      changes.map((change) => updateExpense(change.id, { sortOrder: change.sortOrder }))
-    )
-  },
 
   href: (item) => `/expenses/${item.id}`,
   subtitle: (item, ctx) =>
@@ -109,6 +125,12 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
     ]
       .filter(Boolean)
       .join(', '),
+  group: (item) => (item.categoryId === null ? UNCATEGORIZED : String(item.categoryId)),
+  groupOrder: (ctx) => [...ctx.categories.map((category) => String(category.id)), UNCATEGORIZED],
+  groupLabel: (key, ctx) =>
+    key === UNCATEGORIZED
+      ? 'Uncategorized'
+      : (ctx.categories.find((category) => String(category.id) === key)?.name ?? 'Uncategorized'),
   state: (item) => lifecycleState(item),
   anchorId: (item) => `expense-${item.id}`,
   rowValues: (item, ctx) => ({

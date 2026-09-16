@@ -21,6 +21,17 @@ export interface OutgoingFieldOption {
   label: string
 }
 
+/**
+ * One choice in a list page's sort control. Omit `compare` to keep the
+ * adapter's own list order (the page's default order from `list()`).
+ */
+export interface OutgoingSortOption<T extends OutgoingRecord> {
+  value: string
+  label: string
+  /** Method syntax (not a property arrow type) so adapters stay assignable to `OutgoingAdapter<OutgoingRecord>` by bivariant parameter checking. */
+  compare?(a: T, b: T): number
+}
+
 export type OutgoingFieldType =
   'text' | 'number' | 'date' | 'select' | 'category' | 'user' | 'checkbox'
 
@@ -102,9 +113,13 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
   emptyMessage: string
   supportsLifecycle: boolean
   supportsGrouping: boolean
-  supportsReorder: boolean
+  /** Noun for the grouping toggle's label, e.g. "Group by category". */
+  groupByLabel?: string
   /** Whether the detail page renders a payment history table. */
   hasHistory: boolean
+  /** Sort choices for the list; the first (`defaultSort`) is selected initially. */
+  sorts?: OutgoingSortOption<T>[]
+  defaultSort?: string
   columns: OutgoingColumn[]
   /** Fields the add/edit form renders. */
   fields: OutgoingField[]
@@ -127,11 +142,11 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
 
   href(item: T): string
   subtitle(item: T, ctx: OutgoingContext): string
-  /** Optional grouping key on the list (e.g. frequency). */
+  /** Optional grouping key on the list (e.g. frequency, category). */
   group?(item: T): string | null
-  /** Display order and labels for `group` keys. */
-  groupOrder?: string[]
-  groupLabel?(key: string): string
+  /** Display order for `group` keys, fixed or derived from the loaded lookups. */
+  groupOrder?: string[] | ((ctx: OutgoingContext) => string[])
+  groupLabel?(key: string, ctx: OutgoingContext): string
   state(item: T): LifecycleState
   /** DOM id for a row, so a `#bill-12` deep link can scroll/flash it (see the Monthly page's cross-links). */
   anchorId?(item: T): string | null
@@ -139,6 +154,4 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
   stats(item: T, trend: OutgoingTrend, ctx: OutgoingContext): OutgoingStat[]
   /** Prefill for the edit form. */
   toFormValues(item: T, ctx: OutgoingContext): OutgoingFormValues
-  /** Persist a new order (expenses only). */
-  reorder?(items: T[]): Promise<void>
 }

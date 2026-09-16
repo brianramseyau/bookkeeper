@@ -13,6 +13,7 @@ import {
 } from '$lib/api/recurring-bills'
 import { formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
+import { byName, byValueAsc, byValueDesc } from './sort'
 import type {
   OutgoingAdapter,
   OutgoingFormValues,
@@ -69,8 +70,14 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
   emptyMessage: 'No bills yet. Add the first one to see when it is due.',
   supportsLifecycle: true,
   supportsGrouping: true,
-  supportsReorder: false,
+  groupByLabel: 'frequency',
   hasHistory: true,
+  sorts: [
+    { value: 'due', label: 'Next due', compare: byValueAsc((bill) => bill.daysUntilDue) },
+    { value: 'name', label: 'Name (A-Z)', compare: byName },
+    { value: 'amount', label: 'Amount (high to low)', compare: byValueDesc((bill) => bill.amount) },
+  ],
+  defaultSort: 'due',
   columns: [
     { key: 'amount', label: 'Amount', align: 'right', money: true },
     { key: 'frequency', label: 'Frequency' },
