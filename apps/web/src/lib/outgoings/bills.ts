@@ -11,7 +11,7 @@ import {
   type RecurringBillFrequency,
   type RecurringBillInput,
 } from '$lib/api/recurring-bills'
-import { formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
+import { dueDateTone, formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
 import { byName, byValueAsc, byValueDesc } from './sort'
 import type {
@@ -144,15 +144,21 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
         : formatDate(item.nextDueOn ?? null),
     category: ctx.categories.find((c) => c.id === item.categoryId)?.name ?? 'Uncategorized',
   }),
-  stats: (item, trend) => [
+  stats: (item, trend, ctx) => [
     { label: 'Amount', value: formatCurrency(item.amount) },
     { label: 'Frequency', value: frequencyLabel(item.frequency) },
     {
       label: 'Next due',
       value: formatDate(item.nextDueOn ?? null),
       hint: item.daysUntilDue != null ? formatDaysUntilDue(item.daysUntilDue) : undefined,
+      tone: dueDateTone(item.daysUntilDue ?? null),
     },
     { label: '12-month average', value: formatCurrency(trend.average) },
+    {
+      label: 'Category',
+      value: ctx.categories.find((c) => c.id === item.categoryId)?.name ?? 'Uncategorized',
+      dot: ctx.categories.find((c) => c.id === item.categoryId)?.color ?? null,
+    },
   ],
   toFormValues: (item) => ({
     name: item.name,

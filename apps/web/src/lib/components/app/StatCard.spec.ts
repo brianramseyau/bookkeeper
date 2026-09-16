@@ -59,6 +59,40 @@ describe('StatCard', () => {
     expect(screen.getByText('Negative:')).toHaveClass('sr-only')
   })
 
+  it('colours the value due and shows a clock icon for a due tone', () => {
+    render(StatCard, { label: 'Next due', value: 'In 4 days', tone: 'due' })
+
+    expect(screen.getByText('In 4 days')).toHaveClass('text-due')
+    expect(screen.getByText('Due soon:')).toHaveClass('sr-only')
+    expect(screen.queryByText('▲')).toBeNull()
+  })
+
+  it('colours the value over and shows an alert icon for an over tone', () => {
+    render(StatCard, { label: 'Next due', value: 'Overdue by 2 days', tone: 'over' })
+
+    expect(screen.getByText('Overdue by 2 days')).toHaveClass('text-over')
+    expect(screen.getByText('Overdue:')).toHaveClass('sr-only')
+  })
+
+  it('renders a leading colour dot when given one', () => {
+    const { container } = render(StatCard, {
+      label: 'Category',
+      value: 'Groceries',
+      dot: '#5B3FA0',
+    })
+
+    const dot = container.querySelector('span[style*="background-color"]')
+    expect(dot).not.toBeNull()
+    // jsdom normalises the inline style's hex colour to rgb().
+    expect(dot).toHaveStyle({ backgroundColor: 'rgb(91, 63, 160)' })
+  })
+
+  it('renders no dot by default', () => {
+    const { container } = render(StatCard, { label: 'Category', value: 'Groceries' })
+
+    expect(container.querySelector('span[style*="background-color"]')).toBeNull()
+  })
+
   it('renders the value with tabular figures', () => {
     render(StatCard, { label: 'Projected net', value: '$1,240.00' })
 

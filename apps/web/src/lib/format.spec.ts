@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   currentFinancialYear,
+  dueDateTone,
   financialYearFor,
   financialYearLabel,
   financialYearMonths,
@@ -215,6 +216,25 @@ describe('formatDaysUntilDue', () => {
   it('pluralizes overdue days', () => {
     expect(formatDaysUntilDue(-1)).toBe('Overdue by 1 day')
     expect(formatDaysUntilDue(-5)).toBe('Overdue by 5 days')
+  })
+})
+
+describe('dueDateTone', () => {
+  it('is default for null', () => {
+    expect(dueDateTone(null)).toBe('default')
+  })
+
+  it('is over for a negative days-until-due', () => {
+    expect(dueDateTone(-1)).toBe('over')
+  })
+
+  it('is due within the 30-day window, including today', () => {
+    expect(dueDateTone(0)).toBe('due')
+    expect(dueDateTone(30)).toBe('due')
+  })
+
+  it('is default beyond the window', () => {
+    expect(dueDateTone(31)).toBe('default')
   })
 })
 

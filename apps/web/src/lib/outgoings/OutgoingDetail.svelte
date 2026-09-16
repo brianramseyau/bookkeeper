@@ -172,7 +172,13 @@
     <div class="mt-6">
       <StatGrid cols={4}>
         {#each adapter.stats(item, trend, { categories, users }) as stat (stat.label)}
-          <StatCard label={stat.label} value={stat.value} hint={stat.hint} tone={stat.tone} />
+          <StatCard
+            label={stat.label}
+            value={stat.value}
+            hint={stat.hint}
+            tone={stat.tone}
+            dot={stat.dot}
+          />
         {/each}
       </StatGrid>
     </div>

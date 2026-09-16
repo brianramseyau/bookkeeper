@@ -141,6 +141,22 @@ export function formatDaysUntilDue(days: number | null): string {
   return `Due in ${days} day${days === 1 ? '' : 's'}`
 }
 
+/** Matches the API's own `DUE_SOON_WINDOW_DAYS` (recurring_bills_controller.ts). */
+const DUE_SOON_WINDOW_DAYS = 30
+
+/**
+ * The `due`/`over` status tone (DESIGN.md → Colour) for a days-until-due
+ * figure - overdue is `over`, due within the window is `due`, otherwise no
+ * tone. Shared by every "next due" stat so bills and utilities agree on the
+ * same threshold.
+ */
+export function dueDateTone(days: number | null): 'default' | 'due' | 'over' {
+  if (days === null) return 'default'
+  if (days < 0) return 'over'
+  if (days <= DUE_SOON_WINDOW_DAYS) return 'due'
+  return 'default'
+}
+
 /** Whole calendar days between today and isoDate - negative if isoDate is in the past. */
 export function daysUntil(isoDate: string): number {
   const due = new Date(isoDate)

@@ -95,7 +95,11 @@ export interface OutgoingStat {
   label: string
   value: string
   hint?: string
-  tone?: 'default' | 'positive' | 'negative'
+  tone?: 'default' | 'positive' | 'negative' | 'due' | 'over'
+  /** A leading colour swatch for an identity value (a category or person's
+      own colour), e.g. Category or Owner - not for a money figure, which
+      stays plain ink (DESIGN.md → Colour). */
+  dot?: string | null
 }
 
 /** The minimum every outgoing entity has in common. */
