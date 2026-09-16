@@ -62,7 +62,10 @@ async function expandCollapsedContent(page: Page) {
   const charts = page.getByRole('button', { name: /^Charts/ })
   if ((await charts.count()) > 0) {
     await charts.first().click()
-    await expect(page.locator('svg[role="img"]').first()).toBeVisible()
+    await expect(charts.first()).toHaveAttribute('aria-expanded', 'true')
+    // Scope the SVG to the same card, so an unrelated `role="img"` chart
+    // elsewhere on the page can't satisfy the guard for an empty accordion.
+    await expect(charts.first().locator('..').locator('svg[role="img"]').first()).toBeVisible()
   }
 }
 
@@ -98,6 +101,10 @@ test.describe('mobile (coarse pointer)', () => {
         await page.setViewportSize({ width: 390, height: 844 })
         await applyTheme(page, theme)
         await loadRoute(page, path, heading)
+        // Self-check the premise this pass exists for: if `hasTouch` stops
+        // flagging a coarse primary pointer, fail rather than silently
+        // becoming a second fine-pointer run.
+        expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
         await expandCollapsedContent(page)
         await expectAxeClean(page)
       })
