@@ -7,7 +7,7 @@
       content="width=device-width, initial-scale=1"
     />
     <meta name="text-scale" content="scale" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Bookkeeper</title>
@@ -16,6 +16,10 @@
         var stored = localStorage.getItem('theme')
         var isDark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
         document.documentElement.classList.toggle('dark', isDark)
+        // Keep the browser/PWA chrome in step with the app's `--surface` token
+        // (layout.css) before first paint, to avoid a flash of the wrong bar.
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', isDark ? '#18201c' : '#ffffff')
       })()
     </script>
     %sveltekit.head%

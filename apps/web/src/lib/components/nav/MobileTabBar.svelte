@@ -47,6 +47,7 @@
      whenever that changes, rather than only one of them moving. -->
 <nav
   aria-label="Primary"
+  data-mobile-tab-bar
   class="bg-surface border-rule fixed inset-x-0 bottom-0 z-40 border-t pb-[env(safe-area-inset-bottom)] lg:hidden"
 >
   <div class="grid grid-cols-5">
@@ -63,7 +64,7 @@
         {tab.label}
       </a>
     {/each}
-    <OutgoingsMenu>
+    <OutgoingsMenu mobile>
       {#snippet trigger({ props }, active)}
         <button
           type="button"
@@ -78,7 +79,7 @@
         </button>
       {/snippet}
     </OutgoingsMenu>
-    <AccountMenu {user} {onLogout}>
+    <AccountMenu {user} {onLogout} mobile>
       {#snippet trigger({ props }, active)}
         <button
           type="button"

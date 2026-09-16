@@ -29,8 +29,6 @@ function makeAdapter(overrides: Partial<OutgoingAdapter<Thing>> = {}): OutgoingA
     singular: 'Thing',
     emptyMessage: 'No things yet.',
     supportsLifecycle: true,
-    supportsGrouping: false,
-    supportsReorder: false,
     hasHistory: false,
     columns: [{ key: 'amount', label: 'Amount', align: 'right', money: true }],
     fields: [
@@ -84,6 +82,7 @@ const archived: Thing = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  localStorage.clear()
   vi.mocked(listCategories).mockResolvedValue([])
   vi.mocked(listUsers).mockResolvedValue([])
   window.location.hash = ''
@@ -195,10 +194,12 @@ describe('OutgoingsList', () => {
         { ...active, id: 1, name: 'Car', frequency: 'annual' },
         { ...active, id: 2, name: 'Gym', frequency: 'monthly' },
       ]),
-      supportsGrouping: true,
-      group: (item: Thing) => item.frequency,
-      groupOrder: ['monthly', 'annual'],
-      groupLabel: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      grouping: {
+        byLabel: 'frequency',
+        key: (item: Thing) => item.frequency,
+        order: ['monthly', 'annual'],
+        label: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      },
     })
     render(OutgoingsList, { props: { adapter, header } })
 
@@ -206,6 +207,127 @@ describe('OutgoingsList', () => {
     expect(await screen.findByRole('link', { name: 'Car' })).toBeInTheDocument()
     expect(screen.getByText('Yearly')).toBeInTheDocument()
     expect(screen.getAllByText('Monthly').length).toBeGreaterThan(0)
+  })
+
+  it('toggles grouping off, flattening the list, and remembers the choice', async () => {
+    const adapter = makeAdapter({
+      list: vi.fn().mockResolvedValue([
+        { ...active, id: 1, name: 'Car', frequency: 'annual' },
+        { ...active, id: 2, name: 'Gym', frequency: 'monthly' },
+      ]),
+      grouping: {
+        byLabel: 'frequency',
+        key: (item: Thing) => item.frequency,
+        order: ['monthly', 'annual'],
+        label: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      },
+    })
+    render(OutgoingsList, { props: { adapter } })
+    await screen.findByRole('link', { name: 'Car' })
+
+    const toggle = screen.getByRole('button', { name: 'Group by frequency' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Yearly')).toBeInTheDocument()
+
+    await userEvent.setup().click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText('Yearly')).not.toBeInTheDocument()
+    expect(localStorage.getItem('outgoings-group:things')).toBe('off')
+  })
+
+  it('restores grouping off on mount', async () => {
+    localStorage.setItem('outgoings-group:things', 'off')
+    const adapter = makeAdapter({
+      list: vi.fn().mockResolvedValue([{ ...active, id: 1, name: 'Car', frequency: 'annual' }]),
+      grouping: {
+        byLabel: 'frequency',
+        key: (item: Thing) => item.frequency,
+        label: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      },
+    })
+    render(OutgoingsList, { props: { adapter } })
+    await screen.findByRole('link', { name: 'Car' })
+
+    expect(screen.queryByText('Yearly')).not.toBeInTheDocument()
+  })
+
+  it('sorts rows with the sort control and remembers the choice', async () => {
+    const adapter = makeAdapter({
+      list: vi.fn().mockResolvedValue([
+        { ...active, id: 1, name: 'Zebra', amount: 5 },
+        { ...active, id: 2, name: 'Apple', amount: 50 },
+      ]),
+      sorts: [
+        { value: 'default', label: 'Default' },
+        { value: 'name', label: 'Name (A-Z)', compare: (a, b) => a.name.localeCompare(b.name) },
+        {
+          value: 'amount',
+          label: 'Amount (high to low)',
+          compare: (a, b) => b.amount - a.amount,
+        },
+      ],
+      defaultSort: 'default',
+    })
+    render(OutgoingsList, { props: { adapter } })
+    await screen.findByRole('link', { name: 'Zebra' })
+
+    const names = () => screen.getAllByRole('link').map((link) => link.textContent)
+    expect(names()).toEqual(['Zebra', 'Apple'])
+
+    await fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'name' } })
+    expect(names()).toEqual(['Apple', 'Zebra'])
+    expect(localStorage.getItem('outgoings-sort:things')).toBe('name')
+
+    await fireEvent.change(screen.getByLabelText('Sort'), { target: { value: 'amount' } })
+    expect(names()).toEqual(['Apple', 'Zebra'])
+  })
+
+  it('restores a remembered sort on mount', async () => {
+    localStorage.setItem('outgoings-sort:things', 'name')
+    const adapter = makeAdapter({
+      list: vi.fn().mockResolvedValue([
+        { ...active, id: 1, name: 'Zebra', amount: 5 },
+        { ...active, id: 2, name: 'Apple', amount: 50 },
+      ]),
+      sorts: [
+        { value: 'default', label: 'Default' },
+        { value: 'name', label: 'Name (A-Z)', compare: (a, b) => a.name.localeCompare(b.name) },
+      ],
+      defaultSort: 'default',
+    })
+    render(OutgoingsList, { props: { adapter } })
+    await screen.findByRole('link', { name: 'Apple' })
+
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Apple',
+      'Zebra',
+    ])
+  })
+
+  it('resolves grouping order and labels from the loaded lookups', async () => {
+    vi.mocked(listCategories).mockResolvedValue([
+      { id: 5, name: 'Insurance' } as never,
+      { id: 9, name: 'Food' } as never,
+    ])
+    const adapter = makeAdapter({
+      list: vi.fn().mockResolvedValue([
+        { ...active, id: 1, name: 'Zeta' },
+        { ...active, id: 2, name: 'Alpha' },
+      ]),
+      grouping: {
+        byLabel: 'category',
+        key: (item: Thing) => (item.name === 'Zeta' ? '9' : '5'),
+        order: (ctx) => ctx.categories.map((category) => String(category.id)),
+        label: (key, ctx) =>
+          ctx.categories.find((category) => String(category.id) === key)?.name ?? 'Unknown',
+      },
+    })
+    render(OutgoingsList, { props: { adapter } })
+    await screen.findByRole('link', { name: 'Alpha' })
+
+    expect(screen.getByText('Insurance')).toBeInTheDocument()
+    expect(screen.getByText('Food')).toBeInTheDocument()
   })
 
   it('edits an item through the form sheet', async () => {

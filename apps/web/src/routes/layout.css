@@ -230,6 +230,37 @@
   animation: highlight-flash 1.6s ease-out;
 }
 
+/* Both mobile tab bar menus (Outgoings, More) anchor to the same bottom-right
+   spot above the tab bar instead of to their own triggers, so they don't sit
+   at different offsets. Applied to the portal's floating wrapper (see
+   `data-mobile-bottom-menu` on the menu content). */
+@media (max-width: 1023px) {
+  [data-bits-floating-content-wrapper]:has(> [data-mobile-bottom-menu]) {
+    position: fixed !important;
+    top: auto !important;
+    right: 1rem !important;
+    bottom: calc(3.25rem + env(safe-area-inset-bottom) + 0.5rem) !important;
+    left: auto !important;
+    transform: none !important;
+  }
+
+  [data-mobile-bottom-menu] {
+    position: static !important;
+    inset: auto !important;
+    max-width: calc(100vw - 2rem) !important;
+    transform: none !important;
+  }
+
+  /* The open menu's scroll lock sets `pointer-events: none` on <body>, which
+     is what stops a tap from clicking through to page content underneath.
+     Re-enable it on the mobile tab bar alone (`data-mobile-tab-bar`) so
+     tapping the other tab still reaches its trigger and switches menus in one
+     tap - the desktop header nav is a different element and stays locked. */
+  body:has([data-mobile-bottom-menu]) [data-mobile-tab-bar] {
+    pointer-events: auto;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .highlight-flash {
     animation: none;

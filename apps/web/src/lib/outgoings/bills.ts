@@ -13,6 +13,7 @@ import {
 } from '$lib/api/recurring-bills'
 import { formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
+import { byName, byValueAsc, byValueDesc } from './sort'
 import type {
   OutgoingAdapter,
   OutgoingFormValues,
@@ -68,9 +69,19 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
   singular: 'Bill',
   emptyMessage: 'No bills yet. Add the first one to see when it is due.',
   supportsLifecycle: true,
-  supportsGrouping: true,
-  supportsReorder: false,
+  grouping: {
+    byLabel: 'frequency',
+    key: (item) => item.frequency,
+    order: BILL_FREQUENCIES.map((frequency) => frequency.value),
+    label: (key) => frequencyLabel(key),
+  },
   hasHistory: true,
+  sorts: [
+    { value: 'due', label: 'Next due', compare: byValueAsc((bill) => bill.daysUntilDue) },
+    { value: 'name', label: 'Name (A-Z)', compare: byName },
+    { value: 'amount', label: 'Amount (high to low)', compare: byValueDesc((bill) => bill.amount) },
+  ],
+  defaultSort: 'due',
   columns: [
     { key: 'amount', label: 'Amount', align: 'right', money: true },
     { key: 'frequency', label: 'Frequency' },
@@ -122,9 +133,6 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
     [frequencyLabel(item.frequency), ctx.categories.find((c) => c.id === item.categoryId)?.name]
       .filter(Boolean)
       .join(', '),
-  group: (item) => item.frequency,
-  groupOrder: BILL_FREQUENCIES.map((f) => f.value),
-  groupLabel: frequencyLabel,
   state: (item) => lifecycleState(item),
   anchorId: (item) => `bill-${item.id}`,
   rowValues: (item, ctx) => ({

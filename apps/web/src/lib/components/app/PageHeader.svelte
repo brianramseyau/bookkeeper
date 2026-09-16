@@ -41,7 +41,7 @@
   >
     <h1 class="font-display text-foreground text-2xl">{title}</h1>
     {#if actions}
-      <div class="flex shrink-0 items-center gap-2">
+      <div class="flex shrink-0 items-center justify-end gap-2">
         {@render actions()}
       </div>
     {/if}

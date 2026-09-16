@@ -12,6 +12,7 @@ import {
 } from '$lib/api/subscriptions'
 import { formatCurrency } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
+import { byName, byValueAsc, byValueDesc } from './sort'
 import type {
   OutgoingAdapter,
   OutgoingFormValues,
@@ -40,9 +41,13 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
   singular: 'Subscription',
   emptyMessage: 'No subscriptions yet. Add the first one to see the monthly total.',
   supportsLifecycle: true,
-  supportsGrouping: false,
-  supportsReorder: false,
   hasHistory: true,
+  sorts: [
+    { value: 'name', label: 'Name (A-Z)', compare: byName },
+    { value: 'amount', label: 'Amount (high to low)', compare: byValueDesc((sub) => sub.amount) },
+    { value: 'billedOn', label: 'Billed on', compare: byValueAsc((sub) => sub.dayOfMonth) },
+  ],
+  defaultSort: 'name',
   columns: [
     { key: 'amount', label: 'Amount', align: 'right', money: true },
     { key: 'dayOfMonth', label: 'Billed on', align: 'right' },

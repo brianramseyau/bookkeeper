@@ -12,8 +12,6 @@ function makeAdapter(
     singular: 'Thing',
     emptyMessage: '',
     supportsLifecycle: true,
-    supportsGrouping: false,
-    supportsReorder: false,
     hasHistory: false,
     columns: [],
     fields: [

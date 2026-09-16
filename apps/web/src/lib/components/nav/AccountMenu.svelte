@@ -40,9 +40,11 @@
         current route is Categories/Tasks/Settings (for active-state
         styling). Omit for the default coloured initials avatar. */
     trigger?: Snippet<[{ props: Record<string, unknown> }, active: boolean]>
+    /** Use the shared bottom-right anchor used by the mobile tab bar. */
+    mobile?: boolean
   }
 
-  let { user, onLogout, trigger }: Props = $props()
+  let { user, onLogout, trigger, mobile = false }: Props = $props()
 
   const isActive = $derived(LINKS.some((link) => isRouteActive(page.url.pathname, link.href)))
   const avatar = $derived(avatarColors(user.displayColor, themeState.current))
@@ -68,7 +70,16 @@
       {/if}
     {/snippet}
   </DropdownMenuTrigger>
-  <DropdownMenuContent align="end" class="w-48">
+  <!-- On the mobile tab bar this menu anchors bottom-right (layout.css →
+       [data-mobile-bottom-menu]). Its scroll lock is left on: it sets
+       `pointer-events: none` on the page so taps can't click through to
+       content underneath. layout.css exempts the tab bar itself, or a tap on
+       the other tab would be swallowed instead of switching to its menu. -->
+  <DropdownMenuContent
+    align="end"
+    class="w-48"
+    data-mobile-bottom-menu={mobile ? '' : undefined}
+  >
     {#each LINKS as link (link.href)}
       {@const linkActive = isRouteActive(page.url.pathname, link.href)}
       <DropdownMenuItem class={TOUCH_MENU_ITEM}>

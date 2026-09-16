@@ -155,7 +155,7 @@ describe('billsAdapter', () => {
     expect(billsAdapter.subtitle(bill, ctx)).toBe('Annual, Insurance')
     expect(billsAdapter.href(bill)).toBe('/bills/1')
     expect(billsAdapter.anchorId?.(bill)).toBe('bill-1')
-    expect(billsAdapter.group?.(bill)).toBe('annual')
+    expect(billsAdapter.grouping?.key(bill, ctx)).toBe('annual')
     expect(billsAdapter.stats(bill, trend, ctx)[3]?.value).toBe('$50.00')
   })
 
@@ -237,7 +237,7 @@ describe('subscriptionsAdapter', () => {
 })
 
 describe('expensesAdapter', () => {
-  it('attaches trends on list and reorders changed rows only', async () => {
+  it('attaches trends on list', async () => {
     vi.mocked(expensesApi.listExpenses).mockResolvedValue([
       { id: 1, name: 'A', sortOrder: 0 } as never,
       { id: 2, name: 'B', sortOrder: 1 } as never,
@@ -247,15 +247,30 @@ describe('expensesAdapter', () => {
 
     const rows = await expensesAdapter.list({ includeHidden: true })
     expect(rows[0]?.trend).toEqual(trend)
+  })
 
-    vi.mocked(expensesApi.updateExpense).mockResolvedValue({} as never)
-    await expensesAdapter.reorder!([
-      { id: 3, name: 'C', sortOrder: 2 } as never,
-      { id: 2, name: 'B', sortOrder: 1 } as never,
-      { id: 1, name: 'A', sortOrder: 0 } as never,
-    ])
-    expect(expensesApi.updateExpense).toHaveBeenCalledWith(3, { sortOrder: 0 })
-    expect(expensesApi.updateExpense).toHaveBeenCalledWith(1, { sortOrder: 2 })
+  it('groups by category, resolving the label and order from the lookups', () => {
+    const grouping = expensesAdapter.grouping!
+    expect(grouping.key({ id: 1, name: 'A', categoryId: 5 } as never, ctx)).toBe('5')
+    expect(grouping.key({ id: 2, name: 'B', categoryId: null } as never, ctx)).toBe(
+      '__uncategorized'
+    )
+    // A hidden (archived) category isn't in the lookups, so it folds into the
+    // same bucket as a null category rather than a second titled group.
+    expect(grouping.key({ id: 3, name: 'C', categoryId: 99 } as never, ctx)).toBe('__uncategorized')
+    expect(grouping.label!('5', ctx)).toBe('Insurance')
+    expect(grouping.label!('__uncategorized', ctx)).toBe('Uncategorized')
+    // `key()` folds unknown ids into UNCATEGORIZED, so this is a guard for if
+    // `key`/`order` ever drift rather than a path `OutgoingsList` reaches -
+    // assert it directly so the branch stays covered.
+    expect(grouping.label!('99', ctx)).toBe('Uncategorized')
+
+    const order = (grouping.order as (context: typeof ctx) => string[])(ctx)
+    expect(order).toEqual(['5', '__uncategorized'])
+  })
+
+  it('sorts by name by default', () => {
+    expect(expensesAdapter.defaultSort).toBe('name')
   })
 
   it('omits budgetAmount when the expense has itemized items', async () => {

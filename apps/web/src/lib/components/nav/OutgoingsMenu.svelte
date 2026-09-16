@@ -31,9 +31,11 @@
         the four Outgoings pages (for active-state styling). Omit for the
         default text+chevron nav link. */
     trigger?: Snippet<[{ props: Record<string, unknown> }, active: boolean]>
+    /** Use the shared bottom-right anchor used by the mobile tab bar. */
+    mobile?: boolean
   }
 
-  let { trigger }: Props = $props()
+  let { trigger, mobile = false }: Props = $props()
 
   const isActive = $derived(
     OUTGOINGS_LINKS.some((link) => isRouteActive(page.url.pathname, link.href))
@@ -63,7 +65,16 @@
       {/if}
     {/snippet}
   </DropdownMenuTrigger>
-  <DropdownMenuContent align="start" class="w-44">
+  <!-- On the mobile tab bar this menu anchors bottom-right (layout.css →
+       [data-mobile-bottom-menu]). Its scroll lock is left on: it sets
+       `pointer-events: none` on the page so taps can't click through to
+       content underneath. layout.css exempts the tab bar itself, or a tap on
+       the other tab would be swallowed instead of switching to its menu. -->
+  <DropdownMenuContent
+    align="start"
+    class="w-44"
+    data-mobile-bottom-menu={mobile ? '' : undefined}
+  >
     {#each OUTGOINGS_LINKS as link (link.href)}
       {@const linkActive = isRouteActive(page.url.pathname, link.href)}
       <DropdownMenuItem class={TOUCH_MENU_ITEM}>

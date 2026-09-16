@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { themeState, toggleTheme } from './theme.svelte'
 
 describe('theme store', () => {
@@ -6,6 +6,14 @@ describe('theme store', () => {
     document.documentElement.classList.remove('dark')
     localStorage.clear()
     themeState.current = 'light'
+    const meta = document.createElement('meta')
+    meta.name = 'theme-color'
+    meta.content = '#ffffff'
+    document.head.append(meta)
+  })
+
+  afterEach(() => {
+    document.querySelector('meta[name="theme-color"]')?.remove()
   })
 
   it('toggles from light to dark, updating the DOM class and localStorage', () => {
@@ -23,6 +31,16 @@ describe('theme store', () => {
     expect(themeState.current).toBe('light')
     expect(document.documentElement.classList.contains('dark')).toBe(false)
     expect(localStorage.getItem('theme')).toBe('light')
+  })
+
+  it('keeps the theme-color meta in step with the surface token', () => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+
+    toggleTheme()
+    expect(meta?.getAttribute('content')).toBe('#18201c')
+
+    toggleTheme()
+    expect(meta?.getAttribute('content')).toBe('#ffffff')
   })
 })
 

@@ -38,7 +38,7 @@
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import { Button } from '$lib/components/ui/button'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
-  import PageHead from '$lib/components/PageHead.svelte'
+  import PageHeader from '$lib/components/app/PageHeader.svelte'
   import type { IncomeEntryFormValues } from '$lib/components/IncomeEntryForm.svelte'
   import MonthlyLogIncomeSheet from '$lib/components/monthly/MonthlyLogIncomeSheet.svelte'
   import IncomeEntryEditRow, {
@@ -508,12 +508,11 @@
   }
 </script>
 
-<PageHead title="Monthly" />
-
-<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-  <h1 class="font-display text-ink text-2xl">Monthly</h1>
-  <MonthNavHeader {nav} showLabel={false} />
-</div>
+<PageHeader title="Monthly">
+  {#snippet actions()}
+    <MonthNavHeader {nav} showLabel={false} />
+  {/snippet}
+</PageHeader>
 
 {#if error}
   <ErrorMessage message={error} />
