@@ -8,6 +8,7 @@
     DropdownMenuTrigger,
   } from '$lib/components/ui/dropdown-menu'
   import { cn } from '$lib/utils'
+  import { TOUCH_MENU_ITEM } from './menu-touch'
 
   interface ActionMenuItem {
     label: string
@@ -83,6 +84,7 @@
         onSelect={() => select(action)}
         class={[
           'flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors data-disabled:cursor-not-allowed data-disabled:opacity-60',
+          TOUCH_MENU_ITEM,
           VARIANT_TEXT[action.variant ?? 'neutral'],
         ]}
       >

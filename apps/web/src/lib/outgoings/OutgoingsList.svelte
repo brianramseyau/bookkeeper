@@ -215,6 +215,9 @@
   <Tabs bind:value={activeState} class="mt-4">
     <TabsList>
       {#each groups as group (group.state)}
+        <!-- The vendored trigger's own `text-foreground/60` only reaches
+             4.28:1 on the tabs background, so override it with the muted-ink
+             token (tailwind-merge drops the earlier colour). -->
         <TabsTrigger value={group.state} class="text-muted-ink dark:text-muted-ink">
           {group.label}
           <span class="text-muted-foreground ml-1 text-xs">{group.items.length}</span>

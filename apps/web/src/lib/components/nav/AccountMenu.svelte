@@ -20,7 +20,7 @@
   import type { CurrentUser } from '$lib/stores/auth.svelte'
   import { themeState, toggleTheme } from '$lib/stores/theme.svelte'
   import { isRouteActive } from './route-active'
-  import { TOUCH_MENU_ITEM } from './menu-touch'
+  import { TOUCH_MENU_ITEM } from '../menu-touch'
   import { avatarColors } from '$lib/color'
   // Categories and Tasks are setup/admin screens, not one of DESIGN.md's
   // "answers one question" screens - grouped here with Settings rather than

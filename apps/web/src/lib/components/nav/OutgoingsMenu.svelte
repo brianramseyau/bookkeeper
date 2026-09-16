@@ -10,7 +10,7 @@
   } from '$lib/components/ui/dropdown-menu'
   import { cn } from '$lib/utils'
   import { isRouteActive } from './route-active'
-  import { TOUCH_MENU_ITEM } from './menu-touch'
+  import { TOUCH_MENU_ITEM } from '../menu-touch'
 
   // "Outgoings" groups every "what do we pay for?" screen (DESIGN.md's own
   // screen-question table) behind one nav entry - Bills/Subscriptions/

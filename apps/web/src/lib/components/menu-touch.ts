@@ -5,8 +5,8 @@
  *
  * Gated behind `pointer-coarse:` so mouse users keep the compact desktop
  * sizing; a coarse pointer gets a ≥44px row instead. Used by the app-level
- * menus in this folder (the bottom tab bar's Outgoings/More overlays are the
- * main one). See DESIGN.md → Quality floor (tap targets) and Patterns → Row
- * actions and tooltips.
+ * menus a thumb reaches: the bottom tab bar's Outgoings/More overlays
+ * (`nav/`) and the row action menu (`ActionMenu.svelte`). See DESIGN.md →
+ * Quality floor (tap targets) and Patterns → Row actions and tooltips.
  */
 export const TOUCH_MENU_ITEM = 'pointer-coarse:min-h-11 pointer-coarse:px-3 pointer-coarse:py-2.5'

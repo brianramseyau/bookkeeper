@@ -44,6 +44,8 @@ async function applyTheme(page: Page, theme: (typeof THEMES)[number]) {
 async function loadRoute(page: Page, path: string, heading: string | RegExp) {
   await page.goto(path)
   await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible()
+  // `networkidle` is the reliable way to know the route's SPA fetch settled;
+  // the skeleton check below is a second guard for renders that skip it.
   await page.waitForLoadState('networkidle')
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
 }
@@ -65,7 +67,7 @@ async function expandCollapsedContent(page: Page) {
     await expect(charts.first()).toHaveAttribute('aria-expanded', 'true')
     // Scope the SVG to the same card, so an unrelated `role="img"` chart
     // elsewhere on the page can't satisfy the guard for an empty accordion.
-    await expect(charts.first().locator('..').locator('svg[role="img"]').first()).toBeVisible()
+    await expect(charts.first().locator('xpath=..').locator('svg[role="img"]').first()).toBeVisible()
   }
 }
 
