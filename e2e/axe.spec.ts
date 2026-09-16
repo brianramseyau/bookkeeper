@@ -4,9 +4,10 @@ import AxeBuilder from '@axe-core/playwright'
 // DESIGN.md's Quality floor requires axe-clean contrast in both themes.
 // Phase 1 checked this against the dev-only `/_design` specimen; Phase 6
 // retired that route, so the assertion now sweeps every main route in both
-// themes and both a desktop and a mobile viewport (the mobile pass is the
-// only one that sees the bottom tab bar). `e2e/pages.spec.ts` already
-// establishes each route's level-1 heading.
+// themes and both a desktop and a (coarse-pointer) mobile viewport - the
+// mobile pass is the only one that sees the bottom tab bar and exercises
+// the `pointer-coarse:`/`@media (pointer: coarse)` paths this PR touches.
+// `e2e/pages.spec.ts` already establishes each route's level-1 heading.
 const ROUTES: { path: string; heading: string | RegExp }[] = [
   { path: '/', heading: /welcome, jordan/i },
   { path: '/monthly', heading: 'Monthly' },
@@ -18,11 +19,6 @@ const ROUTES: { path: string; heading: string | RegExp }[] = [
   { path: '/categories', heading: 'Categories' },
   { path: '/tasks', heading: 'Tasks' },
   { path: '/settings', heading: 'Settings' },
-]
-
-const VIEWPORTS = [
-  { name: 'desktop', width: 1280, height: 720 },
-  { name: 'mobile', width: 390, height: 844 },
 ]
 
 const THEMES = ['light', 'dark'] as const
@@ -52,8 +48,10 @@ async function loadRoute(page: Page, path: string, heading: string | RegExp) {
   await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
 }
 
-/** Reveal the collapsed surfaces that hold colour that could drift: the
- *  MonthlyExpenseChart's table and Income's charts accordion. */
+/** Reveal the collapsed surfaces that hold colour which could drift: the
+ *  MonthlyExpenseChart's table and Income's charts accordion (whose themed
+ *  SVGs are lazy). Assert each actually rendered, so the sweep can't pass
+ *  vacuously on an empty accordion. */
 async function expandCollapsedContent(page: Page) {
   const viewTable = page.getByRole('button', { name: 'View as table' })
   if ((await viewTable.count()) > 0) {
@@ -64,7 +62,7 @@ async function expandCollapsedContent(page: Page) {
   const charts = page.getByRole('button', { name: /^Charts/ })
   if ((await charts.count()) > 0) {
     await charts.first().click()
-    await expect(page.locator('[data-slot="skeleton"]')).toHaveCount(0)
+    await expect(page.locator('svg[role="img"]').first()).toBeVisible()
   }
 }
 
@@ -77,10 +75,27 @@ async function expectAxeClean(page: Page) {
 }
 
 for (const theme of THEMES) {
-  for (const viewport of VIEWPORTS) {
+  for (const { path, heading } of ROUTES) {
+    test(`${path} has no axe violations (${theme}, desktop)`, async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 720 })
+      await applyTheme(page, theme)
+      await loadRoute(page, path, heading)
+      await expandCollapsedContent(page)
+      await expectAxeClean(page)
+    })
+  }
+}
+
+test.describe('mobile (coarse pointer)', () => {
+  // `hasTouch` is what makes Chromium report `pointer: coarse`, so this pass
+  // is the one that actually exercises the 16px iOS-zoom guard and the
+  // `pointer-coarse:` tap-target sizing.
+  test.use({ hasTouch: true })
+
+  for (const theme of THEMES) {
     for (const { path, heading } of ROUTES) {
-      test(`${path} has no axe violations (${theme}, ${viewport.name})`, async ({ page }) => {
-        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+      test(`${path} has no axe violations (${theme}, mobile)`, async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 844 })
         await applyTheme(page, theme)
         await loadRoute(page, path, heading)
         await expandCollapsedContent(page)
@@ -88,7 +103,7 @@ for (const theme of THEMES) {
       })
     }
   }
-}
+})
 
 // The list routes above are the sweep; a detail route is added so
 // OutgoingDetail's own MonthlyExpenseChart and stat figures are in scope
