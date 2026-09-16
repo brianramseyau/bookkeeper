@@ -56,14 +56,16 @@
     const options = adapter.sorts ?? []
     // `defaultSort` is only a valid fallback if it's one of `sorts` - otherwise
     // the select would render with nothing selected and no comparator would
-    // apply. Fall back to the first option.
+    // apply. Fall back to the first option. `!== undefined` (not truthiness) so
+    // an empty-string value stays valid.
     const fallback =
-      adapter.defaultSort && options.some((option) => option.value === adapter.defaultSort)
+      adapter.defaultSort !== undefined &&
+      options.some((option) => option.value === adapter.defaultSort)
         ? adapter.defaultSort
         : (options[0]?.value ?? '')
     if (typeof localStorage === 'undefined') return fallback
     const stored = localStorage.getItem(SORT_STORAGE_PREFIX + adapter.kind)
-    return stored && options.some((option) => option.value === stored) ? stored : fallback
+    return stored !== null && options.some((option) => option.value === stored) ? stored : fallback
   }
 
   // Grouping is on by default; only an explicit "off" turns it off.
@@ -108,7 +110,7 @@
     const ctx = { categories, users }
     const buckets = new Map<string, OutgoingRecord[]>()
     for (const item of sorted) {
-      const key = grouping.key(item) ?? ''
+      const key = grouping.key(item, ctx) ?? ''
       const bucket = buckets.get(key)
       if (bucket) bucket.push(item)
       else buckets.set(key, [item])

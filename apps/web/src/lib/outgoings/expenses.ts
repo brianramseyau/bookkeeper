@@ -68,16 +68,19 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
   supportsLifecycle: true,
   grouping: {
     byLabel: 'category',
-    key: (item) => (item.categoryId === null ? UNCATEGORIZED : String(item.categoryId)),
+    // An expense whose category is hidden (archived/soft-deleted) isn't in the
+    // loaded categories, and the row shows "Uncategorized" for it anyway - so
+    // fold it into the same single bucket rather than emitting a second,
+    // differently-titled group per hidden category.
+    key: (item, ctx) =>
+      item.categoryId === null || !ctx.categories.some((category) => category.id === item.categoryId)
+        ? UNCATEGORIZED
+        : String(item.categoryId),
     order: (ctx) => [...ctx.categories.map((category) => String(category.id)), UNCATEGORIZED],
-    // A hidden (archived/soft-deleted) category isn't in `ctx.categories`, but
-    // its expenses still reference it - label that group distinctly rather than
-    // as a second "Uncategorized" (which is only the null-category bucket).
     label: (key, ctx) =>
       key === UNCATEGORIZED
         ? 'Uncategorized'
-        : (ctx.categories.find((category) => String(category.id) === key)?.name ??
-          'Unknown category'),
+        : (ctx.categories.find((category) => String(category.id) === key)?.name ?? 'Uncategorized'),
   },
   hasHistory: false,
   sorts: [

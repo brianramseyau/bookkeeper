@@ -253,9 +253,10 @@
 
   /* The open menu's scroll lock sets `pointer-events: none` on <body>, which
      is what stops a tap from clicking through to page content underneath.
-     Re-enable it on the tab bar alone so tapping the other tab still reaches
-     its trigger and switches menus in one tap. */
-  body:has([data-mobile-bottom-menu]) nav[aria-label='Primary'] {
+     Re-enable it on the mobile tab bar alone (`data-mobile-tab-bar`) so
+     tapping the other tab still reaches its trigger and switches menus in one
+     tap - the desktop header nav is a different element and stays locked. */
+  body:has([data-mobile-bottom-menu]) [data-mobile-tab-bar] {
     pointer-events: auto;
   }
 }

@@ -155,7 +155,7 @@ describe('billsAdapter', () => {
     expect(billsAdapter.subtitle(bill, ctx)).toBe('Annual, Insurance')
     expect(billsAdapter.href(bill)).toBe('/bills/1')
     expect(billsAdapter.anchorId?.(bill)).toBe('bill-1')
-    expect(billsAdapter.grouping?.key(bill)).toBe('annual')
+    expect(billsAdapter.grouping?.key(bill, ctx)).toBe('annual')
     expect(billsAdapter.stats(bill, trend, ctx)[3]?.value).toBe('$50.00')
   })
 
@@ -251,10 +251,14 @@ describe('expensesAdapter', () => {
 
   it('groups by category, resolving the label and order from the lookups', () => {
     const grouping = expensesAdapter.grouping!
-    expect(grouping.key({ id: 1, name: 'A', categoryId: 5 } as never)).toBe('5')
-    expect(grouping.key({ id: 2, name: 'B', categoryId: null } as never)).toBe('__uncategorized')
+    expect(grouping.key({ id: 1, name: 'A', categoryId: 5 } as never, ctx)).toBe('5')
+    expect(grouping.key({ id: 2, name: 'B', categoryId: null } as never, ctx)).toBe(
+      '__uncategorized'
+    )
+    // A hidden (archived) category isn't in the lookups, so it folds into the
+    // same bucket as a null category rather than a second titled group.
+    expect(grouping.key({ id: 3, name: 'C', categoryId: 99 } as never, ctx)).toBe('__uncategorized')
     expect(grouping.label!('5', ctx)).toBe('Insurance')
-    expect(grouping.label!('99', ctx)).toBe('Unknown category')
     expect(grouping.label!('__uncategorized', ctx)).toBe('Uncategorized')
 
     const order = (grouping.order as (context: typeof ctx) => string[])(ctx)

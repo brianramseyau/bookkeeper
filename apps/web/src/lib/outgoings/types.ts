@@ -40,8 +40,8 @@ export interface OutgoingSortOption<T extends OutgoingRecord> {
 export interface OutgoingGrouping<T extends OutgoingRecord> {
   /** Noun for the toggle's label, e.g. "category" renders "Group by category". */
   byLabel: string
-  /** Grouping key for an item, e.g. its frequency or category id. */
-  key(item: T): string | null
+  /** Grouping key for an item, e.g. its frequency or category id. Gets the loaded lookups so a key can fall back when it's no longer resolvable (e.g. an archived category). */
+  key(item: T, ctx: OutgoingContext): string | null
   /** Display order for keys, fixed or derived from the loaded lookups. */
   order?: string[] | ((ctx: OutgoingContext) => string[])
   /** Label for a key; falls back to the key itself. */

@@ -59,9 +59,15 @@ test('a tap on page content while a tab bar menu is open only dismisses it', asy
   await expect(page.getByRole('menuitem').first()).toBeVisible()
 
   // Tap at a row link's location: the menu's scroll lock keeps the tap from
-  // reaching the link, so it dismisses rather than navigating.
-  const row = await page.getByRole('link', { name: 'Childcare' }).boundingBox()
-  await page.mouse.click(row!.x + row!.width / 2, row!.y + row!.height / 2)
+  // reaching the link, so it dismisses rather than navigating. Assert the
+  // coordinates are on-screen first, or a miss would pass for the wrong reason.
+  const link = page.getByRole('link', { name: 'Childcare' })
+  await link.scrollIntoViewIfNeeded()
+  const row = await link.boundingBox()
+  if (!row) throw new Error('Childcare row has no bounding box')
+  expect(row.y).toBeGreaterThanOrEqual(0)
+  expect(row.y + row.height).toBeLessThanOrEqual(844)
+  await page.mouse.click(row.x + row.width / 2, row.y + row.height / 2)
 
   await expect(page.getByRole('menuitem')).toHaveCount(0)
   await expect(page).toHaveURL(/\/bills$/)
