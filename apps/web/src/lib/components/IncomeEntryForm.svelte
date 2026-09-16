@@ -169,7 +169,7 @@
       <input
         type="checkbox"
         bind:checked={taxWithheld}
-        class="h-4 w-4 rounded border-slate-300 text-indigo-600 dark:border-slate-600"
+        class="border-input accent-violet size-4 rounded"
       />
       Tax withheld
     </label>
