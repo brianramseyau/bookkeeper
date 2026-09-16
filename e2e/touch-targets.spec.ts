@@ -53,6 +53,20 @@ test('bottom tab bar menus share a bottom-right anchor and switch on one tap', a
   expect(accountBox.y + accountBox.height).toBeCloseTo(outgoingBox.y + outgoingBox.height, 0)
 })
 
+test('a tap on page content while a tab bar menu is open only dismisses it', async ({ page }) => {
+  await page.goto('/bills')
+  await page.getByRole('button', { name: 'Outgoings' }).click()
+  await expect(page.getByRole('menuitem').first()).toBeVisible()
+
+  // Tap at a row link's location: the menu's scroll lock keeps the tap from
+  // reaching the link, so it dismisses rather than navigating.
+  const row = await page.getByRole('link', { name: 'Childcare' }).boundingBox()
+  await page.mouse.click(row!.x + row!.width / 2, row!.y + row!.height / 2)
+
+  await expect(page.getByRole('menuitem')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/bills$/)
+})
+
 test('row action menu items are at least 44px tall', async ({ page }) => {
   await page.goto('/bills')
   await page

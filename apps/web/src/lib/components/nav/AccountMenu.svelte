@@ -71,14 +71,12 @@
     {/snippet}
   </DropdownMenuTrigger>
   <!-- On the mobile tab bar this menu anchors bottom-right (layout.css →
-       [data-mobile-bottom-menu]) and must not lock page scroll: bits-ui's
-       scroll lock sets `pointer-events: none` on the page (inherited by the
-       nav), so a tap on the other tab would land on the mask and be swallowed
-       - leaving the menu merely closed instead of switching to the one that
-       was tapped. -->
+       [data-mobile-bottom-menu]). Its scroll lock is left on: it sets
+       `pointer-events: none` on the page so taps can't click through to
+       content underneath. layout.css exempts the tab bar itself, or a tap on
+       the other tab would be swallowed instead of switching to its menu. -->
   <DropdownMenuContent
     align="end"
-    preventScroll={mobile ? false : undefined}
     class="w-48"
     data-mobile-bottom-menu={mobile ? '' : undefined}
   >

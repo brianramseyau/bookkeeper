@@ -53,10 +53,17 @@
   const sortControlId = $derived(`outgoings-sort-${adapter.kind}`)
 
   function storedSortValue(): string {
-    const fallback = adapter.defaultSort ?? adapter.sorts?.[0]?.value ?? ''
+    const options = adapter.sorts ?? []
+    // `defaultSort` is only a valid fallback if it's one of `sorts` - otherwise
+    // the select would render with nothing selected and no comparator would
+    // apply. Fall back to the first option.
+    const fallback =
+      adapter.defaultSort && options.some((option) => option.value === adapter.defaultSort)
+        ? adapter.defaultSort
+        : (options[0]?.value ?? '')
     if (typeof localStorage === 'undefined') return fallback
     const stored = localStorage.getItem(SORT_STORAGE_PREFIX + adapter.kind)
-    return stored && adapter.sorts?.some((option) => option.value === stored) ? stored : fallback
+    return stored && options.some((option) => option.value === stored) ? stored : fallback
   }
 
   // Grouping is on by default; only an explicit "off" turns it off.
@@ -94,28 +101,29 @@
   // Grouped rows (e.g. bills by frequency, expenses by category) - a single
   // unlabelled group when grouping is off or the adapter doesn't group.
   const grouped = $derived.by(() => {
-    if (!groupEnabled || !adapter.supportsGrouping || !adapter.group) {
+    const grouping = adapter.grouping
+    if (!groupEnabled || !grouping) {
       return [{ key: '__all', label: '', items: sorted }]
     }
     const ctx = { categories, users }
     const buckets = new Map<string, OutgoingRecord[]>()
     for (const item of sorted) {
-      const key = adapter.group(item) ?? ''
+      const key = grouping.key(item) ?? ''
       const bucket = buckets.get(key)
       if (bucket) bucket.push(item)
       else buckets.set(key, [item])
     }
     const order =
-      typeof adapter.groupOrder === 'function'
-        ? adapter.groupOrder(ctx)
-        : (adapter.groupOrder ?? [...buckets.keys()])
+      typeof grouping.order === 'function'
+        ? grouping.order(ctx)
+        : (grouping.order ?? [...buckets.keys()])
     const keys = [
       ...order.filter((key) => buckets.has(key)),
       ...[...buckets.keys()].filter((key) => !order.includes(key)),
     ]
     return keys.map((key) => ({
       key,
-      label: adapter.groupLabel?.(key, ctx) ?? key,
+      label: grouping.label?.(key, ctx) ?? key,
       items: buckets.get(key) ?? [],
     }))
   })
@@ -223,7 +231,7 @@
   <div class="mt-4">{@render header()}</div>
 {/if}
 
-{#if adapter.supportsLifecycle || (adapter.sorts && adapter.sorts.length > 1) || adapter.supportsGrouping}
+{#if adapter.supportsLifecycle || (adapter.sorts && adapter.sorts.length > 1) || adapter.grouping}
   <!-- Tabs row then controls row on mobile, each filling the column edge to
        edge (tabs stretch, and the toggle + sort split the row); one row with
        tabs left and controls right from `sm` up. -->
@@ -244,17 +252,17 @@
       </Tabs>
     {/if}
 
-    {#if (adapter.sorts && adapter.sorts.length > 1) || adapter.supportsGrouping}
+    {#if (adapter.sorts && adapter.sorts.length > 1) || adapter.grouping}
       <div class="flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:gap-x-4">
-        {#if adapter.supportsGrouping}
+        {#if adapter.grouping}
           <Toggle
             bind:pressed={groupEnabled}
             variant="outline"
             size="lg"
             class="text-muted-foreground data-[state=on]:border-primary data-[state=on]:bg-accent data-[state=on]:text-primary flex-1 justify-center sm:flex-none"
-            aria-label="Group by {adapter.groupByLabel}"
+            aria-label="Group by {adapter.grouping.byLabel}"
           >
-            Group by {adapter.groupByLabel}
+            Group by {adapter.grouping.byLabel}
           </Toggle>
         {/if}
         {#if adapter.sorts && adapter.sorts.length > 1}

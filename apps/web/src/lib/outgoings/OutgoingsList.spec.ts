@@ -29,7 +29,6 @@ function makeAdapter(overrides: Partial<OutgoingAdapter<Thing>> = {}): OutgoingA
     singular: 'Thing',
     emptyMessage: 'No things yet.',
     supportsLifecycle: true,
-    supportsGrouping: false,
     hasHistory: false,
     columns: [{ key: 'amount', label: 'Amount', align: 'right', money: true }],
     fields: [
@@ -195,11 +194,12 @@ describe('OutgoingsList', () => {
         { ...active, id: 1, name: 'Car', frequency: 'annual' },
         { ...active, id: 2, name: 'Gym', frequency: 'monthly' },
       ]),
-      supportsGrouping: true,
-      groupByLabel: 'frequency',
-      group: (item: Thing) => item.frequency,
-      groupOrder: ['monthly', 'annual'],
-      groupLabel: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      grouping: {
+        byLabel: 'frequency',
+        key: (item: Thing) => item.frequency,
+        order: ['monthly', 'annual'],
+        label: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      },
     })
     render(OutgoingsList, { props: { adapter, header } })
 
@@ -215,11 +215,12 @@ describe('OutgoingsList', () => {
         { ...active, id: 1, name: 'Car', frequency: 'annual' },
         { ...active, id: 2, name: 'Gym', frequency: 'monthly' },
       ]),
-      supportsGrouping: true,
-      groupByLabel: 'frequency',
-      group: (item: Thing) => item.frequency,
-      groupOrder: ['monthly', 'annual'],
-      groupLabel: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      grouping: {
+        byLabel: 'frequency',
+        key: (item: Thing) => item.frequency,
+        order: ['monthly', 'annual'],
+        label: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      },
     })
     render(OutgoingsList, { props: { adapter } })
     await screen.findByRole('link', { name: 'Car' })
@@ -239,10 +240,11 @@ describe('OutgoingsList', () => {
     localStorage.setItem('outgoings-group:things', 'off')
     const adapter = makeAdapter({
       list: vi.fn().mockResolvedValue([{ ...active, id: 1, name: 'Car', frequency: 'annual' }]),
-      supportsGrouping: true,
-      groupByLabel: 'frequency',
-      group: (item: Thing) => item.frequency,
-      groupLabel: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      grouping: {
+        byLabel: 'frequency',
+        key: (item: Thing) => item.frequency,
+        label: (key: string) => (key === 'annual' ? 'Yearly' : 'Monthly'),
+      },
     })
     render(OutgoingsList, { props: { adapter } })
     await screen.findByRole('link', { name: 'Car' })
@@ -313,12 +315,13 @@ describe('OutgoingsList', () => {
         { ...active, id: 1, name: 'Zeta' },
         { ...active, id: 2, name: 'Alpha' },
       ]),
-      supportsGrouping: true,
-      groupByLabel: 'category',
-      group: (item: Thing) => (item.name === 'Zeta' ? '9' : '5'),
-      groupOrder: (ctx) => ctx.categories.map((category) => String(category.id)),
-      groupLabel: (key, ctx) =>
-        ctx.categories.find((category) => String(category.id) === key)?.name ?? 'Unknown',
+      grouping: {
+        byLabel: 'category',
+        key: (item: Thing) => (item.name === 'Zeta' ? '9' : '5'),
+        order: (ctx) => ctx.categories.map((category) => String(category.id)),
+        label: (key, ctx) =>
+          ctx.categories.find((category) => String(category.id) === key)?.name ?? 'Unknown',
+      },
     })
     render(OutgoingsList, { props: { adapter } })
     await screen.findByRole('link', { name: 'Alpha' })

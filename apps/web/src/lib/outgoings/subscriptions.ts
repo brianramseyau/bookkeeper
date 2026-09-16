@@ -41,7 +41,6 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
   singular: 'Subscription',
   emptyMessage: 'No subscriptions yet. Add the first one to see the monthly total.',
   supportsLifecycle: true,
-  supportsGrouping: false,
   hasHistory: true,
   sorts: [
     { value: 'name', label: 'Name (A-Z)', compare: byName },

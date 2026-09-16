@@ -32,6 +32,22 @@ export interface OutgoingSortOption<T extends OutgoingRecord> {
   compare?(a: T, b: T): number
 }
 
+/**
+ * List grouping (e.g. bills by frequency, expenses by category). All four
+ * fields travel together so an adapter can't declare grouping without the
+ * toggle's noun (`byLabel`) - see `OutgoingAdapter.grouping`.
+ */
+export interface OutgoingGrouping<T extends OutgoingRecord> {
+  /** Noun for the toggle's label, e.g. "category" renders "Group by category". */
+  byLabel: string
+  /** Grouping key for an item, e.g. its frequency or category id. */
+  key(item: T): string | null
+  /** Display order for keys, fixed or derived from the loaded lookups. */
+  order?: string[] | ((ctx: OutgoingContext) => string[])
+  /** Label for a key; falls back to the key itself. */
+  label?(key: string, ctx: OutgoingContext): string
+}
+
 export type OutgoingFieldType =
   'text' | 'number' | 'date' | 'select' | 'category' | 'user' | 'checkbox'
 
@@ -112,9 +128,8 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
   singular: string
   emptyMessage: string
   supportsLifecycle: boolean
-  supportsGrouping: boolean
-  /** Noun for the grouping toggle's label, e.g. "Group by category". */
-  groupByLabel?: string
+  /** Optional list grouping. Its presence enables the mobile/desktop grouping toggle. */
+  grouping?: OutgoingGrouping<T>
   /** Whether the detail page renders a payment history table. */
   hasHistory: boolean
   /** Sort choices for the list; the first (`defaultSort`) is selected initially. */
@@ -142,11 +157,6 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
 
   href(item: T): string
   subtitle(item: T, ctx: OutgoingContext): string
-  /** Optional grouping key on the list (e.g. frequency, category). */
-  group?(item: T): string | null
-  /** Display order for `group` keys, fixed or derived from the loaded lookups. */
-  groupOrder?: string[] | ((ctx: OutgoingContext) => string[])
-  groupLabel?(key: string, ctx: OutgoingContext): string
   state(item: T): LifecycleState
   /** DOM id for a row, so a `#bill-12` deep link can scroll/flash it (see the Monthly page's cross-links). */
   anchorId?(item: T): string | null

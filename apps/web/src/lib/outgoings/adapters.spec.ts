@@ -155,7 +155,7 @@ describe('billsAdapter', () => {
     expect(billsAdapter.subtitle(bill, ctx)).toBe('Annual, Insurance')
     expect(billsAdapter.href(bill)).toBe('/bills/1')
     expect(billsAdapter.anchorId?.(bill)).toBe('bill-1')
-    expect(billsAdapter.group?.(bill)).toBe('annual')
+    expect(billsAdapter.grouping?.key(bill)).toBe('annual')
     expect(billsAdapter.stats(bill, trend, ctx)[3]?.value).toBe('$50.00')
   })
 
@@ -250,15 +250,14 @@ describe('expensesAdapter', () => {
   })
 
   it('groups by category, resolving the label and order from the lookups', () => {
-    expect(expensesAdapter.group!({ id: 1, name: 'A', categoryId: 5 } as never)).toBe('5')
-    expect(expensesAdapter.group!({ id: 2, name: 'B', categoryId: null } as never)).toBe(
-      '__uncategorized'
-    )
-    expect(expensesAdapter.groupLabel!('5', ctx)).toBe('Insurance')
-    expect(expensesAdapter.groupLabel!('99', ctx)).toBe('Uncategorized')
-    expect(expensesAdapter.groupLabel!('__uncategorized', ctx)).toBe('Uncategorized')
+    const grouping = expensesAdapter.grouping!
+    expect(grouping.key({ id: 1, name: 'A', categoryId: 5 } as never)).toBe('5')
+    expect(grouping.key({ id: 2, name: 'B', categoryId: null } as never)).toBe('__uncategorized')
+    expect(grouping.label!('5', ctx)).toBe('Insurance')
+    expect(grouping.label!('99', ctx)).toBe('Unknown category')
+    expect(grouping.label!('__uncategorized', ctx)).toBe('Uncategorized')
 
-    const order = (expensesAdapter.groupOrder as (context: typeof ctx) => string[])(ctx)
+    const order = (grouping.order as (context: typeof ctx) => string[])(ctx)
     expect(order).toEqual(['5', '__uncategorized'])
   })
 

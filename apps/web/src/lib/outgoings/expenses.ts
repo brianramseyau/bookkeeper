@@ -66,8 +66,19 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
   singular: 'Expense',
   emptyMessage: 'No expenses yet. Add the first one to start tracking spend.',
   supportsLifecycle: true,
-  supportsGrouping: true,
-  groupByLabel: 'category',
+  grouping: {
+    byLabel: 'category',
+    key: (item) => (item.categoryId === null ? UNCATEGORIZED : String(item.categoryId)),
+    order: (ctx) => [...ctx.categories.map((category) => String(category.id)), UNCATEGORIZED],
+    // A hidden (archived/soft-deleted) category isn't in `ctx.categories`, but
+    // its expenses still reference it - label that group distinctly rather than
+    // as a second "Uncategorized" (which is only the null-category bucket).
+    label: (key, ctx) =>
+      key === UNCATEGORIZED
+        ? 'Uncategorized'
+        : (ctx.categories.find((category) => String(category.id) === key)?.name ??
+          'Unknown category'),
+  },
   hasHistory: false,
   sorts: [
     { value: 'name', label: 'Name (A-Z)', compare: byName },
@@ -125,12 +136,6 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
     ]
       .filter(Boolean)
       .join(', '),
-  group: (item) => (item.categoryId === null ? UNCATEGORIZED : String(item.categoryId)),
-  groupOrder: (ctx) => [...ctx.categories.map((category) => String(category.id)), UNCATEGORIZED],
-  groupLabel: (key, ctx) =>
-    key === UNCATEGORIZED
-      ? 'Uncategorized'
-      : (ctx.categories.find((category) => String(category.id) === key)?.name ?? 'Uncategorized'),
   state: (item) => lifecycleState(item),
   anchorId: (item) => `expense-${item.id}`,
   rowValues: (item, ctx) => ({

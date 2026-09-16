@@ -52,8 +52,12 @@ export const utilitiesAdapter: OutgoingAdapter<UtilityRow> = {
   // show (see PLAN_01_PHASE_03_UNIFIED_OUTGOINGS.md - adding one would need a
   // migration).
   supportsLifecycle: false,
-  supportsGrouping: true,
-  groupByLabel: 'frequency',
+  grouping: {
+    byLabel: 'frequency',
+    key: (item) => item.frequency,
+    order: UTILITY_FREQUENCIES.map((frequency) => frequency.value),
+    label: (key) => utilityFrequencyLabel(key),
+  },
   hasHistory: false,
   sorts: [
     { value: 'name', label: 'Name (A-Z)', compare: byName },
@@ -134,9 +138,6 @@ export const utilitiesAdapter: OutgoingAdapter<UtilityRow> = {
 
   href: (item) => `/utilities/${item.id}`,
   subtitle: (item) => utilityFrequencyLabel(item.frequency),
-  group: (item) => item.frequency,
-  groupOrder: UTILITY_FREQUENCIES.map((frequency) => frequency.value),
-  groupLabel: (key) => utilityFrequencyLabel(key),
   state: (item) => lifecycleState(item),
   rowValues: (item) => ({
     latest: formatCurrency(item.trend?.latestAmount ?? null),
