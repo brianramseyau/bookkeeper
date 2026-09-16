@@ -63,7 +63,7 @@
         {tab.label}
       </a>
     {/each}
-    <OutgoingsMenu>
+    <OutgoingsMenu mobile>
       {#snippet trigger({ props }, active)}
         <button
           type="button"
@@ -78,7 +78,7 @@
         </button>
       {/snippet}
     </OutgoingsMenu>
-    <AccountMenu {user} {onLogout}>
+    <AccountMenu {user} {onLogout} mobile>
       {#snippet trigger({ props }, active)}
         <button
           type="button"
