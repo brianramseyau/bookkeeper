@@ -510,10 +510,16 @@ test.group('Dashboard / summary', () => {
         m.year === lastMonth.year && m.month === lastMonth.month
     )
     assert.equal(lastMonthEntry.total, 500)
-    // The window is contiguous and ascending, ending at the viewed (today's)
-    // month - the dashboard zips monthlyIncome against monthlyExpenses by
-    // index, so this is the contract that actually matters, not just that
-    // both start from the same `start` expression (checked below).
+    // monthlyIncome is a contiguous, ascending 12-month window ending at the
+    // viewed (today's) month - pin the whole shape, not just its length, so
+    // a gapped, reordered, or wrongly-bounded window would fail here even
+    // though the client now joins on a year/month key rather than trusting
+    // bucket order.
+    for (let i = 1; i < body.monthlyIncome.length; i++) {
+      const previous = body.monthlyIncome[i - 1]
+      const current = body.monthlyIncome[i]
+      assert.equal(current.year * 12 + current.month, previous.year * 12 + previous.month + 1)
+    }
     assert.equal(body.monthlyIncome.at(-1).year, today.year)
     assert.equal(body.monthlyIncome.at(-1).month, today.month)
     // monthlyIncome and monthlyExpenses share the same trailing window.
