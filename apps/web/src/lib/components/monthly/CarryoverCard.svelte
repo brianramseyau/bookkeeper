@@ -28,10 +28,10 @@
     </colgroup>
     <tbody class="block sm:table-row-group">
       <tr
-        class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-slate-50 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800/60"
+        class="divide-border border-border bg-ground mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0"
       >
         <td
-          class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+          class="text-foreground flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell sm:min-h-0"
           colspan="3"
         >
           <span class="min-w-0 truncate">Carried over from last month</span>
@@ -63,15 +63,12 @@
         {#if editState.isEditing && editState.form}
           <td class="hidden px-3 py-2 sm:table-cell"></td>
           <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right">
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Actual</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
             <input
               type="number"
               step="0.01"
               bind:value={editState.form.amount}
-              class="w-full rounded-md border border-slate-300 px-2 py-1 text-right text-sm sm:w-24 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              class="border-input w-full rounded-md border bg-transparent px-2 py-1 text-right text-sm sm:w-24"
             />
           </td>
           <td
@@ -95,12 +92,9 @@
         {:else}
           <td class="hidden px-3 py-2 sm:table-cell"></td>
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+            class="text-foreground flex items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell sm:text-right"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Actual</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
             {formatCurrency(carryover)}
           </td>
           <td

@@ -883,11 +883,11 @@ describe('month page', () => {
     render(MonthPage)
 
     const paidChip = await screen.findByText('5 Mar 2026')
-    expect(paidChip.className).toContain('bg-green-100')
+    expect(paidChip.className).toContain('bg-in-tint')
     expect(paidChip.closest('td')!.getAttribute('title')).toBe('5 Mar 2026')
 
     const dueSoonChip = screen.getByText('In 5 days')
-    expect(dueSoonChip.className).toContain('bg-amber-100')
+    expect(dueSoonChip.className).toContain('bg-due-tint')
     expect(dueSoonChip.closest('td')!.getAttribute('title')).toBe('20 Mar 2026')
 
     // Expenses table renders first now, so it's tables[0].
@@ -926,7 +926,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const chip = await screen.findByText('5 Mar 2026')
-    expect(chip.className).toContain('bg-red-100')
+    expect(chip.className).toContain('bg-over-tint')
   })
 
   it('shows an amber chip for a line due soon with no actual recorded yet', async () => {
@@ -959,7 +959,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const chip = await screen.findByText('In 5 days')
-    expect(chip.className).toContain('bg-amber-100')
+    expect(chip.className).toContain('bg-due-tint')
   })
 
   it('shows a due date more than 30 days out as plain text, with no chip, while still unrecorded', async () => {
@@ -1432,7 +1432,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
-    expect(checkbox).toHaveClass('text-amber-500')
+    expect(checkbox).toHaveClass('text-due')
     expect(checkbox).toHaveAttribute(
       'title',
       "No record for this month this far back - assumed paid at today's amount because it's in the past. Confirm or correct it."
@@ -1450,7 +1450,7 @@ describe('month page', () => {
 
     const checkbox = await screen.findAllByRole('checkbox', { name: 'Paid' })
     for (const box of checkbox) {
-      expect(box).not.toHaveClass('text-amber-500')
+      expect(box).not.toHaveClass('text-due')
     }
     expect(screen.queryByText(/Why is .* estimated\?/)).toBeNull()
   })

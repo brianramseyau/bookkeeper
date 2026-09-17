@@ -523,7 +523,7 @@
 {:else if data}
   <MonthSummary {year} {month} {data} />
 
-  <h2 class="mt-8 text-lg font-semibold text-slate-900 dark:text-slate-100">Outgoing</h2>
+  <h2 class="text-foreground mt-8 text-lg font-semibold">Outgoing</h2>
   <OutgoingLinesTable
     {year}
     {month}
@@ -549,12 +549,9 @@
   />
 
   <div class="mt-8 flex items-center justify-between gap-3">
-    <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Incoming</h2>
+    <h2 class="text-foreground text-lg font-semibold">Incoming</h2>
     <div class="flex items-center gap-3">
-      <a
-        href="/income"
-        class="text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
-      >
+      <a href="/income" class="text-primary hover:text-primary/80 text-xs font-medium">
         Manage income sources
       </a>
       <Button size="sm" onclick={openLogIncome}>Log income</Button>

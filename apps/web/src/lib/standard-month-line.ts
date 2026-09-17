@@ -58,27 +58,25 @@ export function dueTitle(line: StandardMonthLine, year: number, month: number): 
     : formatDate(dueDate)
 }
 
-// Same red/amber pill as the Bills page's due-soon badge, so the two areas
-// read consistently - null means "plain text, no chip" (a due date more
-// than DUE_SOON_WINDOW_DAYS away, or no due date at all). `paid` (a real,
-// user-set flag) is the sole authority on green vs red/amber: it's a
-// separate fact from whether the amount is merely known, which
-// resolveDueDate already covers via its own gate above.
+// The `in`/`over`/`due` tint tokens (DESIGN.md's Colour section) - null
+// means "plain text, no chip" (a due date more than DUE_SOON_WINDOW_DAYS
+// away, or no due date at all). `paid` (a real, user-set flag) is the sole
+// authority on paid vs overdue/due-soon: it's a separate fact from whether
+// the amount is merely known, which resolveDueDate already covers via its
+// own gate above.
 export function dueChipClass(line: StandardMonthLine, year: number, month: number): string | null {
   const dueDate = resolveDueDate(line, year, month)
   if (!dueDate) return null
   // An estimated date isn't a real obligation yet, so it never earns the
-  // red/amber urgency styling - just plain text with an "(est.)" marker
-  // (see the template).
+  // overdue/due-soon urgency styling - just plain text with an "(est.)"
+  // marker (see the template).
   if (line.dueDateEstimated) return null
   if (line.paid) {
-    return 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+    return 'bg-in-tint text-in'
   }
   const days = daysUntil(dueDate)
   if (days > DUE_SOON_WINDOW_DAYS) return null
-  return days < 0
-    ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+  return days < 0 ? 'bg-over-tint text-over' : 'bg-due-tint text-due'
 }
 
 // Expense lines have no due date (they're not a single billed obligation
