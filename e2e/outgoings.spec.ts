@@ -14,7 +14,8 @@ test('bill list links to a detail page, where it can be edited, paused and resto
   await expect(page).toHaveURL(/\/bills\/\d+$/)
   await expect(page.getByRole('heading', { name: 'Health Insurance', level: 1 })).toBeVisible()
 
-  await page.getByRole('button', { name: 'Edit' }).click()
+  await page.getByRole('button', { name: 'Actions for Health Insurance' }).click()
+  await page.getByRole('menuitem', { name: 'Edit' }).click()
   await page.getByLabel('Amount').fill('215.50')
   await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByText('Bill updated')).toBeVisible()

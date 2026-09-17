@@ -96,10 +96,12 @@ describe('OutgoingDetail', () => {
 
   it('edits the item through the form sheet', async () => {
     const adapter = makeAdapter()
+    const user = userEvent.setup()
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByRole('heading', { name: 'Car' })
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Car' }))
+    await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'New car' } })
     await fireEvent.submit(document.querySelector('#outgoing-form')!)
 
@@ -151,6 +153,27 @@ describe('OutgoingDetail', () => {
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(adapter.deleteHistory).toHaveBeenCalledWith(11))
+  })
+
+  it('shows a standalone Edit button instead of an actions menu when the adapter has no lifecycle', async () => {
+    const adapter = makeAdapter({ supportsLifecycle: false })
+    const user = userEvent.setup()
+    render(OutgoingDetail, { props: { adapter, id: 1 } })
+    await screen.findByRole('heading', { name: 'Car' })
+
+    expect(screen.queryByRole('button', { name: 'Actions for Car' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'New car' } })
+    await fireEvent.submit(document.querySelector('#outgoing-form')!)
+
+    await waitFor(() =>
+      expect(adapter.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ name: 'New car' }),
+        item
+      )
+    )
   })
 
   it('renders a page-specific extra section', async () => {
