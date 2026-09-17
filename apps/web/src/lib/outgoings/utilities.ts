@@ -9,7 +9,7 @@ import {
   type UtilityTrend,
 } from '$lib/api/utilities'
 import { ApiError } from '$lib/api'
-import { formatCurrency, formatDate } from '$lib/format'
+import { daysUntil, dueDateTone, formatCurrency, formatDate, formatDaysUntilDue } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
 import { byName, byValueAsc, byValueDesc } from './sort'
 import type { OutgoingAdapter, OutgoingFormValues, OutgoingTrend } from './types'
@@ -145,12 +145,20 @@ export const utilitiesAdapter: OutgoingAdapter<UtilityRow> = {
     frequency: utilityFrequencyLabel(item.frequency),
     nextDueOn: formatDate(item.trend?.nextDueOn ?? null),
   }),
-  stats: (item, trend) => [
-    { label: 'Latest bill', value: formatCurrency(trend.latestAmount) },
-    { label: 'Frequency', value: utilityFrequencyLabel(item.frequency) },
-    { label: 'Next bill due', value: formatDate(trend.nextDueOn ?? null) },
-    { label: '12-month average', value: formatCurrency(trend.average) },
-  ],
+  stats: (item, trend) => {
+    const daysUntilDue = trend.nextDueOn ? daysUntil(trend.nextDueOn) : null
+    return [
+      { label: 'Latest bill', value: formatCurrency(trend.latestAmount) },
+      { label: 'Frequency', value: utilityFrequencyLabel(item.frequency) },
+      {
+        label: 'Next bill due',
+        value: formatDate(trend.nextDueOn ?? null),
+        hint: daysUntilDue !== null ? formatDaysUntilDue(daysUntilDue) : undefined,
+        tone: dueDateTone(daysUntilDue),
+      },
+      { label: '12-month average', value: formatCurrency(trend.average) },
+    ]
+  },
   toFormValues: (item) => ({
     name: item.name,
     frequency: item.frequency,

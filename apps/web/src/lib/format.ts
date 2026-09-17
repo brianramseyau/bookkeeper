@@ -141,13 +141,39 @@ export function formatDaysUntilDue(days: number | null): string {
   return `Due in ${days} day${days === 1 ? '' : 's'}`
 }
 
-/** Whole calendar days between today and isoDate - negative if isoDate is in the past. */
+/** Matches the API's own `DUE_SOON_WINDOW_DAYS` (recurring_bills_controller.ts). */
+const DUE_SOON_WINDOW_DAYS = 30
+
+/**
+ * The `due`/`over` status tone (DESIGN.md → Colour) for a days-until-due
+ * figure - overdue is `over`, due within the window is `due`, otherwise no
+ * tone. Shared by every "next due" stat so bills (server-computed
+ * `daysUntilDue`) and utilities (`daysUntil()` below, computed client-side)
+ * apply the same threshold to whatever day count they're given.
+ */
+export function dueDateTone(days: number | null): 'default' | 'due' | 'over' {
+  if (days === null) return 'default'
+  if (days < 0) return 'over'
+  if (days <= DUE_SOON_WINDOW_DAYS) return 'due'
+  return 'default'
+}
+
+/**
+ * Whole calendar days between today and isoDate - negative if isoDate is in
+ * the past. Both sides are read as the browser's own local calendar date
+ * (not UTC): "today" has to match what the user is actually looking at, and
+ * since the API's date columns are anchored to UTC midnight (see
+ * `formatDate`), reading the due date's local components lands on the same
+ * calendar day it renders as everywhere else in the app. Using UTC for
+ * "today" instead would lag the local date by one day for part of the day
+ * in any positive-UTC-offset timezone (e.g. AU) - this app's whole audience.
+ */
 export function daysUntil(isoDate: string): number {
   const due = new Date(isoDate)
-  const dueUtcMidnight = Date.UTC(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate())
+  const dueLocalMidnight = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime()
   const now = new Date()
-  const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  return Math.round((dueUtcMidnight - todayUtcMidnight) / 86_400_000)
+  const todayLocalMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  return Math.round((dueLocalMidnight - todayLocalMidnight) / 86_400_000)
 }
 
 /**

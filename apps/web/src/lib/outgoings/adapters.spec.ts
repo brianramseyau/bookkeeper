@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Category } from '$lib/api/categories'
 import type { UserSummary } from '$lib/api/users'
 
@@ -82,6 +82,10 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('billsAdapter', () => {
   it('maps a form draft to the create payload', async () => {
     vi.mocked(billsApi.createRecurringBill).mockResolvedValue({} as never)
@@ -157,6 +161,14 @@ describe('billsAdapter', () => {
     expect(billsAdapter.anchorId?.(bill)).toBe('bill-1')
     expect(billsAdapter.grouping?.key(bill, ctx)).toBe('annual')
     expect(billsAdapter.stats(bill, trend, ctx)[3]?.value).toBe('$50.00')
+    // "Next due" carries a due/over tone (DESIGN.md's status colours) and
+    // "Category" carries the category's own colour as a leading dot.
+    expect(billsAdapter.stats(bill, trend, ctx)[2]?.tone).toBe('due')
+    expect(billsAdapter.stats(bill, trend, ctx)[4]).toEqual({
+      label: 'Category',
+      value: 'Insurance',
+      dot: null,
+    })
   })
 
   it('maps history entries and a bill back to form values', async () => {
@@ -232,7 +244,16 @@ describe('subscriptionsAdapter', () => {
     expect(subscriptionsAdapter.href(sub)).toBe('/subscriptions/2')
     expect(subscriptionsAdapter.subtitle(sub, ctx)).toBe('Adam')
     expect(subscriptionsAdapter.rowValues(sub, ctx).dayOfMonth).toBe('4')
-    expect(subscriptionsAdapter.stats(sub, trend, ctx)).toHaveLength(4)
+    const stats = subscriptionsAdapter.stats(sub, trend, ctx)
+    expect(stats).toHaveLength(5)
+    // The Owner stat carries the person's own displayColor as a dot
+    // (DESIGN.md: "Each person's displayColor remains their per-person
+    // colour in Income, Subscriptions and charts").
+    expect(stats.find((s) => s.label === 'Owner')).toEqual({
+      label: 'Owner',
+      value: 'Adam',
+      dot: null,
+    })
   })
 })
 
@@ -319,6 +340,8 @@ describe('utilitiesAdapter', () => {
   })
 
   it('renders the latest bill and next due from the trend', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-01T00:00:00Z'))
     const utility = {
       id: 7,
       name: 'Electricity',
@@ -337,7 +360,15 @@ describe('utilitiesAdapter', () => {
     expect(utilitiesAdapter.href(utility)).toBe('/utilities/7')
     expect(utilitiesAdapter.rowValues(utilityRow, ctx).latest).toBe('$60.00')
     expect(utilitiesAdapter.rowValues(utilityRow, ctx).nextDueOn).toBe('3 Apr 2026')
-    expect(utilitiesAdapter.stats(utility, utilityTrend, ctx)[0]?.value).toBe('$60.00')
+    const stats = utilitiesAdapter.stats(utility, utilityTrend, ctx)
+    expect(stats[0]?.value).toBe('$60.00')
+    // "Next bill due" carries the same due/over status colour as bills.
+    expect(stats[2]).toEqual({
+      label: 'Next bill due',
+      value: '3 Apr 2026',
+      hint: 'Due in 2 days',
+      tone: 'due',
+    })
   })
 })
 

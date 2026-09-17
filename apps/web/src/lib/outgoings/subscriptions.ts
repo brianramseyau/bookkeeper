@@ -96,15 +96,25 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
     dayOfMonth: item.dayOfMonth ? String(item.dayOfMonth) : '—',
     category: ctx.categories.find((c) => c.id === item.categoryId)?.name ?? 'Uncategorized',
   }),
-  stats: (item, trend, ctx) => [
-    { label: 'Amount', value: formatCurrency(item.amount) },
-    { label: 'Billed on', value: item.dayOfMonth ? `Day ${item.dayOfMonth}` : 'Any day' },
-    {
-      label: 'Category',
-      value: ctx.categories.find((c) => c.id === item.categoryId)?.name ?? 'Uncategorized',
-    },
-    { label: '12-month average', value: formatCurrency(trend.average) },
-  ],
+  stats: (item, trend, ctx) => {
+    const owner = ctx.users.find((u) => u.id === item.userId)
+    const category = ctx.categories.find((c) => c.id === item.categoryId)
+    return [
+      { label: 'Amount', value: formatCurrency(item.amount) },
+      { label: 'Billed on', value: item.dayOfMonth ? `Day ${item.dayOfMonth}` : 'Any day' },
+      {
+        label: 'Owner',
+        value: owner?.fullName || owner?.email || 'Unknown',
+        dot: owner?.displayColor ?? null,
+      },
+      {
+        label: 'Category',
+        value: category?.name ?? 'Uncategorized',
+        dot: category?.color ?? null,
+      },
+      { label: '12-month average', value: formatCurrency(trend.average) },
+    ]
+  },
   toFormValues: (item) => ({
     userId: item.userId,
     name: item.name,

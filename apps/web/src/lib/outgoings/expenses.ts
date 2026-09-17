@@ -11,12 +11,7 @@ import { getExpenseTrend, type ExpenseTrend } from '$lib/api/expense-actuals'
 import { formatCurrency } from '$lib/format'
 import { lifecycleState } from '$lib/lifecycle'
 import { byName, byValueDesc } from './sort'
-import type {
-  OutgoingAdapter,
-  OutgoingField,
-  OutgoingFormValues,
-  OutgoingTrend,
-} from './types'
+import type { OutgoingAdapter, OutgoingField, OutgoingFormValues, OutgoingTrend } from './types'
 
 /** An expense plus the trailing trend the list attaches, for latest/average columns. */
 export interface ExpenseRow extends Expense {
@@ -73,7 +68,8 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
     // fold it into the same single bucket rather than emitting a second,
     // differently-titled group per hidden category.
     key: (item, ctx) =>
-      item.categoryId === null || !ctx.categories.some((category) => category.id === item.categoryId)
+      item.categoryId === null ||
+      !ctx.categories.some((category) => category.id === item.categoryId)
         ? UNCATEGORIZED
         : String(item.categoryId),
     order: (ctx) => [...ctx.categories.map((category) => String(category.id)), UNCATEGORIZED],
@@ -147,15 +143,15 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
     average: formatCurrency(item.trend?.average ?? null),
     category: ctx.categories.find((c) => c.id === item.categoryId)?.name ?? 'Uncategorized',
   }),
-  stats: (item, trend, ctx) => [
-    { label: 'Budget', value: formatCurrency(item.budgetAmount) },
-    {
-      label: 'Category',
-      value: ctx.categories.find((c) => c.id === item.categoryId)?.name ?? 'Uncategorized',
-    },
-    { label: 'Latest', value: formatCurrency(trend.latestAmount) },
-    { label: '12-month average', value: formatCurrency(trend.average) },
-  ],
+  stats: (item, trend, ctx) => {
+    const category = ctx.categories.find((c) => c.id === item.categoryId)
+    return [
+      { label: 'Budget', value: formatCurrency(item.budgetAmount) },
+      { label: 'Category', value: category?.name ?? 'Uncategorized', dot: category?.color ?? null },
+      { label: 'Latest', value: formatCurrency(trend.latestAmount) },
+      { label: '12-month average', value: formatCurrency(trend.average) },
+    ]
+  },
   toFormValues: (item) => ({
     name: item.name,
     categoryId: item.categoryId ?? '',
