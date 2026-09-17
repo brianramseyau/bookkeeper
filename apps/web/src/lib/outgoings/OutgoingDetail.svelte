@@ -232,49 +232,67 @@
   {/if}
 
   {#if chartData.length > 0}
-    <Card class="mt-6 p-4">
+    <Card class="mt-8 p-4">
       <h2 class="text-foreground mb-2 text-sm font-medium">Last 12 months</h2>
       <MonthlyExpenseChart data={chartData} ariaLabel="{item.name} over the last 12 months" />
     </Card>
   {/if}
 
   {#if adapter.hasHistory && history.length > 0}
-    <Card class="mt-6 sm:overflow-x-auto">
-      <h2 class="text-foreground px-3 pt-3 text-sm font-medium">Payment history</h2>
-      <table class="mt-2 w-full border-collapse text-sm">
-        <thead>
-          <tr class="border-border border-b">
-            <th class="text-muted-foreground px-3 py-2 text-left font-medium">Month</th>
-            <th class="text-muted-foreground px-3 py-2 text-right font-medium">Amount</th>
-            <th class="text-muted-foreground px-3 py-2 text-left font-medium">Status</th>
-            <th class="w-12"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each history as entry (entry.id)}
-            <tr class="border-border border-b last:border-0">
-              <td class="text-foreground px-3 py-2">{monthYearLabel(entry.year, entry.month)}</td>
-              <td class="font-figures text-foreground px-3 py-2 text-right">
-                {formatCurrency(entry.amount)}
-              </td>
-              <td class="px-3 py-2">
-                {#if entry.paid}
-                  <Badge class="border-in-tint bg-in-tint text-in border">Paid</Badge>
-                {:else}
-                  <Badge variant="secondary">Unpaid</Badge>
-                {/if}
-              </td>
-              <td class="px-3 py-2 text-right">
-                <ActionMenu
-                  label="Actions for {monthYearLabel(entry.year, entry.month)}"
-                  actions={historyMenuActions(entry)}
-                />
-              </td>
+    <div class="mt-8">
+      <h2 class="text-foreground mb-3 text-lg font-semibold">Payment history</h2>
+      <Card class="sm:overflow-x-auto" pivotTable>
+        <table class="block w-full border-collapse text-sm sm:table">
+          <thead class="hidden sm:table-header-group">
+            <tr class="border-border border-b">
+              <th class="text-muted-foreground px-3 py-2 text-left font-medium">Month</th>
+              <th class="text-muted-foreground px-3 py-2 text-right font-medium">Amount</th>
+              <th class="text-muted-foreground px-3 py-2 text-left font-medium">Status</th>
+              <th class="w-12"></th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </Card>
+          </thead>
+          <tbody class="block sm:table-row-group">
+            {#each history as entry (entry.id)}
+              <tr
+                class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
+              >
+                <td
+                  class="text-foreground flex items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell"
+                >
+                  <span>{monthYearLabel(entry.year, entry.month)}</span>
+                  <span class="shrink-0 sm:hidden">
+                    <ActionMenu
+                      label="Actions for {monthYearLabel(entry.year, entry.month)}"
+                      actions={historyMenuActions(entry)}
+                    />
+                  </span>
+                </td>
+                <td
+                  class="font-figures text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
+                >
+                  <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Amount</span>
+                  {formatCurrency(entry.amount)}
+                </td>
+                <td class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
+                  <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Status</span>
+                  {#if entry.paid}
+                    <Badge class="border-in-tint bg-in-tint text-in border">Paid</Badge>
+                  {:else}
+                    <Badge variant="secondary">Unpaid</Badge>
+                  {/if}
+                </td>
+                <td class="hidden px-3 py-2 text-right whitespace-nowrap sm:table-cell">
+                  <ActionMenu
+                    label="Actions for {monthYearLabel(entry.year, entry.month)}"
+                    actions={historyMenuActions(entry)}
+                  />
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </Card>
+    </div>
   {/if}
 
   {#if extra}
