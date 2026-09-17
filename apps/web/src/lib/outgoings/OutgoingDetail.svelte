@@ -18,6 +18,7 @@
   import ActionMenu from '$lib/components/ActionMenu.svelte'
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
   import { Badge } from '$lib/components/ui/badge'
+  import { Button } from '$lib/components/ui/button'
   import { outgoingMenuActions } from './menu'
   import OutgoingFormSheet from './OutgoingFormSheet.svelte'
   import type {
@@ -158,7 +159,14 @@
 {:else if item}
   <PageHeader title={item.name} back={{ href: listHref, label: adapter.title }}>
     {#snippet actions()}
-      <ActionMenu label={item ? `Actions for ${item.name}` : 'Actions'} actions={itemMenuActions} />
+      {#if adapter.supportsLifecycle}
+        <ActionMenu
+          label={item ? `Actions for ${item.name}` : 'Actions'}
+          actions={itemMenuActions}
+        />
+      {:else}
+        <Button variant="outline" onclick={() => (formOpen = true)}>Edit</Button>
+      {/if}
     {/snippet}
   </PageHeader>
 
