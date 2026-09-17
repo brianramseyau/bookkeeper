@@ -56,6 +56,12 @@
   const MAX_BAR_WIDTH = 24
   const RADIUS = 4
 
+  // The dashboard always passes a full 12-month window, even when every
+  // month is zero (a fresh install, or no income/spend logged yet) - without
+  // this check `groups` would never be empty and the placeholder below
+  // could never show.
+  const hasData = $derived(data.some((d) => d.income !== 0 || d.expense !== 0))
+
   const scale = $derived.by(() => {
     const maxValue = Math.max(...data.flatMap((d) => [d.income, d.expense]), 0)
     return niceMax(maxValue)
@@ -148,8 +154,8 @@
   }
 </script>
 
-<div class="relative">
-  {#if groups.length > 0}
+<div>
+  {#if hasData}
     <div class="text-muted-foreground mb-2 flex items-center gap-4 text-xs">
       <span class="flex items-center gap-1.5">
         <span class="size-2.5 rounded-sm" style="background: {incomeColor}"></span>
@@ -161,82 +167,84 @@
       </span>
     </div>
 
-    <svg
-      viewBox="0 0 {width} {height}"
-      class={['w-full touch-none', onSelectMonth && 'cursor-pointer']}
-      role="button"
-      tabindex={onSelectMonth ? 0 : -1}
-      aria-label="{ariaLabel}{onSelectMonth
-        ? ' - use arrow keys to pick a month, Enter to open it in Monthly'
-        : ''}"
-      onpointermove={(e) => handlePointerMove(e, e.currentTarget)}
-      onpointerleave={() => (hoverIndex = null)}
-      onclick={handleClick}
-      onkeydown={handleKeydown}
-    >
-      {#each gridLines as line (line.value)}
-        <line
-          x1={padLeft}
-          x2={width - padRight}
-          y1={line.y}
-          y2={line.y}
-          stroke={GRID_COLOR}
-          stroke-width="1"
-        />
-        <text
-          x={padLeft - 8}
-          y={line.y + 4}
-          text-anchor="end"
-          font-size="11"
-          fill={AXIS_TEXT_COLOR}
-        >
-          {formatCurrency(line.value).replace('.00', '')}
-        </text>
-      {/each}
+    <div class="relative">
+      <svg
+        viewBox="0 0 {width} {height}"
+        class={['w-full touch-none', onSelectMonth && 'cursor-pointer']}
+        role="button"
+        tabindex={onSelectMonth ? 0 : -1}
+        aria-label="{ariaLabel}{onSelectMonth
+          ? ' - use arrow keys to pick a month, Enter to open it in Monthly'
+          : ''}"
+        onpointermove={(e) => handlePointerMove(e, e.currentTarget)}
+        onpointerleave={() => (hoverIndex = null)}
+        onclick={handleClick}
+        onkeydown={handleKeydown}
+      >
+        {#each gridLines as line (line.value)}
+          <line
+            x1={padLeft}
+            x2={width - padRight}
+            y1={line.y}
+            y2={line.y}
+            stroke={GRID_COLOR}
+            stroke-width="1"
+          />
+          <text
+            x={padLeft - 8}
+            y={line.y + 4}
+            text-anchor="end"
+            font-size="11"
+            fill={AXIS_TEXT_COLOR}
+          >
+            {formatCurrency(line.value).replace('.00', '')}
+          </text>
+        {/each}
+
+        {#if hovered}
+          <rect
+            x={hovered.slotX}
+            y={padTop}
+            width={slotWidth}
+            height={plotHeight}
+            fill={HIGHLIGHT_COLOR}
+            opacity="0.06"
+          />
+        {/if}
+
+        {#each groups as group (group.entry.year + '-' + group.entry.month)}
+          <path d={roundedTopBar(group.incomeX, group.incomeY, barWidth, group.incomeHeight)} fill={incomeColor} />
+          <path
+            d={roundedTopBar(group.expenseX, group.expenseY, barWidth, group.expenseHeight)}
+            fill={expenseColor}
+          />
+          <text x={group.centerX} y={height - 8} text-anchor="middle" font-size="11" fill={AXIS_TEXT_COLOR}>
+            {monthShortName(group.entry.month)}
+          </text>
+        {/each}
+      </svg>
 
       {#if hovered}
-        <rect
-          x={hovered.slotX}
-          y={padTop}
-          width={slotWidth}
-          height={plotHeight}
-          fill={HIGHLIGHT_COLOR}
-          opacity="0.06"
-        />
+        {@const left = (hovered.centerX / width) * 100}
+        <div
+          class="border-border bg-popover pointer-events-none absolute top-0 -translate-x-1/2 rounded-md border px-2 py-1 text-xs whitespace-nowrap shadow-sm"
+          style="left: {left}%"
+        >
+          <p class="text-muted-ink font-semibold">
+            {monthShortName(hovered.entry.month)}
+            {hovered.entry.year}
+          </p>
+          <p class="flex items-center gap-1.5">
+            <span class="size-2 rounded-sm" style="background: {incomeColor}"></span>
+            <span class="text-ink">{formatCurrency(hovered.entry.income)}</span>
+          </p>
+          <p class="flex items-center gap-1.5">
+            <span class="size-2 rounded-sm" style="background: {expenseColor}"></span>
+            <span class="text-ink">{formatCurrency(hovered.entry.expense)}</span>
+          </p>
+        </div>
       {/if}
-
-      {#each groups as group (group.entry.year + '-' + group.entry.month)}
-        <path d={roundedTopBar(group.incomeX, group.incomeY, barWidth, group.incomeHeight)} fill={incomeColor} />
-        <path
-          d={roundedTopBar(group.expenseX, group.expenseY, barWidth, group.expenseHeight)}
-          fill={expenseColor}
-        />
-        <text x={group.centerX} y={height - 8} text-anchor="middle" font-size="11" fill={AXIS_TEXT_COLOR}>
-          {monthShortName(group.entry.month)}
-        </text>
-      {/each}
-    </svg>
-
-    {#if hovered}
-      {@const left = (hovered.centerX / width) * 100}
-      <div
-        class="border-border bg-popover pointer-events-none absolute top-0 -translate-x-1/2 rounded-md border px-2 py-1 text-xs whitespace-nowrap shadow-sm"
-        style="left: {left}%"
-      >
-        <p class="text-muted-ink font-semibold">
-          {monthShortName(hovered.entry.month)}
-          {hovered.entry.year}
-        </p>
-        <p class="flex items-center gap-1.5">
-          <span class="size-2 rounded-sm" style="background: {incomeColor}"></span>
-          <span class="text-ink">{formatCurrency(hovered.entry.income)}</span>
-        </p>
-        <p class="flex items-center gap-1.5">
-          <span class="size-2 rounded-sm" style="background: {expenseColor}"></span>
-          <span class="text-ink">{formatCurrency(hovered.entry.expense)}</span>
-        </p>
-      </div>
-    {/if}
+    </div>
   {:else}
     <p class="text-muted-ink py-8 text-center text-sm">Not enough data yet</p>
   {/if}

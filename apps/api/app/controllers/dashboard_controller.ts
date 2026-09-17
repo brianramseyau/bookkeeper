@@ -66,6 +66,13 @@ export default class DashboardController {
    * income-vs-expenses bar chart). Net = salary take-home plus other income
    * after each owner's marginal rate (gross fallback when no rate is set) -
    * see income_netting.ts.
+   *
+   * totalIncome is the sum of the already-rounded monthlyIncome buckets,
+   * not a fresh netIncomeForEntries call over every entry - netIncomeForEntries
+   * rounds to cents internally, so rounding once per month and again over the
+   * whole window would let the two figures disagree by a cent or two. This
+   * mirrors monthlyExpenses/expenseTotal, where the frontend already sums the
+   * per-month rounded figures for the same donut.
    */
   private async income(viewed: DateTime) {
     const start = viewed.startOf('month').minus({ months: MONTHLY_EXPENSE_WINDOW - 1 })
@@ -91,7 +98,8 @@ export default class DashboardController {
       })
     }
 
-    return { totalIncome: netIncomeForEntries(windowed, rates), monthlyIncome }
+    const totalIncome = round(monthlyIncome.reduce((sum, m) => sum + m.total, 0))
+    return { totalIncome, monthlyIncome }
   }
 
   private async upcomingBills() {

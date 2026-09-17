@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/svelte'
+import { fireEvent, render, screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { themeState } from '$lib/stores/theme.svelte'
@@ -37,6 +37,22 @@ describe('IncomeExpenseBarChart', () => {
     expect(document.querySelector('svg')).toBeNull()
   })
 
+  it('shows a placeholder when every month is zero, not a $0 axis', () => {
+    // The dashboard always passes a full 12-month window, so a fresh
+    // install/no-history case sends 12 zero-value entries rather than an
+    // empty array - the placeholder must still show for that case.
+    render(IncomeExpenseBarChart, {
+      data: [
+        { year: 2026, month: 1, income: 0, expense: 0 },
+        { year: 2026, month: 2, income: 0, expense: 0 },
+      ],
+      incomeColor: '#0A6B50',
+      expenseColor: '#9C3320',
+    })
+    expect(screen.getByText('Not enough data yet')).toBeInTheDocument()
+    expect(document.querySelector('svg')).toBeNull()
+  })
+
   it('renders a legend and a bar pair for every month', () => {
     render(IncomeExpenseBarChart, { data, incomeColor: '#0A6B50', expenseColor: '#9C3320' })
     expect(screen.getByText('Income')).toBeInTheDocument()
@@ -62,6 +78,26 @@ describe('IncomeExpenseBarChart', () => {
 
     await fireEvent.click(svg)
     expect(onSelectMonth).toHaveBeenCalledWith(2026, 1)
+  })
+
+  it('positions the hover tooltip against the plot, not the legend', async () => {
+    const { container } = render(IncomeExpenseBarChart, {
+      data,
+      incomeColor: '#0A6B50',
+      expenseColor: '#9C3320',
+    })
+    const svg = stubBoundingRect(container)
+
+    await fireEvent.pointerMove(svg, { clientX: 10, clientY: 100 })
+
+    const tooltip = screen.getByText('Jan 2026').closest('div')!
+    const positioningParent = tooltip.parentElement!
+    // The tooltip's `absolute top-0` is relative to this parent - it must
+    // wrap only the plot (svg), not also the legend, or `top-0` lands the
+    // tooltip on top of the legend row instead of the chart.
+    expect(positioningParent.contains(svg)).toBe(true)
+    expect(positioningParent.querySelector('svg')).not.toBeNull()
+    expect(within(positioningParent).queryByText('Income')).toBeNull()
   })
 
   it('clears the hover tooltip on pointer leave', async () => {

@@ -510,6 +510,12 @@ test.group('Dashboard / summary', () => {
         m.year === lastMonth.year && m.month === lastMonth.month
     )
     assert.equal(lastMonthEntry.total, 500)
+    // The window is contiguous and ascending, ending at the viewed (today's)
+    // month - the dashboard zips monthlyIncome against monthlyExpenses by
+    // index, so this is the contract that actually matters, not just that
+    // both start from the same `start` expression (checked below).
+    assert.equal(body.monthlyIncome.at(-1).year, today.year)
+    assert.equal(body.monthlyIncome.at(-1).month, today.month)
     // monthlyIncome and monthlyExpenses share the same trailing window.
     assert.equal(body.monthlyIncome[0].year, body.monthlyExpenses[0].year)
     assert.equal(body.monthlyIncome[0].month, body.monthlyExpenses[0].month)

@@ -63,16 +63,17 @@
   const position = $derived(round2(incomeTotal - expenseTotal))
   const positionIsPositive = $derived(position >= 0)
 
-  // monthlyExpenses and monthlyIncome share the same trailing 12-month
-  // window and are built in the same month order server-side, so they zip
-  // by index rather than needing a year/month lookup.
+  // Joined by year/month key rather than array index - monthlyExpenses and
+  // monthlyIncome both currently return the same 12-month window in the same
+  // order, but a key join stays correct even if that alignment ever breaks
+  // instead of silently pairing the wrong months.
   const incomeVsExpenseByMonth = $derived.by(() => {
     if (!data) return []
-    const monthlyIncome = data.monthlyIncome
-    return data.monthlyExpenses.map((expenseMonth, index) => ({
+    const incomeByKey = new Map(data.monthlyIncome.map((m) => [`${m.year}-${m.month}`, m.total]))
+    return data.monthlyExpenses.map((expenseMonth) => ({
       year: expenseMonth.year,
       month: expenseMonth.month,
-      income: monthlyIncome[index]?.total ?? 0,
+      income: incomeByKey.get(`${expenseMonth.year}-${expenseMonth.month}`) ?? 0,
       expense: expenseMonth.total,
     }))
   })
