@@ -464,4 +464,54 @@ test.group('Dashboard / summary', () => {
 
     assert.equal(response.body().totalIncome, 5000 + 630 + 300)
   })
+
+  test('breaks net household income into a 12-month monthlyIncome window', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.local()
+
+    await IncomeEntry.create({
+      userId: adam.id,
+      year: today.year,
+      month: today.month,
+      amount: 1000,
+      taxWithheld: true,
+    })
+    const lastMonth = today.minus({ months: 1 })
+    await IncomeEntry.create({
+      userId: adam.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      amount: 500,
+      taxWithheld: true,
+    })
+    // Outside the 12-month window - must not count.
+    const outside = today.minus({ months: 13 })
+    await IncomeEntry.create({
+      userId: adam.id,
+      year: outside.year,
+      month: outside.month,
+      amount: 9999,
+      taxWithheld: true,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+
+    const body = response.body()
+    assert.lengthOf(body.monthlyIncome, 12)
+    const currentEntry = body.monthlyIncome.find(
+      (m: { year: number; month: number }) => m.year === today.year && m.month === today.month
+    )
+    assert.equal(currentEntry.total, 1000)
+    const lastMonthEntry = body.monthlyIncome.find(
+      (m: { year: number; month: number }) =>
+        m.year === lastMonth.year && m.month === lastMonth.month
+    )
+    assert.equal(lastMonthEntry.total, 500)
+    // monthlyIncome and monthlyExpenses share the same trailing window.
+    assert.equal(body.monthlyIncome[0].year, body.monthlyExpenses[0].year)
+    assert.equal(body.monthlyIncome[0].month, body.monthlyExpenses[0].month)
+  })
 })

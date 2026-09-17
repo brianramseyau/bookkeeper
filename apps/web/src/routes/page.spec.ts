@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { goto, replaceState } from '$app/navigation'
@@ -27,6 +27,7 @@ const baseSummary: DashboardSummary = {
   monthlyExpenses: [],
   categoryBreakdown: [],
   totalIncome: 0,
+  monthlyIncome: [],
 }
 
 const baseStandardMonth: StandardMonthResult = {
@@ -150,17 +151,21 @@ describe('dashboard page', () => {
     expect(overdueText.className).toContain('text-over')
   })
 
-  it('calls goto from the monthly expense chart', async () => {
+  it('calls goto from the income vs expenses bar chart', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
       monthlyExpenses: [
         { year: 2026, month: 1, total: 100 },
         { year: 2026, month: 2, total: 200 },
       ],
+      monthlyIncome: [
+        { year: 2026, month: 1, total: 150 },
+        { year: 2026, month: 2, total: 250 },
+      ],
     })
     render(DashboardPage)
 
-    const chart = await screen.findByRole('button', { name: /Monthly expenses/ })
+    const chart = await screen.findByRole('button', { name: /Income vs expenses/ })
     vi.spyOn(chart, 'getBoundingClientRect').mockReturnValue({
       width: 720,
       height: 240,
@@ -252,8 +257,11 @@ describe('dashboard page', () => {
     })
     render(DashboardPage)
 
-    expect(await screen.findByText('Income')).toBeInTheDocument()
-    expect(screen.getByText('Expenses')).toBeInTheDocument()
+    // The bar chart's legend also says "Income"/"Expenses", so scope the
+    // lookup to the donut's own card.
+    const donutCard = (await screen.findByText('Income vs expenses (12 months)')).closest('div')!
+    expect(within(donutCard).getByText('Income')).toBeInTheDocument()
+    expect(within(donutCard).getByText('Expenses')).toBeInTheDocument()
     // Centre shows income - expenses = 400 - 500 = -100 as a deficit.
     expect(screen.getByText('Deficit')).toBeInTheDocument()
     expect(screen.getByText('-$100.00')).toBeInTheDocument()

@@ -35,13 +35,13 @@ export default class DashboardController {
     const month = request.input('month') ? Number(request.input('month')) : today.month
     const viewed = DateTime.local(year, month, 1)
 
-    const [monthResult, upcomingBills, monthlyExpenses, categoryBreakdown, totalIncome] =
+    const [monthResult, upcomingBills, monthlyExpenses, categoryBreakdown, income] =
       await Promise.all([
         new StandardMonthService().compute(year, month),
         this.upcomingBills(),
         this.monthlyExpenses(viewed),
         this.categoryBreakdown(viewed),
-        this.totalIncome(viewed),
+        this.income(viewed),
       ])
 
     return response.json({
@@ -54,31 +54,44 @@ export default class DashboardController {
       upcomingBills,
       monthlyExpenses,
       categoryBreakdown,
-      totalIncome,
+      totalIncome: income.totalIncome,
+      monthlyIncome: income.monthlyIncome,
     })
   }
 
   /**
    * Net household income over the same trailing 12-month window as
-   * monthlyExpenses, so the dashboard's income-vs-expenses donut compares
-   * like with like. Net = salary take-home plus other income after each
-   * owner's marginal rate (gross fallback when no rate is set) - see
-   * income_netting.ts.
+   * monthlyExpenses, both as a single total (the dashboard's income-vs-
+   * expenses donut compares like with like) and broken out per month (the
+   * income-vs-expenses bar chart). Net = salary take-home plus other income
+   * after each owner's marginal rate (gross fallback when no rate is set) -
+   * see income_netting.ts.
    */
-  private async totalIncome(viewed: DateTime) {
+  private async income(viewed: DateTime) {
     const start = viewed.startOf('month').minus({ months: MONTHLY_EXPENSE_WINDOW - 1 })
-    const end = viewed.endOf('month')
     const startIndex = start.year * 12 + start.month
-    const endIndex = end.year * 12 + end.month
+    const endIndex = viewed.year * 12 + viewed.month
 
     const [entries, rates] = await Promise.all([IncomeEntry.query(), loadMarginalRates()])
-    return netIncomeForEntries(
-      entries.filter((entry) => {
-        const index = entry.year * 12 + entry.month
-        return index >= startIndex && index <= endIndex
-      }),
-      rates
-    )
+    const windowed = entries.filter((entry) => {
+      const index = entry.year * 12 + entry.month
+      return index >= startIndex && index <= endIndex
+    })
+
+    const monthlyIncome: { year: number; month: number; total: number }[] = []
+    for (let i = 0; i < MONTHLY_EXPENSE_WINDOW; i++) {
+      const cursor = start.plus({ months: i })
+      const monthEntries = windowed.filter(
+        (entry) => entry.year === cursor.year && entry.month === cursor.month
+      )
+      monthlyIncome.push({
+        year: cursor.year,
+        month: cursor.month,
+        total: netIncomeForEntries(monthEntries, rates),
+      })
+    }
+
+    return { totalIncome: netIncomeForEntries(windowed, rates), monthlyIncome }
   }
 
   private async upcomingBills() {

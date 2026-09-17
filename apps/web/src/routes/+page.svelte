@@ -10,7 +10,7 @@
   import { MonthNav } from '$lib/month-nav.svelte'
   import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import MonthStrip from '$lib/components/app/MonthStrip.svelte'
-  import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
+  import IncomeExpenseBarChart from '$lib/components/IncomeExpenseBarChart.svelte'
   import CategoryBreakdownList from '$lib/components/CategoryBreakdownList.svelte'
   import PieChart from '$lib/components/PieChart.svelte'
   import Card from '$lib/components/Card.svelte'
@@ -63,6 +63,20 @@
   const position = $derived(round2(incomeTotal - expenseTotal))
   const positionIsPositive = $derived(position >= 0)
 
+  // monthlyExpenses and monthlyIncome share the same trailing 12-month
+  // window and are built in the same month order server-side, so they zip
+  // by index rather than needing a year/month lookup.
+  const incomeVsExpenseByMonth = $derived.by(() => {
+    if (!data) return []
+    const monthlyIncome = data.monthlyIncome
+    return data.monthlyExpenses.map((expenseMonth, index) => ({
+      year: expenseMonth.year,
+      month: expenseMonth.month,
+      income: monthlyIncome[index]?.total ?? 0,
+      expense: expenseMonth.total,
+    }))
+  })
+
   const incomeVsExpensePie = $derived.by(() => {
     const slices: { label: string; value: number; color: string }[] = []
     if (incomeTotal > 0)
@@ -113,12 +127,14 @@
   <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
     <Card class="p-4 lg:col-span-2">
       <h2 class="text-foreground text-sm font-semibold">
-        Monthly expenses (12 months through {monthName(nav.month)}
+        Income vs expenses by month (12 months through {monthName(nav.month)}
         {nav.year})
       </h2>
       <div class="mt-3">
-        <MonthlyExpenseChart
-          data={data.monthlyExpenses}
+        <IncomeExpenseBarChart
+          data={incomeVsExpenseByMonth}
+          incomeColor={INCOME_COLOR}
+          expenseColor={EXPENSE_COLOR}
           onSelectMonth={(year, month) => goto(`/monthly?year=${year}&month=${month}`)}
         />
       </div>
