@@ -33,6 +33,8 @@ export interface DashboardSummary {
   categoryBreakdown: DashboardCategoryBreakdown[]
   /** Net household income over the same 12-month window as monthlyExpenses. */
   totalIncome: number
+  /** Net household income per month over the same window as monthlyExpenses. */
+  monthlyIncome: DashboardMonthlyExpense[]
 }
 
 export function getDashboardSummary(year: number, month: number) {
