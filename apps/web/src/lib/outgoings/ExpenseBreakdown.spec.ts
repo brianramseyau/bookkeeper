@@ -108,7 +108,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Insurance' })[0]!)
     await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('40'), { target: { value: '55' } })
     await fireEvent.submit(document.querySelector('#budget-item-form')!)
@@ -128,7 +128,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Insurance' })[0]!)
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(itemsApi.deleteExpenseBudgetItem).toHaveBeenCalledWith(7))
@@ -140,7 +140,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Insurance' })[0]!)
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
@@ -153,7 +153,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('vet')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for the Mar 2026 entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for the Mar 2026 entry' })[0]!)
     await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('80'), { target: { value: '85' } })
     await fireEvent.submit(document.querySelector('#expense-actual-form')!)
@@ -177,7 +177,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Insurance' })[0]!)
     await user.click(screen.getByText('Edit'))
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
@@ -190,7 +190,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('vet')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for the Mar 2026 entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for the Mar 2026 entry' })[0]!)
     await user.click(screen.getByText('Edit'))
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
@@ -205,7 +205,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('vet')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Actions for the Mar 2026 entry' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for the Mar 2026 entry' })[0]!)
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(actualsApi.deleteExpenseActual).toHaveBeenCalledWith(5))

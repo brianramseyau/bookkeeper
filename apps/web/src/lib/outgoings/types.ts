@@ -156,6 +156,8 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
   setLifecycle(id: number, patch: Partial<LifecycleFlags>): Promise<T>
   remove(id: number): Promise<void>
   history?(id: number): Promise<OutgoingHistoryEntry[]>
+  /** Edits a past month's recorded amount, e.g. a bill/subscription payment - mirrors what the Monthly page can already do for the same month via its own line-edit sheet. */
+  updateHistory?(id: number, entry: OutgoingHistoryEntry, amount: number): Promise<unknown>
   deleteHistory?(id: number): Promise<void>
   trend(id: number): Promise<OutgoingTrend>
 

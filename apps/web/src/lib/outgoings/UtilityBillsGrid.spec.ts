@@ -102,7 +102,9 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(SECOND).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: `Actions for the ${SECOND} bill` }))
+    await user.click(
+      within(row).getAllByRole('button', { name: `Actions for the ${SECOND} bill` })[0]!
+    )
     await user.click(screen.getByText('Add bill'))
     await fireEvent.input(screen.getByLabelText('Amount'), { target: { value: '75' } })
     await fireEvent.submit(document.querySelector('#utility-bill-form')!)
@@ -126,7 +128,9 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(SECOND).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: `Actions for the ${SECOND} bill` }))
+    await user.click(
+      within(row).getAllByRole('button', { name: `Actions for the ${SECOND} bill` })[0]!
+    )
     await user.click(screen.getByText('Add bill'))
     await fireEvent.input(screen.getByLabelText('Amount'), { target: { value: '-1' } })
     await fireEvent.submit(document.querySelector('#utility-bill-form')!)
@@ -141,7 +145,9 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(FIR).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(
+      within(row).getAllByRole('button', { name: `Actions for the ${FIR} bill` })[0]!
+    )
     await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('90'), { target: { value: '95' } })
     await fireEvent.submit(document.querySelector('#utility-bill-form')!)
@@ -165,7 +171,9 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(FIR).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(
+      within(row).getAllByRole('button', { name: `Actions for the ${FIR} bill` })[0]!
+    )
     await user.click(screen.getByText('Edit'))
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
@@ -181,7 +189,9 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(FIR).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(
+      within(row).getAllByRole('button', { name: `Actions for the ${FIR} bill` })[0]!
+    )
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(utilitiesApi.deleteUtilityBill).toHaveBeenCalledWith(21))
@@ -194,7 +204,9 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(FIR).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(
+      within(row).getAllByRole('button', { name: `Actions for the ${FIR} bill` })[0]!
+    )
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
@@ -217,7 +229,7 @@ describe('UtilityBillsGrid', () => {
 
     const billRow = screen.getByText(FIR).closest('tr')!
     expect(
-      within(billRow).getByRole('button', { name: `Actions for the ${FIR} bill` })
+      within(billRow).getAllByRole('button', { name: `Actions for the ${FIR} bill` })[0]
     ).toBeInTheDocument()
   })
 

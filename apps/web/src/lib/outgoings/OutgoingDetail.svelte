@@ -2,7 +2,7 @@
   import { onMount, type Snippet } from 'svelte'
   import { goto } from '$app/navigation'
   import { toast } from 'svelte-sonner'
-  import { mdiDelete } from '@mdi/js'
+  import { mdiDelete, mdiPencil } from '@mdi/js'
   import { ApiError } from '$lib/api'
   import { listCategories, type Category } from '$lib/api/categories'
   import { listUsers, type UserSummary } from '$lib/api/users'
@@ -19,8 +19,11 @@
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
   import { Button } from '$lib/components/ui/button'
   import { Badge } from '$lib/components/ui/badge'
-  import { outgoingMenuActions } from './menu'
+  import { outgoingMenuActions, type OutgoingMenuAction } from './menu'
   import OutgoingFormSheet from './OutgoingFormSheet.svelte'
+  import OutgoingHistoryEditSheet, {
+    type OutgoingHistoryEditValues,
+  } from './OutgoingHistoryEditSheet.svelte'
   import type {
     OutgoingAdapter,
     OutgoingFormValues,
@@ -46,6 +49,11 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
   let formOpen = $state(false)
+
+  let historyFormOpen = $state(false)
+  let historyFormTarget = $state<OutgoingHistoryEntry | null>(null)
+  let historyFormSubmitting = $state(false)
+  let historyFormError = $state<string | null>(null)
 
   const listHref = $derived(`/${adapter.kind}`)
 
@@ -141,6 +149,47 @@
     }
   }
 
+  function openEditHistory(entry: OutgoingHistoryEntry) {
+    historyFormTarget = entry
+    historyFormError = null
+    historyFormOpen = true
+  }
+
+  async function submitHistory(values: OutgoingHistoryEditValues) {
+    if (!historyFormTarget) return
+    historyFormSubmitting = true
+    historyFormError = null
+    try {
+      await adapter.updateHistory?.(id, historyFormTarget, values.amount)
+      historyFormOpen = false
+      toast.success('Payment updated')
+      await refresh()
+    } catch (err) {
+      historyFormError = err instanceof ApiError ? err.message : 'Failed to save changes'
+    } finally {
+      historyFormSubmitting = false
+    }
+  }
+
+  function historyMenuActions(entry: OutgoingHistoryEntry): OutgoingMenuAction[] {
+    const actions: OutgoingMenuAction[] = []
+    if (adapter.updateHistory) {
+      actions.push({
+        label: 'Edit',
+        path: mdiPencil,
+        variant: 'neutral' as const,
+        onclick: () => openEditHistory(entry),
+      })
+    }
+    actions.push({
+      label: 'Delete',
+      path: mdiDelete,
+      variant: 'danger' as const,
+      onclick: () => removeHistory(entry),
+    })
+    return actions
+  }
+
   const chartData = $derived(
     (trend?.months ?? []).map((month) => ({
       year: month.year,
@@ -220,14 +269,7 @@
               <td class="px-3 py-2 text-right">
                 <ActionMenu
                   label="Actions for {monthYearLabel(entry.year, entry.month)}"
-                  actions={[
-                    {
-                      label: 'Delete',
-                      path: mdiDelete,
-                      variant: 'danger',
-                      onclick: () => removeHistory(entry),
-                    },
-                  ]}
+                  actions={historyMenuActions(entry)}
                 />
               </td>
             </tr>
@@ -250,4 +292,16 @@
   {users}
   {item}
   onSubmit={submit}
+/>
+
+<OutgoingHistoryEditSheet
+  open={historyFormOpen}
+  onOpenChange={(open) => {
+    historyFormOpen = open
+    if (!open) historyFormTarget = null
+  }}
+  entry={historyFormTarget}
+  submitting={historyFormSubmitting}
+  error={historyFormError}
+  onSubmit={submitHistory}
 />

@@ -7,6 +7,7 @@ import {
   listRecurringBillPayments,
   listUpcomingRecurringBills,
   updateRecurringBill,
+  upsertRecurringBillPayment,
   type RecurringBill,
   type RecurringBillFrequency,
   type RecurringBillInput,
@@ -126,6 +127,10 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
       amount: p.amount,
     }))
   },
+  // `paid` is carried over unchanged - this only edits the recorded amount,
+  // matching what the Monthly page's line-edit sheet does for the same month.
+  updateHistory: (id, entry, amount) =>
+    upsertRecurringBillPayment(id, entry.year, entry.month, entry.paid, amount),
   deleteHistory: (id) => deleteRecurringBillPayment(id),
 
   href: (item) => `/bills/${item.id}`,

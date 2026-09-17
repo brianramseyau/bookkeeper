@@ -7,6 +7,7 @@ import {
   listSubscriptionPayments,
   listSubscriptions,
   updateSubscription,
+  upsertSubscriptionPayment,
   type SubscriptionInput,
   type UserSubscription,
 } from '$lib/api/subscriptions'
@@ -79,6 +80,10 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
       amount: p.amount,
     }))
   },
+  // `paid` is carried over unchanged - this only edits the recorded amount,
+  // matching what the Monthly page's line-edit sheet does for the same month.
+  updateHistory: (id, entry, amount) =>
+    upsertSubscriptionPayment(id, entry.year, entry.month, entry.paid, amount),
   deleteHistory: (id) => deleteSubscriptionPayment(id),
 
   href: (item) => `/subscriptions/${item.id}`,

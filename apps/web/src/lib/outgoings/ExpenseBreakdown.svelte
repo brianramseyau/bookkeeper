@@ -242,14 +242,21 @@
           <tr
             class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
           >
-            <td class="text-foreground px-3 py-2 font-medium sm:table-cell">{item.name}</td>
+            <td
+              class="text-foreground flex items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell"
+            >
+              <span class="min-w-0 truncate">{item.name}</span>
+              <span class="shrink-0 sm:hidden">
+                <ActionMenu label="Actions for {item.name}" actions={itemMenuActions(item)} />
+              </span>
+            </td>
             <td
               class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
             >
               <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Amount</span>
               {formatCurrency(item.amount)}
             </td>
-            <td class="px-3 py-2 text-right whitespace-nowrap sm:table-cell">
+            <td class="hidden px-3 py-2 text-right whitespace-nowrap sm:table-cell">
               <ActionMenu label="Actions for {item.name}" actions={itemMenuActions(item)} />
             </td>
           </tr>
@@ -308,9 +315,17 @@
           <tr
             class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
           >
-            <td class="text-foreground px-3 py-2 sm:table-cell"
-              >{formatMonthYear(actual.occurredOn)}</td
+            <td
+              class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
             >
+              <span>{formatMonthYear(actual.occurredOn)}</span>
+              <span class="shrink-0 sm:hidden">
+                <ActionMenu
+                  label="Actions for the {formatMonthYear(actual.occurredOn)} entry"
+                  actions={actualMenuActions(actual)}
+                />
+              </span>
+            </td>
             <td
               class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
             >
@@ -323,7 +338,7 @@
               <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Notes</span>
               {actual.notes ?? ''}
             </td>
-            <td class="px-3 py-2 text-right whitespace-nowrap sm:table-cell">
+            <td class="hidden px-3 py-2 text-right whitespace-nowrap sm:table-cell">
               <ActionMenu
                 label="Actions for the {formatMonthYear(actual.occurredOn)} entry"
                 actions={actualMenuActions(actual)}
