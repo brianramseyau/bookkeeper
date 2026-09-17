@@ -96,10 +96,12 @@ describe('OutgoingDetail', () => {
 
   it('edits the item through the form sheet', async () => {
     const adapter = makeAdapter()
+    const user = userEvent.setup()
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByRole('heading', { name: 'Car' })
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Car' }))
+    await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'New car' } })
     await fireEvent.submit(document.querySelector('#outgoing-form')!)
 
@@ -147,9 +149,7 @@ describe('OutgoingDetail', () => {
     await screen.findByText('Mar 2026')
 
     await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
-    // Index 1, not 0 - the page-level "Edit" button (for the item itself)
-    // renders first; the dropdown's own "Edit" item is portalled after it.
-    await user.click((await screen.findAllByText('Edit'))[1]!)
+    await user.click(await screen.findByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('25'), { target: { value: '30' } })
     await fireEvent.submit(document.querySelector('#outgoing-history-edit-form')!)
 
@@ -169,11 +169,10 @@ describe('OutgoingDetail', () => {
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByText('Mar 2026')
 
-    // The page-level "Edit" button (for the item itself) always renders -
-    // only the history row's menu item is conditional on `updateHistory`.
-    expect(screen.getAllByText('Edit')).toHaveLength(1)
     await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
-    expect(screen.getAllByText('Edit')).toHaveLength(1)
+
+    expect(await screen.findByText('Delete')).toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
   })
 
   it('deletes a payment history row after confirmation', async () => {
@@ -187,6 +186,27 @@ describe('OutgoingDetail', () => {
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(adapter.deleteHistory).toHaveBeenCalledWith(11))
+  })
+
+  it('shows a standalone Edit button instead of an actions menu when the adapter has no lifecycle', async () => {
+    const adapter = makeAdapter({ supportsLifecycle: false })
+    const user = userEvent.setup()
+    render(OutgoingDetail, { props: { adapter, id: 1 } })
+    await screen.findByRole('heading', { name: 'Car' })
+
+    expect(screen.queryByRole('button', { name: 'Actions for Car' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'New car' } })
+    await fireEvent.submit(document.querySelector('#outgoing-form')!)
+
+    await waitFor(() =>
+      expect(adapter.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ name: 'New car' }),
+        item
+      )
+    )
   })
 
   it('renders a page-specific extra section', async () => {
