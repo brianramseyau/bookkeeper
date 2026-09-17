@@ -7,6 +7,7 @@ import {
   listSubscriptionPayments,
   listSubscriptions,
   updateSubscription,
+  upsertSubscriptionPayment,
   type SubscriptionInput,
   type UserSubscription,
 } from '$lib/api/subscriptions'
@@ -79,6 +80,14 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
       amount: p.amount,
     }))
   },
+  // `paid` is passed as `undefined`, not `entry.paid` - the API only merges a
+  // field when it's present in the request (subscriptions_controller.ts's
+  // upsertPayment), so sending the stale snapshot from when the detail page
+  // loaded would silently revert a paid/unpaid change made since (e.g. from
+  // the Monthly page, or the other household member). Matches what the
+  // Monthly page's own line-edit sheet does for the same month.
+  updateHistory: (id, entry, amount) =>
+    upsertSubscriptionPayment(id, entry.year, entry.month, undefined, amount),
   deleteHistory: (id) => deleteSubscriptionPayment(id),
 
   href: (item) => `/subscriptions/${item.id}`,

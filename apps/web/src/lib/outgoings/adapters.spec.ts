@@ -11,6 +11,7 @@ vi.mock('$lib/api/recurring-bills', () => ({
   listRecurringBillPayments: vi.fn(),
   getRecurringBillTrend: vi.fn(),
   deleteRecurringBillPayment: vi.fn(),
+  upsertRecurringBillPayment: vi.fn(),
 }))
 vi.mock('$lib/api/subscriptions', () => ({
   listSubscriptions: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('$lib/api/subscriptions', () => ({
   listSubscriptionPayments: vi.fn(),
   getSubscriptionTrend: vi.fn(),
   deleteSubscriptionPayment: vi.fn(),
+  upsertSubscriptionPayment: vi.fn(),
 }))
 vi.mock('$lib/api/expenses', () => ({
   listExpenses: vi.fn(),
@@ -374,7 +376,22 @@ describe('utilitiesAdapter', () => {
 
 describe('adapter API wiring', () => {
   it('bills: wires every operation to its API module', async () => {
-    const bill = { id: 1, name: 'x', categoryId: null, amount: 5, frequency: 'annual', dueDay: 1, dueMonth: 1, dueYear: 2026, isActive: true, isPaused: false, isArchived: false, notes: null, createdAt: '', updatedAt: '' }
+    const bill = {
+      id: 1,
+      name: 'x',
+      categoryId: null,
+      amount: 5,
+      frequency: 'annual',
+      dueDay: 1,
+      dueMonth: 1,
+      dueYear: 2026,
+      isActive: true,
+      isPaused: false,
+      isArchived: false,
+      notes: null,
+      createdAt: '',
+      updatedAt: '',
+    }
     vi.mocked(billsApi.getRecurringBill).mockResolvedValue(bill as never)
     vi.mocked(billsApi.createRecurringBill).mockResolvedValue(bill as never)
     vi.mocked(billsApi.updateRecurringBill).mockResolvedValue(bill as never)
@@ -382,23 +399,58 @@ describe('adapter API wiring', () => {
     vi.mocked(billsApi.getRecurringBillTrend).mockResolvedValue(trend as never)
     vi.mocked(billsApi.listRecurringBillPayments).mockResolvedValue([])
     vi.mocked(billsApi.deleteRecurringBillPayment).mockResolvedValue(undefined as never)
+    vi.mocked(billsApi.upsertRecurringBillPayment).mockResolvedValue({} as never)
 
     await billsAdapter.get(1)
-    await billsAdapter.create({ name: 'x', amount: 1, frequency: 'monthly', nextDueOn: '2026-01-01' })
-    await billsAdapter.update(1, { name: 'x', amount: 1, frequency: 'monthly', nextDueOn: '2026-01-01' })
+    await billsAdapter.create({
+      name: 'x',
+      amount: 1,
+      frequency: 'monthly',
+      nextDueOn: '2026-01-01',
+    })
+    await billsAdapter.update(1, {
+      name: 'x',
+      amount: 1,
+      frequency: 'monthly',
+      nextDueOn: '2026-01-01',
+    })
     await billsAdapter.setLifecycle(1, { isActive: false })
     await billsAdapter.remove(1)
     await billsAdapter.trend(1)
     await billsAdapter.history!(1)
     await billsAdapter.deleteHistory!(9)
+    // `paid` must be `undefined`, not the stale `entry.paid` snapshot - the
+    // API only overwrites a field it's given (recurring_bills_controller.ts's
+    // upsertPayment), so sending the loaded value would revert any paid/
+    // unpaid change made since (e.g. from the Monthly page).
+    await billsAdapter.updateHistory!(
+      1,
+      { id: 9, year: 2026, month: 3, paid: true, amount: 40 },
+      42
+    )
     billsAdapter.state(bill as never)
 
     expect(billsApi.deleteRecurringBill).toHaveBeenCalledWith(1)
     expect(billsApi.deleteRecurringBillPayment).toHaveBeenCalledWith(9)
+    expect(billsApi.upsertRecurringBillPayment).toHaveBeenCalledWith(1, 2026, 3, undefined, 42)
   })
 
   it('subscriptions: wires every operation to its API module', async () => {
-    const sub = { id: 2, userId: 1, name: 'x', categoryId: null, amount: 5, dayOfMonth: null, isRecurring: true, isActive: true, isPaused: false, isArchived: false, notes: null, createdAt: '', updatedAt: '' }
+    const sub = {
+      id: 2,
+      userId: 1,
+      name: 'x',
+      categoryId: null,
+      amount: 5,
+      dayOfMonth: null,
+      isRecurring: true,
+      isActive: true,
+      isPaused: false,
+      isArchived: false,
+      notes: null,
+      createdAt: '',
+      updatedAt: '',
+    }
     vi.mocked(subsApi.getSubscription).mockResolvedValue(sub as never)
     vi.mocked(subsApi.createSubscription).mockResolvedValue(sub as never)
     vi.mocked(subsApi.updateSubscription).mockResolvedValue(sub as never)
@@ -406,6 +458,7 @@ describe('adapter API wiring', () => {
     vi.mocked(subsApi.getSubscriptionTrend).mockResolvedValue(trend as never)
     vi.mocked(subsApi.listSubscriptionPayments).mockResolvedValue([])
     vi.mocked(subsApi.deleteSubscriptionPayment).mockResolvedValue(undefined as never)
+    vi.mocked(subsApi.upsertSubscriptionPayment).mockResolvedValue({} as never)
 
     await subscriptionsAdapter.get(2)
     await subscriptionsAdapter.create({ userId: 1, name: 'x', amount: 1 })
@@ -415,6 +468,12 @@ describe('adapter API wiring', () => {
     await subscriptionsAdapter.trend(2)
     await subscriptionsAdapter.history!(2)
     await subscriptionsAdapter.deleteHistory!(9)
+    // Same `paid` reasoning as the bills adapter - must stay `undefined`.
+    await subscriptionsAdapter.updateHistory!(
+      2,
+      { id: 9, year: 2026, month: 3, paid: true, amount: 20 },
+      22.99
+    )
     subscriptionsAdapter.state(sub)
     subscriptionsAdapter.href(sub as never)
     subscriptionsAdapter.subtitle(sub as never, ctx)
@@ -424,10 +483,23 @@ describe('adapter API wiring', () => {
 
     expect(subsApi.deleteSubscription).toHaveBeenCalledWith(2)
     expect(subsApi.deleteSubscriptionPayment).toHaveBeenCalledWith(9)
+    expect(subsApi.upsertSubscriptionPayment).toHaveBeenCalledWith(2, 2026, 3, undefined, 22.99)
   })
 
   it('expenses: wires every operation to its API module', async () => {
-    const expense = { id: 3, name: 'x', sortOrder: 0, budgetAmount: null, budgetItemCount: 0, isRecurring: true, excludeFromBudget: false, categoryId: null, isActive: true, isPaused: false, isArchived: false }
+    const expense = {
+      id: 3,
+      name: 'x',
+      sortOrder: 0,
+      budgetAmount: null,
+      budgetItemCount: 0,
+      isRecurring: true,
+      excludeFromBudget: false,
+      categoryId: null,
+      isActive: true,
+      isPaused: false,
+      isArchived: false,
+    }
     vi.mocked(expensesApi.getExpense).mockResolvedValue(expense as never)
     vi.mocked(expensesApi.createExpense).mockResolvedValue(expense as never)
     vi.mocked(expensesApi.updateExpense).mockResolvedValue(expense as never)
@@ -452,7 +524,18 @@ describe('adapter API wiring', () => {
   })
 
   it('utilities: wires every operation to its API module', async () => {
-    const utility = { id: 7, name: 'x', categoryId: null, frequency: 'monthly' as const, dueOffsetDays: null, dueOffsetBusinessDaysOnly: false, paidInAdvance: false, isActive: true, createdAt: '', updatedAt: '' }
+    const utility = {
+      id: 7,
+      name: 'x',
+      categoryId: null,
+      frequency: 'monthly' as const,
+      dueOffsetDays: null,
+      dueOffsetBusinessDaysOnly: false,
+      paidInAdvance: false,
+      isActive: true,
+      createdAt: '',
+      updatedAt: '',
+    }
     vi.mocked(utilitiesApi.listUtilities).mockResolvedValue([utility] as never)
     vi.mocked(utilitiesApi.getUtilityTrend).mockResolvedValue(trend as never)
     vi.mocked(utilitiesApi.createUtility).mockResolvedValue(utility as never)
@@ -461,7 +544,12 @@ describe('adapter API wiring', () => {
 
     await utilitiesAdapter.get(7)
     await utilitiesAdapter.create({ name: 'x' })
-    await utilitiesAdapter.update(7, { frequency: 'monthly', dueOffsetDays: '', dueOffsetBusinessDaysOnly: false, paidInAdvance: false })
+    await utilitiesAdapter.update(7, {
+      frequency: 'monthly',
+      dueOffsetDays: '',
+      dueOffsetBusinessDaysOnly: false,
+      paidInAdvance: false,
+    })
     await utilitiesAdapter.remove(7)
     await utilitiesAdapter.trend(7)
     utilitiesAdapter.state(utility)

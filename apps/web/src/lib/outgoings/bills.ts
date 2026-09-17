@@ -7,6 +7,7 @@ import {
   listRecurringBillPayments,
   listUpcomingRecurringBills,
   updateRecurringBill,
+  upsertRecurringBillPayment,
   type RecurringBill,
   type RecurringBillFrequency,
   type RecurringBillInput,
@@ -126,6 +127,14 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
       amount: p.amount,
     }))
   },
+  // `paid` is passed as `undefined`, not `entry.paid` - the API only merges a
+  // field when it's present in the request (recurring_bills_controller.ts's
+  // upsertPayment), so sending the stale snapshot from when the detail page
+  // loaded would silently revert a paid/unpaid change made since (e.g. from
+  // the Monthly page, or the other household member). Matches what the
+  // Monthly page's own line-edit sheet does for the same month.
+  updateHistory: (id, entry, amount) =>
+    upsertRecurringBillPayment(id, entry.year, entry.month, undefined, amount),
   deleteHistory: (id) => deleteRecurringBillPayment(id),
 
   href: (item) => `/bills/${item.id}`,

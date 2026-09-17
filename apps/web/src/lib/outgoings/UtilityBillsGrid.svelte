@@ -260,8 +260,18 @@
           <tr
             class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:last:border-0"
           >
-            <td class="text-foreground px-3 py-1.5 font-medium whitespace-nowrap sm:table-cell">
-              {monthYearLabel(year, month)}
+            <td
+              class="text-foreground flex items-center justify-between gap-3 px-3 py-1.5 font-medium whitespace-nowrap sm:table-cell"
+            >
+              <span>{monthYearLabel(year, month)}</span>
+              {#if !readOnly}
+                <span class="shrink-0 sm:hidden">
+                  <ActionMenu
+                    label="Actions for the {monthYearLabel(year, month)} bill"
+                    actions={menuActionsFor(year, month)}
+                  />
+                </span>
+              {/if}
             </td>
             <td
               class="flex items-center justify-between gap-3 px-3 py-1.5 sm:table-cell sm:text-right"
@@ -301,12 +311,7 @@
                 {bill?.receivedOn ? formatDate(bill.receivedOn) : '—'}
               </span>
             </td>
-            <td
-              class={[
-                'px-3 py-1.5 text-right whitespace-nowrap sm:table-cell',
-                readOnly && 'hidden',
-              ]}
-            >
+            <td class="hidden px-3 py-1.5 text-right whitespace-nowrap sm:table-cell">
               {#if !readOnly}
                 <ActionMenu
                   label="Actions for the {monthYearLabel(year, month)} bill"

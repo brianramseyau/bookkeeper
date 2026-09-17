@@ -142,6 +142,39 @@ describe('OutgoingDetail', () => {
     expect(goto).toHaveBeenCalledWith('/things')
   })
 
+  it('edits a payment history row through the form sheet', async () => {
+    const adapter = makeAdapter({ updateHistory: vi.fn().mockResolvedValue(undefined) })
+    const user = userEvent.setup()
+    render(OutgoingDetail, { props: { adapter, id: 1 } })
+    await screen.findByText('Mar 2026')
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
+    await user.click(await screen.findByText('Edit'))
+    await fireEvent.input(screen.getByDisplayValue('25'), { target: { value: '30' } })
+    await fireEvent.submit(document.querySelector('#outgoing-history-edit-form')!)
+
+    await waitFor(() =>
+      expect(adapter.updateHistory).toHaveBeenCalledWith(
+        1,
+        { id: 11, year: 2026, month: 3, paid: true, amount: 25 },
+        30
+      )
+    )
+    expect(toast.success).toHaveBeenCalledWith('Payment updated')
+  })
+
+  it('does not offer Edit on a payment history row when the adapter has no updateHistory', async () => {
+    const adapter = makeAdapter()
+    const user = userEvent.setup()
+    render(OutgoingDetail, { props: { adapter, id: 1 } })
+    await screen.findByText('Mar 2026')
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
+
+    expect(await screen.findByText('Delete')).toBeInTheDocument()
+    expect(screen.queryByText('Edit')).not.toBeInTheDocument()
+  })
+
   it('deletes a payment history row after confirmation', async () => {
     vi.mocked(confirmDestructive).mockResolvedValue(true)
     const adapter = makeAdapter()
