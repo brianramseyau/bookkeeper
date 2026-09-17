@@ -81,7 +81,7 @@
     <tbody class="block sm:table-row-group">
       {#each lines as line (line.key)}
         <tr
-          class="divide-border border-border bg-ground sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:last:border-0"
+          class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
         >
           <td
             class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"

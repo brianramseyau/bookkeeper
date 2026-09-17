@@ -42,20 +42,50 @@
   // `position: fixed` resolves against the nearest ancestor that establishes
   // a containing block for it - not just a `transform`, but also `contain:
   // layout` (or `paint`/`strict`/`content`), which is exactly what the
-  // shadcn Sheet's content wrapper sets. Opening this picker from inside a
-  // Sheet (e.g. ExpenseActualFormSheet) would otherwise resolve `left`/`top`
-  // against the Sheet's own box instead of the viewport, landing the panel
-  // off-screen. Every other floating element in the app (Popover,
-  // DropdownMenu, AlertDialog) sidesteps this the same way: portal out to
-  // `document.body`, which has no such container, before positioning.
-  //
+  // shadcn Sheet's content wrapper sets. Left alone, opening this picker
+  // from inside a Sheet (e.g. ExpenseActualFormSheet) would resolve
+  // `left`/`top` against the Sheet's own box instead of the viewport,
+  // landing the panel off-screen - and a Sheet/Dialog also traps focus and
+  // locks the background (`pointer-events: none` on `<body>`, re-enabled
+  // only on its own modal content), so even a correctly-positioned panel
+  // portalled straight to `document.body` would sit outside that trap:
+  // clicks pass through it, and any focus this component moves there gets
+  // yanked straight back by the Sheet's own trap guard the instant it
+  // lands outside the Sheet's subtree - a plain competing `.focus()` call
+  // cannot win that fight. So this walks up from the trigger for the
+  // nearest such ancestor and, when one exists, portals *into* it instead
+  // of `document.body` - back inside whatever trap it runs, so this
+  // component's own focus management (below) actually holds - and
+  // `position()` resolves `left`/`top` against that ancestor's own rect
+  // rather than always assuming the viewport. With no such ancestor
+  // (the common case), this is exactly the `document.body` portal every
+  // other floating element in the app (Popover, DropdownMenu, AlertDialog)
+  // already uses.
+  function containingBlockAncestor(el: HTMLElement): HTMLElement | null {
+    let node = el.parentElement
+    while (node && node !== document.body) {
+      const style = getComputedStyle(node)
+      if (
+        style.transform !== 'none' ||
+        style.perspective !== 'none' ||
+        style.filter !== 'none' ||
+        style.willChange === 'transform' ||
+        style.willChange === 'perspective' ||
+        /(layout|paint|strict|content)/.test(style.contain)
+      ) {
+        return node
+      }
+      node = node.parentElement
+    }
+    return null
+  }
+
   // A portalled-out element also needs its own `pointer-events-auto`
-  // (applied at the call site below): a Sheet/Dialog locks the background by
-  // setting `pointer-events: none` on `<body>` and re-enabling `auto` only
-  // on its own modal content, so a plain `body` sibling like this panel
-  // would otherwise render correctly but silently swallow every click.
+  // (applied at the call site below) to escape the ambient lock described
+  // above.
   function portal(node: HTMLElement) {
-    document.body.appendChild(node)
+    const target = (triggerEl && containingBlockAncestor(triggerEl)) ?? document.body
+    target.appendChild(node)
     return {
       destroy() {
         node.remove()
@@ -63,31 +93,85 @@
     }
   }
 
-  // The panel is fixed-positioned against the viewport (so an `overflow-x-auto`
-  // table card can't clip it) and flipped to open above the trigger when
-  // there's no room below - the same viewport-aware pattern as HelpTooltip.
+  // The panel is fixed-positioned so an `overflow-x-auto` table card can't
+  // clip it, and flips to open above the trigger when there's no room below
+  // - the same viewport-aware pattern as HelpTooltip. `bounds` is normally
+  // the viewport, but becomes the containing ancestor's own rect when
+  // `portal` above placed the panel inside one instead of `document.body`,
+  // since that ancestor - not the viewport - is what `left`/`top` actually
+  // resolve against in that case.
   function position() {
     if (!triggerEl || !panelEl) return
+    const containingBlock = containingBlockAncestor(triggerEl)
+    const bounds = containingBlock
+      ? containingBlock.getBoundingClientRect()
+      : new DOMRect(0, 0, window.innerWidth, window.innerHeight)
     const triggerRect = triggerEl.getBoundingClientRect()
     const panelHeight = panelEl.getBoundingClientRect().height
 
+    const triggerLeft = triggerRect.left - bounds.left
+    const triggerTop = triggerRect.top - bounds.top
+    const triggerBottom = triggerRect.bottom - bounds.top
+
     let left = Math.max(
       VIEWPORT_MARGIN,
-      Math.min(triggerRect.left, window.innerWidth - PANEL_WIDTH - VIEWPORT_MARGIN)
+      Math.min(triggerLeft, bounds.width - PANEL_WIDTH - VIEWPORT_MARGIN)
     )
 
-    const below = triggerRect.bottom + GAP + panelHeight
-    const above = triggerRect.top - GAP - panelHeight
-    const fitsBelow = below <= window.innerHeight - VIEWPORT_MARGIN
+    const below = triggerBottom + GAP + panelHeight
+    const above = triggerTop - GAP - panelHeight
+    const fitsBelow = below <= bounds.height - VIEWPORT_MARGIN
     const fitsAbove = above >= VIEWPORT_MARGIN
-    const top = fitsBelow || !fitsAbove ? triggerRect.bottom + GAP : above
+    const top = fitsBelow || !fitsAbove ? triggerBottom + GAP : above
 
     panelStyle = `left: ${left}px; top: ${top}px; width: ${PANEL_WIDTH}px;`
+  }
+
+  // Once the panel is portalled inside the same trap the trigger's own
+  // Sheet/Dialog runs (or, with no such ancestor, is simply next to a
+  // trigger with no trap to fight), moving focus in explicitly and
+  // trapping Tab here - same as `position` above, this only matters once
+  // there's an ancestor trap to stay inside of, but doing it
+  // unconditionally costs nothing when there isn't one.
+  function focusInitial() {
+    const selected = panelEl?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')
+    ;(selected ?? panelEl?.querySelector<HTMLButtonElement>('button'))?.focus()
+  }
+
+  function close() {
+    open = false
+    triggerEl?.focus()
+  }
+
+  function onPanelKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      // Also stop propagation - left alone, this keydown bubbles past the
+      // panel to whatever Sheet/Dialog it's portalled inside of (see
+      // `portal` above), which has its own Escape-to-close handler and
+      // would otherwise close the whole Sheet, not just this popover.
+      event.preventDefault()
+      event.stopPropagation()
+      close()
+      return
+    }
+    if (event.key !== 'Tab' || !panelEl) return
+    const focusable = Array.from(panelEl.querySelectorAll<HTMLButtonElement>('button'))
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (!first || !last) return
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
   }
 
   $effect(() => {
     if (!open) return
     position()
+    focusInitial()
     window.addEventListener('resize', position)
     window.addEventListener('scroll', position, true)
     return () => {
@@ -117,7 +201,7 @@
     // Re-clicking the already-selected month clears the field.
     value = next === value ? '' : next
     onchange?.(value)
-    open = false
+    close()
   }
 </script>
 
@@ -147,14 +231,16 @@
       type="button"
       class="pointer-events-auto fixed inset-0 z-50 cursor-default"
       aria-label="Close month picker"
-      onclick={() => (open = false)}
+      onclick={close}
     ></button>
     <div
       use:portal
       bind:this={panelEl}
       role="dialog"
       aria-label="Choose month"
+      tabindex="-1"
       style={panelStyle}
+      onkeydown={onPanelKeydown}
       class="border-border bg-popover pointer-events-auto fixed z-50 w-56 rounded-md border p-2 shadow-lg"
     >
       <div class="mb-2 flex items-center justify-between">

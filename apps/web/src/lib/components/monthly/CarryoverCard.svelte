@@ -28,7 +28,7 @@
     </colgroup>
     <tbody class="block sm:table-row-group">
       <tr
-        class="divide-border border-border bg-ground mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0"
+        class="divide-border border-border bg-card mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:bg-transparent"
       >
         <td
           class="text-foreground flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell sm:min-h-0"
