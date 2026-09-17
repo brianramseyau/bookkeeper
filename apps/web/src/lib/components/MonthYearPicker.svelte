@@ -39,6 +39,30 @@
   const VIEWPORT_MARGIN = 8
   const GAP = 4 // matches mt-1
 
+  // `position: fixed` resolves against the nearest ancestor that establishes
+  // a containing block for it - not just a `transform`, but also `contain:
+  // layout` (or `paint`/`strict`/`content`), which is exactly what the
+  // shadcn Sheet's content wrapper sets. Opening this picker from inside a
+  // Sheet (e.g. ExpenseActualFormSheet) would otherwise resolve `left`/`top`
+  // against the Sheet's own box instead of the viewport, landing the panel
+  // off-screen. Every other floating element in the app (Popover,
+  // DropdownMenu, AlertDialog) sidesteps this the same way: portal out to
+  // `document.body`, which has no such container, before positioning.
+  //
+  // A portalled-out element also needs its own `pointer-events-auto`
+  // (applied at the call site below): a Sheet/Dialog locks the background by
+  // setting `pointer-events: none` on `<body>` and re-enabling `auto` only
+  // on its own modal content, so a plain `body` sibling like this panel
+  // would otherwise render correctly but silently swallow every click.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node)
+    return {
+      destroy() {
+        node.remove()
+      },
+    }
+  }
+
   // The panel is fixed-positioned against the viewport (so an `overflow-x-auto`
   // table card can't clip it) and flipped to open above the trigger when
   // there's no room below - the same viewport-aware pattern as HelpTooltip.
@@ -119,17 +143,19 @@
 
   {#if open}
     <button
+      use:portal
       type="button"
-      class="fixed inset-0 z-10 cursor-default"
+      class="pointer-events-auto fixed inset-0 z-50 cursor-default"
       aria-label="Close month picker"
       onclick={() => (open = false)}
     ></button>
     <div
+      use:portal
       bind:this={panelEl}
       role="dialog"
       aria-label="Choose month"
       style={panelStyle}
-      class="border-border bg-popover fixed z-20 w-56 rounded-md border p-2 shadow-lg"
+      class="border-border bg-popover pointer-events-auto fixed z-50 w-56 rounded-md border p-2 shadow-lg"
     >
       <div class="mb-2 flex items-center justify-between">
         <button
