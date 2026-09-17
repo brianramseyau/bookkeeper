@@ -158,9 +158,10 @@ describe('MonthYearPicker', () => {
     expect(top).toBeLessThan(720)
   })
 
-  // The panel is portalled to `document.body` (outside a caller's own Sheet/
-  // Dialog focus trap - see the component's comment), so it must manage
-  // focus itself rather than relying on ambient Tab order.
+  // The panel is portalled outside the trigger's own DOM position (to
+  // `document.body`, or - inside a caller's own Sheet/Dialog - into its
+  // trapped content instead; see the component's comment), so it must
+  // manage focus itself rather than relying on ambient Tab order.
   describe('keyboard focus management', () => {
     it('moves focus to the selected month on open, and back to the trigger on Escape', async () => {
       const user = userEvent.setup({ delay: null })

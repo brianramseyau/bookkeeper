@@ -28,6 +28,11 @@
   let triggerEl = $state<HTMLButtonElement | undefined>()
   let panelEl = $state<HTMLDivElement | undefined>()
   let panelStyle = $state('')
+  // Resolved once per open (in `toggle`, before the panel mounts) and shared
+  // by `portal` and `position` below - see the comment on
+  // `containingBlockAncestor` for why, and why it must not be re-derived
+  // independently by each of them.
+  let containingBlock: HTMLElement | null = null
 
   // "Current" is today's month/year, shown as a ring in the grid so the user
   // has their bearings when scrolling back to log a historical entry.
@@ -40,38 +45,58 @@
   const GAP = 4 // matches mt-1
 
   // `position: fixed` resolves against the nearest ancestor that establishes
-  // a containing block for it - not just a `transform`, but also `contain:
-  // layout` (or `paint`/`strict`/`content`), which is exactly what the
-  // shadcn Sheet's content wrapper sets. Left alone, opening this picker
-  // from inside a Sheet (e.g. ExpenseActualFormSheet) would resolve
-  // `left`/`top` against the Sheet's own box instead of the viewport,
-  // landing the panel off-screen - and a Sheet/Dialog also traps focus and
-  // locks the background (`pointer-events: none` on `<body>`, re-enabled
-  // only on its own modal content), so even a correctly-positioned panel
-  // portalled straight to `document.body` would sit outside that trap:
-  // clicks pass through it, and any focus this component moves there gets
-  // yanked straight back by the Sheet's own trap guard the instant it
-  // lands outside the Sheet's subtree - a plain competing `.focus()` call
-  // cannot win that fight. So this walks up from the trigger for the
-  // nearest such ancestor and, when one exists, portals *into* it instead
-  // of `document.body` - back inside whatever trap it runs, so this
+  // a containing block for it - a `transform` (or its `translate`/`rotate`/
+  // `scale` longhands - already in use elsewhere in this app, e.g.
+  // `MonthStrip.svelte`/`IncomeExpenseBarChart.svelte`), `perspective`,
+  // `filter`, `backdrop-filter`, a `will-change` naming any of those, a
+  // `container-type` of `size`/`inline-size`, or `contain: layout` (or
+  // `paint`/`strict`/`content`) - which is exactly what the shadcn Sheet's
+  // content wrapper sets. Left alone, opening this picker from inside a
+  // Sheet (e.g. ExpenseActualFormSheet) would resolve `left`/`top` against
+  // the Sheet's own box instead of the viewport, landing the panel
+  // off-screen - and a Sheet/Dialog also traps focus and locks the
+  // background (`pointer-events: none` on `<body>`, re-enabled only on its
+  // own modal content), so even a correctly-positioned panel portalled
+  // straight to `document.body` would sit outside that trap: clicks pass
+  // through it, and any focus this component moves there gets yanked
+  // straight back by the Sheet's own trap guard the instant it lands
+  // outside the Sheet's subtree - a plain competing `.focus()` call cannot
+  // win that fight. So this walks up from the trigger for the nearest such
+  // ancestor and, when one exists, portals *into* it instead of
+  // `document.body` - back inside whatever trap it runs, so this
   // component's own focus management (below) actually holds - and
   // `position()` resolves `left`/`top` against that ancestor's own rect
-  // rather than always assuming the viewport. With no such ancestor
-  // (the common case), this is exactly the `document.body` portal every
-  // other floating element in the app (Popover, DropdownMenu, AlertDialog)
+  // rather than always assuming the viewport. With no such ancestor (the
+  // common case), this is exactly the `document.body` portal every other
+  // floating element in the app (Popover, DropdownMenu, AlertDialog)
   // already uses.
-  function containingBlockAncestor(el: HTMLElement): HTMLElement | null {
+  function findContainingBlockAncestor(el: HTMLElement): HTMLElement | null {
     let node = el.parentElement
     while (node && node !== document.body) {
       const style = getComputedStyle(node)
+      const willChangeList = style.willChange.split(',').map((value) => value.trim())
       if (
         style.transform !== 'none' ||
+        style.translate !== 'none' ||
+        style.rotate !== 'none' ||
+        style.scale !== 'none' ||
         style.perspective !== 'none' ||
         style.filter !== 'none' ||
-        style.willChange === 'transform' ||
-        style.willChange === 'perspective' ||
-        /(layout|paint|strict|content)/.test(style.contain)
+        style.backdropFilter !== 'none' ||
+        /^(size|inline-size)$/.test(style.containerType) ||
+        /(layout|paint|strict|content)/.test(style.contain) ||
+        willChangeList.some((value) =>
+          [
+            'transform',
+            'translate',
+            'rotate',
+            'scale',
+            'perspective',
+            'filter',
+            'backdrop-filter',
+            'contain',
+          ].includes(value)
+        )
       ) {
         return node
       }
@@ -82,9 +107,10 @@
 
   // A portalled-out element also needs its own `pointer-events-auto`
   // (applied at the call site below) to escape the ambient lock described
-  // above.
+  // above. Reads the ancestor `toggle` resolved on open, rather than
+  // re-deriving it - see `containingBlock`'s own comment.
   function portal(node: HTMLElement) {
-    const target = (triggerEl && containingBlockAncestor(triggerEl)) ?? document.body
+    const target = containingBlock ?? document.body
     target.appendChild(node)
     return {
       destroy() {
@@ -96,13 +122,14 @@
   // The panel is fixed-positioned so an `overflow-x-auto` table card can't
   // clip it, and flips to open above the trigger when there's no room below
   // - the same viewport-aware pattern as HelpTooltip. `bounds` is normally
-  // the viewport, but becomes the containing ancestor's own rect when
-  // `portal` above placed the panel inside one instead of `document.body`,
-  // since that ancestor - not the viewport - is what `left`/`top` actually
-  // resolve against in that case.
+  // the viewport, but becomes `containingBlock`'s own rect when `portal`
+  // above placed the panel inside one instead of `document.body`, since
+  // that ancestor - not the viewport - is what `left`/`top` actually
+  // resolve against in that case. This runs on every `resize`/`scroll`
+  // while open, so it deliberately reuses `containingBlock` rather than
+  // re-walking the ancestor chain per frame.
   function position() {
     if (!triggerEl || !panelEl) return
-    const containingBlock = containingBlockAncestor(triggerEl)
     const bounds = containingBlock
       ? containingBlock.getBoundingClientRect()
       : new DOMRect(0, 0, window.innerWidth, window.innerHeight)
@@ -140,6 +167,7 @@
 
   function close() {
     open = false
+    containingBlock = null
     triggerEl?.focus()
   }
 
@@ -192,7 +220,12 @@
   }
 
   function toggle() {
-    if (!open) viewYear = value ? Number(value.slice(0, 4)) : new Date().getFullYear()
+    if (!open) {
+      viewYear = value ? Number(value.slice(0, 4)) : new Date().getFullYear()
+      // Resolved here, before `open` flips and the panel mounts (and its
+      // `use:portal` actions run) - see `containingBlock`'s own comment.
+      containingBlock = triggerEl ? findContainingBlockAncestor(triggerEl) : null
+    }
     open = !open
   }
 
