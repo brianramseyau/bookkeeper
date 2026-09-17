@@ -188,15 +188,16 @@ describe('OutgoingDetail', () => {
     await waitFor(() => expect(adapter.deleteHistory).toHaveBeenCalledWith(11))
   })
 
-  it('shows a standalone Edit button instead of an actions menu when the adapter has no lifecycle', async () => {
+  it('still uses the actions menu (with just Edit) when the adapter has no lifecycle', async () => {
     const adapter = makeAdapter({ supportsLifecycle: false })
     const user = userEvent.setup()
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByRole('heading', { name: 'Car' })
 
-    expect(screen.queryByRole('button', { name: 'Actions for Car' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Car' }))
+    await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'New car' } })
     await fireEvent.submit(document.querySelector('#outgoing-form')!)
 
