@@ -218,7 +218,7 @@
         expense.
       </p>
     </div>
-    <Button size="sm" onclick={openAddItem}>Add item</Button>
+    <Button size="sm" onclick={openAddItem}>Add budget item</Button>
   </div>
 
   {#if budgetItems.length === 0 && expense.budgetAmount !== null}
@@ -290,7 +290,7 @@
       <h2 class="text-foreground text-lg font-semibold">Monthly actuals</h2>
       <p class="text-muted-foreground mt-1 text-sm">What this expense actually cost, by month.</p>
     </div>
-    <Button size="sm" onclick={openAddActual}>Add entry</Button>
+    <Button size="sm" onclick={openAddActual}>Add monthly entry</Button>
   </div>
 
   <Card class="sm:overflow-x-auto" pivotTable>

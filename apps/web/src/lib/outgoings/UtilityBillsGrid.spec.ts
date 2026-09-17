@@ -57,6 +57,17 @@ const billedMonth = {
   updatedAt: '',
 }
 
+// A share of `billedMonth`'s quarterly period landing in the following
+// month, which has no bill row of its own - read-only, per `readOnly` in
+// UtilityBillsGrid.svelte.
+const sharedMonth = {
+  year: secondMonth!.year,
+  month: secondMonth!.month,
+  amount: 30,
+  billYear: firstMonth!.year,
+  billMonth: firstMonth!.month,
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(utilitiesApi.getUtilityBills).mockResolvedValue({
@@ -188,6 +199,26 @@ describe('UtilityBillsGrid', () => {
 
     await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
     expect(utilitiesApi.deleteUtilityBill).not.toHaveBeenCalled()
+  })
+
+  it('renders a read-only share month with no actions menu, while the billed month keeps Edit/Delete', async () => {
+    vi.mocked(utilitiesApi.getUtilityBills).mockResolvedValue({
+      bills: [billedMonth],
+      monthlyShares: [sharedMonth],
+    })
+    renderGrid()
+    await screen.findByText('$90.00')
+
+    const shareRow = screen.getByText(SECOND).closest('tr')!
+    expect(within(shareRow).getByText('$30.00')).toBeInTheDocument()
+    expect(
+      within(shareRow).queryByRole('button', { name: `Actions for the ${SECOND} bill` })
+    ).not.toBeInTheDocument()
+
+    const billRow = screen.getByText(FIR).closest('tr')!
+    expect(
+      within(billRow).getByRole('button', { name: `Actions for the ${FIR} bill` })
+    ).toBeInTheDocument()
   })
 
   it('navigates between financial years, disabling Next at the current one', async () => {

@@ -80,8 +80,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    const addButtons = await screen.findAllByRole('button', { name: 'Add item' })
-    await user.click(addButtons[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Add budget item' }))
     await fireEvent.input(screen.getByLabelText('Item'), { target: { value: 'Food' } })
     await fireEvent.input(screen.getByLabelText('Amount'), { target: { value: '50' } })
     await fireEvent.submit(document.querySelector('#budget-item-form')!)
@@ -97,8 +96,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    const addButtons = await screen.findAllByRole('button', { name: 'Add item' })
-    await user.click(addButtons[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Add budget item' }))
     await fireEvent.submit(document.querySelector('#budget-item-form')!)
 
     expect(await screen.findByText('Name and amount are required')).toBeInTheDocument()
@@ -168,8 +166,7 @@ describe('ExpenseBreakdown', () => {
     await screen.findByText('vet')
     const user = userEvent.setup()
 
-    const addButtons = await screen.findAllByRole('button', { name: 'Add entry' })
-    await user.click(addButtons[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Add monthly entry' }))
     await fireEvent.submit(document.querySelector('#expense-actual-form')!)
 
     expect(await screen.findByText('Month and amount are required')).toBeInTheDocument()

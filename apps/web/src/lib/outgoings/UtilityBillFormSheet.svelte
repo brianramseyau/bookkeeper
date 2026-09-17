@@ -28,12 +28,18 @@
   let amount = $state<number>(NaN)
   let receivedOn = $state('')
   let validationError = $state<string | null>(null)
-
-  const isEdit = $derived(bill !== null)
+  // Snapshotted (not `$derived` off `bill`/`monthLabel`) so the title/submit
+  // label don't collapse to "Add  bill" mid-close when the caller nulls the
+  // target month as soon as `onOpenChange(false)` fires, while the sheet is
+  // still animating out.
+  let isEdit = $state(false)
+  let titleMonthLabel = $state('')
 
   // Re-seed the draft whenever the sheet opens for a (possibly new) bill.
   $effect(() => {
     if (!open) return
+    isEdit = bill !== null
+    titleMonthLabel = monthLabel
     amount = bill?.amount ?? NaN
     receivedOn = bill?.receivedOn ? bill.receivedOn.slice(0, 10) : ''
     validationError = null
@@ -57,7 +63,7 @@
 <ResponsiveFormSheet
   {open}
   {onOpenChange}
-  title={isEdit ? `Edit ${monthLabel} bill` : `Add ${monthLabel} bill`}
+  title={isEdit ? `Edit ${titleMonthLabel} bill` : `Add ${titleMonthLabel} bill`}
 >
   <form
     id="utility-bill-form"
@@ -89,7 +95,7 @@
       Cancel
     </Button>
     <Button type="submit" form="utility-bill-form" disabled={submitting}>
-      {submitting ? 'Saving…' : isEdit ? 'Save changes' : `Add ${monthLabel} bill`}
+      {submitting ? 'Saving…' : isEdit ? 'Save changes' : `Add ${titleMonthLabel} bill`}
     </Button>
   {/snippet}
 </ResponsiveFormSheet>

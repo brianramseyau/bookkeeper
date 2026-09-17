@@ -30,12 +30,15 @@
   let amount = $state<number>(NaN)
   let notes = $state('')
   let validationError = $state<string | null>(null)
-
-  const isEdit = $derived(item !== null)
+  // Snapshotted (not `$derived` off `item`) so the title/submit label don't
+  // flip to "Add..." mid-close when the caller nulls `item` as soon as
+  // `onOpenChange(false)` fires, while the sheet is still animating out.
+  let isEdit = $state(false)
 
   // Re-seed the draft whenever the sheet opens for a (possibly new) actual.
   $effect(() => {
     if (!open) return
+    isEdit = item !== null
     occurredMonth = item?.occurredOn.slice(0, 7) ?? ''
     amount = item?.amount ?? NaN
     notes = item?.notes ?? ''
@@ -66,7 +69,7 @@
       <label class="text-muted-foreground text-xs font-medium" for="expense-actual-month"
         >Month</label
       >
-      <MonthYearPicker bind:value={occurredMonth} size="form" />
+      <MonthYearPicker id="expense-actual-month" bind:value={occurredMonth} size="form" />
     </div>
     <div class="flex flex-col gap-1">
       <label class="text-muted-foreground text-xs font-medium" for="expense-actual-amount"

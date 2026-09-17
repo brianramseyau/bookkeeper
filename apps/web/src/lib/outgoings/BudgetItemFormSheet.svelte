@@ -26,12 +26,15 @@
   let name = $state('')
   let amount = $state<number>(NaN)
   let validationError = $state<string | null>(null)
-
-  const isEdit = $derived(item !== null)
+  // Snapshotted (not `$derived` off `item`) so the title/submit label don't
+  // flip to "Add..." mid-close when the caller nulls `item` as soon as
+  // `onOpenChange(false)` fires, while the sheet is still animating out.
+  let isEdit = $state(false)
 
   // Re-seed the draft whenever the sheet opens for a (possibly new) item.
   $effect(() => {
     if (!open) return
+    isEdit = item !== null
     name = item?.name ?? ''
     amount = item?.amount ?? NaN
     validationError = null
