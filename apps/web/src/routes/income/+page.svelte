@@ -38,7 +38,7 @@
   import { Input } from '$lib/components/ui/input'
   import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
-  import { mdiPlus, mdiChevronDown, mdiBriefcase, mdiBank } from '@mdi/js'
+  import { mdiPlus, mdiBriefcase, mdiBank } from '@mdi/js'
   import IncomeEntryEditRow, {
     type IncomeEntryEditTarget,
     type IncomeEntryEditValues,
@@ -487,6 +487,7 @@
 <PageHeader
   title="Income"
   description="Salary and other income, net of tax. Each person's income feeds the Monthly projection."
+  inlineActions
 >
   {#snippet actions()}
     <ActionMenu
@@ -497,22 +498,19 @@
       ]}
     >
       {#snippet trigger(triggerProps)}
-        <button
+        <Button
           type="button"
           {...triggerProps}
-          class={cn(
-            'bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
-            triggerProps.class as string | undefined
-          )}
+          variant="ghost"
+          size="icon-lg"
+          aria-label="Add income"
+          title="Add income"
+          class={cn('text-primary', triggerProps.class as string | undefined)}
         >
-          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="size-7" fill="currentColor" aria-hidden="true">
             <path d={mdiPlus} />
           </svg>
-          Add income
-          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
-            <path d={mdiChevronDown} />
-          </svg>
-        </button>
+        </Button>
       {/snippet}
     </ActionMenu>
   {/snippet}

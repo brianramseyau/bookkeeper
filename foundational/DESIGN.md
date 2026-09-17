@@ -131,7 +131,11 @@ The whole app uses one variable superfamily, **Recursive** (Arrow Type), self-ho
 
 ## Signature element: the month strip
 
-A horizontal timeline of the current month. It is the Dashboard's hero and the Monthly page's header, replacing generic stat-card grids.
+A horizontal timeline of the current month. It is the Dashboard's hero,
+replacing generic stat-card grids. **Monthly no longer uses it** - PLAN_02
+Phase 1 replaced Monthly's strip-plus-two-tables layout with one
+chronological list (see Patterns → Monthly's unified list, below); the
+Dashboard's own `MonthStrip` is unchanged.
 
 ```text
  Sept 2026                                    +$1,240 projected surplus
@@ -215,6 +219,58 @@ Every data table reflows into stacked cards below `sm` (640px) instead of scroll
 - **Every `<td>`** gets `sm:table-cell`. A cell whose column has a visible `<th>` label becomes `flex items-center justify-between gap-3 px-3 py-2 … sm:table-cell` with the label prepended as `<span class="shrink-0 text-xs font-medium uppercase sm:hidden …">Label</span>`. A multi-control cell (e.g. Cadence) uses a stacked block instead. The actions cell is `flex justify-end gap-1 … sm:table-cell sm:text-right` with no label. A genuinely empty cell is `hidden sm:table-cell`.
 - **Fixed-width inputs** (`w-24`, `w-40`, …) become `w-full … sm:w-24` so they fill the mobile card and match at `sm:` and up.
 
+### Monthly's unified list
+
+Monthly (`src/lib/components/monthly/MonthlyUnifiedList.svelte`) replaces
+the old month strip plus two responsive tables (Outgoing, Incoming) with
+one chronological, always-vertical list - bills and income entries/
+placeholders interleaved by resolved date. Unlike the Responsive tables
+pattern above, this list does **not** pivot into a `<table>` at `sm+`: it
+stays a single two-line row shape (DESIGN.md's Mobile lists rule, applied
+at every width) since the whole point is one continuous chronological feed,
+not a data grid. The merge itself is a pure, unit-tested `$lib` helper
+(`monthly-unified-list.ts`'s `buildUnifiedList`), keeping the sort/tie-break
+logic out of the component.
+
+- **Ordering**: outgoing lines sort by `resolveDueDate`; a logged income
+  entry sorts by its `receivedOn`; a placeholder pay date sorts by its own
+  date. Items with no resolvable date sort last, in their original
+  (pre-sort) order - the same tie-break `+page.svelte`'s old
+  `sortedExpenseLines` used, generalized to the merged list.
+- **A "Today" divider** sits between the last past/today item and the first
+  future one (or right before the undated tail if every dated item is
+  already in the past); the list scrolls to it on mount, respecting
+  `prefers-reduced-motion`. An item landing exactly on today's date also
+  gets a `bg-in-tint` row highlight.
+- **Row shape is lead → main → figures → trailing actions**, left to right:
+  a 44px leading icon (the Paid checkbox for a bill, a static check glyph
+  for a logged income entry, or an empty 44px spacer for a placeholder, so
+  every row's label starts at the same x-position), the label plus a status
+  line (due chip / received date+owner+note / "Not yet logged"), the
+  amount(s) right-aligned, then the row's action button(s). Matches the
+  owner-approved Artifact prototype explored in PLAN_02_OVERVIEW.md - an
+  earlier pass put the checkbox/pencil trailing instead (mirroring the old
+  table's column order) and was corrected once compared against the
+  prototype (see the decisions log).
+- **Deliberate scope cut**: the list only ever renders `incomeRowsForLine`'s
+  rows (`actual`/`placeholder`) - the old `IncomingTable`'s per-line summary
+  row (showing a source's own projected/actual even with nothing dated to
+  show) is gone. A source with no pay dates and no logged entries this
+  month simply has nothing in the list, though its totals still count
+  toward `data.income.actualTotal`/`projectedTotal` and the stat row above.
+- **Touch targets are ≥44px** here specifically (Paid checkbox, edit
+  pencil, Accept/Edit) - a deliberate deviation from the Quality floor's
+  general exemption for inline row `IconActionButton`s, because these
+  particular controls get tapped on this page more than almost anywhere
+  else in the app. `IconActionButton`'s default `size-8` is overridden with
+  a `size-11` class (merged via `cn`/`twMerge`, which lets a later utility
+  win a same-group conflict); the checkbox itself stays visually `size-4`
+  inside a `size-11` tappable `<label>`.
+- **No footer totals**: the old tables' Projected/Actual footer row is
+  dropped - a single interleaved list has no natural place for two
+  separate subtotals, and the stat row above already carries the
+  aggregate figures (Cash on hand, Actual net, Variance).
+
 ### Placeholder rows
 
 A row for a known-but-not-yet-confirmed item (Monthly's Incoming table — a source's projected pay date with no logged entry) uses the normal row shape plus `italic` on the `<tr>` and the muted text tier on every cell. Actions are Accept (`mdiCheckBold` on the `success` variant — logs the row immediately at its projected amount/date, no confirmation) plus the normal Edit pencil; there is no Delete, because nothing is persisted yet. Reuse this shape for any future "known but unconfirmed" row rather than inventing a new muted-row treatment.
@@ -279,6 +335,7 @@ A row for a known-but-not-yet-confirmed item (Monthly's Incoming table — a sou
 | 2026-09-16 | `<Toaster>` is now mounted once in `+layout.svelte`, with `theme={themeState.current}` overriding the vendored wrapper's own `mode-watcher`-driven default (per the Phase 1 entry above) and `position="top-center"` - a bottom position would sit under the new mobile bottom tab bar.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 2026-09-16 | Phase 3's unified outgoings are adapter-driven: `$lib/outgoings/types.ts`'s `OutgoingAdapter<T>` is the one contract, each kind's `$lib/outgoings/{bills,subscriptions,expenses,utilities}.ts` describes its own columns/fields/stats/href, and `OutgoingsList`/`OutgoingFormSheet`/`OutgoingDetail` are generic over it. That is what keeps each list route a ~10-line file and retires the four near-identical page implementations, at the cost of an abstraction layer between a page and its API module.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | 2026-09-16 | `RollingAverageService` now exposes `computeTrendWithFallback(entries, fallbackAmount)` beside `computeTrend`, sharing a private `summarize`. For bills and subscriptions a logged payment with no stored `amount` falls back to the item's configured amount; a month with no payment row is still a gap, same as expenses/utilities.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 2026-09-17 | PLAN_02 Phase 1 retires Monthly's `MonthStrip` (it was the part of the PLAN_01 overhaul that read worst on mobile - see PLAN_02_OVERVIEW.md) in favour of one chronological list (`MonthlyUnifiedList`, see Patterns → Monthly's unified list). Dashboard keeps its own `MonthStrip` unchanged. `MonthSummary` drops the three `StatCard`s for a compact Income/Outgoing/Net strip (matching the owner-approved Artifact prototype), and `CarryoverCard` moved from a full-width mini-table to a single compact header row - both on Polymer tokens. Touch targets on this page's checkbox/pencil/Accept/Edit are ≥44px, a deliberate exception to the Quality floor's inline-button exemption given how often these specific controls are tapped. First pass put the Paid checkbox/pencil trailing (matching the pre-existing table's column order); the owner's prototype put a leading icon (checkbox, or a static check for a logged entry) at the **start** of every row instead, so the row reads lead-icon → label/status → amount → trailing action(s), corrected to match. Same review also moved Monthly's page heading into a new `compact` variant of `MonthNavHeader` (chevron icon buttons flanking a full "Month Year" `<h2>`, plus a small "This Month" link), rendered as its own centered full-width row below the header rather than squeezed into `PageHeader`'s inline actions slot next to the title (the first pass) - `variant` is opt-in so the Dashboard's own `MonthNavHeader` (text "← Prev"/"Next →" buttons, short "Mon Year" label) is unaffected. "Log income" is now a single discreet `+` icon button in the page header rather than a labelled button next to a "Manage income sources" text link - the owner didn't miss the link, since income sources are already reachable from the account menu (Phase 2). The stat strip's "Net" cell (renamed from "Net (so far)") also gained an explicit `+` sign for a non-negative value and `min-w-0`/`truncate` on every cell, after the sign's extra width clipped digits off the card's right edge at 390px instead of wrapping. |
 | 2026-09-16 | The detail page's trend chart reuses `MonthlyExpenseChart`, recoloured from pre-Polymer indigo/slate onto the Polymer ink/rule/muted tokens - money going out is plain ink (DESIGN.md → Colour), so the chart no longer reads as a templated accent. This also fixes the same hexes on Dashboard/Utilities ahead of their own phases.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 2026-09-16 | Deviation: the unified list keeps the pre-overhaul responsive single-markup table (`block sm:table-row` with `sm:hidden` per-cell labels) instead of DESIGN.md's two-line mobile row. It is consistent and axe-clean, but a phone shows one label/value line per column under each item - denser than the intended mobile list. Flagged in `PLAN_01_PHASE_03_UNIFIED_OUTGOINGS.md` for a follow-up.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 2026-09-16 | `MonthStrip` (Phase 4) always-visible ticks are a glyph + amount only, not a name label as this file's own ASCII mock shows - the mock's ~8 ticks understates real density (a real household's month can carry 20-30+ outgoing lines). The item's name reaches sighted mouse users via `title` and everyone else via the tick's accessible name (`aria-label`), not permanent on-strip text. Stack rows are capped at 4 with a fixed strip height, and the horizontal track scales with the month's day count rather than a fixed guess, so density can't break the layout the way an uncapped, auto-growing box did in Phase 4's first pass. See `PLAN_01_PHASE_04_MONTHLY_INCOME.md`'s Notes and deviations.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
