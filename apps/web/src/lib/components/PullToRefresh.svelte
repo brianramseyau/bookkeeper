@@ -83,7 +83,7 @@
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
-          class="size-5 text-indigo-600 dark:text-indigo-400 {refreshing ? 'animate-spin' : ''}"
+          class="text-primary size-5 {refreshing ? 'animate-spin' : ''}"
           style={refreshing
             ? ''
             : `transform: rotate(${Math.min((pullDistance / PULL_THRESHOLD) * 180, 180)}deg)`}

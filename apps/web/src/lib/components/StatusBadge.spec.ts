@@ -10,11 +10,11 @@ describe('StatusBadge', () => {
 
   it('uses amber tone classes', () => {
     const { getByText } = render(StatusBadge, { label: 'Paused', tone: 'amber' })
-    expect(getByText('Paused').className).toContain('bg-amber-100')
+    expect(getByText('Paused').className).toContain('bg-due-tint')
   })
 
   it('uses slate tone classes', () => {
     const { getByText } = render(StatusBadge, { label: 'Archived', tone: 'slate' })
-    expect(getByText('Archived').className).toContain('bg-slate-200')
+    expect(getByText('Archived').className).toContain('bg-secondary')
   })
 })

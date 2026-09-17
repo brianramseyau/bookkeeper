@@ -45,12 +45,9 @@
 {#snippet ownerLeading(entry: IncomeEntry)}
   {#if entry.incomeSourceId === null}
     <td
-      class="flex items-center justify-between gap-3 px-3 py-2 text-slate-500 sm:table-cell dark:text-slate-400"
+      class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
     >
-      <span
-        class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-        >Owner</span
-      >
+      <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Owner</span>
       {users.find((u) => u.id === entry.userId)?.fullName ?? '—'}
     </td>
     <td class="hidden px-3 py-2 sm:table-cell"></td>
@@ -71,60 +68,46 @@
       <col class="sm:w-[5%]" />
     </colgroup>
     <thead class="hidden sm:table-header-group">
-      <tr class="border-b border-slate-200 dark:border-slate-700">
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Owner</th>
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Source</th>
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Date</th>
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-          >Projected</th
-        >
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th
-        >
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Note</th>
+      <tr class="border-border border-b">
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Owner</th>
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Source</th>
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Date</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Projected</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Actual</th>
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Note</th>
         <th class="px-3 py-2"></th>
       </tr>
     </thead>
     <tbody class="block sm:table-row-group">
       {#each lines as line (line.key)}
         <tr
-          class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-slate-50 last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800/60 sm:dark:border-slate-700/60"
+          class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
         >
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+            class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Owner</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Owner</span>
             {line.userId !== null
               ? (users.find((u) => u.id === line.userId)?.fullName ?? '—')
               : '—'}
           </td>
-          <td class="px-3 py-2 font-medium text-slate-900 sm:table-cell dark:text-slate-100"
-            >{line.label}</td
-          >
+          <td class="text-foreground px-3 py-2 font-medium sm:table-cell">{line.label}</td>
           <td class="hidden px-3 py-2 sm:table-cell"></td>
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
+            class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Projected</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Projected</span>
             {formatCurrency(line.projected)}
           </td>
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+            class="text-foreground flex items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell sm:text-right"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Actual</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
             <span>
               {formatCurrency(line.actual)}
               {#if line.estimated}
                 <span
-                  class="ml-1 text-xs font-normal text-muted-ink"
+                  class="text-muted-ink ml-1 text-xs font-normal"
                   title="No entry logged this month - showing the projected amount"
                 >
                   (est.)
@@ -145,11 +128,11 @@
             />
           {:else}
             <tr
-              class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white italic last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
+              class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border italic last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
             >
               <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>
               <td
-                class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell sm:min-h-0"
+                class="text-muted-ink flex min-h-9 items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:min-h-0"
               >
                 <span class="min-w-0 truncate">{formatDate(row.date)}</span>
                 <span class="flex shrink-0 items-center gap-1 not-italic sm:hidden">
@@ -169,30 +152,21 @@
                 </span>
               </td>
               <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell sm:text-right"
+                class="text-muted-ink flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
               >
-                <span
-                  class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-                  >Projected</span
-                >
+                <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Projected</span>
                 {formatCurrency(row.projected)}
               </td>
               <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell sm:text-right"
+                class="text-muted-ink flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
               >
-                <span
-                  class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-                  >Actual</span
-                >
+                <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
                 —
               </td>
               <td
-                class="flex items-center justify-between gap-3 px-3 py-2 text-muted-ink sm:table-cell"
+                class="text-muted-ink flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
               >
-                <span
-                  class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-                  >Note</span
-                >
+                <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Note</span>
                 Not yet logged
               </td>
               <td
@@ -218,28 +192,19 @@
       {/each}
     </tbody>
     <tfoot class="block sm:table-footer-group">
-      <tr
-        class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
-      >
-        <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100" colspan="2">Total</td
-        >
+      <tr class="border-border mt-1 block border-t pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0">
+        <td class="text-foreground px-3 py-2 sm:table-cell" colspan="2">Total</td>
         <td class="hidden px-3 py-2 sm:table-cell"></td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-            >Projected</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Projected</span>
           {formatCurrency(projectedTotal)}
         </td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-            >Actual</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
           {formatCurrency(actualTotal)}
         </td>
         <td class="hidden px-3 py-2 sm:table-cell" colspan="2"></td>

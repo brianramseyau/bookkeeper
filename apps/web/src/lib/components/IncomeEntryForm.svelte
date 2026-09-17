@@ -108,11 +108,11 @@
 <form id={formId} onsubmit={handleSubmit} class={className}>
   {#if allowUnattributed}
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Person</span>
+      <span class="text-muted-foreground text-xs font-medium">Person</span>
       <select
         bind:value={userId}
         onchange={handlePersonChange}
-        class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        class="border-input rounded-md border bg-transparent px-2 py-1.5 text-sm"
       >
         <option value="">Select person</option>
         {#each users as u (u.id)}
@@ -123,10 +123,10 @@
   {/if}
   {#if !singleSource}
     <label class="flex flex-col gap-1">
-      <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Source</span>
+      <span class="text-muted-foreground text-xs font-medium">Source</span>
       <select
         bind:value={sourceId}
-        class="min-w-32 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        class="border-input min-w-32 rounded-md border bg-transparent px-2 py-1.5 text-sm"
       >
         {#if allowUnattributed}
           <option value="">Other</option>
@@ -138,34 +138,34 @@
     </label>
   {/if}
   <label class="flex flex-col gap-1">
-    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Received on</span>
+    <span class="text-muted-foreground text-xs font-medium">Received on</span>
     <input
       type="date"
       bind:value={receivedOn}
-      class="rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      class="border-input rounded-md border bg-transparent px-2 py-1.5 text-sm"
     />
   </label>
   <label class="flex flex-col gap-1">
-    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Amount</span>
+    <span class="text-muted-foreground text-xs font-medium">Amount</span>
     <input
       type="number"
       step="0.01"
       min="0"
       bind:value={amount}
-      class="w-28 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      class="border-input w-28 rounded-md border bg-transparent px-2 py-1.5 text-sm"
     />
   </label>
   <label class="flex flex-col gap-1">
-    <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Note</span>
+    <span class="text-muted-foreground text-xs font-medium">Note</span>
     <input
       type="text"
       placeholder="optional"
       bind:value={note}
-      class="w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      class="border-input w-40 rounded-md border bg-transparent px-2 py-1.5 text-sm"
     />
   </label>
   {#if allowUnattributed && sourceId === ''}
-    <label class="flex items-center gap-1.5 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
+    <label class="text-muted-foreground flex items-center gap-1.5 pb-1.5 text-xs">
       <input
         type="checkbox"
         bind:checked={taxWithheld}

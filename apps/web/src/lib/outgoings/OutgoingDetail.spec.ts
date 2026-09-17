@@ -148,7 +148,7 @@ describe('OutgoingDetail', () => {
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByText('Mar 2026')
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Mar 2026' })[0]!)
     await user.click(await screen.findByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('25'), { target: { value: '30' } })
     await fireEvent.submit(document.querySelector('#outgoing-history-edit-form')!)
@@ -169,7 +169,7 @@ describe('OutgoingDetail', () => {
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByText('Mar 2026')
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Mar 2026' })[0]!)
 
     expect(await screen.findByText('Delete')).toBeInTheDocument()
     expect(screen.queryByText('Edit')).not.toBeInTheDocument()
@@ -182,7 +182,7 @@ describe('OutgoingDetail', () => {
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByText('Mar 2026')
 
-    await user.click(screen.getByRole('button', { name: 'Actions for Mar 2026' }))
+    await user.click(screen.getAllByRole('button', { name: 'Actions for Mar 2026' })[0]!)
     await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(adapter.deleteHistory).toHaveBeenCalledWith(11))

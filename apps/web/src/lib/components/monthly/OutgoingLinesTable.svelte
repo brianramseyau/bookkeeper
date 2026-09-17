@@ -42,15 +42,12 @@
 <Card class="mt-3 sm:overflow-x-auto" pivotTable>
   <table class="block w-full border-collapse text-sm sm:table">
     <thead class="hidden sm:table-header-group">
-      <tr class="border-b border-slate-200 dark:border-slate-700">
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Line</th>
-        <th class="px-3 py-2 text-left font-semibold text-slate-500 dark:text-slate-400">Due</th>
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400"
-          >Projected</th
-        >
-        <th class="px-3 py-2 text-right font-semibold text-slate-500 dark:text-slate-400">Actual</th
-        >
-        <th class="px-3 py-2 text-center font-semibold text-slate-500 dark:text-slate-400">Paid</th>
+      <tr class="border-border border-b">
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Line</th>
+        <th class="text-muted-foreground px-3 py-2 text-left font-medium">Due</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Projected</th>
+        <th class="text-muted-foreground px-3 py-2 text-right font-medium">Actual</th>
+        <th class="text-muted-foreground px-3 py-2 text-center font-medium">Paid</th>
         <th class="px-3 py-2"></th>
       </tr>
     </thead>
@@ -62,17 +59,14 @@
           line.key.startsWith('subscription-') ||
           line.key.startsWith('expense-')}
         <tr
-          class="mb-2 block divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:border-slate-100 sm:bg-transparent sm:last:border-0 dark:divide-slate-700/60 dark:border-slate-700 dark:bg-slate-800 sm:dark:border-slate-700/60 sm:dark:bg-transparent"
+          class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
         >
           <td
-            class="flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium text-slate-900 sm:table-cell sm:min-h-0 dark:text-slate-100"
+            class="text-foreground flex min-h-9 items-center justify-between gap-3 px-3 py-2 font-medium sm:table-cell sm:min-h-0"
           >
             <span class="min-w-0 truncate">
               {#if viewHref(line)}
-                <a
-                  href={viewHref(line)}
-                  class="hover:text-indigo-600 hover:underline dark:hover:text-indigo-400"
-                >
+                <a href={viewHref(line)} class="hover:text-primary hover:underline">
                   {line.label}
                 </a>
               {:else}
@@ -91,13 +85,10 @@
             {/if}
           </td>
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell dark:text-slate-400"
+            class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
             title={dueTitle(line, year, month)}
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Due</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Due</span>
             {#if dueChipClass(line, year, month)}
               <span
                 class={[
@@ -107,8 +98,8 @@
               >
             {:else if line.dueDateEstimated}
               <span
-                >{dueLabel(line, year, month)}<span
-                  class="ml-1 text-xs font-normal text-muted-ink">(est.)</span
+                >{dueLabel(line, year, month)}<span class="text-muted-ink ml-1 text-xs font-normal"
+                  >(est.)</span
                 ></span
               >
             {:else}
@@ -116,27 +107,17 @@
             {/if}
           </td>
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-600 sm:table-cell sm:text-right dark:text-slate-400"
+            class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Projected</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Projected</span>
             {formatCurrency(line.projected)}
           </td>
           <td
-            class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+            class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Actual</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
             <span>
-              <span
-                class={[
-                  actualIsAssumed(line) && 'font-medium text-amber-600 italic dark:text-amber-400',
-                ]}
-              >
+              <span class={[actualIsAssumed(line) && 'text-due font-medium italic']}>
                 {formatCurrency(line.actual)}
               </span>
               {#if actualIsAssumed(line)}
@@ -150,10 +131,7 @@
           <td
             class="flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-center"
           >
-            <span
-              class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-              >Paid</span
-            >
+            <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Paid</span>
             <input
               type="checkbox"
               checked={line.paid}
@@ -162,8 +140,8 @@
               aria-label="Paid"
               title={paidTooltip(line, year, month)}
               class={[
-                'h-4 w-4 rounded border-slate-300 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600',
-                line.estimated ? 'text-amber-500 dark:text-amber-400' : 'text-indigo-600',
+                'border-input h-4 w-4 rounded disabled:cursor-not-allowed disabled:opacity-40',
+                line.estimated ? 'text-due' : 'text-primary',
               ]}
             />
           </td>
@@ -183,27 +161,18 @@
       {/each}
     </tbody>
     <tfoot class="block sm:table-footer-group">
-      <tr
-        class="mt-1 block border-t border-slate-200 pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0 dark:border-slate-700"
-      >
-        <td class="px-3 py-2 text-slate-900 sm:table-cell dark:text-slate-100" colspan="2">Total</td
-        >
+      <tr class="border-border mt-1 block border-t pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0">
+        <td class="text-foreground px-3 py-2 sm:table-cell" colspan="2">Total</td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-            >Projected</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Projected</span>
           {formatCurrency(projectedTotal)}
         </td>
         <td
-          class="flex items-center justify-between gap-3 px-3 py-2 text-slate-900 sm:table-cell sm:text-right dark:text-slate-100"
+          class="text-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
         >
-          <span
-            class="shrink-0 text-xs font-medium text-muted-ink uppercase sm:hidden"
-            >Actual</span
-          >
+          <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Actual</span>
           {formatCurrency(actualTotal)}
         </td>
         <td class="hidden px-3 py-2 sm:table-cell"></td>

@@ -90,9 +90,9 @@ describe('dueChipClass', () => {
     expect(dueChipClass(line, 2026, 3)).toBeNull()
   })
 
-  it('is green when paid', () => {
+  it('is the "in" tone when paid', () => {
     const line = makeLine({ dueDay: 1, paid: true })
-    expect(dueChipClass(line, 2026, 3)).toContain('green')
+    expect(dueChipClass(line, 2026, 3)).toContain('bg-in-tint')
   })
 
   it('is null when due date is beyond the due-soon window', () => {
@@ -102,16 +102,16 @@ describe('dueChipClass', () => {
     expect(dueChipClass(line, 2026, 3)).toBeNull()
   })
 
-  it('is red when overdue and unpaid', () => {
+  it('is the "over" tone when overdue and unpaid', () => {
     const line = makeLine({ dueDate: '2000-01-01T00:00:00.000Z' })
-    expect(dueChipClass(line, 2026, 3)).toContain('red')
+    expect(dueChipClass(line, 2026, 3)).toContain('bg-over-tint')
   })
 
-  it('is amber when due soon and unpaid', () => {
+  it('is the "due" tone when due soon and unpaid', () => {
     const soon = new Date()
     soon.setDate(soon.getDate() + 1)
     const line = makeLine({ dueDate: soon.toISOString() })
-    expect(dueChipClass(line, 2026, 3)).toContain('amber')
+    expect(dueChipClass(line, 2026, 3)).toContain('bg-due-tint')
   })
 })
 

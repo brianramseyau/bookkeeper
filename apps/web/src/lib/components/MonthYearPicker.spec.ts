@@ -49,11 +49,13 @@ describe('MonthYearPicker', () => {
     const onchange = vi.fn()
     render(MonthYearPicker, { props: { value: '2025-06', onchange } })
 
-    await user.click(screen.getByRole('button', { name: 'Jun 2025' }))
+    const trigger = screen.getByRole('button', { name: 'Jun 2025' })
+    await user.click(trigger)
     await user.click(screen.getByRole('button', { name: 'Jul' }))
 
     expect(onchange).toHaveBeenCalledWith('2025-07')
     expect(screen.queryByRole('dialog')).toBeNull()
+    expect(trigger).toHaveFocus()
   })
 
   it('navigates years with the arrows before selecting', async () => {
@@ -125,8 +127,8 @@ describe('MonthYearPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Jun 2025' }))
     await user.click(screen.getByRole('button', { name: 'Next year' }))
 
-    expect(screen.getByRole('button', { name: 'Jan' })).toHaveClass('ring-indigo-300')
-    expect(screen.getByRole('button', { name: 'Feb' })).not.toHaveClass('ring-indigo-300')
+    expect(screen.getByRole('button', { name: 'Jan' })).toHaveClass('ring-primary/40')
+    expect(screen.getByRole('button', { name: 'Feb' })).not.toHaveClass('ring-primary/40')
   })
 
   it('flips the panel to open above the trigger when there is no room below the viewport', async () => {
@@ -154,5 +156,80 @@ describe('MonthYearPicker', () => {
     const top = Number.parseInt(panel.style.top, 10)
     expect(top).toBeGreaterThanOrEqual(8)
     expect(top).toBeLessThan(720)
+  })
+
+  it('does not mistake an unsupported computed style value (empty, not "none") for a containing-block match', async () => {
+    // A property `getComputedStyle` doesn't implement/expose reads back as
+    // `''`, not `'none'` - simulates that for every ancestor (via a Proxy
+    // over the real style, so unrelated reads like `getPropertyValue` still
+    // work), so a naive `!== 'none'` check would match the trigger's
+    // immediate parent and wrongly portal/position against it instead of
+    // `document.body`.
+    const unsupported = new Set(['translate', 'rotate', 'scale', 'backdropFilter', 'containerType'])
+    const originalGetComputedStyle = window.getComputedStyle.bind(window)
+    const getComputedStyleSpy = vi
+      .spyOn(window, 'getComputedStyle')
+      .mockImplementation((el, pseudoElt) => {
+        const real = originalGetComputedStyle(el, pseudoElt)
+        return new Proxy(real, {
+          get(target, prop, receiver) {
+            return unsupported.has(prop as string) ? '' : Reflect.get(target, prop, receiver)
+          },
+        })
+      })
+
+    const user = userEvent.setup({ delay: null })
+    render(MonthYearPicker, { props: { value: '2025-06' } })
+    await user.click(screen.getByRole('button', { name: 'Jun 2025' }))
+
+    expect(screen.getByRole('dialog').parentElement).toBe(document.body)
+
+    getComputedStyleSpy.mockRestore()
+  })
+
+  // The panel is portalled outside the trigger's own DOM position (to
+  // `document.body`, or - inside a caller's own Sheet/Dialog - into its
+  // trapped content instead; see the component's comment), so it must
+  // manage focus itself rather than relying on ambient Tab order.
+  describe('keyboard focus management', () => {
+    it('moves focus to the selected month on open, and back to the trigger on Escape', async () => {
+      const user = userEvent.setup({ delay: null })
+      render(MonthYearPicker, { props: { value: '2025-06' } })
+
+      const trigger = screen.getByRole('button', { name: 'Jun 2025' })
+      await user.click(trigger)
+
+      expect(screen.getByRole('button', { name: 'Jun', pressed: true })).toHaveFocus()
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(trigger).toHaveFocus()
+    })
+
+    it('focuses the first control when no month is selected in the displayed year', async () => {
+      const user = userEvent.setup({ delay: null })
+      render(MonthYearPicker, { props: { value: '' } })
+
+      await user.click(screen.getByRole('button', { name: 'Select month' }))
+
+      expect(screen.getByRole('button', { name: 'Previous year' })).toHaveFocus()
+    })
+
+    it('traps Tab within the panel, wrapping from the last control back to the first', async () => {
+      const user = userEvent.setup({ delay: null })
+      render(MonthYearPicker, { props: { value: '' } })
+
+      await user.click(screen.getByRole('button', { name: 'Select month' }))
+      const first = screen.getByRole('button', { name: 'Previous year' })
+      const last = screen.getByRole('button', { name: 'Dec' })
+      expect(first).toHaveFocus()
+
+      await user.keyboard('{Shift>}{Tab}{/Shift}')
+      expect(last).toHaveFocus()
+
+      await user.keyboard('{Tab}')
+      expect(first).toHaveFocus()
+    })
   })
 })
