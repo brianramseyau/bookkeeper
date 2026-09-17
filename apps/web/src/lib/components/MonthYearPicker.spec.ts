@@ -125,8 +125,8 @@ describe('MonthYearPicker', () => {
     await user.click(screen.getByRole('button', { name: 'Jun 2025' }))
     await user.click(screen.getByRole('button', { name: 'Next year' }))
 
-    expect(screen.getByRole('button', { name: 'Jan' })).toHaveClass('ring-indigo-300')
-    expect(screen.getByRole('button', { name: 'Feb' })).not.toHaveClass('ring-indigo-300')
+    expect(screen.getByRole('button', { name: 'Jan' })).toHaveClass('ring-primary/40')
+    expect(screen.getByRole('button', { name: 'Feb' })).not.toHaveClass('ring-primary/40')
   })
 
   it('flips the panel to open above the trigger when there is no room below the viewport', async () => {

@@ -8,10 +8,10 @@ describe('ErrorMessage', () => {
     expect(getByText('Failed to load')).toBeInTheDocument()
   })
 
-  it('uses red text classes and a default mt-3 margin', () => {
+  it('uses the "over" tone and a default mt-3 margin', () => {
     const { container } = render(ErrorMessage, { message: 'Oops' })
     const p = container.querySelector('p')
-    expect(p?.className).toContain('text-red-600')
+    expect(p?.className).toContain('text-over')
     expect(p?.className).toContain('mt-3')
   })
 

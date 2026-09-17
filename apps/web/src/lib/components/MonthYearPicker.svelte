@@ -79,9 +79,8 @@
   )
 
   const TRIGGER = {
-    form: 'w-40 rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100',
-    table:
-      'w-32 rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100',
+    form: 'border-input w-40 rounded-md border bg-transparent px-2 py-1.5 text-sm',
+    table: 'border-input w-32 rounded-md border bg-transparent px-2 py-1 text-sm',
   }
 
   function toggle() {
@@ -109,7 +108,7 @@
     class={[
       TRIGGER[size],
       'flex items-center justify-between gap-2 text-left',
-      value ? 'text-slate-900 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500',
+      value ? 'text-foreground' : 'text-muted-foreground',
     ]}
   >
     <span>{displayLabel}</span>
@@ -130,23 +129,23 @@
       role="dialog"
       aria-label="Choose month"
       style={panelStyle}
-      class="fixed z-20 w-56 rounded-md border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+      class="border-border bg-popover fixed z-20 w-56 rounded-md border p-2 shadow-lg"
     >
       <div class="mb-2 flex items-center justify-between">
         <button
           type="button"
           aria-label="Previous year"
           onclick={() => viewYear--}
-          class="rounded-md border border-slate-300 px-2 py-0.5 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="border-border text-muted-foreground hover:bg-accent rounded-md border px-2 py-0.5 text-sm"
         >
           ←
         </button>
-        <span class="text-sm font-medium text-slate-700 dark:text-slate-300">{viewYear}</span>
+        <span class="text-foreground text-sm font-medium">{viewYear}</span>
         <button
           type="button"
           aria-label="Next year"
           onclick={() => viewYear++}
-          class="rounded-md border border-slate-300 px-2 py-0.5 text-sm text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          class="border-border text-muted-foreground hover:bg-accent rounded-md border px-2 py-0.5 text-sm"
         >
           →
         </button>
@@ -161,10 +160,8 @@
             aria-pressed={selected}
             class={[
               'rounded-md px-1 py-1.5 text-sm transition-colors',
-              selected
-                ? 'bg-indigo-50 font-medium text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'
-                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700',
-              isCurrent && 'ring-1 ring-indigo-300 ring-inset dark:ring-indigo-700',
+              selected ? 'bg-accent text-primary font-medium' : 'text-foreground hover:bg-accent',
+              isCurrent && 'ring-primary/40 ring-1 ring-inset',
             ]}
           >
             {monthShortName(month)}
