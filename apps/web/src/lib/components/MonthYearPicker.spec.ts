@@ -158,6 +158,35 @@ describe('MonthYearPicker', () => {
     expect(top).toBeLessThan(720)
   })
 
+  it('does not mistake an unsupported computed style value (empty, not "none") for a containing-block match', async () => {
+    // A property `getComputedStyle` doesn't implement/expose reads back as
+    // `''`, not `'none'` - simulates that for every ancestor (via a Proxy
+    // over the real style, so unrelated reads like `getPropertyValue` still
+    // work), so a naive `!== 'none'` check would match the trigger's
+    // immediate parent and wrongly portal/position against it instead of
+    // `document.body`.
+    const unsupported = new Set(['translate', 'rotate', 'scale', 'backdropFilter', 'containerType'])
+    const originalGetComputedStyle = window.getComputedStyle.bind(window)
+    const getComputedStyleSpy = vi
+      .spyOn(window, 'getComputedStyle')
+      .mockImplementation((el, pseudoElt) => {
+        const real = originalGetComputedStyle(el, pseudoElt)
+        return new Proxy(real, {
+          get(target, prop, receiver) {
+            return unsupported.has(prop as string) ? '' : Reflect.get(target, prop, receiver)
+          },
+        })
+      })
+
+    const user = userEvent.setup({ delay: null })
+    render(MonthYearPicker, { props: { value: '2025-06' } })
+    await user.click(screen.getByRole('button', { name: 'Jun 2025' }))
+
+    expect(screen.getByRole('dialog').parentElement).toBe(document.body)
+
+    getComputedStyleSpy.mockRestore()
+  })
+
   // The panel is portalled outside the trigger's own DOM position (to
   // `document.body`, or - inside a caller's own Sheet/Dialog - into its
   // trapped content instead; see the component's comment), so it must

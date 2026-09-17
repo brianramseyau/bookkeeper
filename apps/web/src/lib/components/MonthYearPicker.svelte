@@ -30,7 +30,7 @@
   let panelStyle = $state('')
   // Resolved once per open (in `toggle`, before the panel mounts) and shared
   // by `portal` and `position` below - see the comment on
-  // `containingBlockAncestor` for why, and why it must not be re-derived
+  // `findContainingBlockAncestor` for why, and why it must not be re-derived
   // independently by each of them.
   let containingBlock: HTMLElement | null = null
 
@@ -70,19 +70,28 @@
   // common case), this is exactly the `document.body` portal every other
   // floating element in the app (Popover, DropdownMenu, AlertDialog)
   // already uses.
+  // A property `getComputedStyle` doesn't implement/expose reads back as
+  // `''` or `undefined`, not `'none'` - on an older/partial browser, an
+  // `!== 'none'` check alone would treat that as "set" and match the very
+  // first ancestor walked, even when nothing there actually establishes a
+  // containing block. Guard presence as well as value.
+  function isSetValue(value: string | undefined): boolean {
+    return !!value && value !== 'none'
+  }
+
   function findContainingBlockAncestor(el: HTMLElement): HTMLElement | null {
     let node = el.parentElement
     while (node && node !== document.body) {
       const style = getComputedStyle(node)
-      const willChangeList = style.willChange.split(',').map((value) => value.trim())
+      const willChangeList = (style.willChange ?? '').split(',').map((value) => value.trim())
       if (
-        style.transform !== 'none' ||
-        style.translate !== 'none' ||
-        style.rotate !== 'none' ||
-        style.scale !== 'none' ||
-        style.perspective !== 'none' ||
-        style.filter !== 'none' ||
-        style.backdropFilter !== 'none' ||
+        isSetValue(style.transform) ||
+        isSetValue(style.translate) ||
+        isSetValue(style.rotate) ||
+        isSetValue(style.scale) ||
+        isSetValue(style.perspective) ||
+        isSetValue(style.filter) ||
+        isSetValue(style.backdropFilter) ||
         /^(size|inline-size)$/.test(style.containerType) ||
         /(layout|paint|strict|content)/.test(style.contain) ||
         willChangeList.some((value) =>
