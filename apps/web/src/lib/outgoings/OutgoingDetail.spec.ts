@@ -96,10 +96,12 @@ describe('OutgoingDetail', () => {
 
   it('edits the item through the form sheet', async () => {
     const adapter = makeAdapter()
+    const user = userEvent.setup()
     render(OutgoingDetail, { props: { adapter, id: 1 } })
     await screen.findByRole('heading', { name: 'Car' })
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Edit' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Car' }))
+    await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByLabelText('Name'), { target: { value: 'New car' } })
     await fireEvent.submit(document.querySelector('#outgoing-form')!)
 

@@ -17,7 +17,6 @@
   import StatCard from '$lib/components/app/StatCard.svelte'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
   import MonthlyExpenseChart from '$lib/components/MonthlyExpenseChart.svelte'
-  import { Button } from '$lib/components/ui/button'
   import { Badge } from '$lib/components/ui/badge'
   import { outgoingMenuActions } from './menu'
   import OutgoingFormSheet from './OutgoingFormSheet.svelte'
@@ -159,7 +158,6 @@
 {:else if item}
   <PageHeader title={item.name} back={{ href: listHref, label: adapter.title }}>
     {#snippet actions()}
-      <Button variant="outline" onclick={() => (formOpen = true)}>Edit</Button>
       <ActionMenu label={item ? `Actions for ${item.name}` : 'Actions'} actions={itemMenuActions} />
     {/snippet}
   </PageHeader>
