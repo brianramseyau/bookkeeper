@@ -8,12 +8,16 @@ import {
   monthYearLabel,
 } from '$lib/format'
 import type { Utility } from '$lib/api/utilities'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import UtilityBillsGrid from './UtilityBillsGrid.svelte'
 
 vi.mock('$lib/api/utilities', () => ({
   getUtilityBills: vi.fn(),
   upsertUtilityBill: vi.fn(),
   deleteUtilityBill: vi.fn(),
+}))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
 }))
 
 import * as utilitiesApi from '$lib/api/utilities'
@@ -53,6 +57,17 @@ const billedMonth = {
   updatedAt: '',
 }
 
+// A share of `billedMonth`'s quarterly period landing in the following
+// month, which has no bill row of its own - read-only, per `readOnly` in
+// UtilityBillsGrid.svelte.
+const sharedMonth = {
+  year: secondMonth!.year,
+  month: secondMonth!.month,
+  amount: 30,
+  billYear: firstMonth!.year,
+  billMonth: firstMonth!.month,
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(utilitiesApi.getUtilityBills).mockResolvedValue({
@@ -74,16 +89,23 @@ describe('UtilityBillsGrid', () => {
     expect(screen.getByText(FY_LABEL)).toBeInTheDocument()
   })
 
-  it('saves a bill into an empty month and refreshes the parent', async () => {
-    vi.mocked(utilitiesApi.upsertUtilityBill).mockResolvedValue(billedMonth)
+  it('adds a bill into an empty month through the form sheet, and refreshes the parent', async () => {
+    vi.mocked(utilitiesApi.upsertUtilityBill).mockResolvedValue({
+      ...billedMonth,
+      id: 22,
+      year: secondMonth!.year,
+      month: secondMonth!.month,
+      amount: 75,
+    })
     const { onChanged } = renderGrid()
     await screen.findByText('$90.00')
     const user = userEvent.setup()
 
     const row = screen.getByText(SECOND).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: '+' }))
-    await fireEvent.input(within(row).getByRole('spinbutton'), { target: { value: '75' } })
-    await user.click(within(row).getByRole('button', { name: `Save ${SECOND} bill` }))
+    await user.click(within(row).getByRole('button', { name: `Actions for the ${SECOND} bill` }))
+    await user.click(screen.getByText('Add bill'))
+    await fireEvent.input(screen.getByLabelText('Amount'), { target: { value: '75' } })
+    await fireEvent.submit(document.querySelector('#utility-bill-form')!)
 
     await waitFor(() =>
       expect(utilitiesApi.upsertUtilityBill).toHaveBeenCalledWith(
@@ -104,24 +126,99 @@ describe('UtilityBillsGrid', () => {
     const user = userEvent.setup()
 
     const row = screen.getByText(SECOND).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: '+' }))
-    await fireEvent.input(within(row).getByRole('spinbutton'), { target: { value: '-1' } })
-    await user.click(within(row).getByRole('button', { name: `Save ${SECOND} bill` }))
+    await user.click(within(row).getByRole('button', { name: `Actions for the ${SECOND} bill` }))
+    await user.click(screen.getByText('Add bill'))
+    await fireEvent.input(screen.getByLabelText('Amount'), { target: { value: '-1' } })
+    await fireEvent.submit(document.querySelector('#utility-bill-form')!)
 
     expect(await screen.findByText('Enter a valid amount')).toBeInTheDocument()
   })
 
-  it('deletes an existing bill', async () => {
+  it('edits an existing bill through the form sheet', async () => {
+    vi.mocked(utilitiesApi.upsertUtilityBill).mockResolvedValue({ ...billedMonth, amount: 95 })
+    const { onChanged } = renderGrid()
+    await screen.findByText('$90.00')
+    const user = userEvent.setup()
+
+    const row = screen.getByText(FIR).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(screen.getByText('Edit'))
+    await fireEvent.input(screen.getByDisplayValue('90'), { target: { value: '95' } })
+    await fireEvent.submit(document.querySelector('#utility-bill-form')!)
+
+    await waitFor(() =>
+      expect(utilitiesApi.upsertUtilityBill).toHaveBeenCalledWith(
+        utility.id,
+        firstMonth!.year,
+        firstMonth!.month,
+        95,
+        undefined,
+        expect.any(String)
+      )
+    )
+    await waitFor(() => expect(onChanged).toHaveBeenCalled())
+  })
+
+  it('closes the bill sheet from the Cancel button without saving', async () => {
+    renderGrid()
+    await screen.findByText('$90.00')
+    const user = userEvent.setup()
+
+    const row = screen.getByText(FIR).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(screen.getByText('Edit'))
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Amount')).not.toBeInTheDocument()
+    expect(utilitiesApi.upsertUtilityBill).not.toHaveBeenCalled()
+  })
+
+  it('deletes an existing bill after confirmation', async () => {
+    vi.mocked(confirmDestructive).mockResolvedValue(true)
     vi.mocked(utilitiesApi.deleteUtilityBill).mockResolvedValue(undefined)
     renderGrid()
     await screen.findByText('$90.00')
     const user = userEvent.setup()
 
     const row = screen.getByText(FIR).closest('tr')!
-    await user.click(within(row).getByRole('button', { name: '$90.00' }))
-    await user.click(within(row).getByRole('button', { name: `Delete ${FIR} bill` }))
+    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(utilitiesApi.deleteUtilityBill).toHaveBeenCalledWith(21))
+  })
+
+  it('does not delete a bill when the confirmation is declined', async () => {
+    vi.mocked(confirmDestructive).mockResolvedValue(false)
+    renderGrid()
+    await screen.findByText('$90.00')
+    const user = userEvent.setup()
+
+    const row = screen.getByText(FIR).closest('tr')!
+    await user.click(within(row).getByRole('button', { name: `Actions for the ${FIR} bill` }))
+    await user.click(screen.getByText('Delete'))
+
+    await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
+    expect(utilitiesApi.deleteUtilityBill).not.toHaveBeenCalled()
+  })
+
+  it('renders a read-only share month with no actions menu, while the billed month keeps Edit/Delete', async () => {
+    vi.mocked(utilitiesApi.getUtilityBills).mockResolvedValue({
+      bills: [billedMonth],
+      monthlyShares: [sharedMonth],
+    })
+    renderGrid()
+    await screen.findByText('$90.00')
+
+    const shareRow = screen.getByText(SECOND).closest('tr')!
+    expect(within(shareRow).getByText('$30.00')).toBeInTheDocument()
+    expect(
+      within(shareRow).queryByRole('button', { name: `Actions for the ${SECOND} bill` })
+    ).not.toBeInTheDocument()
+
+    const billRow = screen.getByText(FIR).closest('tr')!
+    expect(
+      within(billRow).getByRole('button', { name: `Actions for the ${FIR} bill` })
+    ).toBeInTheDocument()
   })
 
   it('navigates between financial years, disabling Next at the current one', async () => {

@@ -11,9 +11,17 @@
     size?: 'form' | 'table'
     onchange?: (value: string) => void
     class?: string
+    /** Applied to the trigger button, so an external `<label for>` can target it. */
+    id?: string
   }
 
-  let { value = $bindable(''), size = 'form', onchange, class: className = '' }: Props = $props()
+  let {
+    value = $bindable(''),
+    size = 'form',
+    onchange,
+    class: className = '',
+    id,
+  }: Props = $props()
 
   let open = $state(false)
   let viewYear = $state(new Date().getFullYear())
@@ -93,6 +101,7 @@
 <div class="relative inline-block {className}">
   <button
     bind:this={triggerEl}
+    {id}
     type="button"
     onclick={toggle}
     aria-haspopup="dialog"

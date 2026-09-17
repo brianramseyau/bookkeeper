@@ -17,10 +17,12 @@
     monthYearLabel,
   } from '$lib/format'
   import { ApiError } from '$lib/api'
+  import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
-  import IconActionButton from '$lib/components/IconActionButton.svelte'
-  import { mdiCloseThick, mdiContentSave, mdiDelete } from '@mdi/js'
+  import ActionMenu from '$lib/components/ActionMenu.svelte'
+  import { mdiPencil, mdiPlus, mdiDelete } from '@mdi/js'
+  import UtilityBillFormSheet, { type UtilityBillFormValues } from './UtilityBillFormSheet.svelte'
 
   interface Props {
     utility: Utility
@@ -34,14 +36,21 @@
   let monthlyShares = $state<UtilityMonthlyShare[]>([])
   let error = $state<string | null>(null)
 
-  let editingKey = $state<string | null>(null)
-  let editingValue = $state<number>(NaN)
-  let editingReceivedOn = $state('')
-  let saving = $state(false)
-
   let selectedFinancialYear = $state(currentFinancialYear())
 
+  let formOpen = $state(false)
+  let formYear = $state<number | null>(null)
+  let formMonth = $state<number | null>(null)
+  let formSubmitting = $state(false)
+  let formError = $state<string | null>(null)
+
   const fyMonths = $derived(financialYearMonths(selectedFinancialYear))
+  const formBill = $derived(
+    formYear !== null && formMonth !== null ? (billFor(formYear, formMonth) ?? null) : null
+  )
+  const formMonthLabel = $derived(
+    formYear !== null && formMonth !== null ? monthYearLabel(formYear, formMonth) : ''
+  )
 
   onMount(load)
 
@@ -60,10 +69,6 @@
     const response = await getUtilityBills(utility.id)
     bills = response.bills
     monthlyShares = response.monthlyShares
-  }
-
-  function focusOnMount(node: HTMLElement) {
-    node.focus()
   }
 
   function billFor(year: number, month: number): UtilityBill | undefined {
@@ -109,64 +114,86 @@
     return `Also covered by the ${list} bill${conflicts.length > 1 ? 's' : ''} - check for a duplicate or overlapping entry`
   }
 
-  function cellKey(year: number, month: number) {
-    return `${year}-${month}`
+  function openAdd(year: number, month: number) {
+    formYear = year
+    formMonth = month
+    formError = null
+    formOpen = true
   }
 
-  function startEdit(year: number, month: number) {
-    const bill = billFor(year, month)
-    editingKey = cellKey(year, month)
-    editingValue = bill ? bill.amount : NaN
-    editingReceivedOn = bill?.receivedOn ? bill.receivedOn.slice(0, 10) : ''
+  function openEdit(year: number, month: number) {
+    formYear = year
+    formMonth = month
+    formError = null
+    formOpen = true
   }
 
-  function cancelEdit() {
-    editingKey = null
-    editingValue = NaN
-    editingReceivedOn = ''
-  }
-
-  async function saveEdit(year: number, month: number) {
-    if (Number.isNaN(editingValue)) {
-      cancelEdit()
-      return
-    }
-    const amount = editingValue
-    if (!Number.isFinite(amount) || amount < 0) {
-      error = 'Enter a valid amount'
-      return
-    }
-
-    saving = true
-    error = null
+  async function submitForm(values: UtilityBillFormValues) {
+    if (formYear === null || formMonth === null) return
+    formSubmitting = true
+    formError = null
     try {
-      const receivedOn = editingReceivedOn === '' ? null : editingReceivedOn
-      await upsertUtilityBill(utility.id, year, month, amount, undefined, receivedOn)
+      await upsertUtilityBill(
+        utility.id,
+        formYear,
+        formMonth,
+        values.amount,
+        undefined,
+        values.receivedOn
+      )
+      formOpen = false
       await reload()
       await onChanged()
-      cancelEdit()
     } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to save'
+      formError = err instanceof ApiError ? err.message : 'Failed to save'
     } finally {
-      saving = false
+      formSubmitting = false
     }
   }
 
-  async function removeCell(year: number, month: number) {
-    const bill = billFor(year, month)
-    if (!bill) return
-    saving = true
+  async function removeBill(bill: UtilityBill, monthLabel: string) {
+    const confirmed = await confirmDestructive({
+      title: `Delete the ${monthLabel} bill?`,
+      description: 'This cannot be undone.',
+    })
+    if (!confirmed) return
     error = null
     try {
       await deleteUtilityBill(bill.id)
       await reload()
       await onChanged()
-      cancelEdit()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to delete'
-    } finally {
-      saving = false
     }
+  }
+
+  function menuActionsFor(year: number, month: number) {
+    const bill = billFor(year, month)
+    const monthLabel = monthYearLabel(year, month)
+    if (!bill) {
+      return [
+        {
+          label: 'Add bill',
+          path: mdiPlus,
+          variant: 'neutral' as const,
+          onclick: () => openAdd(year, month),
+        },
+      ]
+    }
+    return [
+      {
+        label: 'Edit',
+        path: mdiPencil,
+        variant: 'neutral' as const,
+        onclick: () => openEdit(year, month),
+      },
+      {
+        label: 'Delete',
+        path: mdiDelete,
+        variant: 'danger' as const,
+        onclick: () => removeBill(bill, monthLabel),
+      },
+    ]
   }
 </script>
 
@@ -201,9 +228,9 @@
 
   {#if utility.frequency !== 'monthly'}
     <p class="text-muted-foreground mb-3 text-xs">
-      Click the month it's actually billed in and enter the full bill - every month in that period
-      then shows the same even monthly share, with the real total noted underneath. The other,
-      non-billing months (in <span class="italic">italics</span>) are read-only.
+      Use the menu next to the month it's actually billed in to enter the full bill - every month in
+      that period then shows the same even monthly share, with the real total noted underneath. The
+      other, non-billing months (in <span class="italic">italics</span>) are read-only.
       {#if utility.paidInAdvance}
         Paid in advance, so the billing month is the <span class="italic">first</span> month of the period.
       {:else}
@@ -219,121 +246,72 @@
           <th class="text-muted-foreground px-3 py-2 text-left font-medium">Month</th>
           <th class="text-muted-foreground px-3 py-2 text-right font-medium">Amount</th>
           <th class="text-muted-foreground px-3 py-2 text-left font-medium">Received</th>
+          <th class="w-12"></th>
         </tr>
       </thead>
       <tbody class="block sm:table-row-group">
         {#each fyMonths as { year, month } (`${year}-${month}`)}
           {@const bill = billFor(year, month)}
           {@const share = shareFor(year, month)}
-          {@const key = cellKey(year, month)}
           {@const displayAmount = share ? share.amount : bill?.amount}
           {@const showsBilledTotal = bill && share && share.amount !== bill.amount}
           {@const conflicts = conflictingBills(year, month)}
+          {@const readOnly = !bill && Boolean(share)}
           <tr
-            class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:bg-transparent sm:last:border-0"
+            class="divide-border border-border bg-card sm:border-border mb-2 block divide-y rounded-lg border last:mb-0 sm:mb-0 sm:table-row sm:divide-y-0 sm:rounded-none sm:border-0 sm:border-b sm:last:border-0"
           >
             <td class="text-foreground px-3 py-1.5 font-medium whitespace-nowrap sm:table-cell">
               {monthYearLabel(year, month)}
             </td>
             <td
-              class="flex items-center justify-between gap-3 px-1 py-1 sm:table-cell sm:text-right"
+              class="flex items-center justify-between gap-3 px-3 py-1.5 sm:table-cell sm:text-right"
             >
               <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Amount</span>
-              {#if editingKey === key}
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  bind:value={editingValue}
-                  disabled={saving}
-                  onkeydown={(e) => {
-                    if (e.key === 'Enter') saveEdit(year, month)
-                    if (e.key === 'Escape') cancelEdit()
-                  }}
-                  use:focusOnMount
-                  class="border-primary w-full rounded-md border px-2 py-1 text-right text-sm sm:w-24"
-                />
-              {:else if !bill && share}
+              {#if readOnly}
                 <span
-                  class="text-muted-foreground block w-full cursor-default rounded-md px-2 py-1.5 text-right italic"
-                  title={`Part of the ${monthYearLabel(share.billYear, share.billMonth)} bill`}
+                  class="text-muted-foreground italic"
+                  title={`Part of the ${monthYearLabel(share!.billYear, share!.billMonth)} bill`}
                 >
-                  {formatCurrency(share.amount)}
+                  {formatCurrency(share!.amount)}
                   {#if conflicts.length > 0}
                     <span class="text-due" title={conflictTooltip(conflicts)}>⚠</span>
                   {/if}
                 </span>
-              {:else}
-                <button
-                  type="button"
-                  onclick={() => startEdit(year, month)}
-                  class={[
-                    'hover:bg-accent w-full rounded-md px-2 py-1.5 text-right transition-colors',
-                    bill ? 'text-foreground' : 'text-muted-foreground',
-                  ]}
-                >
-                  {bill ? formatCurrency(displayAmount!) : '+'}
-                  {#if bill && conflicts.length > 0}
+              {:else if bill}
+                <span class="text-foreground">
+                  {formatCurrency(displayAmount!)}
+                  {#if conflicts.length > 0}
                     <span class="text-due" title={conflictTooltip(conflicts)}>⚠</span>
                   {/if}
                   {#if showsBilledTotal}
                     <span class="text-muted-foreground block text-xs font-normal">
-                      bills {formatCurrency(bill!.amount)}
+                      bills {formatCurrency(bill.amount)}
                     </span>
                   {/if}
-                </button>
+                </span>
+              {:else}
+                <span class="text-muted-foreground">—</span>
               {/if}
             </td>
             <td
-              class="flex items-center justify-between gap-3 px-1 py-1 sm:table-cell sm:text-right"
+              class="flex items-center justify-between gap-3 px-3 py-1.5 sm:table-cell sm:text-right"
             >
               <span class="text-muted-foreground shrink-0 text-xs sm:hidden">Received</span>
-              {#if editingKey === key}
-                <div class="flex items-center gap-1 sm:justify-end">
-                  <input
-                    type="date"
-                    bind:value={editingReceivedOn}
-                    disabled={saving}
-                    onkeydown={(e) => {
-                      if (e.key === 'Enter') saveEdit(year, month)
-                      if (e.key === 'Escape') cancelEdit()
-                    }}
-                    class="border-primary rounded-md border px-2 py-1 text-sm"
-                  />
-                  <IconActionButton
-                    variant="primary"
-                    disabled={saving}
-                    label="Save {monthYearLabel(year, month)} bill"
-                    path={mdiContentSave}
-                    onclick={() => saveEdit(year, month)}
-                  />
-                  <IconActionButton
-                    variant="cancel"
-                    disabled={saving}
-                    label="Cancel editing {monthYearLabel(year, month)} bill"
-                    path={mdiCloseThick}
-                    onclick={cancelEdit}
-                  />
-                  {#if bill}
-                    <IconActionButton
-                      variant="danger"
-                      disabled={saving}
-                      label="Delete {monthYearLabel(year, month)} bill"
-                      path={mdiDelete}
-                      onclick={() => removeCell(year, month)}
-                    />
-                  {/if}
-                </div>
-              {:else if bill}
-                <button
-                  type="button"
-                  onclick={() => startEdit(year, month)}
-                  class="text-muted-foreground hover:bg-accent w-full rounded-md px-2 py-1.5 text-right transition-colors"
-                >
-                  {formatDate(bill.receivedOn)}
-                </button>
-              {:else}
-                <span class="text-muted-foreground block px-2 py-1.5 text-right">—</span>
+              <span class="text-muted-foreground">
+                {bill?.receivedOn ? formatDate(bill.receivedOn) : '—'}
+              </span>
+            </td>
+            <td
+              class={[
+                'px-3 py-1.5 text-right whitespace-nowrap sm:table-cell',
+                readOnly && 'hidden',
+              ]}
+            >
+              {#if !readOnly}
+                <ActionMenu
+                  label="Actions for the {monthYearLabel(year, month)} bill"
+                  actions={menuActionsFor(year, month)}
+                />
               {/if}
             </td>
           </tr>
@@ -342,3 +320,19 @@
     </table>
   </Card>
 </div>
+
+<UtilityBillFormSheet
+  open={formOpen}
+  onOpenChange={(open) => {
+    formOpen = open
+    if (!open) {
+      formYear = null
+      formMonth = null
+    }
+  }}
+  monthLabel={formMonthLabel}
+  bill={formBill}
+  submitting={formSubmitting}
+  error={formError}
+  onSubmit={submitForm}
+/>

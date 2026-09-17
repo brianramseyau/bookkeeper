@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '$lib/api'
 import type { Expense } from '$lib/api/expenses'
+import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import ExpenseBreakdown from './ExpenseBreakdown.svelte'
 
 vi.mock('$lib/api/expense-actuals', () => ({
@@ -16,6 +17,9 @@ vi.mock('$lib/api/expense-budget-items', () => ({
   createExpenseBudgetItem: vi.fn(),
   updateExpenseBudgetItem: vi.fn(),
   deleteExpenseBudgetItem: vi.fn(),
+}))
+vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
+  confirmDestructive: vi.fn(),
 }))
 
 import * as actualsApi from '$lib/api/expense-actuals'
@@ -70,16 +74,16 @@ describe('ExpenseBreakdown', () => {
     expect(await screen.findByText(/manually-set budget/)).toBeInTheDocument()
   })
 
-  it('adds a budget item, then notifies the parent', async () => {
+  it('adds a budget item through the form sheet, then notifies the parent', async () => {
     vi.mocked(itemsApi.createExpenseBudgetItem).mockResolvedValue(budgetItem)
     const { onChanged } = renderBreakdown()
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    const form = screen.getByPlaceholderText('e.g. Insurance').closest('form')!
-    await user.type(within(form).getByLabelText('Amount'), '50')
-    await user.type(screen.getByPlaceholderText('e.g. Insurance'), 'Food')
-    await user.click(screen.getByRole('button', { name: 'Add item' }))
+    await user.click(await screen.findByRole('button', { name: 'Add budget item' }))
+    await fireEvent.input(screen.getByLabelText('Item'), { target: { value: 'Food' } })
+    await fireEvent.input(screen.getByLabelText('Amount'), { target: { value: '50' } })
+    await fireEvent.submit(document.querySelector('#budget-item-form')!)
 
     await waitFor(() =>
       expect(itemsApi.createExpenseBudgetItem).toHaveBeenCalledWith(1, { name: 'Food', amount: 50 })
@@ -90,21 +94,24 @@ describe('ExpenseBreakdown', () => {
   it('validates a budget item name and amount', async () => {
     renderBreakdown()
     await screen.findByText('Insurance')
+    const user = userEvent.setup()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Add item' }))
+    await user.click(await screen.findByRole('button', { name: 'Add budget item' }))
+    await fireEvent.submit(document.querySelector('#budget-item-form')!)
 
     expect(await screen.findByText('Name and amount are required')).toBeInTheDocument()
   })
 
-  it('edits an existing budget item', async () => {
+  it('edits an existing budget item through the form sheet', async () => {
     vi.mocked(itemsApi.updateExpenseBudgetItem).mockResolvedValue(budgetItem)
     renderBreakdown()
     await screen.findByText('Insurance')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Edit Insurance' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('40'), { target: { value: '55' } })
-    await user.click(screen.getByRole('button', { name: 'Save Insurance' }))
+    await fireEvent.submit(document.querySelector('#budget-item-form')!)
 
     await waitFor(() =>
       expect(itemsApi.updateExpenseBudgetItem).toHaveBeenCalledWith(7, {
@@ -114,39 +121,93 @@ describe('ExpenseBreakdown', () => {
     )
   })
 
-  it('deletes a budget item', async () => {
+  it('deletes a budget item after confirmation', async () => {
+    vi.mocked(confirmDestructive).mockResolvedValue(true)
     vi.mocked(itemsApi.deleteExpenseBudgetItem).mockResolvedValue(undefined)
     renderBreakdown()
     await screen.findByText('Insurance')
+    const user = userEvent.setup()
 
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Delete Insurance' }))
+    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getByText('Delete'))
 
     await waitFor(() => expect(itemsApi.deleteExpenseBudgetItem).toHaveBeenCalledWith(7))
   })
 
-  it('edits an existing monthly actual', async () => {
+  it('does not delete a budget item when the confirmation is declined', async () => {
+    vi.mocked(confirmDestructive).mockResolvedValue(false)
+    renderBreakdown()
+    await screen.findByText('Insurance')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getByText('Delete'))
+
+    await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
+    expect(itemsApi.deleteExpenseBudgetItem).not.toHaveBeenCalled()
+  })
+
+  it('edits an existing monthly actual through the form sheet', async () => {
     vi.mocked(actualsApi.updateExpenseActual).mockResolvedValue(actual)
     renderBreakdown()
     await screen.findByText('vet')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: /Edit entry from/ }))
+    await user.click(screen.getByRole('button', { name: 'Actions for the Mar 2026 entry' }))
+    await user.click(screen.getByText('Edit'))
     await fireEvent.input(screen.getByDisplayValue('80'), { target: { value: '85' } })
-    await user.click(screen.getByRole('button', { name: /Save entry from/ }))
+    await fireEvent.submit(document.querySelector('#expense-actual-form')!)
 
     await waitFor(() => expect(actualsApi.updateExpenseActual).toHaveBeenCalled())
   })
 
-  it('requires a month and amount before adding an actual, and deletes one', async () => {
+  it('requires a month and amount before adding an actual', async () => {
+    renderBreakdown()
+    await screen.findByText('vet')
+    const user = userEvent.setup()
+
+    await user.click(await screen.findByRole('button', { name: 'Add monthly entry' }))
+    await fireEvent.submit(document.querySelector('#expense-actual-form')!)
+
+    expect(await screen.findByText('Month and amount are required')).toBeInTheDocument()
+  })
+
+  it('closes the budget item sheet from the Cancel button without saving', async () => {
+    renderBreakdown()
+    await screen.findByText('Insurance')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for Insurance' }))
+    await user.click(screen.getByText('Edit'))
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Item')).not.toBeInTheDocument()
+    expect(itemsApi.updateExpenseBudgetItem).not.toHaveBeenCalled()
+  })
+
+  it('closes the actual sheet from the Cancel button without saving', async () => {
+    renderBreakdown()
+    await screen.findByText('vet')
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Actions for the Mar 2026 entry' }))
+    await user.click(screen.getByText('Edit'))
+    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Amount')).not.toBeInTheDocument()
+    expect(actualsApi.updateExpenseActual).not.toHaveBeenCalled()
+  })
+
+  it('deletes a monthly actual after confirmation', async () => {
+    vi.mocked(confirmDestructive).mockResolvedValue(true)
     vi.mocked(actualsApi.deleteExpenseActual).mockResolvedValue(undefined)
     renderBreakdown()
     await screen.findByText('vet')
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Add entry' }))
-    expect(await screen.findByText('Month and amount are required')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Actions for the Mar 2026 entry' }))
+    await user.click(screen.getByText('Delete'))
 
-    await user.click(screen.getByRole('button', { name: /Delete entry from/ }))
     await waitFor(() => expect(actualsApi.deleteExpenseActual).toHaveBeenCalledWith(5))
   })
 
