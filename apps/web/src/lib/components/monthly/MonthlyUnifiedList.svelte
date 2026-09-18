@@ -107,7 +107,7 @@
       {#if item.type === 'outgoing'}
         {@const line = item.line}
         {@const editable =
-          !line.paid &&
+          (!line.paid || line.estimated) &&
           ((line.key.startsWith('utility-') && line.editable) ||
             line.key.startsWith('recurring-bill-') ||
             line.key.startsWith('subscription-') ||
@@ -179,6 +179,8 @@
             {@render touchAction('neutral', `Edit ${line.label}`, mdiPencil, () =>
               onStartEdit(line)
             )}
+          {:else}
+            <div class="size-11 shrink-0"></div>
           {/if}
         </li>
       {:else if item.row.type === 'actual'}
@@ -207,6 +209,7 @@
             </p>
           </div>
           <span class="font-figures text-in shrink-0">{formatCurrency(entry.amount)}</span>
+          <div class="size-11 shrink-0"></div>
         </li>
       {:else}
         {@const row = item.row}

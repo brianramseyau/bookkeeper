@@ -199,6 +199,19 @@ describe('MonthlyUnifiedList', () => {
     expect(screen.queryByRole('button', { name: 'Edit Electricity' })).toBeNull()
   })
 
+  it('still shows the edit pencil for an assumed-paid (estimated) past-month line', () => {
+    // A past month with no payment row defaults `paid` to true so it stops
+    // nagging (see standard_month_service.ts), but that's a guess, not a
+    // confirmation - `estimated: true` is what actually means "nobody logged
+    // this", and it's the only line still missing an actual to log here, so
+    // locking the pencil on `paid` alone would remove the only way to log it.
+    const expenseLine = makeExpenseLine({ paid: true, estimated: true })
+    const items = buildUnifiedList([expenseLine], [], [], 2026, 3)
+    render(MonthlyUnifiedList, { ...baseProps(), items })
+
+    expect(screen.getByRole('button', { name: 'Edit Electricity' })).toBeInTheDocument()
+  })
+
   it('links an outgoing line label to its detail page', () => {
     const expenseLine = makeExpenseLine()
     const items = buildUnifiedList([expenseLine], [], [], 2026, 3)
