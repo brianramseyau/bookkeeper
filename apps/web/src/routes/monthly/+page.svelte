@@ -569,14 +569,14 @@
     error={entryEditError}
     onSave={saveEntryEditValues}
   />
-
-  <MonthlyLogIncomeSheet
-    open={logIncomeOpen}
-    onOpenChange={(next) => (logIncomeOpen = next)}
-    {sources}
-    {users}
-    submitting={loggingEntry}
-    error={logIncomeError}
-    onSubmit={handleLogEntry}
-  />
 {/if}
+
+<MonthlyLogIncomeSheet
+  open={logIncomeOpen}
+  onOpenChange={(next) => (logIncomeOpen = next)}
+  {sources}
+  {users}
+  submitting={loggingEntry}
+  error={logIncomeError}
+  onSubmit={handleLogEntry}
+/>

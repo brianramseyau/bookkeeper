@@ -104,7 +104,7 @@ describe('MonthlyUnifiedList', () => {
     const user = userEvent.setup()
     render(MonthlyUnifiedList, { ...baseProps(), items, onTogglePaid })
 
-    await user.click(screen.getByRole('checkbox', { name: 'Paid' }))
+    await user.click(screen.getByRole('checkbox', { name: /^Paid/ }))
     expect(onTogglePaid).toHaveBeenCalledWith(expenseLine, true)
   })
 

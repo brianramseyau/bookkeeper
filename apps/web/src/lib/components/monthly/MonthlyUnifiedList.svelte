@@ -132,11 +132,11 @@
               checked={line.paid}
               disabled={savingPaidKey === line.key || !canTrackPaid(line, year, month)}
               onchange={(e) => onTogglePaid(line, e.currentTarget.checked)}
-              aria-label="Paid"
+              aria-label="Paid: {line.label}"
               title={paidTooltip(line, year, month)}
               class={[
-                'accent-violet border-input size-4 rounded disabled:cursor-not-allowed disabled:opacity-40',
-                line.estimated && 'accent-due',
+                'border-input size-4 rounded disabled:cursor-not-allowed disabled:opacity-40',
+                line.estimated ? 'accent-due' : 'accent-violet',
               ]}
             />
           </label>
@@ -220,7 +220,12 @@
         </li>
       {:else}
         {@const row = item.row}
-        <li class="flex min-h-11 items-center gap-2 py-2 italic">
+        <li
+          class={[
+            'flex min-h-11 items-center gap-2 py-2 italic',
+            isToday(item.date) && 'bg-in-tint -mx-1 rounded-lg px-1 sm:-mx-2 sm:px-2',
+          ]}
+        >
           <div class="size-11 shrink-0"></div>
           <div class="text-muted-foreground min-w-0 flex-1">
             <p class="truncate font-medium">{item.line.label}</p>

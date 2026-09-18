@@ -22,7 +22,6 @@ describe('MonthSummary', () => {
       data: makeData({
         income: { lines: [], projectedTotal: 0, actualTotal: 4300 },
         expenses: { lines: [], projectedTotal: 0, actualTotal: 730 },
-        actualNet: 4270,
       }),
     })
 
@@ -31,12 +30,18 @@ describe('MonthSummary', () => {
     expect(screen.getByText('Outgoing')).toBeInTheDocument()
     expect(screen.getByText('$730.00')).toBeInTheDocument()
     expect(screen.getByText('Net')).toBeInTheDocument()
-    const net = screen.getByText('+$4,270.00')
+    // Income minus Outgoing, not `actualNet` (which also folds in carryover).
+    const net = screen.getByText('+$3,570.00')
     expect(net).toHaveClass('text-in')
   })
 
-  it('colors Net negative when the month is running at a deficit', () => {
-    render(MonthSummary, { data: makeData({ actualNet: -30 }) })
+  it('colors Net negative when Outgoing exceeds Income for the month', () => {
+    render(MonthSummary, {
+      data: makeData({
+        income: { lines: [], projectedTotal: 0, actualTotal: 100 },
+        expenses: { lines: [], projectedTotal: 0, actualTotal: 130 },
+      }),
+    })
 
     const net = screen.getByText('-$30.00')
     expect(net).toHaveClass('text-over')

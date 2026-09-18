@@ -17,12 +17,7 @@
   import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { authState } from '$lib/stores/auth.svelte'
-  import {
-    currentFinancialYear,
-    financialYearLabel,
-    round2,
-    todayISO,
-  } from '$lib/format'
+  import { currentFinancialYear, financialYearLabel, round2, todayISO } from '$lib/format'
   import { entryRowLabel } from '$lib/income-rows'
   import { entryGain, sumEntryTotals } from '$lib/income-entries'
   import { ApiError } from '$lib/api'
@@ -34,7 +29,7 @@
   import PageHeader from '$lib/components/app/PageHeader.svelte'
   import EmptyState from '$lib/components/app/EmptyState.svelte'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
-  import { Button } from '$lib/components/ui/button'
+  import { Button, buttonVariants } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
@@ -498,19 +493,21 @@
       ]}
     >
       {#snippet trigger(triggerProps)}
-        <Button
+        <button
           type="button"
           {...triggerProps}
-          variant="ghost"
-          size="icon-lg"
           aria-label="Add income"
           title="Add income"
-          class={cn('text-primary', triggerProps.class as string | undefined)}
+          class={cn(
+            buttonVariants({ variant: 'ghost', size: 'icon-lg' }),
+            'text-primary',
+            triggerProps.class as string | undefined
+          )}
         >
           <svg viewBox="0 0 24 24" class="size-7" fill="currentColor" aria-hidden="true">
             <path d={mdiPlus} />
           </svg>
-        </Button>
+        </button>
       {/snippet}
     </ActionMenu>
   {/snippet}
@@ -527,9 +524,7 @@
 {:else if selectedUserId === null}
   {#if !error}
     <Card class="mt-6">
-      <EmptyState
-        message="No household members found. Income needs a person to belong to."
-      />
+      <EmptyState message="No household members found. Income needs a person to belong to." />
     </Card>
   {/if}
 {:else}
@@ -541,14 +536,16 @@
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h2 class="text-foreground text-lg font-semibold">Income entries</h2>
-        <p class="text-muted-foreground mt-0.5 text-sm">
-          What came in during the financial year.
-        </p>
+        <p class="text-muted-foreground mt-0.5 text-sm">What came in during the financial year.</p>
       </div>
       <IncomeYearNav financialYear={selectedFinancialYear} onChange={changeYear} />
     </div>
 
-    <IncomeYtdSummary total={ytdSummary.total} salary={ytdSummary.salary} other={ytdSummary.other} />
+    <IncomeYtdSummary
+      total={ytdSummary.total}
+      salary={ytdSummary.salary}
+      other={ytdSummary.other}
+    />
 
     <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
       <ToggleGroup

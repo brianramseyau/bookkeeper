@@ -257,8 +257,8 @@ describe('month page', () => {
 
     // Carried over, shown in the compact CarryoverCard header row.
     expect(await screen.findByText('$500.00')).toBeInTheDocument()
-    expect(screen.getByText('Income')).toBeInTheDocument()
-    expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0)
+    const incomeCell = screen.getByText('Income').parentElement!
+    expect(within(incomeCell).getByText('$5,000.00')).toBeInTheDocument()
     expect(screen.getByText('Outgoing')).toBeInTheDocument()
     expect(screen.getByText('$730.00')).toBeInTheDocument()
     const net = screen.getByText('+$4,270.00')
@@ -1018,7 +1018,7 @@ describe('month page', () => {
     expect(within(row).getByText('(est.)')).toBeInTheDocument()
     expect(row.querySelector('.rounded-full')).toBeNull()
 
-    const paidCheckbox = within(row).getByLabelText('Paid')
+    const paidCheckbox = within(row).getByLabelText(/^Paid/)
     expect(paidCheckbox).toBeDisabled()
   })
 
@@ -1063,7 +1063,7 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     expect(checkboxes).toHaveLength(2)
     expect(checkboxes[0]).toBeChecked()
     expect(checkboxes[0]).toBeEnabled()
@@ -1114,7 +1114,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await screen.findByText('Groceries')
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     expect(checkboxes).toHaveLength(2)
     expect(checkboxes[0]).toBeDisabled()
     expect(checkboxes[0]).toHaveAttribute(
@@ -1154,7 +1154,7 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     expect(checkbox).not.toBeChecked()
   })
 
@@ -1197,7 +1197,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertExpensePayment).toHaveBeenCalledWith(1, 2026, 3, true))
@@ -1221,7 +1221,7 @@ describe('month page', () => {
     render(MonthPage)
 
     // Groceries (paid) sorts first, Electricity (unpaid, the utility line) second.
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     await user.click(checkboxes[1]!)
 
     await waitFor(() => expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 110, true))
@@ -1268,7 +1268,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertRecurringBillPayment).toHaveBeenCalledWith(7, 2026, 3, true))
@@ -1314,7 +1314,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, true))
@@ -1399,7 +1399,7 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     expect(checkbox).toHaveClass('accent-due')
     expect(checkbox).toHaveAttribute(
       'title',
@@ -1416,7 +1416,7 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
-    const checkbox = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     for (const box of checkbox) {
       expect(box).not.toHaveClass('accent-due')
     }
@@ -1431,7 +1431,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     await user.click(checkboxes[1]!)
 
     expect(await screen.findByText('Could not update paid status')).toBeInTheDocument()
