@@ -1,10 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte'
+import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { goto, replaceState } from '$app/navigation'
 import { page } from '$app/state'
 import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
-import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
 import { ApiError } from '$lib/api'
 import { authState } from '$lib/stores/auth.svelte'
 import DashboardPage from './+page.svelte'
@@ -12,7 +11,6 @@ import DashboardPage from './+page.svelte'
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/') } }))
 vi.mock('$lib/api/dashboard', () => ({ getDashboardSummary: vi.fn() }))
-vi.mock('$lib/api/standard-month', () => ({ getStandardMonth: vi.fn() }))
 
 // SvelteKit's real `Page.url` type brands `pathname` with a union of the
 // app's known routes - the mock above is a plain URL, so route it through a
@@ -30,16 +28,6 @@ const baseSummary: DashboardSummary = {
   monthlyIncome: [],
 }
 
-const baseStandardMonth: StandardMonthResult = {
-  year: 2026,
-  month: 3,
-  carryover: 0,
-  income: { lines: [], projectedTotal: 0, actualTotal: 0 },
-  expenses: { lines: [], projectedTotal: 0, actualTotal: 0 },
-  projectedNet: 500,
-  actualNet: -50,
-}
-
 describe('dashboard page', () => {
   beforeEach(() => {
     // Fixes "now" so isCurrentMonth/"This Month" behave deterministically -
@@ -47,8 +35,6 @@ describe('dashboard page', () => {
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
     setPageUrl('http://localhost/')
     vi.mocked(getDashboardSummary).mockReset()
-    vi.mocked(getStandardMonth).mockReset()
-    vi.mocked(getStandardMonth).mockResolvedValue(baseStandardMonth)
     vi.mocked(replaceState).mockReset()
     authState.user = {
       id: 1,
@@ -80,7 +66,6 @@ describe('dashboard page', () => {
 
   it('shows a loading state before data arrives', () => {
     vi.mocked(getDashboardSummary).mockReturnValue(new Promise(() => {}))
-    vi.mocked(getStandardMonth).mockReturnValue(new Promise(() => {}))
     render(DashboardPage)
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
   })
@@ -97,23 +82,117 @@ describe('dashboard page', () => {
     expect(await screen.findByText('Failed to load dashboard')).toBeInTheDocument()
   })
 
-  it('renders the month strip hero with the projected surplus', async () => {
+  it('shows the "Right now" and "Over time" zones', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     render(DashboardPage)
 
-    expect(await screen.findByText('projected surplus')).toBeInTheDocument()
-    expect(screen.getByText('$500.00')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Right now' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Over time' })).toBeInTheDocument()
   })
 
-  it('still shows the summary when the month strip fails to load', async () => {
+  it('shows this month’s position, coloured by sign', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
-    vi.mocked(getStandardMonth).mockRejectedValue(new ApiError(500, 'strip boom'))
+    render(DashboardPage)
+
+    expect(await screen.findByText('Position')).toBeInTheDocument()
+    const value = await screen.findByText('-$50.00')
+    expect(value.className).toContain('text-over')
+  })
+
+  it('shows the delta vs the standard-month projection', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
+    render(DashboardPage)
+
+    // actualNet (-50) - projectedNet (500) = -550, behind plan.
+    expect(await screen.findByText('vs projected')).toBeInTheDocument()
+    expect(screen.getByText('-$550.00')).toBeInTheDocument()
+    expect(screen.getByText('Behind the standard-month plan')).toBeInTheDocument()
+  })
+
+  it('shows an ahead-of-plan delta with an explicit + sign', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      currentMonth: { year: 2026, month: 3, projectedNet: 100, actualNet: 400 },
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('+$300.00')).toBeInTheDocument()
+    expect(screen.getByText('Ahead of the standard-month plan')).toBeInTheDocument()
+  })
+
+  it('shows a neutral, unsigned delta for a month exactly on plan', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      currentMonth: { year: 2026, month: 3, projectedNet: 500, actualNet: 500 },
+      // Non-zero, so this card's own $0.00 (income 0, expense 0) can't
+      // collide with the "vs projected" card's $0.00 under test below.
+      monthlyIncome: [{ year: 2026, month: 3, total: 500 }],
+      categoryBreakdown: [{ id: 1, name: 'Utilities', color: '#0066b2', total: 100 }],
+    })
+    render(DashboardPage)
+
+    const value = await screen.findByText('$0.00')
+    expect(value.className).not.toContain('text-in')
+    expect(value.className).not.toContain('text-over')
+    expect(screen.getByText('Exactly on the standard-month plan')).toBeInTheDocument()
+  })
+
+  it('shows plain income vs expenses for the viewed month only, not the 12-month totals', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      // 12-month totals that must NOT be what the card shows - it should
+      // pick out only the March 2026 (currentMonth) figures below.
+      totalIncome: 20000,
+      monthlyExpenses: [
+        { year: 2026, month: 2, total: 10000 },
+        { year: 2026, month: 3, total: 99999 },
+      ],
+      monthlyIncome: [
+        { year: 2026, month: 2, total: 9000 },
+        { year: 2026, month: 3, total: 1000 },
+      ],
+      // The expense side comes from categoryBreakdown (which includes
+      // recurring bills/subscriptions, unlike monthlyExpenses), not the
+      // monthlyExpenses trend above - a huge March monthlyExpenses figure
+      // must NOT leak into this card.
+      categoryBreakdown: [
+        { id: 1, name: 'Utilities', color: '#0066b2', total: 600 },
+        { id: 2, name: 'Household', color: '#72b258', total: 150 },
+      ],
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Income vs expenses')).toBeInTheDocument()
+    // March only: 1000 - (600 + 150) = 250, a surplus - distinct from
+    // Position's actualNet (-50) and from the 12-month/wrong totals above.
+    expect(screen.getByText('$250.00')).toBeInTheDocument()
+    expect(screen.getByText('Surplus vs categorised spend this month')).toBeInTheDocument()
+  })
+
+  it('shows a deficit when expenses exceed income for the viewed month', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      monthlyIncome: [{ year: 2026, month: 3, total: 400 }],
+      categoryBreakdown: [{ id: 1, name: 'Utilities', color: '#0066b2', total: 600 }],
+    })
+    render(DashboardPage)
+
+    const value = await screen.findByText('-$200.00')
+    expect(value.className).toContain('text-over')
+    expect(screen.getByText('Deficit vs categorised spend this month')).toBeInTheDocument()
+  })
+
+  it('shows a neutral, unsigned income-vs-expenses figure for a break-even month', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      monthlyIncome: [{ year: 2026, month: 3, total: 400 }],
+      categoryBreakdown: [{ id: 1, name: 'Utilities', color: '#0066b2', total: 400 }],
+    })
     render(DashboardPage)
 
     expect(
-      await screen.findByText('Could not load the month strip for this month.')
+      await screen.findByText('Breaking even vs categorised spend this month')
     ).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Upcoming bills' })).toBeInTheDocument()
   })
 
   it('links each upcoming bill to its detail page', async () => {
@@ -151,7 +230,7 @@ describe('dashboard page', () => {
     expect(overdueText.className).toContain('text-over')
   })
 
-  it('calls goto from the income vs expenses bar chart', async () => {
+  it('calls goto from the net position trend chart', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
       monthlyExpenses: [
@@ -165,7 +244,7 @@ describe('dashboard page', () => {
     })
     render(DashboardPage)
 
-    const chart = await screen.findByRole('button', { name: /Income vs expenses/ })
+    const chart = await screen.findByRole('button', { name: /Income, expenses and net position/ })
     vi.spyOn(chart, 'getBoundingClientRect').mockReturnValue({
       width: 720,
       height: 240,
@@ -211,7 +290,7 @@ describe('dashboard page', () => {
     })
     render(DashboardPage)
 
-    await screen.findByText('Nov 2025')
+    await screen.findByText('November 2025')
     expect(getDashboardSummary).toHaveBeenCalledWith(2025, 11)
   })
 
@@ -219,18 +298,18 @@ describe('dashboard page', () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     const user = userEvent.setup()
     render(DashboardPage)
-    await screen.findByText('Mar 2026')
+    await screen.findByText('March 2026')
 
-    await user.click(screen.getByRole('button', { name: '← Prev' }))
-    expect(await screen.findByText('Feb 2026')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Previous month' }))
+    expect(await screen.findByText('February 2026')).toBeInTheDocument()
     expect(replaceState).toHaveBeenCalledWith('/?year=2026&month=2', {})
     expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2)
 
     for (let i = 0; i < 2; i++) {
-      await user.click(screen.getByRole('button', { name: '← Prev' }))
+      await user.click(screen.getByRole('button', { name: 'Previous month' }))
     }
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2025, 12))
-    expect(await screen.findByText('Dec 2025')).toBeInTheDocument()
+    expect(await screen.findByText('December 2025')).toBeInTheDocument()
   })
 
   it('jumps back to the current month', async () => {
@@ -238,50 +317,11 @@ describe('dashboard page', () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
     const user = userEvent.setup()
     render(DashboardPage)
-    await screen.findByText('Jan 2020')
+    await screen.findByText('January 2020')
 
-    await user.click(screen.getByRole('button', { name: 'This Month' }))
+    await user.click(screen.getByRole('button', { name: 'January 2020' }))
 
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
     expect(replaceState).toHaveBeenCalledWith('/', {})
-  })
-
-  it('shows the income vs expenses donut with the net position in its centre', async () => {
-    vi.mocked(getDashboardSummary).mockResolvedValue({
-      ...baseSummary,
-      monthlyExpenses: [
-        { year: 2025, month: 9, total: 200 },
-        { year: 2025, month: 10, total: 300 },
-      ],
-      totalIncome: 400,
-    })
-    render(DashboardPage)
-
-    // The bar chart's legend also says "Income"/"Expenses", so scope the
-    // lookup to the donut's own card.
-    const donutCard = (await screen.findByText('Income vs expenses (12 months)')).closest('div')!
-    expect(within(donutCard).getByText('Income')).toBeInTheDocument()
-    expect(within(donutCard).getByText('Expenses')).toBeInTheDocument()
-    // Centre shows income - expenses = 400 - 500 = -100 as a deficit.
-    expect(screen.getByText('Deficit')).toBeInTheDocument()
-    expect(screen.getByText('-$100.00')).toBeInTheDocument()
-  })
-
-  it('shows a surplus in the donut centre when income exceeds expenses', async () => {
-    vi.mocked(getDashboardSummary).mockResolvedValue({
-      ...baseSummary,
-      monthlyExpenses: [{ year: 2025, month: 9, total: 200 }],
-      totalIncome: 500,
-    })
-    render(DashboardPage)
-
-    expect(await screen.findByText('Surplus')).toBeInTheDocument()
-    expect(screen.getByText('$300.00')).toBeInTheDocument()
-  })
-
-  it('shows the donut empty state when there is no income or expenses', async () => {
-    vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
-    render(DashboardPage)
-    expect(await screen.findByText('No income or expenses logged')).toBeInTheDocument()
   })
 })

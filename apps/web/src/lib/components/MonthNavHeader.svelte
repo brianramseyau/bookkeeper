@@ -31,7 +31,7 @@
       path={mdiChevronLeft}
       onclick={() => nav.changeMonth(-1)}
     />
-    <h2 class="min-w-0 flex-1 text-center text-xl sm:text-2xl">
+    <h2 class="min-w-0 flex-1 text-center text-lg sm:text-2xl">
       <button
         type="button"
         onclick={() => nav.goToCurrentMonth()}
@@ -68,7 +68,7 @@
     </Button>
     <Button type="button" variant="outline" onclick={() => nav.changeMonth(-1)}>← Prev</Button>
     {#if showLabel}
-      <span class="text-ink w-36 text-center text-sm font-medium">
+      <span class="text-ink w-36 text-center text-xs font-medium sm:text-sm">
         {monthName(nav.month)}
         {nav.year}
       </span>
