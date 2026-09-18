@@ -1,41 +1,39 @@
 <script lang="ts">
   import type { StandardMonthResult } from '$lib/api/standard-month'
   import { formatCurrency } from '$lib/format'
-  import MonthStrip from '$lib/components/app/MonthStrip.svelte'
-  import StatGrid from '$lib/components/app/StatGrid.svelte'
-  import StatCard from '$lib/components/app/StatCard.svelte'
 
   interface Props {
-    year: number
-    month: number
     data: StandardMonthResult
   }
 
-  let { year, month, data }: Props = $props()
+  let { data }: Props = $props()
+
+  // Income minus Outgoing (not `data.actualNet`, which also folds in the
+  // carried-over balance) - so this cell reconciles visually with its two
+  // siblings rather than differing by exactly the carryover, which is
+  // already shown on its own in CarryoverCard right below.
+  const net = $derived(data.income.actualTotal - data.expenses.actualTotal)
 </script>
 
-<div class="mt-6">
-  <MonthStrip {year} {month} {data} />
-</div>
-
-<div class="mt-4">
-  <StatGrid cols={3}>
-    <StatCard
-      label="Cash on hand"
-      value={formatCurrency(data.carryover + data.income.actualTotal)}
-      hint={`Carried over (${formatCurrency(data.carryover)}) plus actual income received so far (${formatCurrency(data.income.actualTotal)}), before this month's expenses.`}
-    />
-    <StatCard
-      label="Actual net (so far)"
-      value={formatCurrency(data.actualNet)}
-      tone={data.actualNet >= 0 ? 'positive' : 'negative'}
-      hint="Carried over plus actual income received, minus actual expenses paid so far."
-    />
-    <StatCard
-      label="Variance"
-      value={formatCurrency(data.actualNet - data.projectedNet)}
-      tone={data.actualNet - data.projectedNet >= 0 ? 'positive' : 'negative'}
-      hint="Actual net (so far) minus projected net."
-    />
-  </StatGrid>
+<div
+  class="border-rule divide-rule mt-6 flex divide-x divide-solid overflow-hidden rounded-[10px] border"
+>
+  <div class="min-w-0 flex-1 px-3 py-2">
+    <p class="text-muted-foreground text-xs">Income</p>
+    <p class="font-figures text-in truncate text-lg font-semibold">
+      {formatCurrency(data.income.actualTotal)}
+    </p>
+  </div>
+  <div class="min-w-0 flex-1 px-3 py-2">
+    <p class="text-muted-foreground text-xs">Outgoing</p>
+    <p class="font-figures text-ink truncate text-lg font-semibold">
+      {formatCurrency(data.expenses.actualTotal)}
+    </p>
+  </div>
+  <div class="min-w-0 flex-1 px-3 py-2 {net >= 0 ? 'bg-in-tint' : 'bg-over-tint'}">
+    <p class="text-muted-foreground text-xs">Net</p>
+    <p class="font-figures truncate text-lg font-semibold {net >= 0 ? 'text-in' : 'text-over'}">
+      {net >= 0 ? '+' : ''}{formatCurrency(net)}
+    </p>
+  </div>
 </div>

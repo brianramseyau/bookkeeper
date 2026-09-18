@@ -18,9 +18,15 @@
     /** Buttons/menus for this page, right-aligned next to the title on
         desktop and wrapped below it on mobile. */
     actions?: Snippet
+    /** Keep `actions` on the same row as the title at every width instead of
+        wrapping below it on mobile - for a single small icon action (e.g.
+        Monthly's "Log income" plus) that reads as part of the heading, not
+        a toolbar. */
+    inlineActions?: boolean
   }
 
-  let { title, description, back, documentTitle, actions }: Props = $props()
+  let { title, description, back, documentTitle, actions, inlineActions = false }: Props =
+    $props()
 </script>
 
 <svelte:head>
@@ -37,7 +43,13 @@
     </a>
   {/if}
   <div
-    class={['flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between', back && 'mt-1']}
+    class={[
+      'flex gap-3',
+      inlineActions
+        ? 'flex-row items-center justify-between'
+        : 'flex-col sm:flex-row sm:items-center sm:justify-between',
+      back && 'mt-1',
+    ]}
   >
     <h1 class="font-display text-foreground text-2xl">{title}</h1>
     {#if actions}

@@ -17,12 +17,7 @@
   import { getIncomeTaxSetting, setIncomeTaxSetting } from '$lib/api/income_tax_settings'
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { authState } from '$lib/stores/auth.svelte'
-  import {
-    currentFinancialYear,
-    financialYearLabel,
-    round2,
-    todayISO,
-  } from '$lib/format'
+  import { currentFinancialYear, financialYearLabel, round2, todayISO } from '$lib/format'
   import { entryRowLabel } from '$lib/income-rows'
   import { entryGain, sumEntryTotals } from '$lib/income-entries'
   import { ApiError } from '$lib/api'
@@ -34,11 +29,11 @@
   import PageHeader from '$lib/components/app/PageHeader.svelte'
   import EmptyState from '$lib/components/app/EmptyState.svelte'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
-  import { Button } from '$lib/components/ui/button'
+  import { Button, buttonVariants } from '$lib/components/ui/button'
   import { Input } from '$lib/components/ui/input'
   import { ToggleGroup, ToggleGroupItem } from '$lib/components/ui/toggle-group'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
-  import { mdiPlus, mdiChevronDown, mdiBriefcase, mdiBank } from '@mdi/js'
+  import { mdiPlus, mdiBriefcase, mdiBank } from '@mdi/js'
   import IncomeEntryEditRow, {
     type IncomeEntryEditTarget,
     type IncomeEntryEditValues,
@@ -487,6 +482,7 @@
 <PageHeader
   title="Income"
   description="Salary and other income, net of tax. Each person's income feeds the Monthly projection."
+  inlineActions
 >
   {#snippet actions()}
     <ActionMenu
@@ -500,17 +496,16 @@
         <button
           type="button"
           {...triggerProps}
+          aria-label="Add income"
+          title="Add income"
           class={cn(
-            'bg-primary text-primary-foreground hover:bg-primary/80 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors',
+            buttonVariants({ variant: 'ghost', size: 'icon-lg' }),
+            'text-primary',
             triggerProps.class as string | undefined
           )}
         >
-          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="size-7" fill="currentColor" aria-hidden="true">
             <path d={mdiPlus} />
-          </svg>
-          Add income
-          <svg viewBox="0 0 24 24" class="size-4" fill="currentColor" aria-hidden="true">
-            <path d={mdiChevronDown} />
           </svg>
         </button>
       {/snippet}
@@ -529,9 +524,7 @@
 {:else if selectedUserId === null}
   {#if !error}
     <Card class="mt-6">
-      <EmptyState
-        message="No household members found. Income needs a person to belong to."
-      />
+      <EmptyState message="No household members found. Income needs a person to belong to." />
     </Card>
   {/if}
 {:else}
@@ -543,14 +536,16 @@
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <h2 class="text-foreground text-lg font-semibold">Income entries</h2>
-        <p class="text-muted-foreground mt-0.5 text-sm">
-          What came in during the financial year.
-        </p>
+        <p class="text-muted-foreground mt-0.5 text-sm">What came in during the financial year.</p>
       </div>
       <IncomeYearNav financialYear={selectedFinancialYear} onChange={changeYear} />
     </div>
 
-    <IncomeYtdSummary total={ytdSummary.total} salary={ytdSummary.salary} other={ytdSummary.other} />
+    <IncomeYtdSummary
+      total={ytdSummary.total}
+      salary={ytdSummary.salary}
+      other={ytdSummary.other}
+    />
 
     <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
       <ToggleGroup

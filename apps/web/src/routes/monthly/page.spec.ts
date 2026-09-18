@@ -65,10 +65,6 @@ function setPageUrl(url: string) {
   page.url = new URL(url) as unknown as typeof page.url
 }
 
-// MonthStrip's own headline is now the page's one "Month Year" label
-// (MonthNavHeader's copy is hidden via `showLabel={false}` to avoid
-// repeating it) - a heading query keeps these assertions from also
-// matching a tick's own day-level date text.
 function monthHeading(label: string) {
   return screen.findByRole('heading', { name: label })
 }
@@ -225,7 +221,7 @@ describe('month page', () => {
 
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
     expect(getStandardMonth).toHaveBeenCalledWith(2026, 3)
-    expect(await screen.findByRole('heading', { name: 'Mar 2026' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'March 2026' })).toBeInTheDocument()
   })
 
   it('defaults to the current month when the URL has no valid params', async () => {
@@ -255,19 +251,18 @@ describe('month page', () => {
     expect(await screen.findByText('Failed to load monthly view')).toBeInTheDocument()
   })
 
-  it('shows the summary tiles with sign-based coloring', async () => {
+  it('shows the Income/Outgoing/Net stat strip and the carried-over balance', async () => {
     setDefaultMocks()
     render(MonthPage)
 
+    // Carried over, shown in the compact CarryoverCard header row.
     expect(await screen.findByText('$500.00')).toBeInTheDocument()
-    // Projected net is now the month strip's headline figure, positive-toned.
-    const projected = screen.getByText('$4,300.00')
-    expect(projected.className).toContain('text-in')
-    expect(screen.getByText('projected surplus')).toBeInTheDocument()
-    const actual = screen.getByText('$4,270.00')
-    expect(actual.className).toContain('text-in')
-    const variance = screen.getByText('-$30.00')
-    expect(variance.className).toContain('text-over')
+    const incomeCell = screen.getByText('Income').parentElement!
+    expect(within(incomeCell).getByText('$5,000.00')).toBeInTheDocument()
+    expect(screen.getByText('Outgoing')).toBeInTheDocument()
+    expect(screen.getByText('$730.00')).toBeInTheDocument()
+    const net = screen.getByText('+$4,270.00')
+    expect(net.className).toContain('text-in')
   })
 
   it('edits and saves the carried-over balance', async () => {
@@ -282,13 +277,11 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Edit carried over balance' }))
     const input = screen.getByDisplayValue('500')
     await user.clear(input)
     await user.type(input, '750')
-    await user.click(screen.getAllByRole('button', { name: 'Save carried over balance' })[0]!)
+    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
 
     await waitFor(() => expect(setMonthCarryover).toHaveBeenCalledWith(2026, 3, 750))
     expect(getStandardMonth).toHaveBeenCalledTimes(2)
@@ -299,12 +292,8 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
-    )
-    await user.click(
-      screen.getAllByRole('button', { name: 'Cancel editing carried over balance' })[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Edit carried over balance' }))
+    await user.click(screen.getByRole('button', { name: 'Cancel editing carried over balance' }))
 
     expect(screen.queryByDisplayValue('500')).toBeNull()
     expect(setMonthCarryover).not.toHaveBeenCalled()
@@ -316,10 +305,8 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit carried over balance' }))[0]!
-    )
-    await user.click(screen.getAllByRole('button', { name: 'Save carried over balance' })[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit carried over balance' }))
+    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
 
     expect(await screen.findByText('Could not save carryover')).toBeInTheDocument()
   })
@@ -328,21 +315,21 @@ describe('month page', () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(MonthPage)
-    await monthHeading('Mar 2026')
+    await monthHeading('March 2026')
 
-    await user.click(screen.getByRole('button', { name: '← Prev' }))
-    expect(await monthHeading('Feb 2026')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Previous month' }))
+    expect(await monthHeading('February 2026')).toBeInTheDocument()
     expect(replaceState).toHaveBeenCalledWith('/monthly?year=2026&month=2', {})
     expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2)
 
     for (let i = 0; i < 2; i++) {
-      await user.click(screen.getByRole('button', { name: '← Prev' }))
+      await user.click(screen.getByRole('button', { name: 'Previous month' }))
     }
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2025, 12))
-    expect(await monthHeading('Dec 2025')).toBeInTheDocument()
+    expect(await monthHeading('December 2025')).toBeInTheDocument()
 
     for (let i = 0; i < 13; i++) {
-      await user.click(screen.getByRole('button', { name: 'Next →' }))
+      await user.click(screen.getByRole('button', { name: 'Next month' }))
     }
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2027, 1))
   })
@@ -352,27 +339,27 @@ describe('month page', () => {
     setDefaultMocks()
     const user = userEvent.setup()
     render(MonthPage)
-    await monthHeading('Jan 2020')
+    await monthHeading('January 2020')
 
     const now = new Date()
-    await user.click(screen.getByRole('button', { name: 'This Month' }))
+    await user.click(screen.getByRole('button', { name: 'January 2020' }))
 
     await waitFor(() =>
       expect(getStandardMonth).toHaveBeenLastCalledWith(now.getFullYear(), now.getMonth() + 1)
     )
   })
 
-  it('resolves the owner name for an income line and shows its pay date only once, not duplicated', async () => {
+  it('shows the source label and pay date only once for a matched income entry', async () => {
     setDefaultMocks()
     render(MonthPage)
-    expect(await screen.findByText('Brian', { selector: 'td' })).toBeInTheDocument()
+    expect(await screen.findByText('Brian Income')).toBeInTheDocument()
     // The source's single pay date positionally matches the one logged
-    // entry, so it renders as a single real row - no separate pay-dates
-    // subtitle and no placeholder row duplicating the date.
+    // entry, so it renders as a single real row - no separate placeholder
+    // row duplicating the date.
     expect(screen.getAllByText('14 Mar 2026').length).toBe(1)
   })
 
-  it('renders a greyed placeholder row for each pay date with no matching entry yet', async () => {
+  it('renders an italic placeholder row for each pay date with no matching entry yet', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         income: {
@@ -405,12 +392,9 @@ describe('month page', () => {
     expect(await screen.findByText('4 Mar 2026')).toBeInTheDocument()
     expect(screen.getByText('18 Mar 2026')).toBeInTheDocument()
     expect(screen.getByText('1 Apr 2026')).toBeInTheDocument()
-    // 2600 / 3 pay dates = 866.67 projected per placeholder row. The month
-    // strip also renders one tick per pay date that falls within the
-    // viewed month (2 of the 3 - the third rolls into April), so scope to
-    // table rows to count only the Incoming table's placeholders.
-    expect(screen.getAllByText('$866.67').filter((el) => el.closest('tr'))).toHaveLength(3)
-    expect(screen.getAllByRole('button', { name: /^Accept projected pay for/ })).toHaveLength(6)
+    // 2600 / 3 pay dates = 866.67 projected per placeholder row.
+    expect(screen.getAllByText('$866.67')).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: /^Accept projected pay for/ })).toHaveLength(3)
   })
 
   it('one-click accepts a placeholder pay date, logging it at the projected amount', async () => {
@@ -442,7 +426,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click(
-      (await screen.findAllByRole('button', { name: 'Accept projected pay for 14 Mar 2026' }))[0]!
+      await screen.findByRole('button', { name: 'Accept projected pay for 14 Mar 2026' })
     )
 
     await waitFor(() =>
@@ -485,7 +469,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit projected pay for 14 Mar 2026' }))[0]!
+      await screen.findByRole('button', { name: 'Edit projected pay for 14 Mar 2026' })
     )
     // fireEvent rather than userEvent for interactions inside the sheet - a
     // real pointerdown on Drawer content hits vaul-svelte's drag-to-dismiss
@@ -506,7 +490,12 @@ describe('month page', () => {
     )
   })
 
-  it('shows the "(est.)" tag for an estimated income actual', async () => {
+  it('shows nothing in the list for an income line with no pay dates and no logged entries', async () => {
+    // The unified list only ever renders incomeRowsForLine's rows (actual/
+    // placeholder, see monthly-unified-list.ts) - a line with neither has
+    // nothing dated to place in the chronological list, even though its own
+    // projected/actual totals still count toward data.income.actualTotal.
+    // This is a deliberate scope decision (PLAN_02_PHASE_01), not a bug.
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         income: {
@@ -532,7 +521,8 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([brian])
     render(MonthPage)
 
-    expect(await screen.findByText('(est.)')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'March 2026' })).toBeInTheDocument()
+    expect(screen.queryByText('Brian Income')).toBeNull()
   })
 
   it('edits and deletes a logged income entry', async () => {
@@ -542,9 +532,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
     await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
       expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
@@ -560,7 +548,7 @@ describe('month page', () => {
     // after it stops rendering, which userEvent's pointer simulation
     // (unlike a plain click event) checks for and fails on.
     await fireEvent.click(
-      (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
+      await screen.findByRole('button', { name: 'Delete entry from 14 Mar 2026' })
     )
     await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
     expect(confirmDestructive).toHaveBeenCalledWith(
@@ -584,7 +572,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await screen.findByText('March pay')
-    await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }).at(-1)!)
+    await user.click(screen.getByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
     const sheet = openSheet()
     await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
 
@@ -602,7 +590,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await screen.findByText('March pay')
-    await user.click(screen.getAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }).at(-1)!)
+    await user.click(screen.getByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
     const sheet = openSheet()
     await fireEvent.input(within(sheet).getByLabelText('Received on'), {
       target: { value: '2026-02-10' },
@@ -623,9 +611,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Delete entry from 14 Mar 2026' }))
     await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
 
     expect(deleteIncomeEntry).not.toHaveBeenCalled()
@@ -640,9 +626,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
     const amountInput = screen.getByDisplayValue('5000')
     await fireEvent.input(amountInput, { target: { value: '' } })
     await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -657,9 +641,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
     await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
@@ -670,9 +652,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Edit entry from 14 Mar 2026' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
     expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
     await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
 
@@ -686,9 +666,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(
-      (await screen.findAllByRole('button', { name: 'Delete entry from 14 Mar 2026' }))[0]!
-    )
+    await user.click(await screen.findByRole('button', { name: 'Delete entry from 14 Mar 2026' }))
 
     expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
   })
@@ -711,7 +689,7 @@ describe('month page', () => {
     vi.mocked(createIncomeEntry).mockResolvedValue(salaryEntry)
     const user = userEvent.setup()
     render(MonthPage)
-    await monthHeading('Mar 2026')
+    await monthHeading('March 2026')
 
     await user.click(screen.getByRole('button', { name: 'Log income' }))
     const sheet = openSheet()
@@ -760,7 +738,7 @@ describe('month page', () => {
     })
     const user = userEvent.setup()
     render(MonthPage)
-    await monthHeading('Mar 2026')
+    await monthHeading('March 2026')
 
     await user.click(screen.getByRole('button', { name: 'Log income' }))
     const sheet = openSheet()
@@ -823,7 +801,8 @@ describe('month page', () => {
     vi.mocked(listIncomeEntries).mockResolvedValue([bonusEntry])
     render(MonthPage)
 
-    expect((await screen.findAllByText('Brian', { selector: 'td' })).length).toBeGreaterThan(1)
+    expect(await screen.findByText('Other income')).toBeInTheDocument()
+    expect(screen.getByText(/Brian/)).toBeInTheDocument()
   })
 
   it('edits an unattributed income entry, changing its person and tax-withheld flag', async () => {
@@ -853,9 +832,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit entry' }))[0]!)
-    // The bottom "log a new entry" form has its own "Tax withheld" checkbox
-    // too - scope to the one inside the edit sheet/drawer.
+    await user.click(await screen.findByRole('button', { name: 'Edit entry' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByText('Tax withheld'))
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
@@ -877,21 +854,20 @@ describe('month page', () => {
     // resolves against the viewed month (March 2026) to 2026-03-05, which is
     // in the past so it renders as the actual date rather than "N days ago",
     // and is marked paid - green despite being overdue, since `paid` (not
-    // `actual`) is what decides the color now. No more "Day 5" wording, and
-    // Groceries should sort ahead of Electricity.
+    // `actual`) is what decides the color now. Groceries should sort ahead
+    // of Electricity in the unified list.
     setDefaultMocks()
     render(MonthPage)
 
     const paidChip = await screen.findByText('5 Mar 2026')
     expect(paidChip.className).toContain('bg-in-tint')
-    expect(paidChip.closest('td')!.getAttribute('title')).toBe('5 Mar 2026')
 
     const dueSoonChip = screen.getByText('In 5 days')
     expect(dueSoonChip.className).toContain('bg-due-tint')
-    expect(dueSoonChip.closest('td')!.getAttribute('title')).toBe('20 Mar 2026')
 
-    // Expenses table renders first now, so it's tables[0].
-    const rows = (await screen.findAllByRole('table'))[0]!.querySelectorAll('tbody tr')
+    const rows = (await screen.findAllByRole('listitem')).filter(
+      (li) => li.textContent?.includes('Groceries') || li.textContent?.includes('Electricity')
+    )
     expect(rows[0]!.textContent).toContain('Groceries')
     expect(rows[1]!.textContent).toContain('Electricity')
   })
@@ -998,8 +974,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const dueText = await screen.findByText('In 32 days')
-    expect(dueText.tagName).toBe('TD')
-    expect(dueText.getAttribute('title')).toBe('5 Mar 2026')
+    expect(dueText.closest('p')!.getAttribute('title')).toBe('5 Mar 2026')
   })
 
   it('shows a utility due date flagged "(est.)" when this month is only a predicted billing month with no actual entered yet', async () => {
@@ -1037,23 +1012,17 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    // The month strip also renders a "Water" tick label - scope to the table row.
-    await screen.findAllByText('Water')
-    const dueCell = screen
-      .getAllByText('Water')
-      .find((el) => el.closest('tr'))!
-      .closest('tr')!.children[1] as HTMLElement
-    expect(dueCell.textContent).toBe('Due In 13 days(est.)')
-    expect(dueCell.querySelector('.rounded-full')).toBeNull()
-    expect(dueCell.getAttribute('title')).toBe(
-      '28 Mar 2026 (estimated from the average received date of past bills)'
-    )
+    await screen.findByText('Water')
+    const row = screen.getByText('Water').closest('li')!
+    expect(within(row).getByText('In 13 days')).toBeInTheDocument()
+    expect(within(row).getByText('(est.)')).toBeInTheDocument()
+    expect(row.querySelector('.rounded-full')).toBeNull()
 
-    const paidCheckbox = within(dueCell.closest('tr')!).getByLabelText('Paid')
+    const paidCheckbox = within(row).getByLabelText(/^Paid/)
     expect(paidCheckbox).toBeDisabled()
   })
 
-  it('falls back to an em dash with no tooltip when a line has no due date at all', async () => {
+  it('falls back to plain text with no due chip when a line has no due date at all', async () => {
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
         expenses: {
@@ -1082,10 +1051,9 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const dueCell = (await screen.findByText('Netflix (Brian)')).closest('tr')!
-      .children[1] as HTMLElement
-    expect(dueCell.textContent).toBe('Due —')
-    expect(dueCell.getAttribute('title')).toBeNull()
+    const row = (await screen.findByText('Netflix (Brian)')).closest('li')!
+    expect(row.querySelector('.rounded-full')).toBeNull()
+    expect(within(row).getByText('—')).toBeInTheDocument()
   })
 
   it('shows a Paid checkbox, checked per line, only enabled for lines with a resolved due date', async () => {
@@ -1095,7 +1063,7 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     expect(checkboxes).toHaveLength(2)
     expect(checkboxes[0]).toBeChecked()
     expect(checkboxes[0]).toBeEnabled()
@@ -1146,7 +1114,7 @@ describe('month page', () => {
     render(MonthPage)
 
     await screen.findByText('Groceries')
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     expect(checkboxes).toHaveLength(2)
     expect(checkboxes[0]).toBeDisabled()
     expect(checkboxes[0]).toHaveAttribute(
@@ -1186,7 +1154,7 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     expect(checkbox).not.toBeChecked()
   })
 
@@ -1229,7 +1197,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertExpensePayment).toHaveBeenCalledWith(1, 2026, 3, true))
@@ -1253,7 +1221,7 @@ describe('month page', () => {
     render(MonthPage)
 
     // Groceries (paid) sorts first, Electricity (unpaid, the utility line) second.
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     await user.click(checkboxes[1]!)
 
     await waitFor(() => expect(upsertUtilityBill).toHaveBeenCalledWith(1, 2026, 3, 110, true))
@@ -1300,7 +1268,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertRecurringBillPayment).toHaveBeenCalledWith(7, 2026, 3, true))
@@ -1346,7 +1314,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
     await user.click(checkbox)
 
     await waitFor(() => expect(upsertSubscriptionPayment).toHaveBeenCalledWith(9, 2026, 3, true))
@@ -1392,7 +1360,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Netflix (Brian)' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Netflix (Brian)' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.input(within(dialog).getByLabelText('Amount'), { target: { value: '24.99' } })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
@@ -1431,8 +1399,8 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    const checkbox = await screen.findByRole('checkbox', { name: 'Paid' })
-    expect(checkbox).toHaveClass('text-due')
+    const checkbox = await screen.findByRole('checkbox', { name: /^Paid/ })
+    expect(checkbox).toHaveClass('accent-due')
     expect(checkbox).toHaveAttribute(
       'title',
       "No record for this month this far back - assumed paid at today's amount because it's in the past. Confirm or correct it."
@@ -1448,9 +1416,9 @@ describe('month page', () => {
     setDefaultMocks()
     render(MonthPage)
 
-    const checkbox = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkbox = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     for (const box of checkbox) {
-      expect(box).not.toHaveClass('text-due')
+      expect(box).not.toHaveClass('accent-due')
     }
     expect(screen.queryByText(/Why is .* estimated\?/)).toBeNull()
   })
@@ -1463,7 +1431,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    const checkboxes = await screen.findAllByRole('checkbox', { name: 'Paid' })
+    const checkboxes = await screen.findAllByRole('checkbox', { name: /^Paid/ })
     await user.click(checkboxes[1]!)
 
     expect(await screen.findByText('Could not update paid status')).toBeInTheDocument()
@@ -1486,7 +1454,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.input(within(dialog).getByLabelText('Amount'), { target: { value: '120' } })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
@@ -1536,7 +1504,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.input(within(dialog).getByLabelText('Received on'), {
       target: { value: '2026-03-21' },
@@ -1555,7 +1523,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.input(within(dialog).getByLabelText('Amount'), { target: { value: '650' } })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Add entry' }))
@@ -1586,14 +1554,14 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     let dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(updateExpenseActual).toHaveBeenCalledWith(5, { amount: 620 }))
 
     // fireEvent - the row can sit under the closing sheet's pointer-events:
     // none overlay for a tick, which userEvent's pointer simulation rejects.
-    await fireEvent.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    await fireEvent.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete entry' }))
     await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
@@ -1624,7 +1592,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
 
     expect(within(dialog).getByText(/multiple entries for Groceries/i)).toBeInTheDocument()
@@ -1639,7 +1607,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
 
@@ -1652,7 +1620,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
 
     expect(await screen.findByText('Could not load actuals')).toBeInTheDocument()
   })
@@ -1663,7 +1631,7 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Electricity' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Electricity' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
 
@@ -1687,23 +1655,11 @@ describe('month page', () => {
     const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click((await screen.findAllByRole('button', { name: 'Edit Groceries' }))[0]!)
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
     const dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete entry' }))
 
     expect(await screen.findByText('Could not remove actual')).toBeInTheDocument()
-  })
-
-  it('shows expense and income totals in the table footers', async () => {
-    setDefaultMocks()
-    render(MonthPage)
-
-    // Table order: expenses, then the carryover mini-table, then income.
-    const tables = await screen.findAllByRole('table')
-    const incomeFooter = tables[2]!.querySelector('tfoot')!
-    expect(within(incomeFooter).getAllByText('$5,000.00')).toHaveLength(2)
-    expect(within(tables[0]!).getByText('$700.00')).toBeInTheDocument()
-    expect(within(tables[0]!).getByText('$730.00')).toBeInTheDocument()
   })
 
   it('does not show an Edit button for a non-editable expense line', async () => {
@@ -1736,10 +1692,8 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([])
     render(MonthPage)
 
-    // Expenses table renders first now, so it's tables[0].
-    const tables = await screen.findAllByRole('table')
-    expect(within(tables[0]!).getByText('Water (shared)')).toBeInTheDocument()
-    expect(within(tables[0]!).queryByRole('button', { name: /^Edit / })).toBeNull()
+    expect(await screen.findByText('Water (shared)')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit Water (shared)' })).toBeNull()
   })
 
   it('links each expense line label to its corresponding view page', async () => {

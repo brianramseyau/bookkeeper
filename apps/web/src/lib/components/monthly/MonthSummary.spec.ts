@@ -17,29 +17,33 @@ function makeData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
 }
 
 describe('MonthSummary', () => {
-  it('renders the month strip headline', () => {
-    render(MonthSummary, { year: 2026, month: 9, data: makeData() })
-
-    expect(screen.getByRole('heading', { name: 'Sep 2026' })).toBeInTheDocument()
-  })
-
-  it('shows cash on hand as carryover plus actual income received', () => {
-    render(MonthSummary, { year: 2026, month: 9, data: makeData({ carryover: 500 }) })
-
-    expect(screen.getByText('Cash on hand')).toBeInTheDocument()
-    expect(screen.getByText('$4,800.00')).toBeInTheDocument()
-  })
-
-  it('shows actual net and variance with sign-based tone', () => {
+  it('shows the Income, Outgoing and Net figures for the month', () => {
     render(MonthSummary, {
-      year: 2026,
-      month: 9,
-      data: makeData({ actualNet: 4270, projectedNet: 4300 }),
+      data: makeData({
+        income: { lines: [], projectedTotal: 0, actualTotal: 4300 },
+        expenses: { lines: [], projectedTotal: 0, actualTotal: 730 },
+      }),
     })
 
-    const actual = screen.getByText('$4,270.00')
-    expect(actual).toHaveClass('text-in')
-    const variance = screen.getByText('-$30.00')
-    expect(variance).toHaveClass('text-over')
+    expect(screen.getByText('Income')).toBeInTheDocument()
+    expect(screen.getByText('$4,300.00')).toBeInTheDocument()
+    expect(screen.getByText('Outgoing')).toBeInTheDocument()
+    expect(screen.getByText('$730.00')).toBeInTheDocument()
+    expect(screen.getByText('Net')).toBeInTheDocument()
+    // Income minus Outgoing, not `actualNet` (which also folds in carryover).
+    const net = screen.getByText('+$3,570.00')
+    expect(net).toHaveClass('text-in')
+  })
+
+  it('colors Net negative when Outgoing exceeds Income for the month', () => {
+    render(MonthSummary, {
+      data: makeData({
+        income: { lines: [], projectedTotal: 0, actualTotal: 100 },
+        expenses: { lines: [], projectedTotal: 0, actualTotal: 130 },
+      }),
+    })
+
+    const net = screen.getByText('-$30.00')
+    expect(net).toHaveClass('text-over')
   })
 })

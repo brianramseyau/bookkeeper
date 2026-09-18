@@ -31,12 +31,14 @@
   import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { ApiError } from '$lib/api'
-  import { lastDayOfMonthIso, resolveDueDate } from '$lib/standard-month-line'
+  import { lastDayOfMonthIso } from '$lib/standard-month-line'
   import { type IncomeRow, entryRowLabel } from '$lib/income-rows'
+  import { buildUnifiedList } from '$lib/monthly-unified-list'
   import { toast } from 'svelte-sonner'
   import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
-  import { Button } from '$lib/components/ui/button'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import { mdiPlus } from '@mdi/js'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import PageHeader from '$lib/components/app/PageHeader.svelte'
   import type { IncomeEntryFormValues } from '$lib/components/IncomeEntryForm.svelte'
@@ -46,13 +48,12 @@
     type IncomeEntryEditValues,
   } from '$lib/components/IncomeEntryEditRow.svelte'
   import MonthSummary from '$lib/components/monthly/MonthSummary.svelte'
-  import OutgoingLinesTable from '$lib/components/monthly/OutgoingLinesTable.svelte'
+  import MonthlyUnifiedList from '$lib/components/monthly/MonthlyUnifiedList.svelte'
   import OutgoingLineEditSheet, {
     type OutgoingLineEditTarget,
     type OutgoingLineEditValues,
   } from '$lib/components/monthly/OutgoingLineEditSheet.svelte'
   import CarryoverCard from '$lib/components/monthly/CarryoverCard.svelte'
-  import IncomingTable from '$lib/components/monthly/IncomingTable.svelte'
 
   const nav = new MonthNav('/monthly', () => void load())
   const year = $derived(nav.year)
@@ -360,17 +361,8 @@
     }
   }
 
-  const sortedExpenseLines = $derived(
-    data
-      ? [...data.expenses.lines].sort((a, b) => {
-          const aDate = resolveDueDate(a, year, month)
-          const bDate = resolveDueDate(b, year, month)
-          if (aDate && bDate) return new Date(aDate).getTime() - new Date(bDate).getTime()
-          if (aDate) return -1
-          if (bDate) return 1
-          return 0
-        })
-      : []
+  const unifiedItems = $derived(
+    data ? buildUnifiedList(data.expenses.lines, data.income.lines, entries, year, month) : []
   )
 
   function closeExpenseEdit() {
@@ -508,11 +500,21 @@
   }
 </script>
 
-<PageHeader title="Monthly">
+<PageHeader title="Monthly" inlineActions>
   {#snippet actions()}
-    <MonthNavHeader {nav} showLabel={false} />
+    <IconActionButton
+      variant="primary"
+      size="lg"
+      label="Log income"
+      path={mdiPlus}
+      onclick={openLogIncome}
+    />
   {/snippet}
 </PageHeader>
+
+<div class="mt-3">
+  <MonthNavHeader {nav} variant="compact" />
+</div>
 
 {#if error}
   <ErrorMessage message={error} />
@@ -521,18 +523,28 @@
 {#if loading}
   <LoadingSkeleton rows={6} class="mt-6" />
 {:else if data}
-  <MonthSummary {year} {month} {data} />
+  <MonthSummary {data} />
 
-  <h2 class="text-foreground mt-8 text-lg font-semibold">Outgoing</h2>
-  <OutgoingLinesTable
+  <CarryoverCard
+    carryover={data.carryover}
+    editState={carryoverEdit}
+    onStartEdit={startEditCarryover}
+    onSave={saveCarryover}
+  />
+
+  <MonthlyUnifiedList
     {year}
     {month}
-    lines={sortedExpenseLines}
-    projectedTotal={data.expenses.projectedTotal}
-    actualTotal={data.expenses.actualTotal}
+    items={unifiedItems}
+    {users}
     {savingPaidKey}
+    {acceptingPlaceholderKey}
     onStartEdit={openEditExpense}
     onTogglePaid={togglePaid}
+    onEditEntry={openEditEntry}
+    onDeleteEntry={handleDeleteEntry}
+    onEditPlaceholder={openEditPlaceholder}
+    onAcceptPlaceholder={acceptPlaceholder}
   />
 
   <OutgoingLineEditSheet
@@ -548,36 +560,6 @@
     onRemove={removeExpenseActual}
   />
 
-  <div class="mt-8 flex items-center justify-between gap-3">
-    <h2 class="text-foreground text-lg font-semibold">Incoming</h2>
-    <div class="flex items-center gap-3">
-      <a href="/income" class="text-primary hover:text-primary/80 text-xs font-medium">
-        Manage income sources
-      </a>
-      <Button size="sm" onclick={openLogIncome}>Log income</Button>
-    </div>
-  </div>
-
-  <CarryoverCard
-    carryover={data.carryover}
-    editState={carryoverEdit}
-    onStartEdit={startEditCarryover}
-    onSave={saveCarryover}
-  />
-
-  <IncomingTable
-    lines={data.income.lines}
-    {entries}
-    {users}
-    projectedTotal={data.income.projectedTotal}
-    actualTotal={data.income.actualTotal}
-    {acceptingPlaceholderKey}
-    onEditEntry={openEditEntry}
-    onDeleteEntry={handleDeleteEntry}
-    onEditPlaceholder={openEditPlaceholder}
-    onAcceptPlaceholder={acceptPlaceholder}
-  />
-
   <IncomeEntryEditRow
     open={entryEditOpen}
     onOpenChange={(next) => (entryEditOpen = next)}
@@ -587,14 +569,14 @@
     error={entryEditError}
     onSave={saveEntryEditValues}
   />
-
-  <MonthlyLogIncomeSheet
-    open={logIncomeOpen}
-    onOpenChange={(next) => (logIncomeOpen = next)}
-    {sources}
-    {users}
-    submitting={loggingEntry}
-    error={logIncomeError}
-    onSubmit={handleLogEntry}
-  />
 {/if}
+
+<MonthlyLogIncomeSheet
+  open={logIncomeOpen}
+  onOpenChange={(next) => (logIncomeOpen = next)}
+  {sources}
+  {users}
+  submitting={loggingEntry}
+  error={logIncomeError}
+  onSubmit={handleLogEntry}
+/>

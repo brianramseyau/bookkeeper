@@ -11,6 +11,8 @@
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
   import PageHeader from '$lib/components/app/PageHeader.svelte'
   import ActionMenu from '$lib/components/ActionMenu.svelte'
+  import IconActionButton from '$lib/components/IconActionButton.svelte'
+  import { mdiPlus } from '@mdi/js'
   import { Button } from '$lib/components/ui/button'
   import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs'
   import { Toggle } from '$lib/components/ui/toggle'
@@ -223,9 +225,15 @@
   }
 </script>
 
-<PageHeader title={adapter.title} description={adapter.description}>
+<PageHeader title={adapter.title} description={adapter.description} inlineActions>
   {#snippet actions()}
-    <Button onclick={startAdd}>Add {adapter.singular.toLowerCase()}</Button>
+    <IconActionButton
+      variant="primary"
+      size="lg"
+      label="Add {adapter.singular.toLowerCase()}"
+      path={mdiPlus}
+      onclick={startAdd}
+    />
   {/snippet}
 </PageHeader>
 

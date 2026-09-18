@@ -12,6 +12,10 @@
     label: string
     /** An `mdi*` path constant from '@mdi/js'. */
     path: string
+    /** `default`: the usual small inline icon button. `lg`: a bigger, bolder
+        icon for a page header's primary action (e.g. Monthly's "Log income"
+        plus, next to the h1). */
+    size?: 'default' | 'lg'
     class?: string
   }
 
@@ -22,6 +26,7 @@
     variant = 'neutral',
     label,
     path,
+    size = 'default',
     class: className = '',
   }: Props = $props()
 
@@ -47,7 +52,7 @@
 <Button
   type="button"
   variant="ghost"
-  size="icon"
+  size={size === 'lg' ? 'icon-lg' : 'icon'}
   {onclick}
   {onmousedown}
   {disabled}
@@ -55,7 +60,12 @@
   title={label}
   class={cn(VARIANT_TEXT[variant], className)}
 >
-  <svg viewBox="0 0 24 24" class="size-5" fill="currentColor" aria-hidden="true">
+  <svg
+    viewBox="0 0 24 24"
+    class={size === 'lg' ? 'size-7' : 'size-5'}
+    fill="currentColor"
+    aria-hidden="true"
+  >
     <path d={path} />
   </svg>
 </Button>
