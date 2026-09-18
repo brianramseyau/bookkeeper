@@ -120,26 +120,51 @@ describe('dashboard page', () => {
     expect(screen.getByText('Ahead of the standard-month plan')).toBeInTheDocument()
   })
 
+  it('shows a neutral, unsigned delta for a month exactly on plan', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      currentMonth: { year: 2026, month: 3, projectedNet: 500, actualNet: 500 },
+      // Non-zero, so this card's own $0.00 (income 0, expense 0) can't
+      // collide with the "vs projected" card's $0.00 under test below.
+      monthlyIncome: [{ year: 2026, month: 3, total: 500 }],
+      categoryBreakdown: [{ id: 1, name: 'Utilities', color: '#0066b2', total: 100 }],
+    })
+    render(DashboardPage)
+
+    const value = await screen.findByText('$0.00')
+    expect(value.className).not.toContain('text-in')
+    expect(value.className).not.toContain('text-over')
+    expect(screen.getByText('Exactly on the standard-month plan')).toBeInTheDocument()
+  })
+
   it('shows plain income vs expenses for the viewed month only, not the 12-month totals', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
       // 12-month totals that must NOT be what the card shows - it should
-      // pick out only the March 2026 (currentMonth) entry below.
+      // pick out only the March 2026 (currentMonth) figures below.
       totalIncome: 20000,
       monthlyExpenses: [
         { year: 2026, month: 2, total: 10000 },
-        { year: 2026, month: 3, total: 750 },
+        { year: 2026, month: 3, total: 99999 },
       ],
       monthlyIncome: [
         { year: 2026, month: 2, total: 9000 },
         { year: 2026, month: 3, total: 1000 },
       ],
+      // The expense side comes from categoryBreakdown (the viewed month's
+      // complete spend, including recurring bills/subscriptions), not the
+      // monthlyExpenses trend above - a huge March monthlyExpenses figure
+      // must NOT leak into this card.
+      categoryBreakdown: [
+        { id: 1, name: 'Utilities', color: '#0066b2', total: 600 },
+        { id: 2, name: 'Household', color: '#72b258', total: 150 },
+      ],
     })
     render(DashboardPage)
 
     expect(await screen.findByText('Income vs expenses')).toBeInTheDocument()
-    // March only: 1000 - 750 = 250, a surplus - distinct from Position's
-    // actualNet (-50) and from the 12-month totals above.
+    // March only: 1000 - (600 + 150) = 250, a surplus - distinct from
+    // Position's actualNet (-50) and from the 12-month/wrong totals above.
     expect(screen.getByText('$250.00')).toBeInTheDocument()
     expect(screen.getByText('Surplus this month')).toBeInTheDocument()
   })
@@ -147,14 +172,25 @@ describe('dashboard page', () => {
   it('shows a deficit when expenses exceed income for the viewed month', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
-      monthlyExpenses: [{ year: 2026, month: 3, total: 600 }],
       monthlyIncome: [{ year: 2026, month: 3, total: 400 }],
+      categoryBreakdown: [{ id: 1, name: 'Utilities', color: '#0066b2', total: 600 }],
     })
     render(DashboardPage)
 
     const value = await screen.findByText('-$200.00')
     expect(value.className).toContain('text-over')
     expect(screen.getByText('Deficit this month')).toBeInTheDocument()
+  })
+
+  it('shows a neutral, unsigned income-vs-expenses figure for a break-even month', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      monthlyIncome: [{ year: 2026, month: 3, total: 400 }],
+      categoryBreakdown: [{ id: 1, name: 'Utilities', color: '#0066b2', total: 400 }],
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Breaking even this month')).toBeInTheDocument()
   })
 
   it('links each upcoming bill to its detail page', async () => {

@@ -44,33 +44,52 @@
   const INCOME_COLOR = $derived(themeState.current === 'dark' ? '#3FC79D' : '#0A6B50')
   const EXPENSE_COLOR = $derived(themeState.current === 'dark' ? '#F2735A' : '#9C3320')
 
+  // A shared positive/negative/zero read for the "Right now" stat cards
+  // below - `> 0`/`< 0`, not `>= 0`, so an exact on-plan/break-even month
+  // gets its own neutral tone/wording instead of silently reading as a
+  // "+" gain or a surplus/ahead-of-plan claim it didn't actually make.
+  type Sign = 'positive' | 'negative' | 'zero'
+  function signOf(value: number): Sign {
+    return value > 0 ? 'positive' : value < 0 ? 'negative' : 'zero'
+  }
+  function toneForSign(sign: Sign): 'positive' | 'negative' | 'default' {
+    return sign === 'zero' ? 'default' : sign
+  }
+
   // "vs projected": how far this month's actual net has drifted from the
   // standard-month projection - ahead of plan is good news, behind is worth
-  // a glance (`due`, not `over` - it isn't wrong, just needs attention).
+  // a glance. Tone is sign-based (`positive`/`negative`), the same
+  // convention "Position" and "Income vs expenses" use below - `due` (a
+  // due-*date* status, paired with a clock icon) doesn't fit a plan
+  // deviation that isn't a date at all.
   const vsProjected = $derived(
     data ? round2(data.currentMonth.actualNet - data.currentMonth.projectedNet) : 0
   )
-  const vsProjectedIsAhead = $derived(vsProjected >= 0)
+  const vsProjectedSign = $derived(signOf(vsProjected))
 
-  // `monthlyIncome`/`monthlyExpenses` are both a trailing 12-month window
-  // (see `$lib/api/dashboard.ts`), so summing either whole array - like the
-  // Over time chart deliberately does - gives a 12-month figure, not this
-  // month's. Picking out the one entry matching `currentMonth` gives the
-  // plain income-minus-expenses figure for the viewed month alone -
+  // `categoryBreakdown` (unlike the 12-month `monthlyExpenses` trend the
+  // Over time chart below deliberately uses) is a complete picture of the
+  // viewed month's spend - it includes recurring bills and subscriptions,
+  // which `monthlyExpenses` omits entirely (see
+  // `DashboardController#monthlyExpenses`) - summing `monthlyExpenses`
+  // here instead would silently miss whole categories of spend and could
+  // disagree with "Position" for more than just the carryover it already
+  // accounts for. `monthlyIncome`'s per-month entries are already scoped
+  // to one month each, so no equivalent swap is needed there. This is
   // deliberately not a "savings rate" or anything else implying per-
   // transaction knowledge of where the money went, which this app doesn't
-  // track. Also distinct from "Position" above, which is the API's
-  // `actualNet` and folds in the carried-over balance from prior months.
+  // track - and it's distinct from "Position" above, which is the API's
+  // `actualNet` and additionally folds in the carried-over balance from
+  // prior months.
   const currentMonthTotals = $derived.by(() => {
     if (!data) return { income: 0, expense: 0 }
     const { year, month } = data.currentMonth
-    return {
-      income: data.monthlyIncome.find((m) => m.year === year && m.month === month)?.total ?? 0,
-      expense: data.monthlyExpenses.find((m) => m.year === year && m.month === month)?.total ?? 0,
-    }
+    const income = data.monthlyIncome.find((m) => m.year === year && m.month === month)?.total ?? 0
+    const expense = data.categoryBreakdown.reduce((sum, c) => sum + c.total, 0)
+    return { income, expense }
   })
   const monthlyPosition = $derived(round2(currentMonthTotals.income - currentMonthTotals.expense))
-  const monthlyPositionIsPositive = $derived(monthlyPosition >= 0)
+  const monthlyPositionSign = $derived(signOf(monthlyPosition))
 
   // Joined by year/month key rather than array index - monthlyExpenses and
   // monthlyIncome both currently return the same 12-month window in the same
@@ -101,22 +120,28 @@
         <StatCard
           label="Position"
           value={formatCurrency(d.currentMonth.actualNet)}
-          tone={d.currentMonth.actualNet >= 0 ? 'positive' : 'negative'}
+          tone={toneForSign(signOf(d.currentMonth.actualNet))}
           hint="Actual net this month"
         />
         <StatCard
           label="vs projected"
-          value={`${vsProjectedIsAhead ? '+' : ''}${formatCurrency(vsProjected)}`}
-          tone={vsProjectedIsAhead ? 'positive' : 'due'}
-          hint={vsProjectedIsAhead
+          value={`${vsProjectedSign === 'positive' ? '+' : ''}${formatCurrency(vsProjected)}`}
+          tone={toneForSign(vsProjectedSign)}
+          hint={vsProjectedSign === 'positive'
             ? 'Ahead of the standard-month plan'
-            : 'Behind the standard-month plan'}
+            : vsProjectedSign === 'negative'
+              ? 'Behind the standard-month plan'
+              : 'Exactly on the standard-month plan'}
         />
         <StatCard
           label="Income vs expenses"
           value={formatCurrency(monthlyPosition)}
-          tone={monthlyPositionIsPositive ? 'positive' : 'negative'}
-          hint={monthlyPositionIsPositive ? 'Surplus this month' : 'Deficit this month'}
+          tone={toneForSign(monthlyPositionSign)}
+          hint={monthlyPositionSign === 'positive'
+            ? 'Surplus this month'
+            : monthlyPositionSign === 'negative'
+              ? 'Deficit this month'
+              : 'Breaking even this month'}
         />
       </div>
     </div>
