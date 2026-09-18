@@ -14,8 +14,6 @@
     listIncomeSources,
     listIncomeEntries,
     createIncomeEntry,
-    updateIncomeEntry,
-    deleteIncomeEntry,
     type IncomeSource,
     type IncomeEntry,
   } from '$lib/api/income'
@@ -32,7 +30,7 @@
   import { listUsers, type UserSummary } from '$lib/api/users'
   import { ApiError } from '$lib/api'
   import { lastDayOfMonthIso } from '$lib/standard-month-line'
-  import { type IncomeRow, entryRowLabel } from '$lib/income-rows'
+  import type { IncomeRow } from '$lib/income-rows'
   import { buildUnifiedList } from '$lib/monthly-unified-list'
   import { toast } from 'svelte-sonner'
   import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
@@ -180,28 +178,6 @@
     }
   }
 
-  async function handleDeleteEntry(entry: IncomeEntry) {
-    const confirmed = await confirmDestructive({
-      title: `Delete ${entryRowLabel(entry)}?`,
-      description: 'This cannot be undone.',
-    })
-    if (!confirmed) return
-    error = null
-    try {
-      await deleteIncomeEntry(entry.id)
-      await refreshIncome()
-      toast.success('Income entry deleted')
-    } catch (err) {
-      error = err instanceof ApiError ? err.message : 'Failed to delete entry'
-    }
-  }
-
-  function openEditEntry(entry: IncomeEntry) {
-    entryEditTarget = { type: 'entry', entry }
-    entryEditError = null
-    entryEditOpen = true
-  }
-
   function openEditPlaceholder(
     line: StandardMonthIncomeLine,
     row: Extract<IncomeRow, { type: 'placeholder' }>
@@ -219,13 +195,9 @@
 
   async function saveEntryEditValues(values: IncomeEntryEditValues) {
     const target = entryEditTarget
-    if (!target) return
+    if (!target || target.type !== 'placeholder') return
     if (Number.isNaN(values.amount) || values.amount === null) {
       entryEditError = 'Amount is required'
-      return
-    }
-    if (target.type === 'entry' && target.entry.incomeSourceId === null && values.userId === null) {
-      entryEditError = 'A person is required for other income'
       return
     }
     entryEditSubmitting = true
@@ -233,42 +205,18 @@
     error = null
     const receivedOn = values.receivedOn === '' ? null : values.receivedOn
     try {
-      if (target.type === 'entry') {
-        const entry = target.entry
-        // Only re-stamp year/month when the date actually changed: an entry
-        // can be deliberately filed under the viewed month while carrying a
-        // received-on date outside it (the create paths below do exactly
-        // that), and re-stamping on an amount-only edit would move it out
-        // from under the table the user is looking at.
-        const originalReceivedOn = entry.receivedOn ? entry.receivedOn.slice(0, 10) : null
-        const dateChanged = receivedOn !== originalReceivedOn
-        const [entryYear, entryMonth] =
-          !dateChanged || receivedOn === null
-            ? [undefined, undefined]
-            : (receivedOn.split('-').map(Number) as [number, number])
-        await updateIncomeEntry(entry.id, {
-          year: entryYear,
-          month: entryMonth,
-          userId: entry.incomeSourceId === null ? (values.userId ?? undefined) : undefined,
-          amount: values.amount,
-          receivedOn,
-          note: values.note === '' ? null : values.note,
-          taxWithheld: entry.incomeSourceId === null ? values.taxWithheld : undefined,
-        })
-      } else if (target.type === 'placeholder') {
-        // File under the viewed month, same as `acceptPlaceholder` - a
-        // weekend-rolled pay date can fall in the previous month, and filing
-        // it there would create an entry the current month's list never
-        // shows.
-        await createIncomeEntry({
-          incomeSourceId: target.sourceId,
-          year,
-          month,
-          amount: values.amount,
-          receivedOn,
-          note: values.note === '' ? null : values.note,
-        })
-      }
+      // File under the viewed month, same as `acceptPlaceholder` - a
+      // weekend-rolled pay date can fall in the previous month, and filing
+      // it there would create an entry the current month's list never
+      // shows.
+      await createIncomeEntry({
+        incomeSourceId: target.sourceId,
+        year,
+        month,
+        amount: values.amount,
+        receivedOn,
+        note: values.note === '' ? null : values.note,
+      })
     } catch (err) {
       entryEditError = err instanceof ApiError ? err.message : 'Failed to save changes'
       entryEditSubmitting = false
@@ -541,8 +489,6 @@
     {acceptingPlaceholderKey}
     onStartEdit={openEditExpense}
     onTogglePaid={togglePaid}
-    onEditEntry={openEditEntry}
-    onDeleteEntry={handleDeleteEntry}
     onEditPlaceholder={openEditPlaceholder}
     onAcceptPlaceholder={acceptPlaceholder}
   />

@@ -1,10 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import type { StandardMonthLine, StandardMonthIncomeLine } from '$lib/api/standard-month'
-  import type { IncomeEntry } from '$lib/api/income'
   import type { UserSummary } from '$lib/api/users'
   import type { IncomeRow } from '$lib/income-rows'
-  import { entryRowLabel } from '$lib/income-rows'
   import type { UnifiedListItem } from '$lib/monthly-unified-list'
   import { formatCurrency, formatDate, daysUntil } from '$lib/format'
   import {
@@ -19,7 +17,7 @@
   import Card from '$lib/components/Card.svelte'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
   import HelpTooltip from '$lib/components/HelpTooltip.svelte'
-  import { mdiPencil, mdiCheckBold, mdiDelete } from '@mdi/js'
+  import { mdiPencil, mdiCheckBold } from '@mdi/js'
 
   interface Props {
     year: number
@@ -30,8 +28,6 @@
     acceptingPlaceholderKey: string | null
     onStartEdit: (line: StandardMonthLine) => void
     onTogglePaid: (line: StandardMonthLine, paid: boolean) => void
-    onEditEntry: (entry: IncomeEntry) => void
-    onDeleteEntry: (entry: IncomeEntry) => void
     onEditPlaceholder: (
       line: StandardMonthIncomeLine,
       row: Extract<IncomeRow, { type: 'placeholder' }>
@@ -51,8 +47,6 @@
     acceptingPlaceholderKey,
     onStartEdit,
     onTogglePaid,
-    onEditEntry,
-    onDeleteEntry,
     onEditPlaceholder,
     onAcceptPlaceholder,
   }: Props = $props()
@@ -113,10 +107,11 @@
       {#if item.type === 'outgoing'}
         {@const line = item.line}
         {@const editable =
-          (line.key.startsWith('utility-') && line.editable) ||
-          line.key.startsWith('recurring-bill-') ||
-          line.key.startsWith('subscription-') ||
-          line.key.startsWith('expense-')}
+          (!line.paid || line.estimated) &&
+          ((line.key.startsWith('utility-') && line.editable) ||
+            line.key.startsWith('recurring-bill-') ||
+            line.key.startsWith('subscription-') ||
+            line.key.startsWith('expense-'))}
         {@const chipClass = dueChipClass(line, year, month)}
         <li
           class={[
@@ -190,7 +185,6 @@
         </li>
       {:else if item.row.type === 'actual'}
         {@const entry = item.row.entry}
-        {@const label = entryRowLabel(entry)}
         <li
           class={[
             'flex min-h-11 items-center gap-2 py-2',
@@ -215,8 +209,7 @@
             </p>
           </div>
           <span class="font-figures text-in shrink-0">{formatCurrency(entry.amount)}</span>
-          {@render touchAction('neutral', `Edit ${label}`, mdiPencil, () => onEditEntry(entry))}
-          {@render touchAction('danger', `Delete ${label}`, mdiDelete, () => onDeleteEntry(entry))}
+          <div class="size-11 shrink-0"></div>
         </li>
       {:else}
         {@const row = item.row}
