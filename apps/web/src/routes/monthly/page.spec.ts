@@ -860,10 +860,10 @@ describe('month page', () => {
     render(MonthPage)
 
     const paidChip = await screen.findByText('5 Mar 2026')
-    expect(paidChip.className).toContain('bg-green-100')
+    expect(paidChip.className).toContain('bg-in-tint')
 
     const dueSoonChip = screen.getByText('In 5 days')
-    expect(dueSoonChip.className).toContain('bg-amber-100')
+    expect(dueSoonChip.className).toContain('bg-due-tint')
 
     const rows = (await screen.findAllByRole('listitem')).filter(
       (li) => li.textContent?.includes('Groceries') || li.textContent?.includes('Electricity')
@@ -902,7 +902,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const chip = await screen.findByText('5 Mar 2026')
-    expect(chip.className).toContain('bg-red-100')
+    expect(chip.className).toContain('bg-over-tint')
   })
 
   it('shows an amber chip for a line due soon with no actual recorded yet', async () => {
@@ -935,7 +935,7 @@ describe('month page', () => {
     render(MonthPage)
 
     const chip = await screen.findByText('In 5 days')
-    expect(chip.className).toContain('bg-amber-100')
+    expect(chip.className).toContain('bg-due-tint')
   })
 
   it('shows a due date more than 30 days out as plain text, with no chip, while still unrecorded', async () => {

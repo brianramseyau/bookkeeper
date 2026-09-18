@@ -16,7 +16,7 @@
   use:dragHandle
   aria-label={label}
   title={label}
-  class="inline-flex shrink-0 touch-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-indigo-600 active:cursor-grabbing dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400 {compact
+  class="text-muted-foreground hover:bg-accent hover:text-primary inline-flex shrink-0 touch-none items-center justify-center rounded-md active:cursor-grabbing {compact
     ? 'p-1'
     : 'p-2'}"
   style="cursor: grab"
