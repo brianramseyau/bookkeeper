@@ -70,8 +70,6 @@ function baseProps() {
     acceptingPlaceholderKey: null,
     onStartEdit: vi.fn(),
     onTogglePaid: vi.fn(),
-    onEditEntry: vi.fn(),
-    onDeleteEntry: vi.fn(),
     onEditPlaceholder: vi.fn(),
     onAcceptPlaceholder: vi.fn(),
   }
@@ -119,23 +117,17 @@ describe('MonthlyUnifiedList', () => {
     expect(onStartEdit).toHaveBeenCalledWith(expenseLine)
   })
 
-  it('renders a logged income entry and calls onEditEntry / onDeleteEntry', async () => {
+  it('renders a logged income entry without edit/delete actions', () => {
     const entry = makeEntry()
     const line = makeIncomeLine()
     const items = buildUnifiedList([], [line], [entry], 2026, 3)
-    const onEditEntry = vi.fn()
-    const onDeleteEntry = vi.fn()
-    const user = userEvent.setup()
-    render(MonthlyUnifiedList, { ...baseProps(), items, onEditEntry, onDeleteEntry })
+    render(MonthlyUnifiedList, { ...baseProps(), items })
 
     expect(screen.getByText('Brian Income')).toBeInTheDocument()
     expect(screen.getByText('$5,000.00')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    expect(onEditEntry).toHaveBeenCalledWith(entry)
-
-    await user.click(screen.getByRole('button', { name: 'Delete entry from 14 Mar 2026' }))
-    expect(onDeleteEntry).toHaveBeenCalledWith(entry)
+    expect(screen.queryByRole('button', { name: 'Edit entry from 14 Mar 2026' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete entry from 14 Mar 2026' })).toBeNull()
   })
 
   it('shows the owner for an unattributed income entry', () => {
@@ -193,6 +185,14 @@ describe('MonthlyUnifiedList', () => {
 
   it('does not show an edit pencil for a non-editable outgoing line', () => {
     const expenseLine = makeExpenseLine({ key: 'utility-2', editable: false })
+    const items = buildUnifiedList([expenseLine], [], [], 2026, 3)
+    render(MonthlyUnifiedList, { ...baseProps(), items })
+
+    expect(screen.queryByRole('button', { name: 'Edit Electricity' })).toBeNull()
+  })
+
+  it('hides the edit pencil for an outgoing line once marked paid', () => {
+    const expenseLine = makeExpenseLine({ paid: true })
     const items = buildUnifiedList([expenseLine], [], [], 2026, 3)
     render(MonthlyUnifiedList, { ...baseProps(), items })
 

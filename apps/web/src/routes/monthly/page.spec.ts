@@ -179,6 +179,23 @@ function baseData(overrides: Partial<StandardMonthResult> = {}): StandardMonthRe
   }
 }
 
+// Groceries (expense-1) is paid in the base fixture, which now hides its
+// edit pencil (paid lines are locked down) - the expense-actuals tests
+// below aren't testing paid status, so they need it unpaid to reach the
+// edit sheet at all.
+function baseDataWithUnpaidGroceries(): StandardMonthResult {
+  const data = baseData()
+  return {
+    ...data,
+    expenses: {
+      ...data.expenses,
+      lines: data.expenses.lines.map((line) =>
+        line.key === 'expense-1' ? { ...line, paid: false } : line
+      ),
+    },
+  }
+}
+
 function setDefaultMocks() {
   vi.mocked(getStandardMonth).mockResolvedValue(baseData())
   vi.mocked(listIncomeSources).mockResolvedValue([brianSalary])
@@ -525,150 +542,13 @@ describe('month page', () => {
     expect(screen.queryByText('Brian Income')).toBeNull()
   })
 
-  it('edits and deletes a logged income entry', async () => {
+  it('does not show edit/delete actions for a logged income entry', async () => {
     setDefaultMocks()
-    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
-    vi.mocked(deleteIncomeEntry).mockResolvedValue(undefined)
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
-    await waitFor(() =>
-      expect(updateIncomeEntry).toHaveBeenCalledWith(10, {
-        amount: 5000,
-        receivedOn: '2026-03-14',
-        note: 'March pay',
-      })
-    )
-    expect(toast.success).toHaveBeenCalledWith('Income entry saved')
-
-    // fireEvent rather than userEvent - the underlying row can still sit
-    // under the closing sheet's overlay (pointer-events: none) briefly
-    // after it stops rendering, which userEvent's pointer simulation
-    // (unlike a plain click event) checks for and fails on.
-    await fireEvent.click(
-      await screen.findByRole('button', { name: 'Delete entry from 14 Mar 2026' })
-    )
-    await waitFor(() => expect(deleteIncomeEntry).toHaveBeenCalledWith(10))
-    expect(confirmDestructive).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Delete entry from 14 Mar 2026?' })
-    )
-    expect(toast.success).toHaveBeenCalledWith('Income entry deleted')
-  })
-
-  it('surfaces a failed reload after a successful save on the page, not the sheet', async () => {
-    setDefaultMocks()
-    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
-    // The initial load resolves; the post-save refresh (a second
-    // listIncomeEntries) rejects.
-    let calls = 0
-    vi.mocked(listIncomeEntries).mockImplementation(async () => {
-      calls++
-      if (calls > 1) throw new ApiError(500, 'Could not reload income')
-      return [salaryEntry]
-    })
-    const user = userEvent.setup()
     render(MonthPage)
 
     await screen.findByText('March pay')
-    await user.click(screen.getByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    const sheet = openSheet()
-    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
-
-    await waitFor(() => expect(updateIncomeEntry).toHaveBeenCalled())
-    // The save succeeded (toast), and the refresh failure reaches the page
-    // banner rather than the now-closed sheet's own error.
-    expect(toast.success).toHaveBeenCalledWith('Income entry saved')
-    expect(await screen.findByText('Could not reload income')).toBeInTheDocument()
-  })
-
-  it('re-stamps year/month only when an entry edit changes its date', async () => {
-    setDefaultMocks()
-    vi.mocked(updateIncomeEntry).mockResolvedValue(salaryEntry)
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await screen.findByText('March pay')
-    await user.click(screen.getByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    const sheet = openSheet()
-    await fireEvent.input(within(sheet).getByLabelText('Received on'), {
-      target: { value: '2026-02-10' },
-    })
-    await fireEvent.click(within(sheet).getByRole('button', { name: 'Save changes' }))
-
-    await waitFor(() =>
-      expect(updateIncomeEntry).toHaveBeenCalledWith(
-        10,
-        expect.objectContaining({ year: 2026, month: 2, receivedOn: '2026-02-10' })
-      )
-    )
-  })
-
-  it('does not delete an entry when the confirmation is declined', async () => {
-    setDefaultMocks()
-    vi.mocked(confirmDestructive).mockResolvedValue(false)
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: 'Delete entry from 14 Mar 2026' }))
-    await waitFor(() => expect(confirmDestructive).toHaveBeenCalled())
-
-    expect(deleteIncomeEntry).not.toHaveBeenCalled()
-  })
-
-  it('blocks saving an entry edit when the amount field is cleared', async () => {
-    // Svelte's number-input binding coerces an emptied field to `null`, not
-    // `NaN` - so the guard must check for both to catch a cleared field, not
-    // just a never-touched one (see the "requires an amount to log income"
-    // test below for that path).
-    setDefaultMocks()
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    const amountInput = screen.getByDisplayValue('5000')
-    await fireEvent.input(amountInput, { target: { value: '' } })
-    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
-
-    expect(await screen.findByText('Amount is required')).toBeInTheDocument()
-    expect(updateIncomeEntry).not.toHaveBeenCalled()
-  })
-
-  it('shows an API error when saving an entry edit fails', async () => {
-    setDefaultMocks()
-    vi.mocked(updateIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not save entry'))
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
-
-    expect(await screen.findByText('Could not save entry')).toBeInTheDocument()
-  })
-
-  it('cancels editing an entry', async () => {
-    setDefaultMocks()
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: 'Edit entry from 14 Mar 2026' }))
-    expect(screen.getByDisplayValue('5000')).toBeInTheDocument()
-    await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    expect(screen.queryByDisplayValue('5000')).toBeNull()
-    expect(updateIncomeEntry).not.toHaveBeenCalled()
-  })
-
-  it('shows an error when deleting an entry fails', async () => {
-    setDefaultMocks()
-    vi.mocked(deleteIncomeEntry).mockRejectedValue(new ApiError(500, 'Could not delete entry'))
-    const user = userEvent.setup()
-    render(MonthPage)
-
-    await user.click(await screen.findByRole('button', { name: 'Delete entry from 14 Mar 2026' }))
-
-    expect(await screen.findByText('Could not delete entry')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit entry from 14 Mar 2026' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete entry from 14 Mar 2026' })).toBeNull()
   })
 
   it('requires an amount to log income', async () => {
@@ -805,7 +685,7 @@ describe('month page', () => {
     expect(screen.getByText(/Brian/)).toBeInTheDocument()
   })
 
-  it('edits an unattributed income entry, changing its person and tax-withheld flag', async () => {
+  it('does not show an edit action for an unattributed income entry', async () => {
     setDefaultMocks()
     vi.mocked(getStandardMonth).mockResolvedValue(
       baseData({
@@ -828,24 +708,10 @@ describe('month page', () => {
       })
     )
     vi.mocked(listIncomeEntries).mockResolvedValue([bonusEntry])
-    vi.mocked(updateIncomeEntry).mockResolvedValue(bonusEntry)
-    const user = userEvent.setup()
     render(MonthPage)
 
-    await user.click(await screen.findByRole('button', { name: 'Edit entry' }))
-    const dialog = screen.getByRole('dialog', { hidden: true })
-    await fireEvent.click(within(dialog).getByText('Tax withheld'))
-    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
-
-    await waitFor(() =>
-      expect(updateIncomeEntry).toHaveBeenCalledWith(11, {
-        userId: 1,
-        amount: 250,
-        receivedOn: null,
-        note: 'Bonus',
-        taxWithheld: false,
-      })
-    )
+    await screen.findByText('Other income')
+    expect(screen.queryByRole('button', { name: 'Edit entry' })).toBeNull()
   })
 
   it('shows due dates relative to today, sorted soonest-first, colored by paid rather than actual', async () => {
@@ -1518,6 +1384,7 @@ describe('month page', () => {
 
   it('adds an expense actual when none is logged yet', async () => {
     setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
     vi.mocked(listExpenseActuals).mockResolvedValue([])
     vi.mocked(createExpenseActual).mockResolvedValue({} as ExpenseMonthlyActual)
     const user = userEvent.setup()
@@ -1538,6 +1405,7 @@ describe('month page', () => {
 
   it('edits and removes a single existing expense actual', async () => {
     setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
     vi.mocked(listExpenseActuals).mockResolvedValue([
       {
         id: 5,
@@ -1569,6 +1437,7 @@ describe('month page', () => {
 
   it('shows a link to view all entries when an expense has multiple actuals that month', async () => {
     setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
     vi.mocked(listExpenseActuals).mockResolvedValue([
       {
         id: 5,
@@ -1616,6 +1485,7 @@ describe('month page', () => {
 
   it('shows an error when loading actuals for an expense edit fails', async () => {
     setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
     vi.mocked(listExpenseActuals).mockRejectedValue(new ApiError(500, 'Could not load actuals'))
     const user = userEvent.setup()
     render(MonthPage)
@@ -1640,6 +1510,7 @@ describe('month page', () => {
 
   it('shows an error when removing an expense actual fails', async () => {
     setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
     vi.mocked(listExpenseActuals).mockResolvedValue([
       {
         id: 5,
