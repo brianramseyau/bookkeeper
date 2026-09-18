@@ -68,17 +68,25 @@
   const vsProjectedSign = $derived(signOf(vsProjected))
 
   // `categoryBreakdown` (unlike the 12-month `monthlyExpenses` trend the
-  // Over time chart below deliberately uses) is a complete picture of the
-  // viewed month's spend - it includes recurring bills and subscriptions,
-  // which `monthlyExpenses` omits entirely (see
+  // Over time chart below deliberately uses) includes recurring bills and
+  // subscriptions, which `monthlyExpenses` omits entirely (see
   // `DashboardController#monthlyExpenses`) - summing `monthlyExpenses`
   // here instead would silently miss whole categories of spend and could
   // disagree with "Position" for more than just the carryover it already
   // accounts for. `monthlyIncome`'s per-month entries are already scoped
-  // to one month each, so no equivalent swap is needed there. This is
-  // deliberately not a "savings rate" or anything else implying per-
-  // transaction knowledge of where the money went, which this app doesn't
-  // track - and it's distinct from "Position" above, which is the API's
+  // to one month each, so no equivalent swap is needed there.
+  //
+  // `categoryBreakdown` is still not a *complete* month total, though -
+  // `DashboardController#categoryBreakdown` silently drops any expense,
+  // recurring bill or subscription with no category set (nullable
+  // everywhere it's stored), and a due-but-unpaid recurring bill counts
+  // at its committed amount rather than what's actually left the account.
+  // Fixing that is a backend change, out of scope for this frontend-only
+  // phase - the hint below is worded "categorised" rather than an
+  // unqualified "this month" so the card doesn't claim more precision
+  // than it has, which is also why this is deliberately not a "savings
+  // rate" or anything else implying per-transaction knowledge of where
+  // the money went. Distinct from "Position" above, which is the API's
   // `actualNet` and additionally folds in the carried-over balance from
   // prior months.
   const currentMonthTotals = $derived.by(() => {
@@ -138,10 +146,10 @@
           value={formatCurrency(monthlyPosition)}
           tone={toneForSign(monthlyPositionSign)}
           hint={monthlyPositionSign === 'positive'
-            ? 'Surplus this month'
+            ? 'Surplus vs categorised spend this month'
             : monthlyPositionSign === 'negative'
-              ? 'Deficit this month'
-              : 'Breaking even this month'}
+              ? 'Deficit vs categorised spend this month'
+              : 'Breaking even vs categorised spend this month'}
         />
       </div>
     </div>

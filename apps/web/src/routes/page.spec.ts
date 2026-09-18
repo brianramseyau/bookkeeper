@@ -151,8 +151,8 @@ describe('dashboard page', () => {
         { year: 2026, month: 2, total: 9000 },
         { year: 2026, month: 3, total: 1000 },
       ],
-      // The expense side comes from categoryBreakdown (the viewed month's
-      // complete spend, including recurring bills/subscriptions), not the
+      // The expense side comes from categoryBreakdown (which includes
+      // recurring bills/subscriptions, unlike monthlyExpenses), not the
       // monthlyExpenses trend above - a huge March monthlyExpenses figure
       // must NOT leak into this card.
       categoryBreakdown: [
@@ -166,7 +166,7 @@ describe('dashboard page', () => {
     // March only: 1000 - (600 + 150) = 250, a surplus - distinct from
     // Position's actualNet (-50) and from the 12-month/wrong totals above.
     expect(screen.getByText('$250.00')).toBeInTheDocument()
-    expect(screen.getByText('Surplus this month')).toBeInTheDocument()
+    expect(screen.getByText('Surplus vs categorised spend this month')).toBeInTheDocument()
   })
 
   it('shows a deficit when expenses exceed income for the viewed month', async () => {
@@ -179,7 +179,7 @@ describe('dashboard page', () => {
 
     const value = await screen.findByText('-$200.00')
     expect(value.className).toContain('text-over')
-    expect(screen.getByText('Deficit this month')).toBeInTheDocument()
+    expect(screen.getByText('Deficit vs categorised spend this month')).toBeInTheDocument()
   })
 
   it('shows a neutral, unsigned income-vs-expenses figure for a break-even month', async () => {
@@ -190,7 +190,9 @@ describe('dashboard page', () => {
     })
     render(DashboardPage)
 
-    expect(await screen.findByText('Breaking even this month')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Breaking even vs categorised spend this month')
+    ).toBeInTheDocument()
   })
 
   it('links each upcoming bill to its detail page', async () => {
