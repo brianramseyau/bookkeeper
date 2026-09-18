@@ -231,7 +231,7 @@
             <p class="truncate font-medium">{item.line.label}</p>
             <p class="truncate text-xs">Not yet logged</p>
           </div>
-          <div class="flex shrink-0 flex-col items-end gap-0.5 text-right">
+          <div class="text-muted-foreground flex shrink-0 flex-col items-end gap-0.5 text-right">
             <span class="font-figures">{formatCurrency(row.projected)}</span>
             <span class="text-xs">{formatDate(row.date)}</span>
           </div>
