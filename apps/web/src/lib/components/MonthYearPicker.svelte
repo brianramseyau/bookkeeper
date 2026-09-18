@@ -47,7 +47,7 @@
   // `position: fixed` resolves against the nearest ancestor that establishes
   // a containing block for it - a `transform` (or its `translate`/`rotate`/
   // `scale` longhands - already in use elsewhere in this app, e.g.
-  // `MonthStrip.svelte`/`IncomeExpenseBarChart.svelte`), `perspective`,
+  // `NetPositionTrendChart.svelte`/`MonthlyExpenseChart.svelte`), `perspective`,
   // `filter`, `backdrop-filter`, a `will-change` naming any of those, a
   // `container-type` of `size`/`inline-size`, or `contain: layout` (or
   // `paint`/`strict`/`content`) - which is exactly what the shadcn Sheet's

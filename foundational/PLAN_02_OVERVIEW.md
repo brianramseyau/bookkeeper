@@ -16,20 +16,19 @@ Explored with the owner as a sequence of private Artifact prototypes before any 
 
 ## Confirmed decisions
 
-1. **Scope: Monthly only, for now.** The strip is also the Dashboard's hero (`routes/+page.svelte` renders `MonthStrip` directly, independently of Monthly's `MonthSummary`). Dashboard keeps its current strip; whether/how it changes is a separate, not-yet-planned future phase.
+1. **Scope: Monthly only, for now.** The strip is also the Dashboard's hero (`routes/+page.svelte` renders `MonthStrip` directly, independently of Monthly's `MonthSummary`). Dashboard keeps its current strip through this phase; Phase 02 replaces it with a two-zone snapshot layout (see below).
 2. **One chronological list** replaces `MonthSummary`'s `<MonthStrip>`, `OutgoingLinesTable` and `IncomingTable` - bills and income entries/placeholders interleaved by resolved date, not two separate tables.
-3. **Existing edit surfaces are reused unchanged.** `OutgoingLineEditSheet`, `IncomeEntryEditRow`, `MonthlyLogIncomeSheet` and `CarryoverCard`'s inline edit already do exactly what the prototype's mocked-up controls simulated. This phase changes the row/list *presentation* in `+page.svelte`'s template, not the mutation logic (`togglePaid`, `saveExpenseEditValues`, `saveEntryEditValues`, `acceptPlaceholder`, `saveCarryover`, etc. stay as-is).
+3. **Existing edit surfaces are reused unchanged.** `OutgoingLineEditSheet`, `IncomeEntryEditRow`, `MonthlyLogIncomeSheet` and `CarryoverCard`'s inline edit already do exactly what the prototype's mocked-up controls simulated. This phase changes the row/list _presentation_ in `+page.svelte`'s template, not the mutation logic (`togglePaid`, `saveExpenseEditValues`, `saveEntryEditValues`, `acceptPlaceholder`, `saveCarryover`, etc. stay as-is).
 4. **Carryover isn't a dated event**, so it stays out of the chronological list - shown as a compact header figure/row instead of its own full-width table.
 5. **Touch targets follow the ≥44px pattern validated in the prototype** (checkbox tap area, edit pencil, Accept/Edit) - a deliberate deviation from DESIGN.md's existing note that inline row buttons are exempt from the 44px floor, given how often these specific controls get tapped on this page. Logged as a DESIGN.md decision once implemented.
 6. **Branch:** this work develops on the branch the session was started on (`claude/triangle-graph-mobile-k6dy7g`) rather than a `phase-02-...` branch - the repo's own naming convention below is superseded by this session's harness-level branch assignment, not by choice.
 
 ## Phases
 
-| Phase | Doc                                                                                      | Summary                                                        |
-| ----- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| 1     | [PLAN_02_PHASE_01_MONTHLY_UNIFIED_LIST.md](PLAN_02_PHASE_01_MONTHLY_UNIFIED_LIST.md)       | Replace Monthly's strip + two tables with one chronological list |
-
-A Dashboard phase may follow once this one has shipped and been lived with - intentionally not planned yet (see Confirmed decisions above).
+| Phase | Doc                                                                                  | Summary                                                                        |
+| ----- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 1     | [PLAN_02_PHASE_01_MONTHLY_UNIFIED_LIST.md](PLAN_02_PHASE_01_MONTHLY_UNIFIED_LIST.md) | Replace Monthly's strip + two tables with one chronological list               |
+| 2     | [PLAN_02_PHASE_02_DASHBOARD_SNAPSHOT.md](PLAN_02_PHASE_02_DASHBOARD_SNAPSHOT.md)     | Replace the Dashboard's strip with a two-zone "Right now"/"Over time" snapshot |
 
 ## Per-phase workflow: checks and reviews
 

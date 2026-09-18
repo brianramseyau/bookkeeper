@@ -89,7 +89,9 @@
       </svg>
       <span class="sr-only">{TONE_LABEL[tone]}</span>
     {/if}
-    <span class={['font-figures text-2xl font-semibold', TONE_TEXT[tone]]}>{value}</span>
+    <span class={['font-figures min-w-0 truncate text-2xl font-semibold', TONE_TEXT[tone]]}
+      >{value}</span
+    >
   </p>
   {#if hint}
     <p class="text-muted-foreground mt-auto pt-2 text-xs">{hint}</p>

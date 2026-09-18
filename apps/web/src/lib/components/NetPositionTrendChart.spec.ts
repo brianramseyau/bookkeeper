@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { themeState } from '$lib/stores/theme.svelte'
-import IncomeExpenseBarChart from './IncomeExpenseBarChart.svelte'
+import NetPositionTrendChart from './NetPositionTrendChart.svelte'
 
 afterEach(() => {
   themeState.current = 'light'
@@ -30,9 +30,9 @@ function stubBoundingRect(container: HTMLElement) {
   return svg
 }
 
-describe('IncomeExpenseBarChart', () => {
+describe('NetPositionTrendChart', () => {
   it('shows a placeholder when there is no data', () => {
-    render(IncomeExpenseBarChart, { data: [], incomeColor: '#0A6B50', expenseColor: '#9C3320' })
+    render(NetPositionTrendChart, { data: [], incomeColor: '#0A6B50', expenseColor: '#9C3320' })
     expect(screen.getByText('Not enough data yet')).toBeInTheDocument()
     expect(document.querySelector('svg')).toBeNull()
   })
@@ -41,7 +41,7 @@ describe('IncomeExpenseBarChart', () => {
     // The dashboard always passes a full 12-month window, so a fresh
     // install/no-history case sends 12 zero-value entries rather than an
     // empty array - the placeholder must still show for that case.
-    render(IncomeExpenseBarChart, {
+    render(NetPositionTrendChart, {
       data: [
         { year: 2026, month: 1, income: 0, expense: 0 },
         { year: 2026, month: 2, income: 0, expense: 0 },
@@ -53,17 +53,20 @@ describe('IncomeExpenseBarChart', () => {
     expect(document.querySelector('svg')).toBeNull()
   })
 
-  it('renders a legend and a bar pair for every month', () => {
-    render(IncomeExpenseBarChart, { data, incomeColor: '#0A6B50', expenseColor: '#9C3320' })
+  it('renders a legend and a bar pair for every month, plus the net line', () => {
+    render(NetPositionTrendChart, { data, incomeColor: '#0A6B50', expenseColor: '#9C3320' })
     expect(screen.getByText('Income')).toBeInTheDocument()
     expect(screen.getByText('Expenses')).toBeInTheDocument()
+    expect(screen.getByText('Net')).toBeInTheDocument()
     expect(document.querySelectorAll('path[fill="#0A6B50"]')).toHaveLength(3)
     expect(document.querySelectorAll('path[fill="#9C3320"]')).toHaveLength(3)
+    // One <circle> net-position marker per month, plus the connecting line.
+    expect(document.querySelectorAll('circle')).toHaveLength(3)
   })
 
-  it('shows a hover tooltip with both series and calls onSelectMonth when clicked', async () => {
+  it('shows a hover tooltip with income, expenses and net, and calls onSelectMonth when clicked', async () => {
     const onSelectMonth = vi.fn()
-    const { container } = render(IncomeExpenseBarChart, {
+    const { container } = render(NetPositionTrendChart, {
       data,
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -75,13 +78,14 @@ describe('IncomeExpenseBarChart', () => {
     expect(screen.getByText('Jan 2026')).toBeInTheDocument()
     expect(screen.getByText('$400.00')).toBeInTheDocument()
     expect(screen.getByText('$100.00')).toBeInTheDocument()
+    expect(screen.getByText('$300.00')).toBeInTheDocument()
 
     await fireEvent.click(svg)
     expect(onSelectMonth).toHaveBeenCalledWith(2026, 1)
   })
 
   it('positions the hover tooltip against the plot, not the legend', async () => {
-    const { container } = render(IncomeExpenseBarChart, {
+    const { container } = render(NetPositionTrendChart, {
       data,
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -101,7 +105,7 @@ describe('IncomeExpenseBarChart', () => {
   })
 
   it('clears the hover tooltip on pointer leave', async () => {
-    const { container } = render(IncomeExpenseBarChart, {
+    const { container } = render(NetPositionTrendChart, {
       data,
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -117,7 +121,7 @@ describe('IncomeExpenseBarChart', () => {
 
   it('navigates and selects months with the keyboard', async () => {
     const onSelectMonth = vi.fn()
-    const { container } = render(IncomeExpenseBarChart, {
+    const { container } = render(NetPositionTrendChart, {
       data,
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -140,7 +144,7 @@ describe('IncomeExpenseBarChart', () => {
   })
 
   it('does nothing on keyboard/pointer interaction when there are no bars', async () => {
-    const { container } = render(IncomeExpenseBarChart, {
+    const { container } = render(NetPositionTrendChart, {
       data: [],
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -148,9 +152,9 @@ describe('IncomeExpenseBarChart', () => {
     expect(container.querySelector('svg')).toBeNull()
   })
 
-  it('toggles the table view and lists every month with both figures', async () => {
+  it('toggles the table view and lists every month with income, expenses and net', async () => {
     const user = userEvent.setup()
-    render(IncomeExpenseBarChart, { data, incomeColor: '#0A6B50', expenseColor: '#9C3320' })
+    render(NetPositionTrendChart, { data, incomeColor: '#0A6B50', expenseColor: '#9C3320' })
 
     expect(screen.queryByRole('table')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'View as table' }))
@@ -159,6 +163,9 @@ describe('IncomeExpenseBarChart', () => {
     expect(screen.getByText('Jan 2026')).toBeInTheDocument()
     expect(screen.getByText('Feb 2026')).toBeInTheDocument()
     expect(screen.getByText('Mar 2026')).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Net' })).toBeInTheDocument()
+    // Jan's net is 400 - 100 = 300.
+    expect(screen.getByText('$300.00')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Hide table' }))
     expect(screen.queryByRole('table')).toBeNull()
@@ -167,7 +174,7 @@ describe('IncomeExpenseBarChart', () => {
   it('selects a month by clicking its table row', async () => {
     const onSelectMonth = vi.fn()
     const user = userEvent.setup()
-    render(IncomeExpenseBarChart, {
+    render(NetPositionTrendChart, {
       data,
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -181,7 +188,7 @@ describe('IncomeExpenseBarChart', () => {
   })
 
   it('is not keyboard-focusable and has no click handler without onSelectMonth', () => {
-    const { container } = render(IncomeExpenseBarChart, {
+    const { container } = render(NetPositionTrendChart, {
       data,
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -191,7 +198,7 @@ describe('IncomeExpenseBarChart', () => {
   })
 
   it('renders a single-month series without dividing by zero', () => {
-    render(IncomeExpenseBarChart, {
+    render(NetPositionTrendChart, {
       data: [{ year: 2026, month: 5, income: 500, expense: 80 }],
       incomeColor: '#0A6B50',
       expenseColor: '#9C3320',
@@ -200,5 +207,28 @@ describe('IncomeExpenseBarChart', () => {
     for (const path of paths) {
       expect(path.getAttribute('d')).not.toContain('NaN')
     }
+  })
+
+  it('extends the y-axis below zero and dips the net line for a deficit month', () => {
+    const { container } = render(NetPositionTrendChart, {
+      data: [
+        { year: 2026, month: 1, income: 400, expense: 100 },
+        // A deficit month: net = 300 - 500 = -200.
+        { year: 2026, month: 2, income: 300, expense: 500 },
+      ],
+      incomeColor: '#0A6B50',
+      expenseColor: '#9C3320',
+    })
+
+    // A gridline below zero must appear once the axis is asked to cover a
+    // negative net value.
+    expect(screen.getByText(/^-\$/)).toBeInTheDocument()
+
+    const circles = container.querySelectorAll('circle')
+    expect(circles).toHaveLength(2)
+    const [janY, febY] = [...circles].map((c) => Number(c.getAttribute('cy')))
+    // February's deficit month net marker sits below (larger y) January's
+    // surplus month net marker in SVG's y-down coordinate space.
+    expect(febY).toBeGreaterThan(janY!)
   })
 })
