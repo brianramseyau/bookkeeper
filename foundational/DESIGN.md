@@ -273,7 +273,7 @@ logic out of the component.
 
 ### Placeholder rows
 
-A row for a known-but-not-yet-confirmed item (Monthly's Incoming table — a source's projected pay date with no logged entry) uses the normal row shape plus `italic` on the `<tr>` and the muted text tier on every cell. Actions are Accept (`mdiCheckBold` on the `success` variant — logs the row immediately at its projected amount/date, no confirmation) plus the normal Edit pencil; there is no Delete, because nothing is persisted yet. Reuse this shape for any future "known but unconfirmed" row rather than inventing a new muted-row treatment.
+A row for a known-but-not-yet-confirmed item (`MonthlyUnifiedList`'s placeholder branch — a source's projected pay date with no logged entry) uses the normal row shape plus `italic` on the `<li>` and the muted text tier on every cell. Actions are Accept (`mdiCheckBold` on the `success` variant — logs the row immediately at its projected amount/date, no confirmation) plus the normal Edit pencil; there is no Delete, because nothing is persisted yet. Reuse this shape for any future "known but unconfirmed" row rather than inventing a new muted-row treatment.
 
 ### Row actions and tooltips
 
