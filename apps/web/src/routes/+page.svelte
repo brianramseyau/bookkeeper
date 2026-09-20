@@ -118,43 +118,40 @@
 {#snippet rightNow(d: DashboardSummary)}
   <section aria-labelledby="right-now-heading">
     <h2 id="right-now-heading" class="text-ink font-display text-lg">Right now</h2>
-    <div class="mt-3">
-      <!-- Below `lg` this zone spans the full page width, so 3 columns fit
-           fine (matches StatGrid's own `cols=3`) - at `lg+` it narrows to
-           2/5 of the page for the two-zone split, too tight for three
-           currency values side by side, so it drops to a single column
-           there instead of truncating them. -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1">
-        <StatCard
-          label="Position"
-          value={formatCurrency(d.currentMonth.actualNet)}
-          tone={toneForSign(signOf(d.currentMonth.actualNet))}
-          hint="Actual net this month"
-        />
-        <StatCard
-          label="vs projected"
-          value={`${vsProjectedSign === 'positive' ? '+' : ''}${formatCurrency(vsProjected)}`}
-          tone={toneForSign(vsProjectedSign)}
-          hint={vsProjectedSign === 'positive'
-            ? 'Ahead of the standard-month plan'
-            : vsProjectedSign === 'negative'
-              ? 'Behind the standard-month plan'
-              : 'Exactly on the standard-month plan'}
-        />
-        <StatCard
-          label="Income vs expenses"
-          value={formatCurrency(monthlyPosition)}
-          tone={toneForSign(monthlyPositionSign)}
-          hint={monthlyPositionSign === 'positive'
-            ? 'Surplus vs categorised spend this month'
-            : monthlyPositionSign === 'negative'
-              ? 'Deficit vs categorised spend this month'
-              : 'Breaking even vs categorised spend this month'}
-        />
-      </div>
+    <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <StatCard
+        label="Position"
+        value={formatCurrency(d.currentMonth.actualNet)}
+        tone={toneForSign(signOf(d.currentMonth.actualNet))}
+        hint="Actual net this month"
+      />
+      <StatCard
+        label="vs projected"
+        value={`${vsProjectedSign === 'positive' ? '+' : ''}${formatCurrency(vsProjected)}`}
+        tone={toneForSign(vsProjectedSign)}
+        hint={vsProjectedSign === 'positive'
+          ? 'Ahead of the standard-month plan'
+          : vsProjectedSign === 'negative'
+            ? 'Behind the standard-month plan'
+            : 'Exactly on the standard-month plan'}
+      />
+      <StatCard
+        label="Income vs expenses"
+        value={formatCurrency(monthlyPosition)}
+        tone={toneForSign(monthlyPositionSign)}
+        hint={monthlyPositionSign === 'positive'
+          ? 'Surplus vs categorised spend this month'
+          : monthlyPositionSign === 'negative'
+            ? 'Deficit vs categorised spend this month'
+            : 'Breaking even vs categorised spend this month'}
+      />
     </div>
+  </section>
+{/snippet}
 
-    <Card class="mt-6 p-4">
+{#snippet details(d: DashboardSummary)}
+  <div class="flex flex-col gap-6">
+    <Card class="p-4">
       <h3 class="text-foreground text-sm font-semibold">Upcoming bills</h3>
       {#if d.upcomingBills.length === 0}
         <p class="text-muted-foreground mt-3 text-sm">Nothing scheduled.</p>
@@ -189,7 +186,7 @@
       {/if}
     </Card>
 
-    <Card class="mt-6 p-4">
+    <Card class="p-4">
       <h3 class="text-foreground text-sm font-semibold">
         {monthName(d.currentMonth.month)} spend by category
       </h3>
@@ -197,7 +194,7 @@
         <CategoryBreakdownList data={d.categoryBreakdown} />
       </div>
     </Card>
-  </section>
+  </div>
 {/snippet}
 
 {#snippet overTime()}
@@ -238,12 +235,18 @@
     <LoadingSkeleton rows={5} />
   </div>
 {:else if data}
-  <div class="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-5">
-    <div class="lg:col-span-2">
-      {@render rightNow(data)}
-    </div>
-    <div class="lg:col-span-3">
-      {@render overTime()}
+  <div class="mt-6 flex flex-col gap-8">
+    {@render rightNow(data)}
+    <!-- Chart and detail cards sit side by side from `lg`, chart first; stacked,
+         the chart still comes first. One DOM order throughout, so tab order
+         always matches the visual order. -->
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div>
+        {@render overTime()}
+      </div>
+      <div class="lg:pt-10">
+        {@render details(data)}
+      </div>
     </div>
   </div>
 {/if}

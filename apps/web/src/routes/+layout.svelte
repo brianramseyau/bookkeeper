@@ -16,6 +16,16 @@
 
   let { children } = $props()
 
+  // Content width per route (matched on the path's first segment). The
+  // Dashboard is a multi-panel overview that has room to spread out on wide
+  // screens; every other route is a single column/table that reads better at
+  // the default width. The nav bar shares the width so its contents stay
+  // aligned with the page below it. Routes never set their own max-width
+  // (see DESIGN.md), so a wider route is added here.
+  const DEFAULT_WIDTH = 'max-w-5xl'
+  const ROUTE_WIDTHS: Record<string, string> = { '': 'max-w-7xl' }
+  const shellWidth = $derived(ROUTE_WIDTHS[page.url.pathname.split('/')[1] ?? ''] ?? DEFAULT_WIDTH)
+
   // Dashboard, Monthly and Income each answer a distinct question in
   // DESIGN.md's screen table and stay top-level; Bills/Subscriptions/
   // Expenses/Utilities all answer the same one ("what do we pay for?"), so
@@ -68,7 +78,7 @@
 {:else if authState.user}
   <div class="bg-background min-h-screen">
     <nav aria-label="Primary" class="bg-surface border-rule border-b">
-      <div class="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3 sm:px-6">
+      <div class={['mx-auto flex items-center gap-6 px-4 py-3 sm:px-6', shellWidth]}>
         <a href="/" class="font-display text-foreground text-lg">Bookkeeper</a>
 
         <div class="hidden items-center gap-6 lg:flex">
@@ -103,7 +113,10 @@
          sm:py-8's own bottom padding is enough at lg+, where the tab bar is
          hidden. -->
     <main
-      class="mx-auto max-w-5xl px-4 pt-6 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:pb-8"
+      class={[
+        'mx-auto px-4 pt-6 pb-[calc(4rem+env(safe-area-inset-bottom))] sm:px-6 sm:pt-8 lg:pb-8',
+        shellWidth,
+      ]}
     >
       {@render children()}
     </main>
