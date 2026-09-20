@@ -86,11 +86,17 @@ describe('ActionMenu', () => {
     //     as outside it, so one is set explicitly here - a real click could
     //     never land inside a truly zero-sized element either.
     // The listeners themselves are attached ~1ms after the layer opens
-    // (real timer) - wait that out before dispatching, or the event fires
-    // into a layer that isn't listening yet and is simply missed (no retry).
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
-    await waitFor(() => expect(screen.queryByRole('menu', inOpenMenu)).toBeNull())
+    // (real timer), and under a loaded full-suite run that can slip past any
+    // fixed sleep - an event dispatched before then is simply missed (no
+    // retry). So re-dispatch inside the `waitFor` until the menu closes;
+    // extra pointerdowns on an already-dismissed layer are harmless.
+    await waitFor(
+      async () => {
+        await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
+        expect(screen.queryByRole('menu', inOpenMenu)).toBeNull()
+      },
+      { timeout: 2000 }
+    )
 
     expect(onEdit).not.toHaveBeenCalled()
   })
