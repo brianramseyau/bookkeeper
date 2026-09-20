@@ -16,11 +16,15 @@
 
   let { children } = $props()
 
-  // The Dashboard is a multi-panel overview that has room to spread out on
-  // wide screens; every other route is a single column/table that reads
-  // better at the standard width. The nav bar shares the width so its
-  // contents stay aligned with the page below it.
-  const shellWidth = $derived(page.url.pathname === '/' ? 'max-w-7xl' : 'max-w-5xl')
+  // Content width per route (matched on the path's first segment). The
+  // Dashboard is a multi-panel overview that has room to spread out on wide
+  // screens; every other route is a single column/table that reads better at
+  // the default width. The nav bar shares the width so its contents stay
+  // aligned with the page below it. Routes never set their own max-width
+  // (see DESIGN.md), so a wider route is added here.
+  const DEFAULT_WIDTH = 'max-w-5xl'
+  const ROUTE_WIDTHS: Record<string, string> = { '': 'max-w-7xl' }
+  const shellWidth = $derived(ROUTE_WIDTHS[page.url.pathname.split('/')[1] ?? ''] ?? DEFAULT_WIDTH)
 
   // Dashboard, Monthly and Income each answer a distinct question in
   // DESIGN.md's screen table and stay top-level; Bills/Subscriptions/
