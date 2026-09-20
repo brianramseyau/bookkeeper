@@ -112,7 +112,7 @@ The whole app uses one variable superfamily, **Recursive** (Arrow Type), self-ho
 
 ## Layout
 
-- Content column: `max-w-5xl`. Monthly may widen to `6xl`.
+- Content column: `max-w-5xl`. Monthly may widen to `6xl`. The Dashboard (`/`) widens to `7xl` (nav bar included, via `shellWidth` in `+layout.svelte`) so its stat row and chart/detail split use the desktop width.
 - Cards are `surface` with a `rule` border and **no shadow**. Only floating surfaces (menus, popovers, sheets, dialogs) get elevation.
 - Radius: 10px for cards and sheets, 6px for controls, full for badges and chips. Radii are not all the same.
 - **Mobile lists** (below `sm`): every list is a two-line row with a 48px minimum height:
