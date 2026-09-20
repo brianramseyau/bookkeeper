@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/svelte'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '$lib/api'
 import SubscriptionsPage from './+page.svelte'
 
@@ -28,6 +28,12 @@ vi.mock('$lib/api/categories', () => ({ listCategories: vi.fn().mockResolvedValu
 import { listUsers } from '$lib/api/users'
 import { authState } from '$lib/stores/auth.svelte'
 
+const originalUser = authState.user
+
+afterEach(() => {
+  authState.user = originalUser
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(listUsers).mockResolvedValue([
@@ -41,13 +47,17 @@ describe('Subscriptions page', () => {
       { id: 1, fullName: 'Adam', email: 'a@test.local', displayColor: null, initials: 'A' },
       { id: 2, fullName: 'Bea', email: 'b@test.local', displayColor: null, initials: 'B' },
     ])
-    const original = authState.user
-    authState.user = { id: 2, email: 'b@test.local', fullName: 'Bea' } as typeof authState.user
+    authState.user = {
+      id: 2,
+      email: 'b@test.local',
+      fullName: 'Bea',
+      displayColor: null,
+      initials: 'B',
+    }
     render(SubscriptionsPage)
 
     const bea = await screen.findByRole('button', { name: /Bea/ })
     expect(bea.className).toContain('border-primary')
-    authState.user = original
   })
 
   it('renders the list with the per-person switcher', async () => {
