@@ -4,6 +4,7 @@
   import { getSubscriptionsSummary, type SubscriptionSummary } from '$lib/api/subscriptions'
   import { ApiError } from '$lib/api'
   import { formatCurrency } from '$lib/format'
+  import { authState } from '$lib/stores/auth.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
   import EmptyState from '$lib/components/app/EmptyState.svelte'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
@@ -25,7 +26,10 @@
       const [userList, summaryList] = await Promise.all([listUsers(), getSubscriptionsSummary()])
       users = userList
       summaries = summaryList
-      selectedUserId = userList[0]?.id
+      const loggedInUserId = authState.user?.id
+      selectedUserId = userList.some((u) => u.id === loggedInUserId)
+        ? loggedInUserId
+        : userList[0]?.id
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to load subscriptions'
     } finally {
@@ -45,9 +49,7 @@
   <LoadingSkeleton rows={4} />
 {:else if selectedUserId === undefined}
   <PageHeader title="Subscriptions" description={subscriptionsAdapter.description} />
-  <EmptyState
-    message="No household members found. A subscription needs a person to belong to."
-  />
+  <EmptyState message="No household members found. A subscription needs a person to belong to." />
 {:else}
   {#key selectedUserId}
     <OutgoingsList
@@ -69,7 +71,7 @@
               ]}
             >
               {user.fullName ?? user.email}
-              <span class="ml-1 text-xs text-muted-foreground"
+              <span class="text-muted-foreground ml-1 text-xs"
                 >{formatCurrency(totalFor(user.id))}/mo</span
               >
             </button>

@@ -4,15 +4,17 @@ import { ApiError } from '$lib/api'
 import SubscriptionsPage from './+page.svelte'
 
 vi.mock('$lib/api/users', () => ({
-  listUsers: vi.fn().mockResolvedValue([
-    { id: 1, fullName: 'Adam', email: 'a@test.local', displayColor: null, initials: 'A' },
-  ]),
+  listUsers: vi
+    .fn()
+    .mockResolvedValue([
+      { id: 1, fullName: 'Adam', email: 'a@test.local', displayColor: null, initials: 'A' },
+    ]),
 }))
 vi.mock('$lib/api/subscriptions', () => ({
   listSubscriptions: vi.fn().mockResolvedValue([]),
-  getSubscriptionsSummary: vi.fn().mockResolvedValue([
-    { userId: 1, fullName: 'Adam', total: 0, count: 0 },
-  ]),
+  getSubscriptionsSummary: vi
+    .fn()
+    .mockResolvedValue([{ userId: 1, fullName: 'Adam', total: 0, count: 0 }]),
   getSubscription: vi.fn(),
   createSubscription: vi.fn(),
   updateSubscription: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock('$lib/api/subscriptions', () => ({
 vi.mock('$lib/api/categories', () => ({ listCategories: vi.fn().mockResolvedValue([]) }))
 
 import { listUsers } from '$lib/api/users'
+import { authState } from '$lib/stores/auth.svelte'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -33,6 +36,20 @@ beforeEach(() => {
 })
 
 describe('Subscriptions page', () => {
+  it("selects the logged-in user's tab by default", async () => {
+    vi.mocked(listUsers).mockResolvedValue([
+      { id: 1, fullName: 'Adam', email: 'a@test.local', displayColor: null, initials: 'A' },
+      { id: 2, fullName: 'Bea', email: 'b@test.local', displayColor: null, initials: 'B' },
+    ])
+    const original = authState.user
+    authState.user = { id: 2, email: 'b@test.local', fullName: 'Bea' } as typeof authState.user
+    render(SubscriptionsPage)
+
+    const bea = await screen.findByRole('button', { name: /Bea/ })
+    expect(bea.className).toContain('border-primary')
+    authState.user = original
+  })
+
   it('renders the list with the per-person switcher', async () => {
     render(SubscriptionsPage)
 
