@@ -237,15 +237,15 @@
 {:else if data}
   <div class="mt-6 flex flex-col gap-8">
     {@render rightNow(data)}
-    <!-- Chart and detail cards sit side by side from `lg`; the chart gets
-         the wider track. In the DOM the cards come first so the stacked
-         (mobile) order stays stats, lists, chart. -->
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <div class="lg:col-start-2 lg:row-start-1 lg:pt-10">
-        {@render details(data)}
-      </div>
-      <div class="lg:col-start-1 lg:row-start-1">
+    <!-- Chart and detail cards sit side by side from `lg`, chart first (in
+         DOM order too, so tab order matches the visual order). Stacked, the
+         cards read before the chart, hence `order-*` below `lg` only. -->
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div class="order-2 lg:order-none">
         {@render overTime()}
+      </div>
+      <div class="order-1 lg:order-none lg:pt-10">
+        {@render details(data)}
       </div>
     </div>
   </div>
