@@ -59,6 +59,12 @@ describe('ActionMenu', () => {
       actions: [{ label: 'Edit', path: mdiPencil, onclick: onEdit }],
     })
 
+    // Layers from earlier tests can linger in the registry, so readiness is
+    // "this menu added one", not "the registry is non-empty".
+    const layerCount = () =>
+      (globalThis as { bitsDismissableLayers?: Map<unknown, unknown> }).bitsDismissableLayers
+        ?.size ?? 0
+    const layersBefore = layerCount()
     await user.click(screen.getByRole('button', { name: 'Actions for Groceries' }))
     expect(screen.getByRole('menu', inOpenMenu)).toBeInTheDocument()
 
@@ -86,9 +92,15 @@ describe('ActionMenu', () => {
     //     as outside it, so one is set explicitly here - a real click could
     //     never land inside a truly zero-sized element either.
     // The listeners themselves are attached ~1ms after the layer opens
-    // (real timer) - wait that out before dispatching, or the event fires
-    // into a layer that isn't listening yet and is simply missed (no retry).
-    await new Promise((resolve) => setTimeout(resolve, 10))
+    // (real timer), and an event dispatched before then is simply missed. The
+    // layer registers itself in `bitsDismissableLayers` in the same tick it
+    // attaches them, so wait for it to grow. It then briefly deregisters and
+    // re-registers once the content settles, and a pointerdown landing in that
+    // gap isn't "responsible" and is dropped - hence the short settle below.
+    // After that, dispatch exactly once: a single outside click must dismiss
+    // the menu, as it would for a user.
+    await waitFor(() => expect(layerCount()).toBeGreaterThan(layersBefore))
+    await new Promise((resolve) => setTimeout(resolve, 50))
     await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
     await waitFor(() => expect(screen.queryByRole('menu', inOpenMenu)).toBeNull())
 
