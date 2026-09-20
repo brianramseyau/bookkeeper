@@ -61,9 +61,10 @@ describe('ActionMenu', () => {
 
     // Layers from earlier tests can linger in the registry, so readiness is
     // "this menu added one", not "the registry is non-empty".
-    const layers = (globalThis as unknown as { bitsDismissableLayers: Map<unknown, unknown> })
-      .bitsDismissableLayers
-    const layersBefore = layers.size
+    const layerCount = () =>
+      (globalThis as { bitsDismissableLayers?: Map<unknown, unknown> }).bitsDismissableLayers
+        ?.size ?? 0
+    const layersBefore = layerCount()
     await user.click(screen.getByRole('button', { name: 'Actions for Groceries' }))
     expect(screen.getByRole('menu', inOpenMenu)).toBeInTheDocument()
 
@@ -98,7 +99,7 @@ describe('ActionMenu', () => {
     // gap isn't "responsible" and is dropped - hence the short settle below.
     // After that, dispatch exactly once: a single outside click must dismiss
     // the menu, as it would for a user.
-    await waitFor(() => expect(layers.size).toBeGreaterThan(layersBefore))
+    await waitFor(() => expect(layerCount()).toBeGreaterThan(layersBefore))
     await new Promise((resolve) => setTimeout(resolve, 50))
     await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
     await waitFor(() => expect(screen.queryByRole('menu', inOpenMenu)).toBeNull())
