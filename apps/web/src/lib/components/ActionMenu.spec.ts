@@ -59,6 +59,11 @@ describe('ActionMenu', () => {
       actions: [{ label: 'Edit', path: mdiPencil, onclick: onEdit }],
     })
 
+    // Layers from earlier tests can linger in the registry, so readiness is
+    // "this menu added one", not "the registry is non-empty".
+    const layers = (globalThis as unknown as { bitsDismissableLayers: Map<unknown, unknown> })
+      .bitsDismissableLayers
+    const layersBefore = layers.size
     await user.click(screen.getByRole('button', { name: 'Actions for Groceries' }))
     expect(screen.getByRole('menu', inOpenMenu)).toBeInTheDocument()
 
@@ -86,17 +91,17 @@ describe('ActionMenu', () => {
     //     as outside it, so one is set explicitly here - a real click could
     //     never land inside a truly zero-sized element either.
     // The listeners themselves are attached ~1ms after the layer opens
-    // (real timer), and under a loaded full-suite run that can slip past any
-    // fixed sleep - an event dispatched before then is simply missed (no
-    // retry). So re-dispatch inside the `waitFor` until the menu closes;
-    // extra pointerdowns on an already-dismissed layer are harmless.
-    await waitFor(
-      async () => {
-        await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
-        expect(screen.queryByRole('menu', inOpenMenu)).toBeNull()
-      },
-      { timeout: 2000 }
-    )
+    // (real timer), and an event dispatched before then is simply missed. The
+    // layer registers itself in `bitsDismissableLayers` in the same tick it
+    // attaches them, so wait for it to grow. It then briefly deregisters and
+    // re-registers once the content settles, and a pointerdown landing in that
+    // gap isn't "responsible" and is dropped - hence the short settle below.
+    // After that, dispatch exactly once: a single outside click must dismiss
+    // the menu, as it would for a user.
+    await waitFor(() => expect(layers.size).toBeGreaterThan(layersBefore))
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    await fireEvent.pointerDown(document.body, { clientX: 999, clientY: 999, button: 0 })
+    await waitFor(() => expect(screen.queryByRole('menu', inOpenMenu)).toBeNull())
 
     expect(onEdit).not.toHaveBeenCalled()
   })
