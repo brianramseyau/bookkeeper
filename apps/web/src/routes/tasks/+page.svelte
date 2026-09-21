@@ -209,7 +209,7 @@
   {:else}
     <form onsubmit={handleSaveSettings} class="mt-3 flex flex-wrap items-end gap-4">
       <label class="flex items-center gap-2">
-        <input type="checkbox" class="border-input size-4 rounded" bind:checked={enabled} />
+        <input type="checkbox" class="size-4 rounded" bind:checked={enabled} />
         <span class="text-foreground text-sm font-medium">Enabled</span>
       </label>
       <div class="flex flex-col gap-2">

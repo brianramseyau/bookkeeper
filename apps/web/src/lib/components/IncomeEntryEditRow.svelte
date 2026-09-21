@@ -213,7 +213,7 @@
     </div>
     {#if unattributed}
       <label class="flex items-center gap-2">
-        <input type="checkbox" class="border-input size-4 rounded" bind:checked={taxWithheld} />
+        <input type="checkbox" class="size-4 rounded" bind:checked={taxWithheld} />
         <span class="text-foreground text-sm font-medium">Tax withheld</span>
       </label>
     {/if}

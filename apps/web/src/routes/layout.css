@@ -189,35 +189,48 @@
    Violet by default; `accent-due` (Monthly's estimated lines) switches to
    amber. The unchecked border uses muted-ink, not `--input` (the pale rule
    colour), to keep 3:1 non-text contrast. The tick is a clip-path, not an
-   SVG data URI, so the CSP's img-src needn't allow data:. */
-input[type='checkbox'] {
-  --checkbox: var(--violet);
-  appearance: none;
-  position: relative;
-  flex-shrink: 0;
-  border: 1.5px solid var(--muted-ink);
-  background-color: var(--surface);
-}
-input[type='checkbox'].accent-due {
-  --checkbox: var(--due);
-}
-input[type='checkbox']:checked {
-  border-color: var(--checkbox);
-  background-color: var(--checkbox);
-}
-input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-color: var(--surface);
-  clip-path: polygon(22% 52%, 30% 44%, 43% 57%, 72% 26%, 80% 34%, 43% 73%);
-}
-input[type='checkbox']:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
-}
-input[type='checkbox']:disabled {
-  cursor: not-allowed;
+   SVG data URI, so the CSP's img-src needn't allow data:. It lives in
+   `@layer base` so per-instance utilities (`bg-*`, `border-*`) still win. */
+@layer base {
+  input[type='checkbox'] {
+    --checkbox: var(--violet);
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    border: 1.5px solid var(--muted-ink);
+    background-color: var(--surface);
+  }
+  input[type='checkbox'].accent-due {
+    --checkbox: var(--due);
+  }
+  input[type='checkbox']:checked {
+    border-color: var(--checkbox);
+    background-color: var(--checkbox);
+  }
+  input[type='checkbox']:checked::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-color: var(--surface);
+    clip-path: polygon(22% 52%, 30% 44%, 43% 57%, 72% 26%, 80% 34%, 43% 73%);
+  }
+  input[type='checkbox']:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  input[type='checkbox']:disabled {
+    cursor: not-allowed;
+  }
+  /* Forced colors (Windows High Contrast) overrides author background/border
+     colours, which would leave checked and unchecked identical. */
+  @media (forced-colors: active) {
+    input[type='checkbox'] {
+      appearance: auto;
+    }
+    input[type='checkbox']:checked::after {
+      content: none;
+    }
+  }
 }
 
 /* Replaces the inline `style="display: contents"` SvelteKit's app.html

@@ -359,7 +359,7 @@
   {:else}
     <form onsubmit={handleSavePreferences} class="mt-3 flex max-w-sm flex-col gap-4">
       <label class="flex items-center gap-2">
-        <input type="checkbox" class="border-input size-4 rounded" bind:checked={notifyEnabled} />
+        <input type="checkbox" class="size-4 rounded" bind:checked={notifyEnabled} />
         <span class="text-foreground text-sm font-medium">Enabled</span>
       </label>
       <div class="flex flex-col gap-2">
@@ -376,27 +376,15 @@
       <fieldset class="flex flex-col gap-2">
         <legend class="text-foreground text-sm font-medium">Bill types</legend>
         <label class="flex items-center gap-2">
-          <input
-            type="checkbox"
-            class="border-input size-4 rounded"
-            bind:checked={notifyUtilityBills}
-          />
+          <input type="checkbox" class="size-4 rounded" bind:checked={notifyUtilityBills} />
           <span class="text-foreground text-sm">Utility bills</span>
         </label>
         <label class="flex items-center gap-2">
-          <input
-            type="checkbox"
-            class="border-input size-4 rounded"
-            bind:checked={notifyRecurringBills}
-          />
+          <input type="checkbox" class="size-4 rounded" bind:checked={notifyRecurringBills} />
           <span class="text-foreground text-sm">Recurring bills</span>
         </label>
         <label class="flex items-center gap-2">
-          <input
-            type="checkbox"
-            class="border-input size-4 rounded"
-            bind:checked={notifySubscriptions}
-          />
+          <input type="checkbox" class="size-4 rounded" bind:checked={notifySubscriptions} />
           <span class="text-foreground text-sm">Subscriptions</span>
         </label>
       </fieldset>
