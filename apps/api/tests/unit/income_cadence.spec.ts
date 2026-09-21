@@ -99,6 +99,34 @@ test.group('payDatesInMonth / fortnightly', () => {
     const dates = payDatesInMonth(source, 2025, 1).map((d) => d.toISODate())
     assert.lengthOf(dates, 2)
   })
+
+  // Lucid's `@column.date()` consumes a DB value in Luxon's default (system)
+  // zone, not UTC, so `source.anchorDate` can arrive with a non-UTC offset
+  // in production (the app's system zone is AU, ahead of UTC). Diffing that
+  // directly against a UTC `monthStart` used to land every candidate date on
+  // a non-midnight UTC instant, which read back as the wrong calendar day
+  // once sliced as plain UTC (the Monthly page's one-click "accept" path) -
+  // this app was tested with TZ=UTC (.env.test), where the offset is always
+  // zero and this bug is invisible, so it's exercised explicitly here.
+  test('is unaffected by a non-UTC offset on the stored anchor date', ({ assert }) => {
+    const utcAnchor = fakeSource({
+      frequency: 'fortnightly',
+      anchorDate: DateTime.fromISO('2026-01-02'),
+    })
+    const offsetAnchor = fakeSource({
+      frequency: 'fortnightly',
+      anchorDate: DateTime.fromISO('2026-01-02', { zone: 'Australia/Sydney' }),
+    })
+    const expected = payDatesInMonth(utcAnchor, 2026, 3).map((d) => d.toISO())
+    const actual = payDatesInMonth(offsetAnchor, 2026, 3).map((d) => d.toISO())
+    assert.deepEqual(actual, expected)
+    // Every candidate is a clean UTC midnight - not just the same calendar
+    // day in its own zone, but literally no time-of-day drift for a raw
+    // `.slice(0, 10)` on the serialized ISO string to trip over.
+    for (const iso of actual) {
+      assert.match(iso!, /T00:00:00\.000Z$/)
+    }
+  })
 })
 
 test.group('payPeriodsInMonth', () => {
