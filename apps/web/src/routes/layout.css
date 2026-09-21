@@ -190,7 +190,10 @@
    amber. The unchecked border uses muted-ink, not `--input` (the pale rule
    colour), to keep 3:1 non-text contrast. The tick is a clip-path, not an
    SVG data URI, so the CSP's img-src needn't allow data:. It lives in
-   `@layer base` so per-instance utilities (`bg-*`, `border-*`) still win. */
+   `@layer base` so per-instance utilities (`bg-*`, `border-*`) still win.
+   `@tailwindcss/forms` (see the top of this file) also styles checkboxes - a
+   blue `currentColor` fill, its own tick image and a blue focus ring - and is
+   the real source of the blue; the rules below override all three. */
 @layer base {
   input[type='checkbox'] {
     --checkbox: var(--violet);
@@ -203,9 +206,12 @@
   input[type='checkbox'].accent-due {
     --checkbox: var(--due);
   }
-  input[type='checkbox']:checked {
+  input[type='checkbox']:checked,
+  input[type='checkbox']:checked:hover,
+  input[type='checkbox']:checked:focus {
     border-color: var(--checkbox);
     background-color: var(--checkbox);
+    background-image: none;
   }
   input[type='checkbox']:checked::after {
     content: '';
@@ -213,6 +219,9 @@
     inset: 0;
     background-color: var(--surface);
     clip-path: polygon(22% 52%, 30% 44%, 43% 57%, 72% 26%, 80% 34%, 43% 73%);
+  }
+  input[type='checkbox']:focus {
+    box-shadow: none;
   }
   input[type='checkbox']:focus-visible {
     outline: 2px solid var(--ring);
@@ -226,6 +235,8 @@
   @media (forced-colors: active) {
     input[type='checkbox'] {
       appearance: auto;
+      border: revert;
+      background-color: revert;
     }
     input[type='checkbox']:checked::after {
       content: none;
