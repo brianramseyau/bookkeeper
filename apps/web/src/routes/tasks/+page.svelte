@@ -209,11 +209,7 @@
   {:else}
     <form onsubmit={handleSaveSettings} class="mt-3 flex flex-wrap items-end gap-4">
       <label class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          class="border-input accent-violet size-4 rounded"
-          bind:checked={enabled}
-        />
+        <input type="checkbox" class="size-4 rounded" bind:checked={enabled} />
         <span class="text-foreground text-sm font-medium">Enabled</span>
       </label>
       <div class="flex flex-col gap-2">
@@ -299,9 +295,7 @@
     <p class="text-muted-foreground mt-1 text-sm">
       A single file with every table, useful for a full backup or import into another tool.
     </p>
-    <Button href="/api/export/json" class="mt-3">
-      Download JSON
-    </Button>
+    <Button href="/api/export/json" class="mt-3">Download JSON</Button>
   </Card>
 
   <h3 class="text-foreground mt-6 text-sm font-semibold">Individual tables, as CSV</h3>

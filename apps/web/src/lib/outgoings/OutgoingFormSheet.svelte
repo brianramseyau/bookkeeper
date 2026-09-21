@@ -134,7 +134,7 @@
           <label class="flex items-center gap-2">
             <input
               type="checkbox"
-              class="border-input accent-violet size-4 rounded"
+              class="size-4 rounded"
               checked={Boolean(values[field.key])}
               onchange={(event) => setValue(field.key, event.currentTarget.checked)}
             />

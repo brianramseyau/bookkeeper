@@ -130,8 +130,8 @@
               aria-label="Paid: {line.label}"
               title={paidTooltip(line, year, month)}
               class={[
-                'border-input size-4 rounded disabled:cursor-not-allowed disabled:opacity-40',
-                line.estimated ? 'accent-due' : 'accent-violet',
+                'size-4 rounded disabled:cursor-not-allowed disabled:opacity-40',
+                line.estimated && 'accent-due',
               ]}
             />
           </label>
