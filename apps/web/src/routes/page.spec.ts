@@ -196,8 +196,8 @@ describe('dashboard page', () => {
     const label = await screen.findByText('Even')
     const value = label.previousElementSibling as HTMLElement
     expect(value.textContent).toContain('$0.00')
-    expect(value.className).not.toContain('text-in')
-    expect(value.className).not.toContain('text-over')
+    expect(value).not.toHaveClass('text-in')
+    expect(value).not.toHaveClass('text-over')
   })
 
   it('shows a deficit when expenses exceed income for the viewed month', async () => {
