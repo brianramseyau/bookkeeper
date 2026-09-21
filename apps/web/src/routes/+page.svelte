@@ -122,6 +122,7 @@
   )
   const incomeTotal = $derived(round2(data?.totalIncome ?? 0))
   const yearPosition = $derived(round2(incomeTotal - expenseTotal))
+  const yearSign = $derived(signOf(yearPosition))
   const incomeVsExpensePie = $derived.by(() => {
     const slices: { label: string; value: number; color: string }[] = []
     if (incomeTotal > 0) slices.push({ label: 'Income', value: incomeTotal, color: INCOME_COLOR })
@@ -132,10 +133,21 @@
 </script>
 
 {#snippet positionCenter()}
-  <span class={['font-figures text-lg font-semibold', yearPosition >= 0 ? 'text-in' : 'text-over']}>
+  <span
+    class={[
+      'font-figures text-lg font-semibold',
+      yearSign === 'positive'
+        ? 'text-in'
+        : yearSign === 'negative'
+          ? 'text-over'
+          : 'text-foreground',
+    ]}
+  >
     {formatCurrency(yearPosition)}
   </span>
-  <span class="text-muted-foreground text-xs">{yearPosition >= 0 ? 'Surplus' : 'Deficit'}</span>
+  <span class="text-muted-foreground text-xs">
+    {yearSign === 'positive' ? 'Surplus' : yearSign === 'negative' ? 'Deficit' : 'Even'}
+  </span>
 {/snippet}
 
 {#snippet rightNow(d: DashboardSummary)}
@@ -244,7 +256,9 @@
       <Card class="p-4">
         <h3 class="text-foreground text-sm font-semibold">Income vs expenses (12 months)</h3>
         <p class="text-muted-foreground mt-0.5 text-xs">
-          Net income against logged spend through {monthName(nav.month)}
+          Net income against logged expenses (excluding recurring bills and subscriptions) through {monthName(
+            nav.month
+          )}
           {nav.year}
         </p>
         <div class="mt-3">

@@ -185,6 +185,17 @@ describe('dashboard page', () => {
     expect(screen.getByText('Surplus')).toBeInTheDocument()
   })
 
+  it('shows a neutral Even centre when the 12-month donut nets to zero', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      totalIncome: 1000,
+      monthlyExpenses: [{ year: 2026, month: 3, total: 1000 }],
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Even')).toBeInTheDocument()
+  })
+
   it('shows a deficit when expenses exceed income for the viewed month', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,
