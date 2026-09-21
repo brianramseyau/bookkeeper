@@ -127,7 +127,9 @@
         if (pushState.subscribed) {
           toast.success('Notifications enabled on this device')
         } else {
-          toast.error("Notifications were not enabled - check this browser's notification permission.")
+          toast.error(
+            "Notifications were not enabled - check this browser's notification permission."
+          )
         }
       }
       await loadDevices()
@@ -345,7 +347,10 @@
   <h2 class="text-foreground text-lg font-semibold">Notifications</h2>
   <p class="text-muted-foreground mt-1 text-sm">
     Get a push notification for bills due soon or overdue. Opt-in per device and per bill type - the
-    overall check schedule is set instance-wide on the <a href="/tasks" class="text-primary underline underline-offset-4">Tasks</a>
+    overall check schedule is set instance-wide on the <a
+      href="/tasks"
+      class="text-primary underline underline-offset-4">Tasks</a
+    >
     page.
   </p>
 
@@ -354,23 +359,26 @@
   {:else}
     <form onsubmit={handleSavePreferences} class="mt-3 flex max-w-sm flex-col gap-4">
       <label class="flex items-center gap-2">
-        <input
-          type="checkbox"
-          class="border-input accent-violet size-4 rounded"
-          bind:checked={notifyEnabled}
-        />
+        <input type="checkbox" class="border-input size-4 rounded" bind:checked={notifyEnabled} />
         <span class="text-foreground text-sm font-medium">Enabled</span>
       </label>
       <div class="flex flex-col gap-2">
         <Label for="settings-lead-days">Remind me this many days before due</Label>
-        <Input id="settings-lead-days" type="number" min="0" max="30" bind:value={leadDays} class="w-24" />
+        <Input
+          id="settings-lead-days"
+          type="number"
+          min="0"
+          max="30"
+          bind:value={leadDays}
+          class="w-24"
+        />
       </div>
       <fieldset class="flex flex-col gap-2">
         <legend class="text-foreground text-sm font-medium">Bill types</legend>
         <label class="flex items-center gap-2">
           <input
             type="checkbox"
-            class="border-input accent-violet size-4 rounded"
+            class="border-input size-4 rounded"
             bind:checked={notifyUtilityBills}
           />
           <span class="text-foreground text-sm">Utility bills</span>
@@ -378,7 +386,7 @@
         <label class="flex items-center gap-2">
           <input
             type="checkbox"
-            class="border-input accent-violet size-4 rounded"
+            class="border-input size-4 rounded"
             bind:checked={notifyRecurringBills}
           />
           <span class="text-foreground text-sm">Recurring bills</span>
@@ -386,7 +394,7 @@
         <label class="flex items-center gap-2">
           <input
             type="checkbox"
-            class="border-input accent-violet size-4 rounded"
+            class="border-input size-4 rounded"
             bind:checked={notifySubscriptions}
           />
           <span class="text-foreground text-sm">Subscriptions</span>
@@ -413,7 +421,8 @@
     <p class="text-muted-foreground mt-3 text-sm">
       {#if !pushState.secureContext}
         Push notifications need this app served over HTTPS (or accessed as "localhost") - put a
-        TLS-terminating reverse proxy in front of the container to use this feature over the network.
+        TLS-terminating reverse proxy in front of the container to use this feature over the
+        network.
       {:else}
         This browser doesn't support push notifications.
       {/if}

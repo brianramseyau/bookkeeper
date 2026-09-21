@@ -280,7 +280,7 @@ A row for a known-but-not-yet-confirmed item (`MonthlyUnifiedList`'s placeholder
 
 ### Checkboxes
 
-- Canonical: `<input type="checkbox" class="border-input accent-violet size-4 rounded" />`. Monthly's Paid checkbox still carries the pre-Polymer `border-slate-300 text-indigo-600` (swapped to `text-amber-500` when the line is `estimated`) — migrate it when that table is token-migrated, rather than copying the old string into new work.
+- Canonical: `<input type="checkbox" class="size-4 rounded" />` - `layout.css` replaces the native control (whose checked colour is the browser accent, blue) with a violet box and white tick; `accent-due` switches it to amber. Do not add `accent-*` utilities. Monthly's Paid checkbox still carries the pre-Polymer `border-slate-300 text-indigo-600` (swapped to `text-amber-500` when the line is `estimated`) — migrate it when that table is token-migrated, rather than copying the old string into new work.
 
 ### Utilities monthly grid
 

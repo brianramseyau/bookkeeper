@@ -131,7 +131,7 @@
               title={paidTooltip(line, year, month)}
               class={[
                 'border-input size-4 rounded disabled:cursor-not-allowed disabled:opacity-40',
-                line.estimated ? 'accent-due' : 'accent-violet',
+                line.estimated && 'accent-due',
               ]}
             />
           </label>
