@@ -18,7 +18,23 @@ export function payDatesInMonth(source: IncomeSource, year: number, month: numbe
 
     const monthStart = DateTime.utc(year, month, 1)
     const monthEnd = monthStart.endOf('month').startOf('day')
-    const anchor = source.anchorDate.startOf('day')
+    // Lucid's `@column.date()` consumes the stored value in Luxon's default
+    // (system) zone, not UTC, so `source.anchorDate` can carry a non-UTC
+    // offset - diffing it directly against the UTC `monthStart` below then
+    // yields a fractional day count, which lands every candidate date on a
+    // non-midnight UTC instant instead of a clean calendar day. That
+    // instant still displays correctly once reinterpreted in the browser's
+    // own local zone (`formatDate`), but `row.date.slice(0, 10)` (the
+    // one-click "accept" path, `monthly/+page.svelte`) reads it as plain
+    // UTC and lands a day off. Rebuilding the anchor from its Y/M/D parts
+    // as a UTC midnight - the same approach already used for `monthStart`
+    // and the monthly-cadence branch below - keeps every pay date a clean
+    // UTC midnight so both paths agree.
+    const anchor = DateTime.utc(
+      source.anchorDate.year,
+      source.anchorDate.month,
+      source.anchorDate.day
+    )
 
     const daysSinceAnchor = monthStart.diff(anchor, 'days').days
     const offset = ((daysSinceAnchor % FORTNIGHT_DAYS) + FORTNIGHT_DAYS) % FORTNIGHT_DAYS
