@@ -169,6 +169,22 @@ describe('dashboard page', () => {
     expect(screen.getByText('Surplus vs categorised spend this month')).toBeInTheDocument()
   })
 
+  it('shows the 12-month income vs expenses donut with its net position', async () => {
+    vi.mocked(getDashboardSummary).mockResolvedValue({
+      ...baseSummary,
+      totalIncome: 5000,
+      monthlyExpenses: [
+        { year: 2026, month: 2, total: 1000 },
+        { year: 2026, month: 3, total: 500 },
+      ],
+    })
+    render(DashboardPage)
+
+    expect(await screen.findByText('Income vs expenses (12 months)')).toBeInTheDocument()
+    expect(screen.getByText('$3,500.00')).toBeInTheDocument()
+    expect(screen.getByText('Surplus')).toBeInTheDocument()
+  })
+
   it('shows a deficit when expenses exceed income for the viewed month', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue({
       ...baseSummary,

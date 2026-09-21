@@ -10,6 +10,7 @@
   import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import StatCard from '$lib/components/app/StatCard.svelte'
   import NetPositionTrendChart from '$lib/components/NetPositionTrendChart.svelte'
+  import PieChart from '$lib/components/PieChart.svelte'
   import CategoryBreakdownList from '$lib/components/CategoryBreakdownList.svelte'
   import Card from '$lib/components/Card.svelte'
   import ErrorMessage from '$lib/components/ErrorMessage.svelte'
@@ -113,7 +114,29 @@
       expense: expenseMonth.total,
     }))
   })
+
+  // 12-month totals for the donut. Both sides use the same trailing window
+  // as the trend chart above it (`totalIncome` and `monthlyExpenses`).
+  const expenseTotal = $derived(
+    data ? round2(data.monthlyExpenses.reduce((sum, m) => sum + m.total, 0)) : 0
+  )
+  const incomeTotal = $derived(round2(data?.totalIncome ?? 0))
+  const yearPosition = $derived(round2(incomeTotal - expenseTotal))
+  const incomeVsExpensePie = $derived.by(() => {
+    const slices: { label: string; value: number; color: string }[] = []
+    if (incomeTotal > 0) slices.push({ label: 'Income', value: incomeTotal, color: INCOME_COLOR })
+    if (expenseTotal > 0)
+      slices.push({ label: 'Expenses', value: expenseTotal, color: EXPENSE_COLOR })
+    return slices
+  })
 </script>
+
+{#snippet positionCenter()}
+  <span class={['font-figures text-lg font-semibold', yearPosition >= 0 ? 'text-in' : 'text-over']}>
+    {formatCurrency(yearPosition)}
+  </span>
+  <span class="text-muted-foreground text-xs">{yearPosition >= 0 ? 'Surplus' : 'Deficit'}</span>
+{/snippet}
 
 {#snippet rightNow(d: DashboardSummary)}
   <section aria-labelledby="right-now-heading">
@@ -146,11 +169,14 @@
             : 'Breaking even vs categorised spend this month'}
       />
     </div>
+    <div class="mt-4">
+      {@render details(d)}
+    </div>
   </section>
 {/snippet}
 
 {#snippet details(d: DashboardSummary)}
-  <div class="flex flex-col gap-6">
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
     <Card class="p-4">
       <h3 class="text-foreground text-sm font-semibold">Upcoming bills</h3>
       {#if d.upcomingBills.length === 0}
@@ -200,20 +226,36 @@
 {#snippet overTime()}
   <section aria-labelledby="over-time-heading">
     <h2 id="over-time-heading" class="text-ink font-display text-lg">Over time</h2>
-    <Card class="mt-3 p-4">
-      <h3 class="text-foreground text-sm font-semibold">
-        Income, expenses and net position (12 months through {monthName(nav.month)}
-        {nav.year})
-      </h3>
-      <div class="mt-3">
-        <NetPositionTrendChart
-          data={incomeVsExpenseByMonth}
-          incomeColor={INCOME_COLOR}
-          expenseColor={EXPENSE_COLOR}
-          onSelectMonth={(year, month) => goto(`/monthly?year=${year}&month=${month}`)}
-        />
-      </div>
-    </Card>
+    <div class="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <Card class="p-4">
+        <h3 class="text-foreground text-sm font-semibold">
+          Income, expenses and net position (12 months through {monthName(nav.month)}
+          {nav.year})
+        </h3>
+        <div class="mt-3">
+          <NetPositionTrendChart
+            data={incomeVsExpenseByMonth}
+            incomeColor={INCOME_COLOR}
+            expenseColor={EXPENSE_COLOR}
+            onSelectMonth={(year, month) => goto(`/monthly?year=${year}&month=${month}`)}
+          />
+        </div>
+      </Card>
+      <Card class="p-4">
+        <h3 class="text-foreground text-sm font-semibold">Income vs expenses (12 months)</h3>
+        <p class="text-muted-foreground mt-0.5 text-xs">
+          Net income against logged spend through {monthName(nav.month)}
+          {nav.year}
+        </p>
+        <div class="mt-3">
+          <PieChart
+            data={incomeVsExpensePie}
+            emptyMessage="No income or expenses logged"
+            center={positionCenter}
+          />
+        </div>
+      </Card>
+    </div>
   </section>
 {/snippet}
 
@@ -237,16 +279,6 @@
 {:else if data}
   <div class="mt-6 flex flex-col gap-8">
     {@render rightNow(data)}
-    <!-- Chart and detail cards sit side by side from `lg`, chart first; stacked,
-         the chart still comes first. One DOM order throughout, so tab order
-         always matches the visual order. -->
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <div>
-        {@render overTime()}
-      </div>
-      <div class="lg:pt-10">
-        {@render details(data)}
-      </div>
-    </div>
+    {@render overTime()}
   </div>
 {/if}
