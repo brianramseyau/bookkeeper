@@ -57,9 +57,7 @@
                 />
               </span>
             </td>
-            <td
-              class="text-muted-foreground font-figures hidden px-3 py-2 sm:table-cell"
-            >
+            <td class="text-muted-foreground font-figures hidden px-3 py-2 sm:table-cell">
               {formatDateTime(device.createdAt)}
             </td>
             <td class="hidden px-3 py-2 text-right sm:table-cell">

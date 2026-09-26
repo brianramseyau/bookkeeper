@@ -26,31 +26,10 @@
 
   <rect x="66" y="124" width="12" height="22" rx="5" class="fill-violet" />
   <rect x="84" y="128" width="12" height="18" rx="5" class="fill-violet" />
-  <rect
-    x="104"
-    y="128"
-    width="12"
-    height="18"
-    rx="5"
-    class="fill-violet"
-  />
-  <rect
-    x="122"
-    y="124"
-    width="12"
-    height="22"
-    rx="5"
-    class="fill-violet"
-  />
+  <rect x="104" y="128" width="12" height="18" rx="5" class="fill-violet" />
+  <rect x="122" y="124" width="12" height="22" rx="5" class="fill-violet" />
 
-  <ellipse
-    cx="100"
-    cy="98"
-    rx="54"
-    ry="38"
-    class="fill-violet/15 stroke-violet"
-    stroke-width="4"
-  />
+  <ellipse cx="100" cy="98" rx="54" ry="38" class="fill-violet/15 stroke-violet" stroke-width="4" />
 
   <path
     d="M53 79 38 42 86 61Z"
@@ -97,12 +76,7 @@
     <line x1="180" y1="82" x2="191" y2="93" />
   </g>
 
-  <text
-    x="16"
-    y="32"
-    class="fill-violet"
-    font-size="20"
-    font-weight="700"
-    font-family="sans-serif">?</text
+  <text x="16" y="32" class="fill-violet" font-size="20" font-weight="700" font-family="sans-serif"
+    >?</text
   >
 </svg>

@@ -169,6 +169,7 @@ export const billsAdapter: OutgoingAdapter<BillRow> = {
       dot: ctx.categories.find((c) => c.id === item.categoryId)?.color ?? null,
     },
   ],
+  chartColor: (item, ctx) => ctx.categories.find((c) => c.id === item.categoryId)?.color ?? null,
   toFormValues: (item) => ({
     name: item.name,
     amount: item.amount,

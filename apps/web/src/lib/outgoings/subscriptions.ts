@@ -124,6 +124,10 @@ export const subscriptionsAdapter: OutgoingAdapter<UserSubscription> = {
       { label: '12-month average', value: formatCurrency(trend.average) },
     ]
   },
+  chartColor: (item, ctx) =>
+    ctx.users.find((u) => u.id === item.userId)?.displayColor ??
+    ctx.categories.find((c) => c.id === item.categoryId)?.color ??
+    null,
   toFormValues: (item) => ({
     userId: item.userId,
     name: item.name,

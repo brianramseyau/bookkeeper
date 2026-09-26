@@ -168,6 +168,14 @@ export interface OutgoingAdapter<T extends OutgoingRecord> {
   anchorId?(item: T): string | null
   rowValues(item: T, ctx: OutgoingContext): Record<string, string>
   stats(item: T, trend: OutgoingTrend, ctx: OutgoingContext): OutgoingStat[]
+  /**
+   * The item's identity colour for its trend chart - the same category or
+   * owner colour its stat row already shows as a dot, so the chart's colour
+   * always matches something on the page. `null`/omitted when the item has
+   * neither (e.g. an uncategorized bill, or a utility's fixed system
+   * category), and the chart uses its neutral series accent instead.
+   */
+  chartColor?(item: T, ctx: OutgoingContext): string | null
   /** Prefill for the edit form. */
   toFormValues(item: T, ctx: OutgoingContext): OutgoingFormValues
 }

@@ -60,9 +60,7 @@
 </script>
 
 {#if lines.some((s) => s.points.length > 0)}
-  <div
-    class="text-muted-foreground mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
-  >
+  <div class="text-muted-foreground mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
     {#each lines as line (line.label)}
       <span class="flex items-center gap-1.5">
         <span class="size-2.5 rounded-full" style="background: {line.color}"></span>

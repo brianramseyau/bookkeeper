@@ -454,7 +454,7 @@ before proceeding.
   control.
 - ~~**Content-Security-Policy disabled (Low)**~~ - Fixed.
   `apps/api/config/shield.ts` now enables a same-origin CSP (`default-src
-  'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`,
+'self'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`,
   `frame-ancestors 'none'`). `script-src` is `'self'` plus a per-request
   nonce (`@nonce`, shield's keyword for `response.nonce`) rather than
   `'unsafe-inline'` - the SPA fallback route in `apps/api/start/routes.ts`
@@ -484,13 +484,13 @@ before proceeding.
   and logged in, and screenshotted the Settings page to confirm checkbox
   icons and other `data:`-URI backgrounds still render. `pnpm test`
   (1265 tests), `pnpm test:e2e` (16 tests), `pnpm typecheck`, and `pnpm
-  lint` all still pass.
+lint` all still pass.
   One false start worth knowing about if this needs revisiting: SvelteKit
   has a built-in `kit.csp` hash-mode config, but it doesn't integrate with
-  this app's per-request nonce - worse, if enabled it bakes a *second*,
+  this app's per-request nonce - worse, if enabled it bakes a _second_,
   much stricter `<meta http-equiv="Content-Security-Policy">` tag (with no
   `img-src`/`style-src` of its own) into the built shell, and browsers
-  enforce the *intersection* of a header policy and a meta-tag policy, so
+  enforce the _intersection_ of a header policy and a meta-tag policy, so
   it silently overrides the real one. Don't add `kit.csp` to
   `svelte.config.js`.
 - ~~**Vulnerable transitive deps under `exceljs` (Informational)**~~ -

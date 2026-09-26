@@ -299,10 +299,7 @@ describe('OutgoingsList', () => {
     render(OutgoingsList, { props: { adapter } })
     await screen.findByRole('link', { name: 'Apple' })
 
-    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
-      'Apple',
-      'Zebra',
-    ])
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual(['Apple', 'Zebra'])
   })
 
   it('resolves grouping order and labels from the loaded lookups', async () => {
@@ -341,7 +338,11 @@ describe('OutgoingsList', () => {
     await fireEvent.submit(document.querySelector('#outgoing-form')!)
 
     await waitFor(() =>
-      expect(adapter.update).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Renamed' }), active)
+      expect(adapter.update).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ name: 'Renamed' }),
+        active
+      )
     )
   })
 

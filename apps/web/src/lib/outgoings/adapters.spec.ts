@@ -374,6 +374,54 @@ describe('utilitiesAdapter', () => {
   })
 })
 
+describe('adapter chart colours', () => {
+  const coloredCtx: OutgoingContext = {
+    categories: [
+      {
+        id: 5,
+        name: 'Insurance',
+        color: '#8b5cf6',
+        sortOrder: 0,
+        parentId: null,
+        isActive: true,
+        isArchived: false,
+        isSystem: false,
+      },
+    ] as Category[],
+    users: [
+      { id: 1, fullName: 'Adam', email: 'a@test.local', displayColor: '#ec4899', initials: 'A' },
+    ] as UserSummary[],
+  }
+
+  it('bills and expenses colour the chart with their category', () => {
+    expect(billsAdapter.chartColor!({ id: 1, name: 'x', categoryId: 5 } as never, coloredCtx)).toBe(
+      '#8b5cf6'
+    )
+    expect(
+      billsAdapter.chartColor!({ id: 1, name: 'x', categoryId: null } as never, coloredCtx)
+    ).toBeNull()
+    expect(
+      expensesAdapter.chartColor!({ id: 2, name: 'x', categoryId: 5 } as never, coloredCtx)
+    ).toBe('#8b5cf6')
+  })
+
+  it('subscriptions prefer the owner colour, then the category', () => {
+    expect(
+      subscriptionsAdapter.chartColor!({ id: 3, userId: 1, categoryId: 5 } as never, coloredCtx)
+    ).toBe('#ec4899')
+    expect(
+      subscriptionsAdapter.chartColor!({ id: 3, userId: 99, categoryId: 5 } as never, coloredCtx)
+    ).toBe('#8b5cf6')
+    expect(
+      subscriptionsAdapter.chartColor!({ id: 3, userId: 99, categoryId: null } as never, coloredCtx)
+    ).toBeNull()
+  })
+
+  it('utilities carry no identity colour - their system category is fixed', () => {
+    expect(utilitiesAdapter.chartColor).toBeUndefined()
+  })
+})
+
 describe('adapter API wiring', () => {
   it('bills: wires every operation to its API module', async () => {
     const bill = {

@@ -87,4 +87,3 @@ Branch: `phase-05-remaining-pages`. See [PLAN_01_OVERVIEW.md](PLAN_01_OVERVIEW.m
   device/backup deletion.
 - Monthly's full-page `LoadingIndicator` was swapped for `LoadingSkeleton` to
   clear the acceptance grep - it was the last route still using it.
-

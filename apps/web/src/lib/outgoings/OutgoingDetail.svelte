@@ -197,6 +197,10 @@
     }))
   )
 
+  const chartColor = $derived(
+    item && adapter.chartColor ? adapter.chartColor(item, { categories, users }) : null
+  )
+
   const itemMenuActions = $derived(item ? menuActions(item) : [])
 </script>
 
@@ -234,7 +238,11 @@
   {#if chartData.length > 0}
     <Card class="mt-8 p-4">
       <h2 class="text-foreground mb-2 text-sm font-medium">Last 12 months</h2>
-      <MonthlyExpenseChart data={chartData} ariaLabel="{item.name} over the last 12 months" />
+      <MonthlyExpenseChart
+        data={chartData}
+        color={chartColor}
+        ariaLabel="{item.name} over the last 12 months"
+      />
     </Card>
   {/if}
 

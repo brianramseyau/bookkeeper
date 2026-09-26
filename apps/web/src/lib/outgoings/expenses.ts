@@ -152,6 +152,7 @@ export const expensesAdapter: OutgoingAdapter<ExpenseRow> = {
       { label: '12-month average', value: formatCurrency(trend.average) },
     ]
   },
+  chartColor: (item, ctx) => ctx.categories.find((c) => c.id === item.categoryId)?.color ?? null,
   toFormValues: (item) => ({
     name: item.name,
     categoryId: item.categoryId ?? '',

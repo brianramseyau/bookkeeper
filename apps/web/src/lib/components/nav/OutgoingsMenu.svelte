@@ -70,11 +70,7 @@
        `pointer-events: none` on the page so taps can't click through to
        content underneath. layout.css exempts the tab bar itself, or a tap on
        the other tab would be swallowed instead of switching to its menu. -->
-  <DropdownMenuContent
-    align="start"
-    class="w-44"
-    data-mobile-bottom-menu={mobile ? '' : undefined}
-  >
+  <DropdownMenuContent align="start" class="w-44" data-mobile-bottom-menu={mobile ? '' : undefined}>
     {#each OUTGOINGS_LINKS as link (link.href)}
       {@const linkActive = isRouteActive(page.url.pathname, link.href)}
       <DropdownMenuItem class={TOUCH_MENU_ITEM}>

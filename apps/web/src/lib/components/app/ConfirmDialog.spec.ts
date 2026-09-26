@@ -110,7 +110,12 @@ describe('ConfirmDialog', () => {
 
   it('keeps focus inside the dialog once the confirm button disables itself', async () => {
     const user = userEvent.setup()
-    render(ConfirmDialog, { open: true, onOpenChange: vi.fn(), title: 'Delete it?', onConfirm: vi.fn() })
+    render(ConfirmDialog, {
+      open: true,
+      onOpenChange: vi.fn(),
+      title: 'Delete it?',
+      onConfirm: vi.fn(),
+    })
 
     const confirmButton = screen.getByRole('button', { name: 'Delete' })
     confirmButton.focus()
@@ -163,7 +168,13 @@ describe('ConfirmDialog', () => {
     // Caller clears `pending` once the failed attempt has been handled -
     // unlike the internally-managed default, this does *not* require
     // closing and reopening the dialog to allow a retry.
-    await rerender({ open: true, onOpenChange: vi.fn(), title: 'Delete it?', onConfirm, pending: false })
+    await rerender({
+      open: true,
+      onOpenChange: vi.fn(),
+      title: 'Delete it?',
+      onConfirm,
+      pending: false,
+    })
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(onConfirm).toHaveBeenCalledOnce()

@@ -25,8 +25,7 @@
     inlineActions?: boolean
   }
 
-  let { title, description, back, documentTitle, actions, inlineActions = false }: Props =
-    $props()
+  let { title, description, back, documentTitle, actions, inlineActions = false }: Props = $props()
 </script>
 
 <svelte:head>

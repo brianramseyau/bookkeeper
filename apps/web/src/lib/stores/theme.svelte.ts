@@ -12,9 +12,7 @@ function getInitialTheme(): Theme {
 }
 
 function applyThemeColor(theme: Theme): void {
-  document
-    .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', THEME_COLOR[theme])
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEME_COLOR[theme])
 }
 
 class ThemeState {

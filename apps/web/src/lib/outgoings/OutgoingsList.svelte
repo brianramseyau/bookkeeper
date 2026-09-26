@@ -245,7 +245,9 @@
   <!-- Tabs row then controls row on mobile, each filling the column edge to
        edge (tabs stretch, and the toggle + sort split the row); one row with
        tabs left and controls right from `sm` up. -->
-  <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2 sm:justify-between">
+  <div
+    class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4 sm:gap-y-2"
+  >
     {#if adapter.supportsLifecycle}
       <Tabs bind:value={activeState} class="w-full sm:w-auto">
         <TabsList class="w-full sm:w-auto">
