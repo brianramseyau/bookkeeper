@@ -118,11 +118,32 @@ describe('MonthlyExpenseChart', () => {
     expect(onSelectMonth).toHaveBeenCalledWith(2026, 2)
   })
 
+  it('uses the neutral series accent when no colour is given', () => {
+    const { container } = render(MonthlyExpenseChart, { data })
+    expect(container.querySelectorAll('path')[1]?.getAttribute('stroke')).toBe('#0E6FA8')
+  })
+
   it('uses dark-mode colors when the theme is dark', () => {
     themeState.current = 'dark'
-    render(MonthlyExpenseChart, { data })
-    const path = document.querySelector('path:last-of-type')
-    expect(path?.getAttribute('stroke')).toBe('#E5ECE8')
+    const { container } = render(MonthlyExpenseChart, { data })
+    const path = container.querySelectorAll('path')[1]
+    expect(path?.getAttribute('stroke')).toBe('#4FA6D9')
+  })
+
+  it('uses the passed series colour for the area, line and end point', () => {
+    const { container } = render(MonthlyExpenseChart, { data, color: '#72b258' })
+    const paths = container.querySelectorAll('path')
+    expect(paths[0]?.getAttribute('fill')).toBe('#72b258')
+    expect(paths[1]?.getAttribute('stroke')).toBe('#72b258')
+    expect(container.querySelector('circle')?.getAttribute('fill')).toBe('#72b258')
+  })
+
+  it('keeps the latest-value label in ink whatever the series colour', () => {
+    const { container } = render(MonthlyExpenseChart, { data, color: '#72b258' })
+    const label = [...container.querySelectorAll('text')].find((t) =>
+      t.textContent?.includes('$150.00')
+    )
+    expect(label?.getAttribute('fill')).toBe('#16201B')
   })
 
   it('renders a single-point series without a line-step division by zero', () => {

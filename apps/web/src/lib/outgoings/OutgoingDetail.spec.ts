@@ -83,6 +83,15 @@ describe('OutgoingDetail', () => {
     expect(screen.getByText('Unpaid')).toBeInTheDocument()
   })
 
+  it("colours the trend chart with the adapter's identity colour", async () => {
+    const adapter = makeAdapter({ chartColor: () => '#72b258' })
+    const { container } = render(OutgoingDetail, { props: { adapter, id: 1 } })
+    await screen.findByRole('heading', { name: 'Car' })
+
+    const svg = container.querySelector('svg[aria-label="Car over the last 12 months"]')!
+    expect(svg.querySelectorAll('path')[1]?.getAttribute('stroke')).toBe('#72b258')
+  })
+
   it('shows a not-found message when the item cannot be loaded', async () => {
     render(OutgoingDetail, {
       props: {

@@ -33,8 +33,9 @@
   let { userId, financialYear, users, sources, refreshToken = 0 }: Props = $props()
 
   // Both figures are money coming in, so neither gets a semantic colour -
-  // they're distinguished by weight (ink vs muted), the same neutral choice
-  // MonthlyExpenseChart makes for money going out. See DESIGN.md → Colour.
+  // they're distinguished by weight (ink vs muted). Money going out is ink
+  // too, unless the item has an identity colour to carry (MonthlyExpenseChart's
+  // optional `color` prop). See DESIGN.md → Colour.
   const CHART_COLORS = {
     salary: { light: '#16201B', dark: '#E5ECE8' },
     other: { light: '#5C6A63', dark: '#93A299' },
@@ -208,9 +209,7 @@
         <div class="grid gap-4">
           <div class="grid gap-4 sm:grid-cols-2">
             <section class="border-border rounded-xl border p-4">
-              <h3 class="text-foreground text-sm font-semibold">
-                Income by person
-              </h3>
+              <h3 class="text-foreground text-sm font-semibold">Income by person</h3>
               <p class="text-muted-foreground mt-0.5 text-xs">
                 Net income by household member for {financialYearLabel(financialYear)}.
               </p>
@@ -224,9 +223,7 @@
             </section>
 
             <section class="border-border rounded-xl border p-4">
-              <h3 class="text-foreground text-sm font-semibold">
-                Salary vs other income
-              </h3>
+              <h3 class="text-foreground text-sm font-semibold">Salary vs other income</h3>
               <p class="text-muted-foreground mt-0.5 text-xs">
                 Net income by source type for {financialYearLabel(financialYear)}.
               </p>
@@ -241,9 +238,7 @@
           </div>
 
           <section class="border-border rounded-xl border p-4">
-            <h3 class="text-foreground text-sm font-semibold">
-              Estimated vs actual income
-            </h3>
+            <h3 class="text-foreground text-sm font-semibold">Estimated vs actual income</h3>
             <p class="text-muted-foreground mt-0.5 text-xs">
               {selectedUserLabel} in {financialYearLabel(financialYear)}. Estimated is what sources
               should have paid so far; actual is what's been logged.

@@ -11,12 +11,20 @@
 
   interface Props {
     data: MonthlyExpense[]
+    /**
+     * The series colour - normally the item's own identity colour (its
+     * category, or an owner for subscriptions), so the chart matches the dot
+     * in the stat row above it. Omit/null when the item has no such colour,
+     * and the neutral series accent below is used instead.
+     */
+    color?: string | null
     onSelectMonth?: (year: number, month: number) => void
     ariaLabel?: string
   }
 
   let {
     data,
+    color = null,
     onSelectMonth,
     ariaLabel = 'Monthly expenses over the last 12 months',
   }: Props = $props()
@@ -24,12 +32,21 @@
   let showTable = $state(false)
   let hoverIndex = $state<number | null>(null)
 
-  // Polymer tokens (see DESIGN.md → Colour): money going out is plain ink,
-  // the grid is the rule colour and the axis text is muted - no indigo.
-  const LINE_COLOR = $derived(themeState.current === 'dark' ? '#E5ECE8' : '#16201B')
+  // Polymer tokens (see DESIGN.md → Colour): the grid is the rule colour and
+  // the axis text is muted. The series carries the item's identity colour
+  // when it has one, so the chart ties to the dot in the stat row; with no
+  // colour to inherit it falls back to a neutral series accent - the
+  // unassigned $10-note blue, the one banknote hue with no fixed meaning.
+  // Money figures (the latest-value label, the tooltip) stay plain ink.
   const RING_COLOR = $derived(themeState.current === 'dark' ? '#18201C' : '#ffffff')
   const GRID_COLOR = $derived(themeState.current === 'dark' ? '#27322C' : '#DAE1DC')
   const AXIS_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#93A299' : '#5C6A63')
+  const VALUE_TEXT_COLOR = $derived(themeState.current === 'dark' ? '#E5ECE8' : '#16201B')
+  const NEUTRAL_SERIES_COLOR = { light: '#0E6FA8', dark: '#4FA6D9' }
+  const SERIES_COLOR = $derived(
+    color ??
+      (themeState.current === 'dark' ? NEUTRAL_SERIES_COLOR.dark : NEUTRAL_SERIES_COLOR.light)
+  )
 
   const width = 720
   const height = 240
@@ -151,11 +168,11 @@
         </text>
       {/each}
 
-      <path d={areaPath} fill={LINE_COLOR} opacity="0.1" />
+      <path d={areaPath} fill={SERIES_COLOR} opacity="0.1" />
       <path
         d={linePath}
         fill="none"
-        stroke={LINE_COLOR}
+        stroke={SERIES_COLOR}
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -166,7 +183,7 @@
           cx={last.x}
           cy={last.y}
           r="4"
-          fill={LINE_COLOR}
+          fill={SERIES_COLOR}
           stroke={RING_COLOR}
           stroke-width="2"
         />
@@ -176,7 +193,7 @@
           text-anchor="end"
           font-size="12"
           font-weight="600"
-          fill={LINE_COLOR}
+          fill={VALUE_TEXT_COLOR}
         >
           {formatCurrency(last.entry.total)}
         </text>
@@ -196,7 +213,7 @@
           cx={hovered.x}
           cy={hovered.y}
           r="4"
-          fill={LINE_COLOR}
+          fill={SERIES_COLOR}
           stroke={RING_COLOR}
           stroke-width="2"
         />
