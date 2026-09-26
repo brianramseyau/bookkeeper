@@ -96,12 +96,7 @@
     {:else}
       <div class="flex flex-col gap-2">
         <Label for="category-name">Name</Label>
-        <Input
-          id="category-name"
-          type="text"
-          placeholder="e.g. Household"
-          bind:value={name}
-        />
+        <Input id="category-name" type="text" placeholder="e.g. Household" bind:value={name} />
       </div>
     {/if}
     <div class="flex flex-col gap-2">

@@ -89,15 +89,15 @@ describe('CategoryFormSheet', () => {
     render(CategoryFormSheet, baseProps({ category: utilities }))
 
     expect(within(sheet()).queryByLabelText('Name')).toBeNull()
-    expect(screen.getByText('This is a system category - only its color can change.')).toBeInTheDocument()
+    expect(
+      screen.getByText('This is a system category - only its color can change.')
+    ).toBeInTheDocument()
   })
 
   it('disables the parent select for a category with children', () => {
     render(CategoryFormSheet, baseProps({ category: groceries, hasChildren: true }))
 
     expect(within(sheet()).getByLabelText('Parent')).toBeDisabled()
-    expect(
-      screen.getByText('A category with children stays at the top level.')
-    ).toBeInTheDocument()
+    expect(screen.getByText('A category with children stays at the top level.')).toBeInTheDocument()
   })
 })

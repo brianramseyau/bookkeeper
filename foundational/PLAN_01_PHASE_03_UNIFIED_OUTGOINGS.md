@@ -67,7 +67,7 @@ This is the core consistency fix. Bills, Subscriptions, Expenses and Utilities s
   history shows the raw stored amounts (`—` where none was entered).
 - **`toFormValues` prefers the API's computed `nextDueOn`.** A bill that only
   ever had a `dueDay` (no stored month - how the importer/demo data often
-  arrives) would otherwise open the edit sheet with a blank *required* date and
+  arrives) would otherwise open the edit sheet with a blank _required_ date and
   become unsaveable. It now falls back to the stored day/month only when there
   is no computed next due date.
 - **Chart recoloured.** `MonthlyExpenseChart` (reused as the detail trend chart)

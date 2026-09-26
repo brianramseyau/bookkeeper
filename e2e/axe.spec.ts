@@ -67,7 +67,9 @@ async function expandCollapsedContent(page: Page) {
     await expect(charts.first()).toHaveAttribute('aria-expanded', 'true')
     // Scope the SVG to the same card, so an unrelated `role="img"` chart
     // elsewhere on the page can't satisfy the guard for an empty accordion.
-    await expect(charts.first().locator('xpath=..').locator('svg[role="img"]').first()).toBeVisible()
+    await expect(
+      charts.first().locator('xpath=..').locator('svg[role="img"]').first()
+    ).toBeVisible()
   }
 }
 

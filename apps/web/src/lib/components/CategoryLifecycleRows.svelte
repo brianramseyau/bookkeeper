@@ -17,9 +17,7 @@
 
 {#each categories as category (category.id)}
   {@const parentName = category.parentId === null ? null : parentNameFor(category.parentId)}
-  <div
-    class="border-rule flex flex-wrap items-center gap-2 border-b px-3 py-1.5 last:border-0"
-  >
+  <div class="border-rule flex flex-wrap items-center gap-2 border-b px-3 py-1.5 last:border-0">
     <span class="w-6 shrink-0"></span>
     <span
       class="h-3 w-3 shrink-0 rounded-full border border-black/10 dark:border-white/10"

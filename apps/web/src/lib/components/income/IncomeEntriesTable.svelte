@@ -54,9 +54,7 @@
 {/snippet}
 
 {#snippet taxCells(entry: IncomeEntry)}
-  <td
-    class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell"
-  >
+  <td class="text-muted-foreground flex items-center justify-between gap-3 px-3 py-2 sm:table-cell">
     <span class="shrink-0 text-xs font-medium sm:hidden">Tax withheld</span>
     {taxWithheld(entry) ? 'Yes' : 'No'}
   </td>
@@ -116,9 +114,7 @@
       {/each}
     </tbody>
     <tfoot class="block sm:table-footer-group">
-      <tr
-        class="border-border mt-1 block border-t pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0"
-      >
+      <tr class="border-border mt-1 block border-t pt-2 font-semibold sm:mt-0 sm:table-row sm:pt-0">
         <td class="text-foreground px-3 py-2 sm:table-cell" colspan="2">Total</td>
         <td
           class="text-foreground font-figures flex items-center justify-between gap-3 px-3 py-2 sm:table-cell sm:text-right"
