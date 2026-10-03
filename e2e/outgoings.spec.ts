@@ -38,13 +38,16 @@ test('bill list links to a detail page, where it can be edited, paused and resto
 // sorting and grouping). Row links are the reliable read of the resulting order.
 test('list sorting and grouping reorder and bucket the rows', async ({ page }) => {
   await page.goto('/bills')
-  // Bills group by frequency, so the first row is always in the Monthly group;
-  // the sort reorders within it.
+  // Bills group by frequency, so the three monthly bills render together
+  // first. Their default "Next due" order shifts as the calendar advances
+  // (a bill whose day has passed rolls to next month), so assert the
+  // date-stable "Name (A-Z)" order instead of hardcoding which bill happens
+  // to be due first.
   const monthlyRows = page.locator('tbody a')
-  await expect(monthlyRows.nth(1)).toHaveText('Streaming Service')
-
   await page.getByLabel('Sort').selectOption('name')
+  await expect(monthlyRows.nth(0)).toHaveText('Childcare')
   await expect(monthlyRows.nth(1)).toHaveText('Health Insurance')
+  await expect(monthlyRows.nth(2)).toHaveText('Streaming Service')
 
   await page.goto('/utilities')
   // Group headers are the only table cells that span the row.

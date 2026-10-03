@@ -46,4 +46,15 @@ describe('MonthSummary', () => {
     const net = screen.getByText('-$30.00')
     expect(net).toHaveClass('text-over')
   })
+
+  it('does not truncate large figures', () => {
+    const { container } = render(MonthSummary, {
+      data: makeData({
+        income: { lines: [], projectedTotal: 0, actualTotal: 25973.75 },
+        expenses: { lines: [], projectedTotal: 0, actualTotal: 25400 },
+      }),
+    })
+
+    expect(container.querySelector('.truncate')).toBeNull()
+  })
 })
