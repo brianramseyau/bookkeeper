@@ -13,4 +13,10 @@ describe('IncomeYtdSummary', () => {
     expect(screen.getByText('Other')).toBeInTheDocument()
     expect(screen.getByText('$630.00')).toBeInTheDocument()
   })
+
+  it('colours the total as money in', () => {
+    render(IncomeYtdSummary, { total: 5630, salary: 5000, other: 630 })
+
+    expect(screen.getByText('$5,630.00')).toHaveClass('text-in')
+  })
 })
