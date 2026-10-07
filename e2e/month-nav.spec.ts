@@ -24,9 +24,9 @@ test('the month picker persists across Dashboard and Monthly', async ({ page }) 
 
   await expect(page.getByRole('heading', { name: stepped })).toBeVisible()
 
-  // And back, still the same month.
+  // And back, still the same month (the Dashboard URL now carries the step).
   await page.getByRole('link', { name: 'Dashboard', exact: true }).first().click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/localhost:\d+\/(\?|$)/)
   await expect(page.getByRole('heading', { name: stepped })).toBeVisible()
 })
 
