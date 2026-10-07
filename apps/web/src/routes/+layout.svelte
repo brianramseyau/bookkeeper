@@ -48,39 +48,49 @@
   const routeSegment = $derived(page.url.pathname.split('/')[1] ?? '')
   const showMonthPicker = $derived(MONTH_ROUTES.has(routeSegment))
 
-  // Mirror the shared month into the URL so the open month stays
-  // reloadable/shareable (each month page seeds its own value from the URL
-  // before fetching; see routes/+page.svelte). Only the month-keyed routes
-  // are touched, so `/login`, `/income` and the rest keep a clean URL.
+  // The shared month is adopted from `?year=&month=` only when the URL is
+  // authoritative: any navigation that carries explicit params (a shared link,
+  // the Dashboard chart's click-through), or a browser back/forward (where the
+  // URL - params or bare - is what the user asked to see). A plain in-app nav
+  // link (`/`, `/monthly`) carries no params and must *not* reset the session's
+  // month - that's the whole point of the global picker.
   //
-  // `lastSearch` guards the two directions from fighting: the URL is only
-  // adopted when it actually changed (a navigation, a shared link, or browser
-  // back), never merely because the store changed underneath it - otherwise
-  // stepping the picker would re-read the now-stale params and undo itself.
+  // The mirror write lives in an effect and compares against `lastWritten`,
+  // which only the effect updates. That's deliberate: SvelteKit does not
+  // refresh `page.url` synchronously after our own `replaceState`, and
+  // `afterNavigate` reports a link's bare target URL rather than the params we
+  // just wrote, so letting the two own the same variable makes them fight. The
+  // current month is written as the bare route (`/monthly`), params appearing
+  // only once you've stepped away. Only the month-keyed routes are touched, so
+  // `/login`, `/income` and the rest keep a clean URL.
   //
-  // The write-back waits for `routerReady`, flipped in `afterNavigate`: on the
-  // first render this effect runs during hydration, before SvelteKit has
-  // initialised the router, and `replaceState` throws ("Cannot call
-  // replaceState(...) before router is initialized"). Reads and the in-memory
-  // seed are safe then, so only the URL write is gated.
+  // The write waits on `routerReady`, flipped in `afterNavigate`: on the first
+  // render the effect runs during hydration, before SvelteKit has initialised
+  // the router, and `replaceState` throws ("Cannot call replaceState(...)
+  // before router is initialized").
   let routerReady = $state(false)
-  afterNavigate(() => {
+  let lastWritten = ''
+  afterNavigate(({ type, to }) => {
     routerReady = true
+    if (!showMonthPicker || !to) return
+    // Back/forward restores whatever URL the user returned to, so a bare one
+    // means "the current month" and resets; forward links only adopt an
+    // explicit month, leaving the session's choice alone when they carry none.
+    if (type === 'popstate') {
+      if (to.url.search) monthState.syncFromUrl(to.url.search)
+      else monthState.goToCurrentMonth()
+    } else if (to.url.search) {
+      monthState.syncFromUrl(to.url.search)
+    }
   })
-  let lastSearch = ''
   $effect(() => {
-    if (!showMonthPicker) return
-    const search = page.url.search
-    if (search !== lastSearch) {
-      lastSearch = search
-      monthState.syncFromUrl(search)
-    }
-    if (!routerReady) return
-    const params = `year=${monthState.year}&month=${monthState.month}`
-    if (search !== `?${params}`) {
-      lastSearch = `?${params}`
-      replaceState(`${page.url.pathname}?${params}`, {})
-    }
+    if (!routerReady || !showMonthPicker) return
+    const target = monthState.isCurrentMonth
+      ? page.url.pathname
+      : `${page.url.pathname}?year=${monthState.year}&month=${monthState.month}`
+    if (target === lastWritten) return
+    lastWritten = target
+    replaceState(target, {})
   })
 
   onMount(() => {

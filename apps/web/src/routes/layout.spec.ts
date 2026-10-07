@@ -9,13 +9,17 @@ import { themeState } from '$lib/stores/theme.svelte'
 import { monthState } from '$lib/stores/month.svelte'
 import Layout from './+layout.svelte'
 
-// `afterNavigate` is mocked to invoke its callback immediately, standing in
-// for the real router being ready after the initial navigation - the layout
-// gates its URL write-back on that signal.
+// `afterNavigate` is mocked to invoke its callback immediately with the
+// current `page.url`, standing in for the real router being ready after the
+// initial navigation - the layout reads the month from `to.url` and gates its
+// URL write-back on that signal. `navType` lets a test simulate a back/forward
+// (`popstate`) instead of the default forward navigation.
+const { navState } = vi.hoisted(() => ({ navState: { type: 'link' as string } }))
 vi.mock('$app/navigation', () => ({
   goto: vi.fn(),
   replaceState: vi.fn(),
-  afterNavigate: (cb: () => void) => cb(),
+  afterNavigate: (cb: (nav: { type: string; to: { url: URL } }) => void) =>
+    cb({ type: navState.type, to: { url: page.url } }),
 }))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/') } }))
 vi.mock('$lib/api', () => ({
@@ -44,6 +48,10 @@ const childrenSnippet = createRawSnippet(() => ({
 
 describe('+layout.svelte', () => {
   beforeEach(() => {
+    // Fixes "now" so `monthState.isCurrentMonth` (which reads the clock) is
+    // deterministic - matches the store's March 2026 default below.
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    navState.type = 'link'
     authState.user = null
     authState.loading = true
     themeState.current = 'light'
@@ -171,6 +179,31 @@ describe('+layout.svelte', () => {
     await waitFor(() => expect(monthState.year).toBe(2024))
     expect(monthState.month).toBe(6)
     expect(replaceState).toHaveBeenLastCalledWith('/monthly?year=2024&month=6', {})
+  })
+
+  it('strips params when the shared month is the current month', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    // beforeEach fixes "now" at March 2026 and the store at 2026-03.
+    setPageUrl('http://localhost/monthly?year=2026&month=3')
+
+    render(Layout, { children: childrenSnippet })
+    await screen.findByText('Bookkeeper')
+
+    await waitFor(() => expect(replaceState).toHaveBeenLastCalledWith('/monthly', {}))
+  })
+
+  it('resets to the current month when back/forward lands on a bare URL', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    monthState.year = 2024
+    monthState.month = 6
+    navState.type = 'popstate'
+    setPageUrl('http://localhost/monthly')
+
+    render(Layout, { children: childrenSnippet })
+    await screen.findByText('Bookkeeper')
+
+    await waitFor(() => expect(monthState.year).toBe(2026))
+    expect(monthState.month).toBe(3)
   })
 
   it('logs out and redirects to /login', async () => {
