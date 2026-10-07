@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/svelte'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { MonthNav } from '$lib/month-nav.svelte'
+import type { MonthNavState } from '$lib/stores/month.svelte'
 import MonthNavHeader from './MonthNavHeader.svelte'
 
-function makeNav(overrides: Partial<MonthNav> = {}): MonthNav {
+function makeNav(overrides: Partial<MonthNavState> = {}): MonthNavState {
   return {
     year: 2026,
     month: 3,
@@ -12,7 +12,7 @@ function makeNav(overrides: Partial<MonthNav> = {}): MonthNav {
     changeMonth: vi.fn(),
     goToCurrentMonth: vi.fn(),
     ...overrides,
-  } as unknown as MonthNav
+  } as unknown as MonthNavState
 }
 
 describe('MonthNavHeader', () => {

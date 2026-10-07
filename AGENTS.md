@@ -221,12 +221,19 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
   logic inline instead of sharing it, which makes them slow to navigate and
   expensive to hold in context. Before adding to either page (or any
   route), check whether the logic already exists in `$lib`:
-  - **Month/year navigation** (current-period check, prev/next, "This
-    Month"/"This Year" reset, syncing the choice to URL query params) lives
-    in `src/lib/month-nav.svelte.ts` (`createMonthNav`) and
+  - **Month/year navigation** (current-period check, prev/next, "jump to
+    this month", the URL query-param sync, and the app-wide persistence of
+    the chosen month across pages) lives in one shared session store,
+    `src/lib/stores/month.svelte.ts` (`monthState`), plus the presentational
     `$lib/components/MonthNavHeader.svelte` — do not re-declare
-    `isCurrentMonth`/`changeMonth`/`setUrlParams`/`clearUrlParams` locally,
-    every route needing this pattern should use these.
+    `isCurrentMonth`/`changeMonth`/`goToCurrentMonth`/`syncFromUrl` locally,
+    or instantiate a second month store. Every month-keyed route (Dashboard,
+    Monthly) reads and writes this same `monthState`; `+layout.svelte` is the
+    only place that mirrors it into the URL (month-keyed routes only) — see
+    the store's own header comment and DESIGN.md's 2026-10-07 decisions-log
+    entry. It is intentionally in-memory (not `localStorage`), so it persists
+    across in-session navigation but a full reload returns to the current
+    month.
   - **Pure display/derivation logic** (due-date resolution, status chips,
     row-shaping, rounding, anything that maps API data to what a template
     renders and has no side effects) belongs in a `$lib` module, not inline

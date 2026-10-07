@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MonthNav } from '$lib/month-nav.svelte'
+  import type { MonthNavState } from '$lib/stores/month.svelte'
   import { monthName } from '$lib/format'
   import { Button } from '$lib/components/ui/button'
   import IconActionButton from '$lib/components/IconActionButton.svelte'
@@ -7,7 +7,7 @@
   import { cn } from '$lib/utils'
 
   interface Props {
-    nav: MonthNav
+    nav: MonthNavState
     /** Hide the "Month Year" label - for a page that already shows it
         elsewhere, so it isn't repeated right next to this control. Ignored
         by the `compact` variant, whose whole point is showing the label. */

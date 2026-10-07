@@ -2,11 +2,12 @@
   import './layout.css'
   import favicon from '$lib/assets/favicon.svg'
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
+  import { goto, replaceState, afterNavigate } from '$app/navigation'
   import { page } from '$app/state'
   import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte'
   import { registerServiceWorker } from '$lib/stores/push.svelte'
   import { themeState } from '$lib/stores/theme.svelte'
+  import { monthState } from '$lib/stores/month.svelte'
   import { Toaster } from '$lib/components/ui/sonner'
   import OutgoingsMenu from '$lib/components/nav/OutgoingsMenu.svelte'
   import AccountMenu from '$lib/components/nav/AccountMenu.svelte'
@@ -35,6 +36,52 @@
     { href: '/monthly', label: 'Monthly' },
     { href: '/income', label: 'Income' },
   ]
+
+  // The global month picker is shown on the screens whose content is keyed
+  // to a single month (Dashboard and Monthly) - not on Income (keyed to a
+  // financial year) or the outgoings/setup pages, where a month control
+  // would have nothing to change. The shell owns the shared `monthState`
+  // (and the URL sync below) rather than each page, so stepping the month on
+  // Dashboard and navigating to Monthly keeps the same month; each page
+  // still renders the `MonthNavHeader` control itself.
+  const MONTH_ROUTES = new Set(['', 'monthly'])
+  const routeSegment = $derived(page.url.pathname.split('/')[1] ?? '')
+  const showMonthPicker = $derived(MONTH_ROUTES.has(routeSegment))
+
+  // Mirror the shared month into the URL so the open month stays
+  // reloadable/shareable (each month page seeds its own value from the URL
+  // before fetching; see routes/+page.svelte). Only the month-keyed routes
+  // are touched, so `/login`, `/income` and the rest keep a clean URL.
+  //
+  // `lastSearch` guards the two directions from fighting: the URL is only
+  // adopted when it actually changed (a navigation, a shared link, or browser
+  // back), never merely because the store changed underneath it - otherwise
+  // stepping the picker would re-read the now-stale params and undo itself.
+  //
+  // The write-back waits for `routerReady`, flipped in `afterNavigate`: on the
+  // first render this effect runs during hydration, before SvelteKit has
+  // initialised the router, and `replaceState` throws ("Cannot call
+  // replaceState(...) before router is initialized"). Reads and the in-memory
+  // seed are safe then, so only the URL write is gated.
+  let routerReady = $state(false)
+  afterNavigate(() => {
+    routerReady = true
+  })
+  let lastSearch = ''
+  $effect(() => {
+    if (!showMonthPicker) return
+    const search = page.url.search
+    if (search !== lastSearch) {
+      lastSearch = search
+      monthState.syncFromUrl(search)
+    }
+    if (!routerReady) return
+    const params = `year=${monthState.year}&month=${monthState.month}`
+    if (search !== `?${params}`) {
+      lastSearch = `?${params}`
+      replaceState(`${page.url.pathname}?${params}`, {})
+    }
+  })
 
   onMount(() => {
     void loadCurrentUser()

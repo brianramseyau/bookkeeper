@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { MonthNav } from '$lib/month-nav.svelte'
+  import { page } from '$app/state'
+  import { monthState } from '$lib/stores/month.svelte'
   import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import { EditState } from '$lib/edit-state.svelte'
   import {
@@ -53,9 +53,14 @@
   } from '$lib/components/monthly/OutgoingLineEditSheet.svelte'
   import CarryoverCard from '$lib/components/monthly/CarryoverCard.svelte'
 
-  const nav = new MonthNav('/monthly', () => void load())
-  const year = $derived(nav.year)
-  const month = $derived(nav.month)
+  // Seed the shared month from explicit `?year=&month=` params on entry (a
+  // shared link, or the Dashboard chart's click-through) before the first
+  // fetch below, so it opens on that month. A plain nav link carries none, so
+  // the session's month carries over from wherever it was last set.
+  monthState.syncFromUrl(page.url.search)
+
+  const year = $derived(monthState.year)
+  const month = $derived(monthState.month)
   let data = $state<StandardMonthResult | null>(null)
   let sources = $state<IncomeSource[]>([])
   let entries = $state<IncomeEntry[]>([])
@@ -91,7 +96,16 @@
   let expenseEditError = $state<string | null>(null)
   let savingPaidKey = $state<string | null>(null)
 
-  onMount(load)
+  // Re-fetches whenever the shared month changes (the picker lives in the
+  // app shell, so a step made there - or one made on Dashboard before
+  // navigating here - lands as a change to `monthState`, not a local call).
+  let loadedKey: string | null = null
+  $effect(() => {
+    const key = `${monthState.year}-${monthState.month}`
+    if (key === loadedKey) return
+    loadedKey = key
+    void load()
+  })
 
   // Only shows the full-page loading state on the very first load - once
   // there's data on screen, changing month/year should re-fetch quietly
@@ -461,7 +475,7 @@
 </PageHeader>
 
 <div class="mt-3">
-  <MonthNavHeader {nav} variant="compact" />
+  <MonthNavHeader nav={monthState} variant="compact" />
 </div>
 
 {#if error}
