@@ -183,10 +183,17 @@
       await setMonthCarryover(year, month, amount)
       carryoverEdit.cancel()
       toast.success('Carried-over balance saved')
-      // Only refresh if the month hasn't moved on under the open editor.
-      if (requested === currentKey) await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
+      carryoverEdit.saving = false
+      return
+    }
+    // The save succeeded; a failed re-fetch is a separate problem (the page
+    // data is now stale) and must not read as a save failure.
+    try {
+      await refreshAfterMutation(requested)
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to reload the month'
     } finally {
       carryoverEdit.saving = false
     }
@@ -321,16 +328,31 @@
   // `data` (Paid toggle, expense actual save/remove, carryover save).
   // Income entry mutations use refreshIncome below instead, since those
   // also need to update the entries list itself.
+  //
+  // Deliberately leaves `dataKey` alone: that tracks the month a *full* load
+  // (both `data` and `entries`) last landed for, and this refresh only touches
+  // `data`. Keeping it is what lets `refreshAfterMutation` tell when a partial
+  // refresh is safe.
   async function refreshMonth() {
-    const requested = `${year}-${month}`
     const seq = ++requestSeq
     const result = await getStandardMonth(year, month)
-    // Drop the refresh if the user has moved to another month (or started a
-    // newer request) while it was in flight, so it can't land under the wrong
-    // month's controls.
     if (seq !== requestSeq) return
     data = result
-    dataKey = requested
+  }
+
+  // The refresh to run after a data-only mutation. `refreshMonth` alone is
+  // only safe when the requested month's full load has already landed
+  // (`dataKey === requested`), so `data` and `entries` are known to belong to
+  // the same month; otherwise (e.g. an A → B → A sequence where B's load
+  // superseded A's) it would leave the new month's expense data paired with the
+  // previous month's income rows, so a full `load()` is needed instead.
+  async function refreshAfterMutation(requested: string) {
+    if (requested !== currentKey) return
+    if (dataKey !== requested) {
+      await load()
+      return
+    }
+    await refreshMonth()
   }
 
   // Same idea as refreshMonth, but also re-fetches income entries - used
@@ -368,10 +390,10 @@
         const expenseId = Number(line.key.slice('expense-'.length))
         await upsertExpensePayment(expenseId, year, month, paid)
       }
-      // The mutation targeted the month selected when it started; if the picker
-      // has since moved on, don't re-fetch (which would read the new month and
-      // bump `requestSeq` out from under that month's own load).
-      if (requested === currentKey) await refreshMonth()
+      // The mutation targeted the month selected when it started; if the
+      // picker has since moved on (or a full load is needed to keep `data`
+      // and `entries` in sync), `refreshAfterMutation` handles it.
+      await refreshAfterMutation(requested)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to update paid status'
     } finally {
@@ -496,13 +518,9 @@
     expenseEditSubmitting = false
     toast.success(target.mode === 'expense-add' ? 'Entry added' : 'Changes saved')
     // The sheet is closed now, so a failed re-fetch has to surface on the
-    // page rather than in the sheet's own (now unmounted) error. Skip the
-    // refresh entirely if the picker moved on mid-mutation - the new month's
-    // own load owns `data`/`entries`, and this partial refresh (which doesn't
-    // touch `entries`) would otherwise desync them.
-    if (requested !== currentKey) return
+    // page rather than in the sheet's own (now unmounted) error.
     try {
-      await refreshMonth()
+      await refreshAfterMutation(requested)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to reload the month'
     }
@@ -522,10 +540,7 @@
       await deleteExpenseActual(target.actualId)
       closeExpenseEdit()
       toast.success('Entry deleted')
-      // A partial refresh after the picker has moved on would overwrite the
-      // new month's `data` without its `entries`; the new month's own load
-      // owns both, so skip it.
-      if (requested === currentKey) await refreshMonth()
+      await refreshAfterMutation(requested)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }
