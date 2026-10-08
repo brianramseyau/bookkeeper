@@ -182,6 +182,7 @@
     try {
       await setMonthCarryover(year, month, amount)
       carryoverEdit.cancel()
+      toast.success('Carried-over balance saved')
       // Only refresh if the month hasn't moved on under the open editor.
       if (requested === currentKey) await refreshMonth()
     } catch (err) {
@@ -444,6 +445,7 @@
       expenseEditError = 'Enter an amount'
       return
     }
+    const requested = currentKey
     expenseEditSubmitting = true
     expenseEditError = null
     error = null
@@ -494,7 +496,11 @@
     expenseEditSubmitting = false
     toast.success(target.mode === 'expense-add' ? 'Entry added' : 'Changes saved')
     // The sheet is closed now, so a failed re-fetch has to surface on the
-    // page rather than in the sheet's own (now unmounted) error.
+    // page rather than in the sheet's own (now unmounted) error. Skip the
+    // refresh entirely if the picker moved on mid-mutation - the new month's
+    // own load owns `data`/`entries`, and this partial refresh (which doesn't
+    // touch `entries`) would otherwise desync them.
+    if (requested !== currentKey) return
     try {
       await refreshMonth()
     } catch (err) {
@@ -505,6 +511,7 @@
   async function removeExpenseActual() {
     const target = expenseEditTarget
     if (!target || target.mode !== 'expense-edit' || target.actualId === undefined) return
+    const requested = currentKey
     const confirmed = await confirmDestructive({
       title: `Delete this ${target.line.label} entry?`,
       description: 'This cannot be undone.',
@@ -514,8 +521,11 @@
     try {
       await deleteExpenseActual(target.actualId)
       closeExpenseEdit()
-      await refreshMonth()
       toast.success('Entry deleted')
+      // A partial refresh after the picker has moved on would overwrite the
+      // new month's `data` without its `entries`; the new month's own load
+      // owns both, so skip it.
+      if (requested === currentKey) await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }

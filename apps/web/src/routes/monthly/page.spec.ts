@@ -347,6 +347,37 @@ describe('month page', () => {
 
     await waitFor(() => expect(setMonthCarryover).toHaveBeenCalledWith(2026, 3, 750))
     expect(getStandardMonth).toHaveBeenCalledTimes(2)
+    expect(toast.success).toHaveBeenCalledWith('Carried-over balance saved')
+  })
+
+  it('still toasts a carryover save when the month changes mid-save', async () => {
+    setDefaultMocks()
+    let resolveSave: (value: {
+      id: number
+      year: number
+      month: number
+      amount: number
+      notes: null
+    }) => void = () => {}
+    vi.mocked(setMonthCarryover).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit carried over balance' }))
+    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
+    await waitFor(() => expect(setMonthCarryover).toHaveBeenCalled())
+
+    // The picker moves on before the save resolves; the toast still fires and
+    // the partial refresh is skipped (no second getStandardMonth for March).
+    monthState.month = 2
+    resolveSave({ id: 1, year: 2026, month: 3, amount: 750, notes: null })
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Carried-over balance saved'))
   })
 
   it('cancels editing the carried-over balance', async () => {
@@ -1471,6 +1502,44 @@ describe('month page', () => {
     dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete entry' }))
     await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
+  })
+
+  it('skips the partial refresh when an expense save resolves after a month change', async () => {
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
+    vi.mocked(listExpenseActuals).mockResolvedValue([
+      {
+        id: 5,
+        expenseId: 1,
+        occurredOn: '2026-03-10',
+        amount: 620,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ])
+    let resolveUpdate: (value: ExpenseMonthlyActual) => void = () => {}
+    vi.mocked(updateExpenseActual).mockImplementation(
+      () => new Promise((resolve) => (resolveUpdate = resolve))
+    )
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(updateExpenseActual).toHaveBeenCalledWith(5, { amount: 620 }))
+
+    // The picker moves to February before the save resolves. The refresh for
+    // March must be skipped so it can't overwrite February's data (without its
+    // entries); the new month's own load is the last call.
+    monthState.month = 2
+    resolveUpdate({} as ExpenseMonthlyActual)
+
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+    // March was fetched once (the initial load) but not again by the skipped refresh.
+    const marchCalls = vi.mocked(getStandardMonth).mock.calls.filter((c) => c[1] === 3).length
+    expect(marchCalls).toBe(1)
   })
 
   it('shows a link to view all entries when an expense has multiple actuals that month', async () => {
