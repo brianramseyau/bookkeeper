@@ -1598,9 +1598,13 @@ describe('month page', () => {
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(updateExpenseActual).toHaveBeenCalled())
 
-    // A -> B: February's load settles, so `dataKey` becomes February.
+    // A -> B: February's load settles (its mock resolves immediately), so
+    // `dataKey` becomes February. Flush the resolved Promise.all continuation
+    // before switching again, so this branch is exercised deterministically
+    // and not raced by March's load.
     monthState.month = 2
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+    await new Promise((resolve) => setTimeout(resolve, 0))
     // B -> A: back to March. Block March's income fetch so its load never
     // settles and `dataKey` stays February.
     const marchIncomeFetches: string[] = []
@@ -1610,6 +1614,7 @@ describe('month page', () => {
     })
     monthState.month = 3
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 3))
+    await new Promise((resolve) => setTimeout(resolve, 0))
     const before = marchIncomeFetches.length
 
     resolveUpdate({} as ExpenseMonthlyActual)
