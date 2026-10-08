@@ -69,6 +69,12 @@
   let dataKey = $state<string | null>(null)
   const currentKey = $derived(`${year}-${month}`)
   const stale = $derived(dataKey !== currentKey)
+  // Monotonic id for the latest month-data request (load/refreshMonth/
+  // refreshIncome). A response is applied only if it is still the latest, so
+  // an in-flight request for a month the user has since left - or one
+  // superseded by a newer request for the same month (A → B → A) - can't
+  // clobber the data the picker currently points at.
+  let requestSeq = 0
   let data = $state<StandardMonthResult | null>(null)
   let sources = $state<IncomeSource[]>([])
   let entries = $state<IncomeEntry[]>([])
@@ -135,6 +141,7 @@
   // reappearing) on every Prev/Next/This Month click.
   async function load() {
     const requested = `${year}-${month}`
+    const seq = ++requestSeq
     if (!data) loading = true
     error = null
     try {
@@ -144,20 +151,21 @@
         listIncomeEntries(year, month),
         listUsers(),
       ])
-      // A month change while this was in flight starts a newer request; drop
-      // this response rather than showing the old month's figures under the
-      // new heading, and leave `dataKey` alone so `stale` stays true.
-      if (requested !== `${monthState.year}-${monthState.month}`) return
+      // A month change (or a newer request) while this was in flight makes this
+      // response stale; drop it rather than showing the old month's figures
+      // under the new heading, and leave `dataKey`/`requestSeq` so `stale`
+      // stays true until the latest request lands.
+      if (seq !== requestSeq) return
       data = monthResult
       sources = sourceList
       entries = entryList
       users = userList
       dataKey = requested
     } catch (err) {
-      if (requested !== `${monthState.year}-${monthState.month}`) return
+      if (seq !== requestSeq) return
       error = err instanceof ApiError ? err.message : 'Failed to load monthly view'
     } finally {
-      if (requested === `${monthState.year}-${monthState.month}`) loading = false
+      if (seq === requestSeq) loading = false
     }
   }
 
@@ -168,12 +176,14 @@
   async function saveCarryover() {
     const amount = carryoverEdit.form?.amount
     if (amount === undefined || Number.isNaN(amount) || amount === null) return
+    const requested = `${year}-${month}`
     carryoverEdit.saving = true
     error = null
     try {
       await setMonthCarryover(year, month, amount)
       carryoverEdit.cancel()
-      await refreshMonth()
+      // Only refresh if the month hasn't moved on under the open editor.
+      if (requested === currentKey) await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
     } finally {
@@ -236,7 +246,7 @@
 
   async function saveEntryEditValues(values: IncomeEntryEditValues) {
     const target = entryEditTarget
-    if (!target || target.type !== 'placeholder') return
+    if (!target || target.type !== 'placeholder' || stale) return
     if (Number.isNaN(values.amount) || values.amount === null) {
       entryEditError = 'Amount is required'
       return
@@ -283,6 +293,7 @@
     line: StandardMonthIncomeLine,
     row: Extract<IncomeRow, { type: 'placeholder' }>
   ) {
+    if (stale) return
     error = null
     acceptingPlaceholderKey = row.key
     try {
@@ -310,19 +321,31 @@
   // Income entry mutations use refreshIncome below instead, since those
   // also need to update the entries list itself.
   async function refreshMonth() {
-    data = await getStandardMonth(year, month)
+    const requested = `${year}-${month}`
+    const seq = ++requestSeq
+    const result = await getStandardMonth(year, month)
+    // Drop the refresh if the user has moved to another month (or started a
+    // newer request) while it was in flight, so it can't land under the wrong
+    // month's controls.
+    if (seq !== requestSeq) return
+    data = result
+    dataKey = requested
   }
 
   // Same idea as refreshMonth, but also re-fetches income entries - used
   // after logging/editing/deleting an entry, which changes both the entries
   // list and the totals derived from it.
   async function refreshIncome() {
+    const requested = `${year}-${month}`
+    const seq = ++requestSeq
     const [monthResult, entryList] = await Promise.all([
       getStandardMonth(year, month),
       listIncomeEntries(year, month),
     ])
+    if (seq !== requestSeq) return
     data = monthResult
     entries = entryList
+    dataKey = requested
   }
 
   async function togglePaid(line: StandardMonthLine, paid: boolean) {
@@ -383,8 +406,12 @@
     }
     if (line.key.startsWith('expense-')) {
       const expenseId = Number(line.key.slice('expense-'.length))
+      const requested = `${year}-${month}`
       try {
         const actuals = await listExpenseActuals(expenseId, year, month)
+        // The month may have moved on while the actuals were loading; opening
+        // the sheet now would target a line that belongs to the old month.
+        if (requested !== currentKey) return
         if (actuals.length === 0) {
           expenseEditTarget = { mode: 'expense-add', line, expenseId }
         } else if (actuals.length === 1) {
@@ -400,6 +427,7 @@
         expenseEditError = null
         expenseEditOpen = true
       } catch (err) {
+        if (requested !== currentKey) return
         error = err instanceof ApiError ? err.message : 'Failed to load actuals'
       }
     }
@@ -407,7 +435,7 @@
 
   async function saveExpenseEditValues(values: OutgoingLineEditValues) {
     const target = expenseEditTarget
-    if (!target) return
+    if (!target || stale) return
     if (Number.isNaN(values.amount) || values.amount === null) {
       expenseEditError = 'Enter an amount'
       return

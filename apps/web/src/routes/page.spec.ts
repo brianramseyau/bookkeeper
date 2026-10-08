@@ -348,19 +348,23 @@ describe('dashboard page', () => {
         : Promise.resolve(baseSummary)
     )
     render(DashboardPage)
-    await screen.findByText('March 2026')
+    await screen.findByText('March spend by category')
 
     monthState.month = 2
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2))
     monthState.month = 3
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
 
-    // The stale February response now lands; the March heading stands.
+    // The stale February response now lands; flush its continuation before
+    // asserting, so a missing guard (which would switch the data-derived
+    // heading to February) is caught.
     resolveFebruary({
       ...baseSummary,
       currentMonth: { year: 2026, month: 2, projectedNet: 1, actualNet: 1 },
     })
-    expect(await screen.findByText('March 2026')).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByText('February spend by category')).toBeNull()
+    expect(screen.getByText('March spend by category')).toBeInTheDocument()
   })
 
   it('jumps back to the current month', async () => {

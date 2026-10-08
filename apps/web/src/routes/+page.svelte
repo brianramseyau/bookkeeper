@@ -29,7 +29,10 @@
 
   // The month picker renders in this page but its state is the shared store,
   // so re-fetch whenever it changes - a step made here, or one made on
-  // Monthly before navigating back.
+  // Monthly before navigating back. A monotonic id marks the latest request so
+  // a slow response for a month the user has since left (or superseded, e.g. an
+  // A → B → A sequence) is dropped rather than shown under the current heading.
+  let requestSeq = 0
   let loadedKey: string | null = null
   $effect(() => {
     const key = `${monthState.year}-${monthState.month}`
@@ -44,19 +47,18 @@
   async function load() {
     const year = monthState.year
     const month = monthState.month
+    const seq = ++requestSeq
     if (!data) loading = true
     error = null
     try {
       const result = await getDashboardSummary(year, month)
-      // A month change while this was in flight starts a newer request; drop
-      // this response rather than overwriting the screen with stale data.
-      if (year !== monthState.year || month !== monthState.month) return
+      if (seq !== requestSeq) return
       data = result
     } catch (err) {
-      if (year !== monthState.year || month !== monthState.month) return
+      if (seq !== requestSeq) return
       error = err instanceof ApiError ? err.message : 'Failed to load dashboard'
     } finally {
-      if (year === monthState.year && month === monthState.month) loading = false
+      if (seq === requestSeq) loading = false
     }
   }
 

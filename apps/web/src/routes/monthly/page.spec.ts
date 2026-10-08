@@ -287,10 +287,12 @@ describe('month page', () => {
     monthState.month = 3
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 3))
 
-    // The stale February response now lands; the page still shows March data.
+    // The stale February response now lands; flush its continuation before
+    // asserting, so a missing guard (which would swap in $999) is caught.
     resolveFebruary(baseData({ income: { ...baseData().income, actualTotal: 999 } }))
-    await waitFor(() => expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0))
+    await new Promise((resolve) => setTimeout(resolve, 0))
     expect(screen.queryByText('$999.00')).toBeNull()
+    expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0)
   })
 
   it('shows an API error message on failure', async () => {

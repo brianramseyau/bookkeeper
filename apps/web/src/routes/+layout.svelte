@@ -84,7 +84,14 @@
     }
   })
   $effect(() => {
-    if (!routerReady || !showMonthPicker) return
+    if (!showMonthPicker) {
+      // Off a month route: forget what we last wrote there, so re-entering
+      // via a bare link re-applies the session's month instead of leaving the
+      // URL bare because it matches a remembered value from the last visit.
+      lastWritten = ''
+      return
+    }
+    if (!routerReady) return
     const target = monthState.isCurrentMonth
       ? page.url.pathname
       : `${page.url.pathname}?year=${monthState.year}&month=${monthState.month}`
