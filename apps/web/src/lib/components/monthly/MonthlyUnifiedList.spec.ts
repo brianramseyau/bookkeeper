@@ -106,6 +106,22 @@ describe('MonthlyUnifiedList', () => {
     expect(onTogglePaid).toHaveBeenCalledWith(expenseLine, true)
   })
 
+  it('disables every mutation control while the month is stale', () => {
+    const expenseLine = makeExpenseLine()
+    const placeholder = makeIncomeLine({ payDates: ['2026-03-18T00:00:00.000+00:00'] })
+    const items = buildUnifiedList([expenseLine], [placeholder], [], 2026, 3)
+    render(MonthlyUnifiedList, { ...baseProps(), items, stale: true })
+
+    expect(screen.getByRole('checkbox', { name: /^Paid/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Edit Electricity' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Accept projected pay for 18 Mar 2026' })
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Edit projected pay for 18 Mar 2026' })
+    ).toBeDisabled()
+  })
+
   it('calls onStartEdit for an editable outgoing line', async () => {
     const onStartEdit = vi.fn()
     const expenseLine = makeExpenseLine()

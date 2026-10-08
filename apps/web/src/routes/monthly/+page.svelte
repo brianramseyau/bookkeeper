@@ -61,6 +61,14 @@
 
   const year = $derived(monthState.year)
   const month = $derived(monthState.month)
+  // The `year`-`month` the currently-rendered `data` belongs to. While a
+  // newly-selected month is still loading this lags behind the picker, so the
+  // old month's rows stay on screen but their mutation controls are disabled
+  // (see `stale`) - otherwise a Paid toggle could submit the previous month's
+  // line under the new month's year/month.
+  let dataKey = $state<string | null>(null)
+  const currentKey = $derived(`${year}-${month}`)
+  const stale = $derived(dataKey !== currentKey)
   let data = $state<StandardMonthResult | null>(null)
   let sources = $state<IncomeSource[]>([])
   let entries = $state<IncomeEntry[]>([])
@@ -99,13 +107,25 @@
   // Re-fetches whenever the shared month changes (the picker lives in the
   // app shell, so a step made there - or one made on Dashboard before
   // navigating here - lands as a change to `monthState`, not a local call).
+  // Any open edit sheet targets a line from the old month, so it's closed
+  // here rather than left able to save against the new one.
   let loadedKey: string | null = null
   $effect(() => {
     const key = `${monthState.year}-${monthState.month}`
     if (key === loadedKey) return
     loadedKey = key
+    closeSheets()
+    carryoverEdit.cancel()
     void load()
   })
+
+  function closeSheets() {
+    expenseEditOpen = false
+    expenseEditTarget = null
+    entryEditOpen = false
+    entryEditTarget = null
+    logIncomeOpen = false
+  }
 
   // Only shows the full-page loading state on the very first load - once
   // there's data on screen, changing month/year should re-fetch quietly
@@ -114,6 +134,7 @@
   // (the page collapsing to nothing, then the bottom-of-page entry form
   // reappearing) on every Prev/Next/This Month click.
   async function load() {
+    const requested = `${year}-${month}`
     if (!data) loading = true
     error = null
     try {
@@ -123,14 +144,20 @@
         listIncomeEntries(year, month),
         listUsers(),
       ])
+      // A month change while this was in flight starts a newer request; drop
+      // this response rather than showing the old month's figures under the
+      // new heading, and leave `dataKey` alone so `stale` stays true.
+      if (requested !== `${monthState.year}-${monthState.month}`) return
       data = monthResult
       sources = sourceList
       entries = entryList
       users = userList
+      dataKey = requested
     } catch (err) {
+      if (requested !== `${monthState.year}-${monthState.month}`) return
       error = err instanceof ApiError ? err.message : 'Failed to load monthly view'
     } finally {
-      loading = false
+      if (requested === `${monthState.year}-${monthState.month}`) loading = false
     }
   }
 
@@ -299,6 +326,7 @@
   }
 
   async function togglePaid(line: StandardMonthLine, paid: boolean) {
+    if (stale) return
     error = null
     savingPaidKey = line.key
     try {
@@ -490,6 +518,7 @@
   <CarryoverCard
     carryover={data.carryover}
     editState={carryoverEdit}
+    disabled={stale}
     onStartEdit={startEditCarryover}
     onSave={saveCarryover}
   />
@@ -501,6 +530,7 @@
     {users}
     {savingPaidKey}
     {acceptingPlaceholderKey}
+    {stale}
     onStartEdit={openEditExpense}
     onTogglePaid={togglePaid}
     onEditPlaceholder={openEditPlaceholder}

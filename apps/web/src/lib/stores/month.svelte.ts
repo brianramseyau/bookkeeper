@@ -5,12 +5,11 @@
  * value and resetting when you navigate.
  *
  * The value lives here, in memory, for the life of the session: it is
- * deliberately not persisted to `localStorage`, so a full reload starts
- * again at the current month. It is still seeded from `?year=&month=` on
- * the URL when a page is entered with explicit params (a shared/bookmarked
- * link, or the Dashboard chart's click-through), which is why each month
- * page calls `syncFromUrl` before its first fetch rather than reading the
- * query string itself.
+ * deliberately not persisted to `localStorage`. Persistence is instead the
+ * URL — `?year=&month=` mirrors the open month (see `+layout.svelte`), and
+ * is authoritative on load, so a full reload or a shared/bookmarked link
+ * reopens that month. Both month pages call `syncFromUrl` before their first
+ * fetch rather than reading the query string themselves.
  */
 
 /** The shape `MonthNavHeader` drives, so the component stays presentational

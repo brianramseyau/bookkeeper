@@ -26,6 +26,11 @@
     users: UserSummary[]
     savingPaidKey: string | null
     acceptingPlaceholderKey: string | null
+    /** True while the month just selected is still loading, so the rows on
+        screen belong to a different month - every mutation control is
+        disabled rather than acting on a row whose year/month no longer
+        matches the picker. */
+    stale?: boolean
     onStartEdit: (line: StandardMonthLine) => void
     onTogglePaid: (line: StandardMonthLine, paid: boolean) => void
     onEditPlaceholder: (
@@ -45,6 +50,7 @@
     users,
     savingPaidKey,
     acceptingPlaceholderKey,
+    stale = false,
     onStartEdit,
     onTogglePaid,
     onEditPlaceholder,
@@ -125,7 +131,7 @@
             <input
               type="checkbox"
               checked={line.paid}
-              disabled={savingPaidKey === line.key || !canTrackPaid(line, year, month)}
+              disabled={stale || savingPaidKey === line.key || !canTrackPaid(line, year, month)}
               onchange={(e) => onTogglePaid(line, e.currentTarget.checked)}
               aria-label="Paid: {line.label}"
               title={paidTooltip(line, year, month)}
@@ -176,8 +182,12 @@
             >
           </div>
           {#if editable}
-            {@render touchAction('neutral', `Edit ${line.label}`, mdiPencil, () =>
-              onStartEdit(line)
+            {@render touchAction(
+              'neutral',
+              `Edit ${line.label}`,
+              mdiPencil,
+              () => onStartEdit(line),
+              stale
             )}
           {:else}
             <div class="size-11 shrink-0"></div>
@@ -234,7 +244,7 @@
               `Accept projected pay for ${formatDate(row.date)}`,
               mdiCheckBold,
               () => onAcceptPlaceholder(item.line, row),
-              acceptingPlaceholderKey === row.key
+              stale || acceptingPlaceholderKey === row.key
             )}
           </div>
           <div class="not-italic">
@@ -242,7 +252,8 @@
               'neutral',
               `Edit projected pay for ${formatDate(row.date)}`,
               mdiPencil,
-              () => onEditPlaceholder(item.line, row)
+              () => onEditPlaceholder(item.line, row),
+              stale
             )}
           </div>
         </li>

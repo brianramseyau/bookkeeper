@@ -47,11 +47,16 @@
     if (!data) loading = true
     error = null
     try {
-      data = await getDashboardSummary(year, month)
+      const result = await getDashboardSummary(year, month)
+      // A month change while this was in flight starts a newer request; drop
+      // this response rather than overwriting the screen with stale data.
+      if (year !== monthState.year || month !== monthState.month) return
+      data = result
     } catch (err) {
+      if (year !== monthState.year || month !== monthState.month) return
       error = err instanceof ApiError ? err.message : 'Failed to load dashboard'
     } finally {
-      loading = false
+      if (year === monthState.year && month === monthState.month) loading = false
     }
   }
 

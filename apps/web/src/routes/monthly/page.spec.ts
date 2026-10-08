@@ -268,6 +268,31 @@ describe('month page', () => {
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
   })
 
+  it('ignores a stale response when the month changes mid-flight', async () => {
+    // February's request is left pending, then resolved only after the month
+    // has moved on to March - its response must be dropped rather than shown
+    // under March's heading.
+    let resolveFebruary: (value: StandardMonthResult) => void = () => {}
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockImplementation((_y, m) =>
+      m === 2
+        ? new Promise<StandardMonthResult>((resolve) => (resolveFebruary = resolve))
+        : Promise.resolve(baseData())
+    )
+    render(MonthPage)
+    await monthHeading('March 2026')
+
+    monthState.month = 2
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+    monthState.month = 3
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 3))
+
+    // The stale February response now lands; the page still shows March data.
+    resolveFebruary(baseData({ income: { ...baseData().income, actualTotal: 999 } }))
+    await waitFor(() => expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0))
+    expect(screen.queryByText('$999.00')).toBeNull()
+  })
+
   it('shows an API error message on failure', async () => {
     vi.mocked(getStandardMonth).mockRejectedValue(new ApiError(500, 'Could not load month'))
     vi.mocked(listIncomeSources).mockResolvedValue([])

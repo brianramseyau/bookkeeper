@@ -340,6 +340,29 @@ describe('dashboard page', () => {
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2))
   })
 
+  it('ignores a stale response when the month changes mid-flight', async () => {
+    let resolveFebruary: (value: DashboardSummary) => void = () => {}
+    vi.mocked(getDashboardSummary).mockImplementation((_y, m) =>
+      m === 2
+        ? new Promise<DashboardSummary>((resolve) => (resolveFebruary = resolve))
+        : Promise.resolve(baseSummary)
+    )
+    render(DashboardPage)
+    await screen.findByText('March 2026')
+
+    monthState.month = 2
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2))
+    monthState.month = 3
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
+
+    // The stale February response now lands; the March heading stands.
+    resolveFebruary({
+      ...baseSummary,
+      currentMonth: { year: 2026, month: 2, projectedNet: 1, actualNet: 1 },
+    })
+    expect(await screen.findByText('March 2026')).toBeInTheDocument()
+  })
+
   it('jumps back to the current month', async () => {
     setPageUrl('http://localhost/?year=2020&month=1')
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)

@@ -16,17 +16,21 @@ test('the month picker persists across Dashboard and Monthly', async ({ page }) 
   await expect(heading).not.toHaveText(initial)
 
   const stepped = (await heading.textContent())?.trim() ?? ''
-  await expect(page).toHaveURL(/[?&]month=\d+/)
+  const [, steppedYear, steppedMonth] =
+    (await page.evaluate(() => window.location.search)).match(/year=(\d+)&month=(\d+)/) ?? []
+  expect(steppedYear).toBeTruthy()
+  expect(steppedMonth).toBeTruthy()
 
   // Navigate via the real nav link - a plain link with no query params.
   await page.getByRole('link', { name: 'Monthly', exact: true }).first().click()
   await expect(page).toHaveURL(/\/monthly/)
-
   await expect(page.getByRole('heading', { name: stepped })).toBeVisible()
 
-  // And back, still the same month (the Dashboard URL now carries the step).
+  // And back, still the same month, now with the year/month params retained.
   await page.getByRole('link', { name: 'Dashboard', exact: true }).first().click()
-  await expect(page).toHaveURL(/localhost:\d+\/(\?|$)/)
+  await expect(page).toHaveURL(
+    new RegExp(`localhost:\\d+/\\?year=${steppedYear}&month=${steppedMonth}$`)
+  )
   await expect(page.getByRole('heading', { name: stepped })).toBeVisible()
 })
 
@@ -34,4 +38,16 @@ test('a shared ?year=&month= link opens that month', async ({ page }) => {
   await page.goto('/monthly?year=2024&month=2')
 
   await expect(page.getByRole('heading', { name: 'February 2024' })).toBeVisible()
+})
+
+// The URL is the persistence layer (no localStorage): reloading a URL that
+// carries a month restores that month rather than resetting to today.
+test('a reload restores the month from the URL', async ({ page }) => {
+  await page.goto('/?year=2025&month=7')
+  await expect(page.getByRole('heading', { name: 'July 2025' })).toBeVisible()
+
+  await page.reload()
+
+  await expect(page.getByRole('heading', { name: 'July 2025' })).toBeVisible()
+  await expect(page).toHaveURL(/\/\?year=2025&month=7$/)
 })
