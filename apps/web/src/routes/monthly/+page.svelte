@@ -352,6 +352,7 @@
     if (stale) return
     error = null
     savingPaidKey = line.key
+    const requested = currentKey
     try {
       if (line.key.startsWith('utility-') && line.actual !== null) {
         const utilityId = Number(line.key.slice('utility-'.length))
@@ -366,7 +367,10 @@
         const expenseId = Number(line.key.slice('expense-'.length))
         await upsertExpensePayment(expenseId, year, month, paid)
       }
-      await refreshMonth()
+      // The mutation targeted the month selected when it started; if the picker
+      // has since moved on, don't re-fetch (which would read the new month and
+      // bump `requestSeq` out from under that month's own load).
+      if (requested === currentKey) await refreshMonth()
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to update paid status'
     } finally {
