@@ -231,9 +231,11 @@ the `Joint Account Workbook.xlsx`, whose "Users" sheet - `Name`, `Email`,
     Monthly) reads and writes this same `monthState`; `+layout.svelte` is the
     only place that mirrors it into the URL (month-keyed routes only) — see
     the store's own header comment and DESIGN.md's 2026-10-07 decisions-log
-    entry. It is intentionally in-memory (not `localStorage`), so it persists
-    across in-session navigation but a full reload returns to the current
-    month.
+    entry. It is intentionally in-memory (not `localStorage`); the URL is the
+    persistence layer, so a full reload or a shared link reopens the month in
+    `?year=&month=`, while a bare in-app nav link keeps the session's month.
+    Both month pages drop a response that lands after the month has moved on,
+    and Monthly disables its row mutation controls while the new month loads.
   - **Pure display/derivation logic** (due-date resolution, status chips,
     row-shaping, rounding, anything that maps API data to what a template
     renders and has no side effects) belongs in a `$lib` module, not inline
