@@ -7,11 +7,15 @@
   interface Props {
     carryover: number
     editState: EditState<true, { amount: number }>
+    /** True while a newly-selected month is still loading, so the figure on
+        screen belongs to a different month - the edit control is disabled
+        rather than saving against the wrong month. */
+    disabled?: boolean
     onStartEdit: () => void
     onSave: () => void
   }
 
-  let { carryover, editState, onStartEdit, onSave }: Props = $props()
+  let { carryover, editState, disabled = false, onStartEdit, onSave }: Props = $props()
 </script>
 
 <div
@@ -52,6 +56,7 @@
         label="Edit carried over balance"
         path={mdiPencil}
         onclick={onStartEdit}
+        {disabled}
         class="size-11"
       />
     </div>

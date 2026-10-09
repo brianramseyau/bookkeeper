@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { MonthNav } from '$lib/month-nav.svelte'
+  import { page } from '$app/state'
+  import { monthState } from '$lib/stores/month.svelte'
   import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import { EditState } from '$lib/edit-state.svelte'
   import {
@@ -53,9 +53,28 @@
   } from '$lib/components/monthly/OutgoingLineEditSheet.svelte'
   import CarryoverCard from '$lib/components/monthly/CarryoverCard.svelte'
 
-  const nav = new MonthNav('/monthly', () => void load())
-  const year = $derived(nav.year)
-  const month = $derived(nav.month)
+  // Seed the shared month from explicit `?year=&month=` params on entry (a
+  // shared link, or the Dashboard chart's click-through) before the first
+  // fetch below, so it opens on that month. A plain nav link carries none, so
+  // the session's month carries over from wherever it was last set.
+  monthState.syncFromUrl(page.url.search)
+
+  const year = $derived(monthState.year)
+  const month = $derived(monthState.month)
+  // The `year`-`month` the currently-rendered `data` belongs to. While a
+  // newly-selected month is still loading this lags behind the picker, so the
+  // old month's rows stay on screen but their mutation controls are disabled
+  // (see `stale`) - otherwise a Paid toggle could submit the previous month's
+  // line under the new month's year/month.
+  let dataKey = $state<string | null>(null)
+  const currentKey = $derived(`${year}-${month}`)
+  const stale = $derived(dataKey !== currentKey)
+  // Monotonic id for the latest month-data request (load/refreshMonth/
+  // refreshIncome). A response is applied only if it is still the latest, so
+  // an in-flight request for a month the user has since left - or one
+  // superseded by a newer request for the same month (A → B → A) - can't
+  // clobber the data the picker currently points at.
+  let requestSeq = 0
   let data = $state<StandardMonthResult | null>(null)
   let sources = $state<IncomeSource[]>([])
   let entries = $state<IncomeEntry[]>([])
@@ -91,7 +110,28 @@
   let expenseEditError = $state<string | null>(null)
   let savingPaidKey = $state<string | null>(null)
 
-  onMount(load)
+  // Re-fetches whenever the shared month changes (the picker lives in the
+  // app shell, so a step made there - or one made on Dashboard before
+  // navigating here - lands as a change to `monthState`, not a local call).
+  // Any open edit sheet targets a line from the old month, so it's closed
+  // here rather than left able to save against the new one.
+  let loadedKey: string | null = null
+  $effect(() => {
+    const key = `${monthState.year}-${monthState.month}`
+    if (key === loadedKey) return
+    loadedKey = key
+    closeSheets()
+    carryoverEdit.cancel()
+    void load()
+  })
+
+  function closeSheets() {
+    expenseEditOpen = false
+    expenseEditTarget = null
+    entryEditOpen = false
+    entryEditTarget = null
+    logIncomeOpen = false
+  }
 
   // Only shows the full-page loading state on the very first load - once
   // there's data on screen, changing month/year should re-fetch quietly
@@ -100,6 +140,8 @@
   // (the page collapsing to nothing, then the bottom-of-page entry form
   // reappearing) on every Prev/Next/This Month click.
   async function load() {
+    const requested = `${year}-${month}`
+    const seq = ++requestSeq
     if (!data) loading = true
     error = null
     try {
@@ -109,14 +151,21 @@
         listIncomeEntries(year, month),
         listUsers(),
       ])
+      // A month change (or a newer request) while this was in flight makes this
+      // response stale; drop it rather than showing the old month's figures
+      // under the new heading, and leave `dataKey`/`requestSeq` so `stale`
+      // stays true until the latest request lands.
+      if (seq !== requestSeq) return
       data = monthResult
       sources = sourceList
       entries = entryList
       users = userList
+      dataKey = requested
     } catch (err) {
+      if (seq !== requestSeq) return
       error = err instanceof ApiError ? err.message : 'Failed to load monthly view'
     } finally {
-      loading = false
+      if (seq === requestSeq) loading = false
     }
   }
 
@@ -127,14 +176,24 @@
   async function saveCarryover() {
     const amount = carryoverEdit.form?.amount
     if (amount === undefined || Number.isNaN(amount) || amount === null) return
+    const requested = `${year}-${month}`
     carryoverEdit.saving = true
     error = null
     try {
       await setMonthCarryover(year, month, amount)
       carryoverEdit.cancel()
-      await refreshMonth()
+      toast.success('Carried-over balance saved')
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to save carried-over balance'
+      carryoverEdit.saving = false
+      return
+    }
+    // The save succeeded; a failed re-fetch is a separate problem (the page
+    // data is now stale) and must not read as a save failure.
+    try {
+      await refreshAfterMutation(requested)
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Failed to reload the month'
     } finally {
       carryoverEdit.saving = false
     }
@@ -195,7 +254,7 @@
 
   async function saveEntryEditValues(values: IncomeEntryEditValues) {
     const target = entryEditTarget
-    if (!target || target.type !== 'placeholder') return
+    if (!target || target.type !== 'placeholder' || stale) return
     if (Number.isNaN(values.amount) || values.amount === null) {
       entryEditError = 'Amount is required'
       return
@@ -242,6 +301,7 @@
     line: StandardMonthIncomeLine,
     row: Extract<IncomeRow, { type: 'placeholder' }>
   ) {
+    if (stale) return
     error = null
     acceptingPlaceholderKey = row.key
     try {
@@ -268,25 +328,54 @@
   // `data` (Paid toggle, expense actual save/remove, carryover save).
   // Income entry mutations use refreshIncome below instead, since those
   // also need to update the entries list itself.
+  //
+  // Deliberately leaves `dataKey` alone: that tracks the month a *full* load
+  // (both `data` and `entries`) last landed for, and this refresh only touches
+  // `data`. Keeping it is what lets `refreshAfterMutation` tell when a partial
+  // refresh is safe.
   async function refreshMonth() {
-    data = await getStandardMonth(year, month)
+    const seq = ++requestSeq
+    const result = await getStandardMonth(year, month)
+    if (seq !== requestSeq) return
+    data = result
+  }
+
+  // The refresh to run after a data-only mutation. `refreshMonth` alone is
+  // only safe when the requested month's full load has already landed
+  // (`dataKey === requested`), so `data` and `entries` are known to belong to
+  // the same month; otherwise (e.g. an A → B → A sequence where B's load
+  // superseded A's) it would leave the new month's expense data paired with the
+  // previous month's income rows, so a full `load()` is needed instead.
+  async function refreshAfterMutation(requested: string) {
+    if (requested !== currentKey) return
+    if (dataKey !== requested) {
+      await load()
+      return
+    }
+    await refreshMonth()
   }
 
   // Same idea as refreshMonth, but also re-fetches income entries - used
   // after logging/editing/deleting an entry, which changes both the entries
   // list and the totals derived from it.
   async function refreshIncome() {
+    const requested = `${year}-${month}`
+    const seq = ++requestSeq
     const [monthResult, entryList] = await Promise.all([
       getStandardMonth(year, month),
       listIncomeEntries(year, month),
     ])
+    if (seq !== requestSeq) return
     data = monthResult
     entries = entryList
+    dataKey = requested
   }
 
   async function togglePaid(line: StandardMonthLine, paid: boolean) {
+    if (stale) return
     error = null
     savingPaidKey = line.key
+    const requested = currentKey
     try {
       if (line.key.startsWith('utility-') && line.actual !== null) {
         const utilityId = Number(line.key.slice('utility-'.length))
@@ -301,7 +390,10 @@
         const expenseId = Number(line.key.slice('expense-'.length))
         await upsertExpensePayment(expenseId, year, month, paid)
       }
-      await refreshMonth()
+      // The mutation targeted the month selected when it started; if the
+      // picker has since moved on (or a full load is needed to keep `data`
+      // and `entries` in sync), `refreshAfterMutation` handles it.
+      await refreshAfterMutation(requested)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to update paid status'
     } finally {
@@ -341,8 +433,12 @@
     }
     if (line.key.startsWith('expense-')) {
       const expenseId = Number(line.key.slice('expense-'.length))
+      const requested = `${year}-${month}`
       try {
         const actuals = await listExpenseActuals(expenseId, year, month)
+        // The month may have moved on while the actuals were loading; opening
+        // the sheet now would target a line that belongs to the old month.
+        if (requested !== currentKey) return
         if (actuals.length === 0) {
           expenseEditTarget = { mode: 'expense-add', line, expenseId }
         } else if (actuals.length === 1) {
@@ -358,6 +454,7 @@
         expenseEditError = null
         expenseEditOpen = true
       } catch (err) {
+        if (requested !== currentKey) return
         error = err instanceof ApiError ? err.message : 'Failed to load actuals'
       }
     }
@@ -365,11 +462,12 @@
 
   async function saveExpenseEditValues(values: OutgoingLineEditValues) {
     const target = expenseEditTarget
-    if (!target) return
+    if (!target || stale) return
     if (Number.isNaN(values.amount) || values.amount === null) {
       expenseEditError = 'Enter an amount'
       return
     }
+    const requested = currentKey
     expenseEditSubmitting = true
     expenseEditError = null
     error = null
@@ -422,7 +520,7 @@
     // The sheet is closed now, so a failed re-fetch has to surface on the
     // page rather than in the sheet's own (now unmounted) error.
     try {
-      await refreshMonth()
+      await refreshAfterMutation(requested)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to reload the month'
     }
@@ -431,6 +529,7 @@
   async function removeExpenseActual() {
     const target = expenseEditTarget
     if (!target || target.mode !== 'expense-edit' || target.actualId === undefined) return
+    const requested = currentKey
     const confirmed = await confirmDestructive({
       title: `Delete this ${target.line.label} entry?`,
       description: 'This cannot be undone.',
@@ -440,8 +539,8 @@
     try {
       await deleteExpenseActual(target.actualId)
       closeExpenseEdit()
-      await refreshMonth()
       toast.success('Entry deleted')
+      await refreshAfterMutation(requested)
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Failed to remove actual'
     }
@@ -461,7 +560,7 @@
 </PageHeader>
 
 <div class="mt-3">
-  <MonthNavHeader {nav} variant="compact" />
+  <MonthNavHeader nav={monthState} variant="compact" />
 </div>
 
 {#if error}
@@ -476,6 +575,7 @@
   <CarryoverCard
     carryover={data.carryover}
     editState={carryoverEdit}
+    disabled={stale}
     onStartEdit={startEditCarryover}
     onSave={saveCarryover}
   />
@@ -487,6 +587,7 @@
     {users}
     {savingPaidKey}
     {acceptingPlaceholderKey}
+    {stale}
     onStartEdit={openEditExpense}
     onTogglePaid={togglePaid}
     onEditPlaceholder={openEditPlaceholder}

@@ -33,6 +33,18 @@ describe('CarryoverCard', () => {
     expect(onStartEdit).toHaveBeenCalledOnce()
   })
 
+  it('disables the edit button while the month is stale', () => {
+    render(CarryoverCard, {
+      carryover: 500,
+      editState: new EditState<true, { amount: number }>(),
+      disabled: true,
+      onStartEdit: vi.fn(),
+      onSave: vi.fn(),
+    })
+
+    expect(screen.getAllByRole('button', { name: 'Edit carried over balance' })[0]).toBeDisabled()
+  })
+
   it('shows an amount input and calls onSave when editing', async () => {
     const onSave = vi.fn()
     const editState = new EditState<true, { amount: number }>()

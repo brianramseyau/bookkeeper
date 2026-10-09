@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
-import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { goto, replaceState } from '$app/navigation'
+import { goto } from '$app/navigation'
 import { page } from '$app/state'
 import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
 import { ApiError } from '$lib/api'
 import { authState } from '$lib/stores/auth.svelte'
+import { monthState } from '$lib/stores/month.svelte'
 import DashboardPage from './+page.svelte'
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }))
@@ -34,8 +34,11 @@ describe('dashboard page', () => {
     // matches baseSummary's currentMonth of March 2026.
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
     setPageUrl('http://localhost/')
+    // The shared month carries across page mounts within a session, so reset
+    // it per test rather than letting one test's navigation leak into the next.
+    monthState.year = 2026
+    monthState.month = 3
     vi.mocked(getDashboardSummary).mockReset()
-    vi.mocked(replaceState).mockReset()
     authState.user = {
       id: 1,
       fullName: 'Brian',
@@ -325,34 +328,53 @@ describe('dashboard page', () => {
     expect(getDashboardSummary).toHaveBeenCalledWith(2025, 11)
   })
 
-  it('navigates to the previous and next month, wrapping the year, and updates URL params', async () => {
+  it('re-fetches when the shared month changes', async () => {
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
-    const user = userEvent.setup()
     render(DashboardPage)
     await screen.findByText('March 2026')
 
-    await user.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(await screen.findByText('February 2026')).toBeInTheDocument()
-    expect(replaceState).toHaveBeenCalledWith('/?year=2026&month=2', {})
-    expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2)
+    // The picker's own state is shared, so stepping it (here simulated by
+    // mutating the store) makes this page re-fetch.
+    monthState.month = 2
 
-    for (let i = 0; i < 2; i++) {
-      await user.click(screen.getByRole('button', { name: 'Previous month' }))
-    }
-    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2025, 12))
-    expect(await screen.findByText('December 2025')).toBeInTheDocument()
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2))
+  })
+
+  it('ignores a stale response when the month changes mid-flight', async () => {
+    let resolveFebruary: (value: DashboardSummary) => void = () => {}
+    vi.mocked(getDashboardSummary).mockImplementation((_y, m) =>
+      m === 2
+        ? new Promise<DashboardSummary>((resolve) => (resolveFebruary = resolve))
+        : Promise.resolve(baseSummary)
+    )
+    render(DashboardPage)
+    await screen.findByText('March spend by category')
+
+    monthState.month = 2
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 2))
+    monthState.month = 3
+    await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
+
+    // The stale February response now lands; flush its continuation before
+    // asserting, so a missing guard (which would switch the data-derived
+    // heading to February) is caught.
+    resolveFebruary({
+      ...baseSummary,
+      currentMonth: { year: 2026, month: 2, projectedNet: 1, actualNet: 1 },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByText('February spend by category')).toBeNull()
+    expect(screen.getByText('March spend by category')).toBeInTheDocument()
   })
 
   it('jumps back to the current month', async () => {
     setPageUrl('http://localhost/?year=2020&month=1')
     vi.mocked(getDashboardSummary).mockResolvedValue(baseSummary)
-    const user = userEvent.setup()
     render(DashboardPage)
     await screen.findByText('January 2020')
 
-    await user.click(screen.getByRole('button', { name: 'January 2020' }))
+    monthState.goToCurrentMonth()
 
     await waitFor(() => expect(getDashboardSummary).toHaveBeenLastCalledWith(2026, 3))
-    expect(replaceState).toHaveBeenCalledWith('/', {})
   })
 })

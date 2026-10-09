@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
+  import { page } from '$app/state'
   import { authState } from '$lib/stores/auth.svelte'
   import { themeState } from '$lib/stores/theme.svelte'
+  import { monthState } from '$lib/stores/month.svelte'
   import { getDashboardSummary, type DashboardSummary } from '$lib/api/dashboard'
   import { formatCurrency, formatDaysUntilDue, monthName, round2 } from '$lib/format'
   import { ApiError } from '$lib/api'
-  import { MonthNav } from '$lib/month-nav.svelte'
-  import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import StatCard from '$lib/components/app/StatCard.svelte'
+  import MonthNavHeader from '$lib/components/MonthNavHeader.svelte'
   import NetPositionTrendChart from '$lib/components/NetPositionTrendChart.svelte'
   import PieChart from '$lib/components/PieChart.svelte'
   import CategoryBreakdownList from '$lib/components/CategoryBreakdownList.svelte'
@@ -17,27 +17,50 @@
   import PageHeader from '$lib/components/app/PageHeader.svelte'
   import LoadingSkeleton from '$lib/components/app/LoadingSkeleton.svelte'
 
-  const nav = new MonthNav('/', () => void load())
+  // Seed the shared month from explicit `?year=&month=` params on entry (a
+  // shared link, or the Dashboard's own chart click-through) before the first
+  // fetch below, so it opens on that month. A plain nav link carries none, so
+  // the session's month carries over from wherever it was last set.
+  monthState.syncFromUrl(page.url.search)
+
   let data = $state<DashboardSummary | null>(null)
   let loading = $state(true)
   let error = $state<string | null>(null)
+
+  // The month picker renders in this page but its state is the shared store,
+  // so re-fetch whenever it changes - a step made here, or one made on
+  // Monthly before navigating back. A monotonic id marks the latest request so
+  // a slow response for a month the user has since left (or superseded, e.g. an
+  // A → B → A sequence) is dropped rather than shown under the current heading.
+  let requestSeq = 0
+  let loadedKey: string | null = null
+  $effect(() => {
+    const key = `${monthState.year}-${monthState.month}`
+    if (key === loadedKey) return
+    loadedKey = key
+    void load()
+  })
 
   // Only shows the full-page loading state on the very first load - once
   // there's data on screen, changing month should re-fetch quietly rather
   // than tearing the whole dashboard down to a spinner and back.
   async function load() {
+    const year = monthState.year
+    const month = monthState.month
+    const seq = ++requestSeq
     if (!data) loading = true
     error = null
     try {
-      data = await getDashboardSummary(nav.year, nav.month)
+      const result = await getDashboardSummary(year, month)
+      if (seq !== requestSeq) return
+      data = result
     } catch (err) {
+      if (seq !== requestSeq) return
       error = err instanceof ApiError ? err.message : 'Failed to load dashboard'
     } finally {
-      loading = false
+      if (seq === requestSeq) loading = false
     }
   }
-
-  onMount(load)
 
   // Money in / money out use the Polymer semantic colours (DESIGN.md →
   // Colour): `in` for income, `over` for expenses - the same meaning they
@@ -241,8 +264,8 @@
     <div class="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <Card class="p-4">
         <h3 class="text-foreground text-sm font-semibold">
-          Income, expenses and net position (12 months through {monthName(nav.month)}
-          {nav.year})
+          Income, expenses and net position (12 months through {monthName(monthState.month)}
+          {monthState.year})
         </h3>
         <div class="mt-3">
           <NetPositionTrendChart
@@ -257,9 +280,9 @@
         <h3 class="text-foreground text-sm font-semibold">Income vs expenses (12 months)</h3>
         <p class="text-muted-foreground mt-0.5 text-xs">
           Net income against logged expenses (excluding recurring bills and subscriptions) through {monthName(
-            nav.month
+            monthState.month
           )}
-          {nav.year}
+          {monthState.year}
         </p>
         <div class="mt-3">
           <PieChart
@@ -279,7 +302,7 @@
 />
 
 <div class="mt-3">
-  <MonthNavHeader {nav} variant="compact" />
+  <MonthNavHeader nav={monthState} variant="compact" />
 </div>
 
 {#if error}

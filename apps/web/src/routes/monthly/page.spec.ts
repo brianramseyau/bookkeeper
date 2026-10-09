@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toast } from 'svelte-sonner'
 import { confirmDestructive } from '$lib/components/app/confirmDestructive.svelte'
 import { page } from '$app/state'
-import { replaceState } from '$app/navigation'
 import { getStandardMonth, type StandardMonthResult } from '$lib/api/standard-month'
 import { setMonthCarryover } from '$lib/api/month-carryover'
 import {
@@ -29,9 +28,10 @@ import { upsertSubscriptionPayment } from '$lib/api/subscriptions'
 import { upsertExpensePayment } from '$lib/api/expenses'
 import { listUsers, type UserSummary } from '$lib/api/users'
 import { ApiError } from '$lib/api'
+import { monthState } from '$lib/stores/month.svelte'
 import MonthPage from './+page.svelte'
 
-vi.mock('$app/navigation', () => ({ replaceState: vi.fn() }))
+vi.mock('$app/navigation', () => ({}))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/monthly') } }))
 vi.mock('svelte-sonner', () => ({ toast: { success: vi.fn() } }))
 vi.mock('$lib/components/app/confirmDestructive.svelte', () => ({
@@ -210,6 +210,10 @@ describe('month page', () => {
     // fixture due dates below are all in March 2026.
     vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
     setPageUrl('http://localhost/monthly?year=2026&month=3')
+    // The shared month carries across page mounts within a session, so reset
+    // it per test rather than letting one test's navigation leak into the next.
+    monthState.year = 2026
+    monthState.month = 3
     vi.mocked(getStandardMonth).mockReset()
     vi.mocked(listIncomeSources).mockReset()
     vi.mocked(listIncomeEntries).mockReset()
@@ -226,19 +230,21 @@ describe('month page', () => {
     vi.mocked(upsertRecurringBillPayment).mockReset()
     vi.mocked(upsertSubscriptionPayment).mockReset()
     vi.mocked(upsertExpensePayment).mockReset()
-    vi.mocked(replaceState).mockReset()
     vi.mocked(toast.success).mockReset()
     vi.mocked(confirmDestructive).mockReset()
     vi.mocked(confirmDestructive).mockResolvedValue(true)
   })
 
   it('reads year/month from the URL and shows a loading state, then the header', async () => {
+    setPageUrl('http://localhost/monthly?year=2025&month=11')
     setDefaultMocks()
     render(MonthPage)
 
     expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument()
-    expect(getStandardMonth).toHaveBeenCalledWith(2026, 3)
-    expect(await screen.findByRole('heading', { name: 'March 2026' })).toBeInTheDocument()
+    expect(monthState.year).toBe(2025)
+    expect(monthState.month).toBe(11)
+    expect(getStandardMonth).toHaveBeenCalledWith(2025, 11)
+    expect(await monthHeading('November 2025')).toBeInTheDocument()
   })
 
   it('defaults to the current month when the URL has no valid params', async () => {
@@ -248,6 +254,45 @@ describe('month page', () => {
     render(MonthPage)
 
     expect(getStandardMonth).toHaveBeenCalledWith(now.getFullYear(), now.getMonth() + 1)
+  })
+
+  it('re-fetches when the shared month changes', async () => {
+    setDefaultMocks()
+    render(MonthPage)
+    await monthHeading('March 2026')
+
+    // The picker's own state is shared, so stepping it (here simulated by
+    // mutating the store) makes this page re-fetch.
+    monthState.month = 2
+
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+  })
+
+  it('ignores a stale response when the month changes mid-flight', async () => {
+    // February's request is left pending, then resolved only after the month
+    // has moved on to March - its response must be dropped rather than shown
+    // under March's heading.
+    let resolveFebruary: (value: StandardMonthResult) => void = () => {}
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockImplementation((_y, m) =>
+      m === 2
+        ? new Promise<StandardMonthResult>((resolve) => (resolveFebruary = resolve))
+        : Promise.resolve(baseData())
+    )
+    render(MonthPage)
+    await monthHeading('March 2026')
+
+    monthState.month = 2
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+    monthState.month = 3
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 3))
+
+    // The stale February response now lands; flush its continuation before
+    // asserting, so a missing guard (which would swap in $999) is caught.
+    resolveFebruary(baseData({ income: { ...baseData().income, actualTotal: 999 } }))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(screen.queryByText('$999.00')).toBeNull()
+    expect(screen.getAllByText('$5,000.00').length).toBeGreaterThan(0)
   })
 
   it('shows an API error message on failure', async () => {
@@ -302,6 +347,37 @@ describe('month page', () => {
 
     await waitFor(() => expect(setMonthCarryover).toHaveBeenCalledWith(2026, 3, 750))
     expect(getStandardMonth).toHaveBeenCalledTimes(2)
+    expect(toast.success).toHaveBeenCalledWith('Carried-over balance saved')
+  })
+
+  it('still toasts a carryover save when the month changes mid-save', async () => {
+    setDefaultMocks()
+    let resolveSave: (value: {
+      id: number
+      year: number
+      month: number
+      amount: number
+      notes: null
+    }) => void = () => {}
+    vi.mocked(setMonthCarryover).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit carried over balance' }))
+    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
+    await waitFor(() => expect(setMonthCarryover).toHaveBeenCalled())
+
+    // The picker moves on before the save resolves; the toast still fires and
+    // the partial refresh is skipped (no second getStandardMonth for March).
+    monthState.month = 2
+    resolveSave({ id: 1, year: 2026, month: 3, amount: 750, notes: null })
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Carried-over balance saved'))
   })
 
   it('cancels editing the carried-over balance', async () => {
@@ -328,38 +404,55 @@ describe('month page', () => {
     expect(await screen.findByText('Could not save carryover')).toBeInTheDocument()
   })
 
-  it('navigates to the previous and next month, wrapping the year, and updates URL params', async () => {
+  it('reports a carryover refresh failure separately from the save', async () => {
     setDefaultMocks()
+    vi.mocked(setMonthCarryover).mockResolvedValue({
+      id: 1,
+      year: 2026,
+      month: 3,
+      amount: 750,
+      notes: null,
+    })
+    // First getStandardMonth is the initial load; the second is the refresh.
+    vi.mocked(getStandardMonth)
+      .mockResolvedValueOnce(baseData())
+      .mockRejectedValueOnce(new ApiError(500, 'Could not reload month'))
     const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit carried over balance' }))
+    await user.click(screen.getByRole('button', { name: 'Save carried over balance' }))
+
+    // The save is acknowledged; the reload failure is reported on its own.
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Carried-over balance saved'))
+    expect(await screen.findByText('Could not reload month')).toBeInTheDocument()
+  })
+
+  it('re-fetches as the shared month steps across a year boundary', async () => {
+    setDefaultMocks()
     render(MonthPage)
     await monthHeading('March 2026')
 
-    await user.click(screen.getByRole('button', { name: 'Previous month' }))
-    expect(await monthHeading('February 2026')).toBeInTheDocument()
-    expect(replaceState).toHaveBeenCalledWith('/monthly?year=2026&month=2', {})
-    expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2)
-
-    for (let i = 0; i < 2; i++) {
-      await user.click(screen.getByRole('button', { name: 'Previous month' }))
-    }
+    // The picker's own state is shared, so step it (here simulated by
+    // mutating the store) rather than clicking its chevrons -
+    // MonthNavHeader's own spec covers the click wiring.
+    monthState.year = 2025
+    monthState.month = 12
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2025, 12))
-    expect(await monthHeading('December 2025')).toBeInTheDocument()
 
-    for (let i = 0; i < 13; i++) {
-      await user.click(screen.getByRole('button', { name: 'Next month' }))
-    }
+    monthState.year = 2027
+    monthState.month = 1
     await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2027, 1))
   })
 
   it('jumps back to the current month', async () => {
     setPageUrl('http://localhost/monthly?year=2020&month=1')
     setDefaultMocks()
-    const user = userEvent.setup()
     render(MonthPage)
-    await monthHeading('January 2020')
+    await waitFor(() => expect(getStandardMonth).toHaveBeenCalledWith(2020, 1))
 
     const now = new Date()
-    await user.click(screen.getByRole('button', { name: 'January 2020' }))
+    monthState.goToCurrentMonth()
 
     await waitFor(() =>
       expect(getStandardMonth).toHaveBeenLastCalledWith(now.getFullYear(), now.getMonth() + 1)
@@ -538,7 +631,7 @@ describe('month page', () => {
     vi.mocked(listUsers).mockResolvedValue([brian])
     render(MonthPage)
 
-    expect(await screen.findByRole('heading', { name: 'March 2026' })).toBeInTheDocument()
+    await monthHeading('March 2026')
     expect(screen.queryByText('Brian Income')).toBeNull()
   })
 
@@ -1433,6 +1526,101 @@ describe('month page', () => {
     dialog = screen.getByRole('dialog', { hidden: true })
     await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete entry' }))
     await waitFor(() => expect(deleteExpenseActual).toHaveBeenCalledWith(5))
+  })
+
+  it('skips the partial refresh when an expense save resolves after a month change', async () => {
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
+    vi.mocked(listExpenseActuals).mockResolvedValue([
+      {
+        id: 5,
+        expenseId: 1,
+        occurredOn: '2026-03-10',
+        amount: 620,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ])
+    let resolveUpdate: (value: ExpenseMonthlyActual) => void = () => {}
+    vi.mocked(updateExpenseActual).mockImplementation(
+      () => new Promise((resolve) => (resolveUpdate = resolve))
+    )
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(updateExpenseActual).toHaveBeenCalledWith(5, { amount: 620 }))
+
+    // The picker moves to February before the save resolves. The refresh for
+    // March must be skipped so it can't overwrite February's data (without its
+    // entries); the new month's own load is the last call.
+    monthState.month = 2
+    resolveUpdate({} as ExpenseMonthlyActual)
+
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+    // March was fetched once (the initial load) but not again by the skipped refresh.
+    const marchCalls = vi.mocked(getStandardMonth).mock.calls.filter((c) => c[1] === 3).length
+    expect(marchCalls).toBe(1)
+  })
+
+  it('does a full reload when a save resolves after A -> B -> A', async () => {
+    // Initial March load, then the picker visits February and returns to March
+    // while the March expense save is still pending. February's load lands
+    // last, so `dataKey` is February while March is selected - a partial
+    // refresh would pair March expenses with February's income rows, so a full
+    // load (which also refetches entries) must run instead.
+    setDefaultMocks()
+    vi.mocked(getStandardMonth).mockResolvedValue(baseDataWithUnpaidGroceries())
+    vi.mocked(listIncomeEntries).mockResolvedValue([])
+    vi.mocked(listExpenseActuals).mockResolvedValue([
+      {
+        id: 5,
+        expenseId: 1,
+        occurredOn: '2026-03-10',
+        amount: 620,
+        notes: null,
+        createdAt: '',
+        updatedAt: '',
+      },
+    ])
+    let resolveUpdate: (value: ExpenseMonthlyActual) => void = () => {}
+    vi.mocked(updateExpenseActual).mockImplementation(
+      () => new Promise((resolve) => (resolveUpdate = resolve))
+    )
+    const user = userEvent.setup()
+    render(MonthPage)
+
+    await user.click(await screen.findByRole('button', { name: 'Edit Groceries' }))
+    const dialog = screen.getByRole('dialog', { hidden: true })
+    await fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }))
+    await waitFor(() => expect(updateExpenseActual).toHaveBeenCalled())
+
+    // A -> B: February's load settles (its mock resolves immediately), so
+    // `dataKey` becomes February. Flush the resolved Promise.all continuation
+    // before switching again, so this branch is exercised deterministically
+    // and not raced by March's load.
+    monthState.month = 2
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 2))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    // B -> A: back to March. Block March's income fetch so its load never
+    // settles and `dataKey` stays February.
+    const marchIncomeFetches: string[] = []
+    vi.mocked(listIncomeEntries).mockImplementation((_y, m) => {
+      marchIncomeFetches.push(String(m))
+      return new Promise(() => {})
+    })
+    monthState.month = 3
+    await waitFor(() => expect(getStandardMonth).toHaveBeenLastCalledWith(2026, 3))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const before = marchIncomeFetches.length
+
+    resolveUpdate({} as ExpenseMonthlyActual)
+    // The save's refresh must be a full load (which refetches income entries);
+    // a partial refreshMonth would not touch them.
+    await waitFor(() => expect(marchIncomeFetches.length).toBeGreaterThan(before))
   })
 
   it('shows a link to view all entries when an expense has multiple actuals that month', async () => {

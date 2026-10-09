@@ -1,14 +1,26 @@
 import { createRawSnippet } from 'svelte'
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { goto } from '$app/navigation'
+import { goto, replaceState } from '$app/navigation'
 import { page } from '$app/state'
 import { api } from '$lib/api'
 import { authState } from '$lib/stores/auth.svelte'
 import { themeState } from '$lib/stores/theme.svelte'
+import { monthState } from '$lib/stores/month.svelte'
 import Layout from './+layout.svelte'
 
-vi.mock('$app/navigation', () => ({ goto: vi.fn() }))
+// `afterNavigate` is mocked to invoke its callback immediately with the
+// current `page.url`, standing in for the real router being ready after the
+// initial navigation - the layout reads the month from `to.url` and gates its
+// URL write-back on that signal. `navType` lets a test simulate a back/forward
+// (`popstate`) instead of the default forward navigation.
+const { navState } = vi.hoisted(() => ({ navState: { type: 'link' as string } }))
+vi.mock('$app/navigation', () => ({
+  goto: vi.fn(),
+  replaceState: vi.fn(),
+  afterNavigate: (cb: (nav: { type: string; to: { url: URL } }) => void) =>
+    cb({ type: navState.type, to: { url: page.url } }),
+}))
 vi.mock('$app/state', () => ({ page: { url: new URL('http://localhost/') } }))
 vi.mock('$lib/api', () => ({
   api: { get: vi.fn(), post: vi.fn() },
@@ -36,14 +48,21 @@ const childrenSnippet = createRawSnippet(() => ({
 
 describe('+layout.svelte', () => {
   beforeEach(() => {
+    // Fixes "now" so `monthState.isCurrentMonth` (which reads the clock) is
+    // deterministic - matches the store's March 2026 default below.
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+    navState.type = 'link'
     authState.user = null
     authState.loading = true
     themeState.current = 'light'
     document.documentElement.classList.remove('dark')
+    monthState.year = 2026
+    monthState.month = 3
     setPageUrl('http://localhost/')
     vi.mocked(api.get).mockReset()
     vi.mocked(api.post).mockReset()
     vi.mocked(goto).mockReset()
+    vi.mocked(replaceState).mockReset()
   })
 
   it('shows a loading indicator while the session is being checked', () => {
@@ -101,6 +120,90 @@ describe('+layout.svelte', () => {
     render(Layout, { children: childrenSnippet })
 
     expect(await screen.findAllByTitle('brian@example.com')).not.toHaveLength(0)
+  })
+
+  it('seeds the shared month from explicit URL params on a month route', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    setPageUrl('http://localhost/monthly?year=2025&month=11')
+
+    render(Layout, { children: childrenSnippet })
+
+    await waitFor(() => {
+      expect(monthState.year).toBe(2025)
+      expect(monthState.month).toBe(11)
+    })
+  })
+
+  it('leaves the shared month untouched on a non-month route', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    monthState.year = 2026
+    monthState.month = 3
+    setPageUrl('http://localhost/income?year=2025&month=11')
+
+    render(Layout, { children: childrenSnippet })
+    await screen.findByText('Bookkeeper')
+
+    expect(monthState.year).toBe(2026)
+    expect(monthState.month).toBe(3)
+    expect(replaceState).not.toHaveBeenCalled()
+  })
+
+  it('writes the shared month into the URL on a bare month route', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    monthState.year = 2024
+    monthState.month = 6
+    setPageUrl('http://localhost/monthly')
+
+    render(Layout, { children: childrenSnippet })
+
+    await waitFor(() =>
+      expect(replaceState).toHaveBeenLastCalledWith('/monthly?year=2024&month=6', {})
+    )
+  })
+
+  it('keeps the session month when navigating to a bare month route', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    monthState.year = 2024
+    monthState.month = 6
+    setPageUrl('http://localhost/')
+
+    const first = render(Layout, { children: childrenSnippet })
+    await screen.findByText('Bookkeeper')
+    first.unmount()
+
+    // A plain nav link to Monthly carries no params; the session's month
+    // should survive rather than resetting.
+    setPageUrl('http://localhost/monthly')
+    render(Layout, { children: childrenSnippet })
+
+    await waitFor(() => expect(monthState.year).toBe(2024))
+    expect(monthState.month).toBe(6)
+    expect(replaceState).toHaveBeenLastCalledWith('/monthly?year=2024&month=6', {})
+  })
+
+  it('strips params when the shared month is the current month', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    // beforeEach fixes "now" at March 2026 and the store at 2026-03.
+    setPageUrl('http://localhost/monthly?year=2026&month=3')
+
+    render(Layout, { children: childrenSnippet })
+    await screen.findByText('Bookkeeper')
+
+    await waitFor(() => expect(replaceState).toHaveBeenLastCalledWith('/monthly', {}))
+  })
+
+  it('resets to the current month when back/forward lands on a bare URL', async () => {
+    vi.mocked(api.get).mockResolvedValue(brian)
+    monthState.year = 2024
+    monthState.month = 6
+    navState.type = 'popstate'
+    setPageUrl('http://localhost/monthly')
+
+    render(Layout, { children: childrenSnippet })
+    await screen.findByText('Bookkeeper')
+
+    await waitFor(() => expect(monthState.year).toBe(2026))
+    expect(monthState.month).toBe(3)
   })
 
   it('logs out and redirects to /login', async () => {

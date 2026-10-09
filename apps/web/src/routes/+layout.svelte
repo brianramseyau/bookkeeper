@@ -2,11 +2,12 @@
   import './layout.css'
   import favicon from '$lib/assets/favicon.svg'
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
+  import { goto, replaceState, afterNavigate } from '$app/navigation'
   import { page } from '$app/state'
   import { authState, loadCurrentUser, logout } from '$lib/stores/auth.svelte'
   import { registerServiceWorker } from '$lib/stores/push.svelte'
   import { themeState } from '$lib/stores/theme.svelte'
+  import { monthState } from '$lib/stores/month.svelte'
   import { Toaster } from '$lib/components/ui/sonner'
   import OutgoingsMenu from '$lib/components/nav/OutgoingsMenu.svelte'
   import AccountMenu from '$lib/components/nav/AccountMenu.svelte'
@@ -35,6 +36,69 @@
     { href: '/monthly', label: 'Monthly' },
     { href: '/income', label: 'Income' },
   ]
+
+  // The global month picker is shown on the screens whose content is keyed
+  // to a single month (Dashboard and Monthly) - not on Income (keyed to a
+  // financial year) or the outgoings/setup pages, where a month control
+  // would have nothing to change. The shell owns the shared `monthState`
+  // (and the URL sync below) rather than each page, so stepping the month on
+  // Dashboard and navigating to Monthly keeps the same month; each page
+  // still renders the `MonthNavHeader` control itself.
+  const MONTH_ROUTES = new Set(['', 'monthly'])
+  const routeSegment = $derived(page.url.pathname.split('/')[1] ?? '')
+  const showMonthPicker = $derived(MONTH_ROUTES.has(routeSegment))
+
+  // The shared month is adopted from `?year=&month=` only when the URL is
+  // authoritative: any navigation that carries explicit params (a shared link,
+  // the Dashboard chart's click-through), or a browser back/forward (where the
+  // URL - params or bare - is what the user asked to see). A plain in-app nav
+  // link (`/`, `/monthly`) carries no params and must *not* reset the session's
+  // month - that's the whole point of the global picker.
+  //
+  // The mirror write lives in an effect and compares against `lastWritten`,
+  // which only the effect updates. That's deliberate: SvelteKit does not
+  // refresh `page.url` synchronously after our own `replaceState`, and
+  // `afterNavigate` reports a link's bare target URL rather than the params we
+  // just wrote, so letting the two own the same variable makes them fight. The
+  // current month is written as the bare route (`/monthly`), params appearing
+  // only once you've stepped away. Only the month-keyed routes are touched, so
+  // `/login`, `/income` and the rest keep a clean URL.
+  //
+  // The write waits on `routerReady`, flipped in `afterNavigate`: on the first
+  // render the effect runs during hydration, before SvelteKit has initialised
+  // the router, and `replaceState` throws ("Cannot call replaceState(...)
+  // before router is initialized").
+  let routerReady = $state(false)
+  let lastWritten = ''
+  afterNavigate(({ type, to }) => {
+    routerReady = true
+    if (!showMonthPicker || !to) return
+    // Back/forward restores whatever URL the user returned to, so a bare one
+    // means "the current month" and resets; forward links only adopt an
+    // explicit month, leaving the session's choice alone when they carry none.
+    if (type === 'popstate') {
+      if (to.url.search) monthState.syncFromUrl(to.url.search)
+      else monthState.goToCurrentMonth()
+    } else if (to.url.search) {
+      monthState.syncFromUrl(to.url.search)
+    }
+  })
+  $effect(() => {
+    if (!showMonthPicker) {
+      // Off a month route: forget what we last wrote there, so re-entering
+      // via a bare link re-applies the session's month instead of leaving the
+      // URL bare because it matches a remembered value from the last visit.
+      lastWritten = ''
+      return
+    }
+    if (!routerReady) return
+    const target = monthState.isCurrentMonth
+      ? page.url.pathname
+      : `${page.url.pathname}?year=${monthState.year}&month=${monthState.month}`
+    if (target === lastWritten) return
+    lastWritten = target
+    replaceState(target, {})
+  })
 
   onMount(() => {
     void loadCurrentUser()
