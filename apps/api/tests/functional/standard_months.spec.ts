@@ -263,7 +263,7 @@ test.group('StandardMonths / show', () => {
     assert.equal(body.expenses.actualTotal, 0)
   })
 
-  test('paused or archived recurring bills, subscriptions, and expenses produce no line', async ({
+  test('paused or archived recurring bills, subscriptions, and expenses with no payment record produce no line', async ({
     client,
     assert,
   }) => {
@@ -307,6 +307,212 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Nintendo')
     assert.notInclude(labels, 'Paused Sub (Adam)')
     assert.notInclude(labels, 'Bike Insurance')
+  })
+
+  test("keeps a paid bill's month when its due-month anchor has since moved", async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+
+    const cleaner = await RecurringBill.create({
+      name: 'Cleaner',
+      amount: 180,
+      frequency: 'quarterly',
+      dueDay: 1,
+      // The cycle now anchors to April, but the March payment happened
+      // before that moved.
+      dueMonth: 4,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: cleaner.id,
+      year: 2026,
+      month: 3,
+      amount: 180,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    const line = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
+    assert.isDefined(line)
+    assert.equal(line.paid, true)
+    assert.equal(line.actual, 180)
+
+    // Unticking it must keep the line (and its checkbox) visible; otherwise
+    // the user could never tick it again from this non-due month.
+    const payment = await RecurringBillPayment.findByOrFail('recurringBillId', cleaner.id)
+    payment.paid = false
+    await payment.save()
+
+    const afterUntick = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(adam)
+    const untickedLine = afterUntick
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
+    assert.isDefined(untickedLine)
+    assert.equal(untickedLine.paid, false)
+    assert.equal(untickedLine.actual, 180)
+  })
+
+  test('keeps removed bills, subscriptions, and expenses hidden even with payment records', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+
+    const removedBill = await RecurringBill.create({
+      name: 'Removed Bill',
+      amount: 40,
+      frequency: 'monthly',
+    })
+    removedBill.isActive = false
+    await removedBill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: removedBill.id,
+      year: 2026,
+      month: 3,
+      amount: 40,
+      paid: true,
+    })
+
+    const removedSub = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Removed Sub',
+      amount: 9.99,
+    })
+    removedSub.isActive = false
+    await removedSub.save()
+    await SubscriptionPayment.create({
+      userSubscriptionId: removedSub.id,
+      year: 2026,
+      month: 3,
+      amount: 9.99,
+      paid: true,
+    })
+
+    const removedExpense = await Expense.create({ name: 'Removed Expense' })
+    removedExpense.isActive = false
+    await removedExpense.save()
+    await ExpenseMonthlyActual.create({
+      expenseId: removedExpense.id,
+      occurredOn: DateTime.local(2026, 3, 1),
+      amount: 25,
+    })
+    await ExpensePayment.create({
+      expenseId: removedExpense.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    const keys = response.body().expenses.lines.map((l: { key: string }) => l.key)
+    assert.notInclude(keys, `recurring-bill-${removedBill.id}`)
+    assert.notInclude(keys, `subscription-${removedSub.id}`)
+    assert.notInclude(keys, `expense-${removedExpense.id}`)
+  })
+
+  test('shows paused or archived bills, subscriptions, and expenses in a past month they were actually paid', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const lastMonth = DateTime.local().minus({ months: 1 })
+
+    const pausedBill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    pausedBill.isPaused = true
+    await pausedBill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: pausedBill.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      amount: 45.99,
+      paid: true,
+    })
+
+    const archivedSub = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Old Streaming',
+      amount: 12.99,
+    })
+    archivedSub.isArchived = true
+    await archivedSub.save()
+    await SubscriptionPayment.create({
+      userSubscriptionId: archivedSub.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      amount: 12.99,
+      paid: true,
+    })
+
+    const archivedExpense = await Expense.create({
+      name: 'Old Gym',
+      isRecurring: false,
+    })
+    archivedExpense.isArchived = true
+    await archivedExpense.save()
+    await ExpenseMonthlyActual.create({
+      expenseId: archivedExpense.id,
+      occurredOn: DateTime.local(lastMonth.year, lastMonth.month, 1),
+      amount: 70,
+    })
+    await ExpensePayment.create({
+      expenseId: archivedExpense.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: lastMonth.year, month: lastMonth.month })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    const body = response.body()
+    const billLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `recurring-bill-${pausedBill.id}`
+    )
+    assert.isDefined(billLine)
+    assert.equal(billLine.paid, true)
+    assert.equal(billLine.actual, 45.99)
+    // The payment row is real history, not a past-month fallback.
+    assert.isFalse(billLine.estimated)
+
+    const subLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `subscription-${archivedSub.id}`
+    )
+    assert.isDefined(subLine)
+    assert.equal(subLine.paid, true)
+    assert.equal(subLine.actual, 12.99)
+    assert.isFalse(subLine.estimated)
+
+    const expenseLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `expense-${archivedExpense.id}`
+    )
+    assert.isDefined(expenseLine)
+    assert.equal(expenseLine.paid, true)
+    assert.equal(expenseLine.actual, 70)
+    assert.isFalse(expenseLine.estimated)
   })
 
   test('a quarterly recurring bill only appears in its actual due month, at its full non-amortized amount', async ({

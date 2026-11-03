@@ -5,12 +5,15 @@ import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
 import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
 import IncomeEntry from '#models/income_entry'
 import { StandardMonthService } from '#services/standard_month_service'
 import { expandUtilityBillsToMonthlyShares } from '#services/utility_billing_period'
 import { loadMarginalRates, netIncomeForEntries } from '#services/income_netting'
+import { isOutgoingVisibleForMonth } from '#services/outgoing_visibility'
 import {
   compareByDaysUntilDue,
   isRecurringBillDueMonth,
@@ -207,22 +210,23 @@ export default class DashboardController {
     const ignoredExpenses = await Expense.query().where('excludeFromBudget', true).select('id')
     const ignoredExpenseIds = ignoredExpenses.map((expense) => expense.id)
 
-    const [utilityBills, expenseActuals, recurringBills, subscriptions, categories] =
-      await Promise.all([
-        UtilityBill.query().preload('utility'),
-        ignoredExpenseIds.length
-          ? ExpenseMonthlyActual.query()
-              .preload('expense')
-              .whereNotIn('expenseId', ignoredExpenseIds)
-          : ExpenseMonthlyActual.query().preload('expense'),
-        RecurringBill.query().where('isActive', true).andWhere('isArchived', false),
-        UserSubscription.query()
-          .where('isActive', true)
-          .andWhere('isPaused', false)
-          .andWhere('isArchived', false)
-          .andWhere('isRecurring', true),
-        Category.query(),
-      ])
+    const [
+      utilityBills,
+      expenseActuals,
+      expensePayments,
+      recurringBills,
+      subscriptions,
+      categories,
+    ] = await Promise.all([
+      UtilityBill.query().preload('utility'),
+      ignoredExpenseIds.length
+        ? ExpenseMonthlyActual.query().preload('expense').whereNotIn('expenseId', ignoredExpenseIds)
+        : ExpenseMonthlyActual.query().preload('expense'),
+      ExpensePayment.query().where('year', viewed.year).where('month', viewed.month),
+      RecurringBill.query(),
+      UserSubscription.query().where('isRecurring', true),
+      Category.query(),
+    ])
 
     const totals = new Map<number, number>()
     const addTotal = (categoryId: number | null, amount: number) => {
@@ -237,38 +241,73 @@ export default class DashboardController {
         }
       }
     }
+    const expensePaymentByExpenseId = new Map(
+      expensePayments.map((payment) => [payment.expenseId, payment])
+    )
     for (const actual of expenseActuals) {
       if (actual.occurredOn.year === viewed.year && actual.occurredOn.month === viewed.month) {
+        // Removed expenses stay hidden even with a payment record.
+        if (!actual.expense.isActive) continue
+
+        // A paused/archived expense keeps a month where it has a payment
+        // record, matching the standard-month history rule (including an
+        // unticked record, so the two views always agree).
+        const payment = expensePaymentByExpenseId.get(actual.expenseId)
+        if (payment === undefined && !isOutgoingVisibleForMonth(actual.expense, false)) continue
         addTotal(actual.expense.categoryId, actual.amount)
       }
     }
 
-    const dueRecurringBills = recurringBills.filter((bill) =>
-      isRecurringBillDueMonth(
-        bill.frequency,
-        bill.dueMonth,
-        bill.dueYear,
-        viewed.year,
-        viewed.month
-      )
-    )
-    const dueRecurringBillIds = dueRecurringBills.map((bill) => bill.id)
-    const recurringBillPayments = dueRecurringBillIds.length
+    const billIds = recurringBills.map((bill) => bill.id)
+    const recurringBillPayments = billIds.length
       ? await RecurringBillPayment.query()
-          .whereIn('recurringBillId', dueRecurringBillIds)
+          .whereIn('recurringBillId', billIds)
           .where('year', viewed.year)
           .where('month', viewed.month)
       : []
     const recurringBillPaymentById = new Map(
       recurringBillPayments.map((payment) => [payment.recurringBillId, payment])
     )
-    for (const bill of dueRecurringBills) {
+    for (const bill of recurringBills) {
+      // Removed bills stay hidden even with a payment record.
+      if (!bill.isActive) continue
+
       const payment = recurringBillPaymentById.get(bill.id)
+      const due = isRecurringBillDueMonth(
+        bill.frequency,
+        bill.dueMonth,
+        bill.dueYear,
+        viewed.year,
+        viewed.month
+      )
+      // A payment record is proof the bill was charged in this month even if
+      // its cycle has since moved. Otherwise only its due month counts.
+      if (!due && payment === undefined) continue
+      // Paused/archived bills keep a month with a payment record - that
+      // spend already happened, and later lifecycle changes must not
+      // retroactively remove it from the breakdown.
+      if (payment === undefined && !isOutgoingVisibleForMonth(bill, false)) continue
       addTotal(bill.categoryId, payment?.amount ?? bill.amount)
     }
 
+    const subscriptionIds = subscriptions.map((subscription) => subscription.id)
+    const subscriptionPayments = subscriptionIds.length
+      ? await SubscriptionPayment.query()
+          .whereIn('userSubscriptionId', subscriptionIds)
+          .where('year', viewed.year)
+          .where('month', viewed.month)
+      : []
+    const subscriptionPaymentById = new Map(
+      subscriptionPayments.map((payment) => [payment.userSubscriptionId, payment])
+    )
     for (const subscription of subscriptions) {
-      addTotal(subscription.categoryId, subscription.amount)
+      // Removed subscriptions stay hidden even with a payment record.
+      if (!subscription.isActive) continue
+
+      const payment = subscriptionPaymentById.get(subscription.id)
+      // Same history rule as recurring bills above.
+      if (payment === undefined && !isOutgoingVisibleForMonth(subscription, false)) continue
+      addTotal(subscription.categoryId, payment?.amount ?? subscription.amount)
     }
 
     const categoriesById = new Map(categories.map((category) => [category.id, category]))

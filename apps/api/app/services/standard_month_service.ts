@@ -13,6 +13,7 @@ import ExpensePayment from '#models/expense_payment'
 import { RollingAverageService } from '#services/rolling_average_service'
 import { isUtilityBillingMonth, utilityDueDateFor } from '#services/utility_billing_period'
 import { isRecurringBillDueMonth } from '#services/recurring_bill_due_date'
+import { isOutgoingVisibleForMonth } from '#services/outgoing_visibility'
 import { computeIncomeLines, type IncomeLine } from '#services/income_lines'
 
 export interface StandardMonthLine {
@@ -125,6 +126,11 @@ export class StandardMonthService {
     return carryover?.amount ?? 0
   }
 
+  /**
+   * Builds the month's outgoing lines from utilities, recurring bills,
+   * subscriptions and expenses, applying the paid-history rule for items
+   * that have since been paused or archived.
+   */
   private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {
     const lines: StandardMonthLine[] = []
 
@@ -190,11 +196,7 @@ export class StandardMonthService {
       })
     }
 
-    const recurringBills = await RecurringBill.query()
-      .where('isActive', true)
-      .andWhere('isPaused', false)
-      .andWhere('isArchived', false)
-      .orderBy('name', 'asc')
+    const recurringBills = await RecurringBill.query().orderBy('name', 'asc')
     const billIds = recurringBills.map((bill) => bill.id)
     const recurringBillPayments = billIds.length
       ? await RecurringBillPayment.query()
@@ -207,15 +209,26 @@ export class StandardMonthService {
     )
 
     for (const bill of recurringBills) {
+      // Removed bills stay hidden even if they have a payment record.
+      if (!bill.isActive) continue
+
+      const payment = recurringBillPaymentById.get(bill.id)
       // A non-monthly bill (e.g. an annual Council Rates bill) is only ever
       // actually due once per cycle - only the month it's actually due in
       // gets a line at all, at its full amount, the same way a non-monthly
       // utility only shows up in its billing month (see isUtilityBillingMonth
-      // above).
-      if (!isRecurringBillDueMonth(bill.frequency, bill.dueMonth, bill.dueYear, year, month))
-        continue
+      // above). A payment record still wins even if the cycle anchor later
+      // moved, since that money genuinely left the account in this month.
+      const due = isRecurringBillDueMonth(bill.frequency, bill.dueMonth, bill.dueYear, year, month)
+      // Any payment record keeps a non-due month visible so an unchecked
+      // paid line doesn't vanish and become impossible to tick again.
+      if (!due && payment === undefined) continue
 
-      const payment = recurringBillPaymentById.get(bill.id)
+      // A paused or archived bill is no longer an ongoing obligation, but a
+      // month it was actually paid in is already-spent history - pausing or
+      // archiving it later must not erase that expense from the past. A
+      // payment record also stays visible if it has since been unticked.
+      if (payment === undefined && !isOutgoingVisibleForMonth(bill, false)) continue
       const isNonMonthly = bill.frequency !== 'monthly'
 
       lines.push({
@@ -239,9 +252,6 @@ export class StandardMonthService {
 
     const users = await User.query().orderBy('fullName', 'asc')
     const subscriptions = await UserSubscription.query()
-      .where('isActive', true)
-      .andWhere('isPaused', false)
-      .andWhere('isArchived', false)
       .where('isRecurring', true)
       .orderBy('name', 'asc')
     const subscriptionIds = subscriptions.map((sub) => sub.id)
@@ -258,7 +268,13 @@ export class StandardMonthService {
     for (const user of users) {
       const userSubscriptions = subscriptions.filter((sub) => sub.userId === user.id)
       for (const sub of userSubscriptions) {
+        // Removed subscriptions stay hidden even if they have a payment record.
+        if (!sub.isActive) continue
+
         const payment = subscriptionPaymentById.get(sub.id)
+        // Same history rule as recurring bills above - an existing payment
+        // record also keeps the line editable after being unticked.
+        if (payment === undefined && !isOutgoingVisibleForMonth(sub, false)) continue
         lines.push({
           key: `subscription-${sub.id}`,
           label: `${sub.name} (${user.fullName ?? user.email})`,
@@ -278,10 +294,7 @@ export class StandardMonthService {
     }
 
     const expenses = await Expense.query()
-      .where('isActive', true)
-      .andWhere('isPaused', false)
-      .andWhere('isArchived', false)
-      .andWhere('excludeFromBudget', false)
+      .where('excludeFromBudget', false)
       .orderBy('sortOrder', 'asc')
     const expenseIds = expenses.map((expense) => expense.id)
     const expensePayments = expenseIds.length
@@ -294,6 +307,14 @@ export class StandardMonthService {
       expensePayments.map((payment) => [payment.expenseId, payment.paid])
     )
     for (const expense of expenses) {
+      // Removed expenses stay hidden even if they have a payment record.
+      if (!expense.isActive) continue
+
+      // Same history rule as bills and subscriptions above - a paused or
+      // archived expense still counts in a month it was actually paid, and
+      // an existing payment record keeps its line editable after unticking.
+      if (!expensePaidById.has(expense.id) && !isOutgoingVisibleForMonth(expense, false)) continue
+
       const actuals = await ExpenseMonthlyActual.query().where('expenseId', expense.id)
       const thisMonthActuals = actuals.filter(
         (actual) => actual.occurredOn.year === year && actual.occurredOn.month === month

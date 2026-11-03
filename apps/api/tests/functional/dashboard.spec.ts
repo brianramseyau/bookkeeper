@@ -7,8 +7,10 @@ import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
 import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import IncomeTaxSetting from '#models/income_tax_setting'
@@ -310,6 +312,127 @@ test.group('Dashboard / summary', () => {
     assert.isUndefined(entry)
   })
 
+  test('includes paused or archived bills, subscriptions, and expenses in categoryBreakdown for a month they were actually paid', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.local()
+    const householdCategory = await Category.findByOrFail('name', 'Household')
+
+    const archivedBill = await RecurringBill.create({
+      name: 'Old Internet',
+      categoryId: householdCategory.id,
+      amount: 80,
+      frequency: 'monthly',
+      dueDay: 10,
+    })
+    archivedBill.isArchived = true
+    await archivedBill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: archivedBill.id,
+      year: today.year,
+      month: today.month,
+      amount: 80,
+      paid: true,
+    })
+
+    const pausedSub = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Paused Streaming',
+      categoryId: householdCategory.id,
+      amount: 15.99,
+      isPaused: true,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: pausedSub.id,
+      year: today.year,
+      month: today.month,
+      amount: 19.99,
+      paid: true,
+    })
+
+    const archivedExpense = await Expense.create({
+      name: 'Old Gym',
+      categoryId: householdCategory.id,
+      isRecurring: false,
+    })
+    archivedExpense.isArchived = true
+    await archivedExpense.save()
+    await ExpenseMonthlyActual.create({
+      expenseId: archivedExpense.id,
+      occurredOn: DateTime.local(today.year, today.month, 1),
+      amount: 30,
+    })
+    await ExpensePayment.create({
+      expenseId: archivedExpense.id,
+      year: today.year,
+      month: today.month,
+      paid: true,
+    })
+
+    const response = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
+
+    const entry = response
+      .body()
+      .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
+    // The subscription's recorded month amount (19.99), not its current
+    // configured amount (15.99), is what actually left the account.
+    assert.equal(entry.total, 80 + 19.99 + 30)
+  })
+
+  test('includes a paid recurring bill in categoryBreakdown outside its due month', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.local()
+    const householdCategory = await Category.findByOrFail('name', 'Household')
+    // Annual cycle anchored away from the viewed month - the logged payment
+    // is the only reason this month should include it.
+    const notDueMonth = (today.month % 12) + 1
+    const bill = await RecurringBill.create({
+      name: 'Old Insurance',
+      categoryId: householdCategory.id,
+      amount: 600,
+      frequency: 'annual',
+      dueDay: 10,
+      dueMonth: notDueMonth,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: today.year,
+      month: today.month,
+      amount: 650,
+      paid: true,
+    })
+
+    const response = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
+
+    let entry = response
+      .body()
+      .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
+    assert.equal(entry.total, 650)
+
+    // Both the standard-month view and this breakdown keep a month with a
+    // payment record even after it is unticked, so the figures agree.
+    const payment = await RecurringBillPayment.findByOrFail('recurringBillId', bill.id)
+    payment.paid = false
+    await payment.save()
+
+    const afterUntick = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
+    entry = afterUntick
+      .body()
+      .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
+    assert.equal(entry.total, 650)
+  })
+
   test('rolls a due recurring bill into its category in categoryBreakdown, using a logged payment amount if present', async ({
     client,
     assert,
@@ -332,7 +455,9 @@ test.group('Dashboard / summary', () => {
       paid: true,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+    const response = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
 
     const entry = response
       .body()
