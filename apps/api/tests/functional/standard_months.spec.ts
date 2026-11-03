@@ -309,6 +309,43 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Bike Insurance')
   })
 
+  test("keeps a paid bill's month when its due-month anchor has since moved", async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+
+    const cleaner = await RecurringBill.create({
+      name: 'Cleaner',
+      amount: 180,
+      frequency: 'quarterly',
+      dueDay: 1,
+      // The cycle now anchors to April, but the March payment happened
+      // before that moved.
+      dueMonth: 4,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: cleaner.id,
+      year: 2026,
+      month: 3,
+      amount: 180,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    const line = response
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
+    assert.isDefined(line)
+    assert.equal(line.paid, true)
+    assert.equal(line.actual, 180)
+  })
+
   test('shows paused or archived bills, subscriptions, and expenses in a past month they were actually paid', async ({
     client,
     assert,

@@ -12,6 +12,11 @@ export interface OutgoingLifecycleFlags {
   isArchived: boolean
 }
 
+/**
+ * Whether an outgoing item gets a line for the given month. Removed items are
+ * always hidden; paused or archived items are hidden unless that month was
+ * actually paid, so later lifecycle changes don't erase real past spend.
+ */
 export function isOutgoingVisibleForMonth(
   item: OutgoingLifecycleFlags,
   paidForMonth: boolean

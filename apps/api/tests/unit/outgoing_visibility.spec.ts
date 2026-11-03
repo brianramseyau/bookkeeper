@@ -24,5 +24,7 @@ test.group('isOutgoingVisibleForMonth', () => {
   test('a removed (inactive) item stays hidden even if a payment row exists', ({ assert }) => {
     assert.isFalse(isOutgoingVisibleForMonth(flags({ isActive: false }), false))
     assert.isFalse(isOutgoingVisibleForMonth(flags({ isActive: false }), true))
+    assert.isFalse(isOutgoingVisibleForMonth(flags({ isActive: false, isPaused: true }), true))
+    assert.isFalse(isOutgoingVisibleForMonth(flags({ isActive: false, isArchived: true }), true))
   })
 })

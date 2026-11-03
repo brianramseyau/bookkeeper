@@ -126,6 +126,11 @@ export class StandardMonthService {
     return carryover?.amount ?? 0
   }
 
+  /**
+   * Builds the month's outgoing lines from utilities, recurring bills,
+   * subscriptions and expenses, applying the paid-history rule for items
+   * that have since been paused or archived.
+   */
   private async computeExpenseLines(year: number, month: number): Promise<StandardMonthLine[]> {
     const lines: StandardMonthLine[] = []
 
@@ -204,19 +209,21 @@ export class StandardMonthService {
     )
 
     for (const bill of recurringBills) {
+      const payment = recurringBillPaymentById.get(bill.id)
+      const paid = Boolean(payment?.paid)
       // A non-monthly bill (e.g. an annual Council Rates bill) is only ever
       // actually due once per cycle - only the month it's actually due in
       // gets a line at all, at its full amount, the same way a non-monthly
       // utility only shows up in its billing month (see isUtilityBillingMonth
-      // above).
-      if (!isRecurringBillDueMonth(bill.frequency, bill.dueMonth, bill.dueYear, year, month))
-        continue
+      // above). A paid record still wins even if the cycle anchor later moved,
+      // since that money genuinely left the account in this month.
+      const due = isRecurringBillDueMonth(bill.frequency, bill.dueMonth, bill.dueYear, year, month)
+      if (!due && !paid) continue
 
-      const payment = recurringBillPaymentById.get(bill.id)
       // A paused or archived bill is no longer an ongoing obligation, but a
       // month it was actually paid in is already-spent history - pausing or
       // archiving it later must not erase that expense from the past.
-      if (!isOutgoingVisibleForMonth(bill, Boolean(payment?.paid))) continue
+      if (!isOutgoingVisibleForMonth(bill, paid)) continue
       const isNonMonthly = bill.frequency !== 'monthly'
 
       lines.push({

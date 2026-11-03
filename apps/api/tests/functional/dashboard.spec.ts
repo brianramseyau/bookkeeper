@@ -10,6 +10,7 @@ import UserSubscription from '#models/user_subscription'
 import SubscriptionPayment from '#models/subscription_payment'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
+import ExpensePayment from '#models/expense_payment'
 import IncomeSource from '#models/income_source'
 import IncomeEntry from '#models/income_entry'
 import IncomeTaxSetting from '#models/income_tax_setting'
@@ -311,7 +312,7 @@ test.group('Dashboard / summary', () => {
     assert.isUndefined(entry)
   })
 
-  test('includes a paused or archived bill and subscription in categoryBreakdown for a month they were actually paid', async ({
+  test('includes paused or archived bills, subscriptions, and expenses in categoryBreakdown for a month they were actually paid', async ({
     client,
     assert,
   }) => {
@@ -347,7 +348,26 @@ test.group('Dashboard / summary', () => {
       userSubscriptionId: pausedSub.id,
       year: today.year,
       month: today.month,
-      amount: 15.99,
+      amount: 19.99,
+      paid: true,
+    })
+
+    const archivedExpense = await Expense.create({
+      name: 'Old Gym',
+      categoryId: householdCategory.id,
+      isRecurring: false,
+    })
+    archivedExpense.isArchived = true
+    await archivedExpense.save()
+    await ExpenseMonthlyActual.create({
+      expenseId: archivedExpense.id,
+      occurredOn: DateTime.local(today.year, today.month, 1),
+      amount: 30,
+    })
+    await ExpensePayment.create({
+      expenseId: archivedExpense.id,
+      year: today.year,
+      month: today.month,
       paid: true,
     })
 
@@ -356,7 +376,9 @@ test.group('Dashboard / summary', () => {
     const entry = response
       .body()
       .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
-    assert.equal(entry.total, 95.99)
+    // The subscription's recorded month amount (19.99), not its current
+    // configured amount (15.99), is what actually left the account.
+    assert.equal(entry.total, 80 + 19.99 + 30)
   })
 
   test('rolls a due recurring bill into its category in categoryBreakdown, using a logged payment amount if present', async ({
