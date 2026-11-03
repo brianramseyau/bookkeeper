@@ -246,10 +246,14 @@ export default class DashboardController {
     )
     for (const actual of expenseActuals) {
       if (actual.occurredOn.year === viewed.year && actual.occurredOn.month === viewed.month) {
-        // Paused/archived expenses keep their real logged spend in a month
-        // they were actually paid, matching the standard-month history rule.
+        // Removed expenses stay hidden even with a payment record.
+        if (!actual.expense.isActive) continue
+
+        // A paused/archived expense keeps a month where it has a payment
+        // record, matching the standard-month history rule (including an
+        // unticked record, so the two views always agree).
         const payment = expensePaymentByExpenseId.get(actual.expenseId)
-        if (!isOutgoingVisibleForMonth(actual.expense, Boolean(payment?.paid))) continue
+        if (payment === undefined && !isOutgoingVisibleForMonth(actual.expense, false)) continue
         addTotal(actual.expense.categoryId, actual.amount)
       }
     }
@@ -265,8 +269,10 @@ export default class DashboardController {
       recurringBillPayments.map((payment) => [payment.recurringBillId, payment])
     )
     for (const bill of recurringBills) {
+      // Removed bills stay hidden even with a payment record.
+      if (!bill.isActive) continue
+
       const payment = recurringBillPaymentById.get(bill.id)
-      const paid = Boolean(payment?.paid)
       const due = isRecurringBillDueMonth(
         bill.frequency,
         bill.dueMonth,
@@ -274,13 +280,13 @@ export default class DashboardController {
         viewed.year,
         viewed.month
       )
-      // A paid record is proof the bill was charged in this month even if
+      // A payment record is proof the bill was charged in this month even if
       // its cycle has since moved. Otherwise only its due month counts.
-      if (!due && !paid) continue
-      // Paused/archived bills still count in a month they were actually
-      // paid - that spend already happened, and later pausing or archiving
-      // the bill must not retroactively remove it from the breakdown.
-      if (!isOutgoingVisibleForMonth(bill, paid)) continue
+      if (!due && payment === undefined) continue
+      // Paused/archived bills keep a month with a payment record - that
+      // spend already happened, and later lifecycle changes must not
+      // retroactively remove it from the breakdown.
+      if (payment === undefined && !isOutgoingVisibleForMonth(bill, false)) continue
       addTotal(bill.categoryId, payment?.amount ?? bill.amount)
     }
 
@@ -295,9 +301,12 @@ export default class DashboardController {
       subscriptionPayments.map((payment) => [payment.userSubscriptionId, payment])
     )
     for (const subscription of subscriptions) {
+      // Removed subscriptions stay hidden even with a payment record.
+      if (!subscription.isActive) continue
+
       const payment = subscriptionPaymentById.get(subscription.id)
       // Same history rule as recurring bills above.
-      if (!isOutgoingVisibleForMonth(subscription, Boolean(payment?.paid))) continue
+      if (payment === undefined && !isOutgoingVisibleForMonth(subscription, false)) continue
       addTotal(subscription.categoryId, payment?.amount ?? subscription.amount)
     }
 

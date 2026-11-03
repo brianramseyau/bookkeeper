@@ -413,7 +413,21 @@ test.group('Dashboard / summary', () => {
       .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
       .loginAs(adam)
 
-    const entry = response
+    let entry = response
+      .body()
+      .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
+    assert.equal(entry.total, 650)
+
+    // Both the standard-month view and this breakdown keep a month with a
+    // payment record even after it is unticked, so the figures agree.
+    const payment = await RecurringBillPayment.findByOrFail('recurringBillId', bill.id)
+    payment.paid = false
+    await payment.save()
+
+    const afterUntick = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
+    entry = afterUntick
       .body()
       .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
     assert.equal(entry.total, 650)
