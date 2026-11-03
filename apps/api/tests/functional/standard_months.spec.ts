@@ -363,6 +363,69 @@ test.group('StandardMonths / show', () => {
     assert.equal(untickedLine.actual, 180)
   })
 
+  test('keeps removed bills, subscriptions, and expenses hidden even with payment records', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+
+    const removedBill = await RecurringBill.create({
+      name: 'Removed Bill',
+      amount: 40,
+      frequency: 'monthly',
+    })
+    removedBill.isActive = false
+    await removedBill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: removedBill.id,
+      year: 2026,
+      month: 3,
+      amount: 40,
+      paid: true,
+    })
+
+    const removedSub = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Removed Sub',
+      amount: 9.99,
+    })
+    removedSub.isActive = false
+    await removedSub.save()
+    await SubscriptionPayment.create({
+      userSubscriptionId: removedSub.id,
+      year: 2026,
+      month: 3,
+      amount: 9.99,
+      paid: true,
+    })
+
+    const removedExpense = await Expense.create({ name: 'Removed Expense' })
+    removedExpense.isActive = false
+    await removedExpense.save()
+    await ExpenseMonthlyActual.create({
+      expenseId: removedExpense.id,
+      occurredOn: DateTime.local(2026, 3, 1),
+      amount: 25,
+    })
+    await ExpensePayment.create({
+      expenseId: removedExpense.id,
+      year: 2026,
+      month: 3,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    const keys = response.body().expenses.lines.map((l: { key: string }) => l.key)
+    assert.notInclude(keys, `recurring-bill-${removedBill.id}`)
+    assert.notInclude(keys, `subscription-${removedSub.id}`)
+    assert.notInclude(keys, `expense-${removedExpense.id}`)
+  })
+
   test('shows paused or archived bills, subscriptions, and expenses in a past month they were actually paid', async ({
     client,
     assert,

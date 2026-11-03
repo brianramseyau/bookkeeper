@@ -209,6 +209,9 @@ export class StandardMonthService {
     )
 
     for (const bill of recurringBills) {
+      // Removed bills stay hidden even if they have a payment record.
+      if (!bill.isActive) continue
+
       const payment = recurringBillPaymentById.get(bill.id)
       // A non-monthly bill (e.g. an annual Council Rates bill) is only ever
       // actually due once per cycle - only the month it's actually due in
@@ -265,6 +268,9 @@ export class StandardMonthService {
     for (const user of users) {
       const userSubscriptions = subscriptions.filter((sub) => sub.userId === user.id)
       for (const sub of userSubscriptions) {
+        // Removed subscriptions stay hidden even if they have a payment record.
+        if (!sub.isActive) continue
+
         const payment = subscriptionPaymentById.get(sub.id)
         // Same history rule as recurring bills above - an existing payment
         // record also keeps the line editable after being unticked.
@@ -301,6 +307,9 @@ export class StandardMonthService {
       expensePayments.map((payment) => [payment.expenseId, payment.paid])
     )
     for (const expense of expenses) {
+      // Removed expenses stay hidden even if they have a payment record.
+      if (!expense.isActive) continue
+
       // Same history rule as bills and subscriptions above - a paused or
       // archived expense still counts in a month it was actually paid, and
       // an existing payment record keeps its line editable after unticking.

@@ -371,7 +371,9 @@ test.group('Dashboard / summary', () => {
       paid: true,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+    const response = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
 
     const entry = response
       .body()
@@ -407,7 +409,9 @@ test.group('Dashboard / summary', () => {
       paid: true,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+    const response = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
 
     const entry = response
       .body()
@@ -437,7 +441,9 @@ test.group('Dashboard / summary', () => {
       paid: true,
     })
 
-    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+    const response = await client
+      .get(`/api/dashboard/summary?year=${today.year}&month=${today.month}`)
+      .loginAs(adam)
 
     const entry = response
       .body()
