@@ -210,20 +210,22 @@ export class StandardMonthService {
 
     for (const bill of recurringBills) {
       const payment = recurringBillPaymentById.get(bill.id)
-      const paid = Boolean(payment?.paid)
       // A non-monthly bill (e.g. an annual Council Rates bill) is only ever
       // actually due once per cycle - only the month it's actually due in
       // gets a line at all, at its full amount, the same way a non-monthly
       // utility only shows up in its billing month (see isUtilityBillingMonth
-      // above). A paid record still wins even if the cycle anchor later moved,
-      // since that money genuinely left the account in this month.
+      // above). A payment record still wins even if the cycle anchor later
+      // moved, since that money genuinely left the account in this month.
       const due = isRecurringBillDueMonth(bill.frequency, bill.dueMonth, bill.dueYear, year, month)
-      if (!due && !paid) continue
+      // Any payment record keeps a non-due month visible so an unchecked
+      // paid line doesn't vanish and become impossible to tick again.
+      if (!due && payment === undefined) continue
 
       // A paused or archived bill is no longer an ongoing obligation, but a
       // month it was actually paid in is already-spent history - pausing or
-      // archiving it later must not erase that expense from the past.
-      if (!isOutgoingVisibleForMonth(bill, paid)) continue
+      // archiving it later must not erase that expense from the past. A
+      // payment record also stays visible if it has since been unticked.
+      if (payment === undefined && !isOutgoingVisibleForMonth(bill, false)) continue
       const isNonMonthly = bill.frequency !== 'monthly'
 
       lines.push({
@@ -264,8 +266,9 @@ export class StandardMonthService {
       const userSubscriptions = subscriptions.filter((sub) => sub.userId === user.id)
       for (const sub of userSubscriptions) {
         const payment = subscriptionPaymentById.get(sub.id)
-        // Same history rule as recurring bills above.
-        if (!isOutgoingVisibleForMonth(sub, Boolean(payment?.paid))) continue
+        // Same history rule as recurring bills above - an existing payment
+        // record also keeps the line editable after being unticked.
+        if (payment === undefined && !isOutgoingVisibleForMonth(sub, false)) continue
         lines.push({
           key: `subscription-${sub.id}`,
           label: `${sub.name} (${user.fullName ?? user.email})`,
@@ -299,8 +302,9 @@ export class StandardMonthService {
     )
     for (const expense of expenses) {
       // Same history rule as bills and subscriptions above - a paused or
-      // archived expense still counts in a month it was actually paid.
-      if (!isOutgoingVisibleForMonth(expense, Boolean(expensePaidById.get(expense.id)))) continue
+      // archived expense still counts in a month it was actually paid, and
+      // an existing payment record keeps its line editable after unticking.
+      if (!expensePaidById.has(expense.id) && !isOutgoingVisibleForMonth(expense, false)) continue
 
       const actuals = await ExpenseMonthlyActual.query().where('expenseId', expense.id)
       const thisMonthActuals = actuals.filter(

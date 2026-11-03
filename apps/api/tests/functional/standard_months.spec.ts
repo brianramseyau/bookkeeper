@@ -344,6 +344,23 @@ test.group('StandardMonths / show', () => {
     assert.isDefined(line)
     assert.equal(line.paid, true)
     assert.equal(line.actual, 180)
+
+    // Unticking it must keep the line (and its checkbox) visible; otherwise
+    // the user could never tick it again from this non-due month.
+    const payment = await RecurringBillPayment.findByOrFail('recurringBillId', cleaner.id)
+    payment.paid = false
+    await payment.save()
+
+    const afterUntick = await client
+      .get('/api/standard-month')
+      .qs({ year: 2026, month: 3 })
+      .loginAs(adam)
+    const untickedLine = afterUntick
+      .body()
+      .expenses.lines.find((l: { key: string }) => l.key === `recurring-bill-${cleaner.id}`)
+    assert.isDefined(untickedLine)
+    assert.equal(untickedLine.paid, false)
+    assert.equal(untickedLine.actual, 180)
   })
 
   test('shows paused or archived bills, subscriptions, and expenses in a past month they were actually paid', async ({

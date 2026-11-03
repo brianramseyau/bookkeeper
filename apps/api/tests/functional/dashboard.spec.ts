@@ -381,6 +381,40 @@ test.group('Dashboard / summary', () => {
     assert.equal(entry.total, 80 + 19.99 + 30)
   })
 
+  test('includes a paid recurring bill in categoryBreakdown outside its due month', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.local()
+    const householdCategory = await Category.findByOrFail('name', 'Household')
+    // Annual cycle anchored away from the viewed month - the logged payment
+    // is the only reason this month should include it.
+    const notDueMonth = (today.month % 12) + 1
+    const bill = await RecurringBill.create({
+      name: 'Old Insurance',
+      categoryId: householdCategory.id,
+      amount: 600,
+      frequency: 'annual',
+      dueDay: 10,
+      dueMonth: notDueMonth,
+    })
+    await RecurringBillPayment.create({
+      recurringBillId: bill.id,
+      year: today.year,
+      month: today.month,
+      amount: 650,
+      paid: true,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+
+    const entry = response
+      .body()
+      .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
+    assert.equal(entry.total, 650)
+  })
+
   test('rolls a due recurring bill into its category in categoryBreakdown, using a logged payment amount if present', async ({
     client,
     assert,
