@@ -7,6 +7,7 @@ import UtilityBill from '#models/utility_bill'
 import RecurringBill from '#models/recurring_bill'
 import RecurringBillPayment from '#models/recurring_bill_payment'
 import UserSubscription from '#models/user_subscription'
+import SubscriptionPayment from '#models/subscription_payment'
 import Expense from '#models/expense'
 import ExpenseMonthlyActual from '#models/expense_monthly_actual'
 import IncomeSource from '#models/income_source'
@@ -308,6 +309,54 @@ test.group('Dashboard / summary', () => {
       .body()
       .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
     assert.isUndefined(entry)
+  })
+
+  test('includes a paused or archived bill and subscription in categoryBreakdown for a month they were actually paid', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const today = DateTime.local()
+    const householdCategory = await Category.findByOrFail('name', 'Household')
+
+    const archivedBill = await RecurringBill.create({
+      name: 'Old Internet',
+      categoryId: householdCategory.id,
+      amount: 80,
+      frequency: 'monthly',
+      dueDay: 10,
+    })
+    archivedBill.isArchived = true
+    await archivedBill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: archivedBill.id,
+      year: today.year,
+      month: today.month,
+      amount: 80,
+      paid: true,
+    })
+
+    const pausedSub = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Paused Streaming',
+      categoryId: householdCategory.id,
+      amount: 15.99,
+      isPaused: true,
+    })
+    await SubscriptionPayment.create({
+      userSubscriptionId: pausedSub.id,
+      year: today.year,
+      month: today.month,
+      amount: 15.99,
+      paid: true,
+    })
+
+    const response = await client.get('/api/dashboard/summary').loginAs(adam)
+
+    const entry = response
+      .body()
+      .categoryBreakdown.find((c: { name: string }) => c.name === 'Household')
+    assert.equal(entry.total, 95.99)
   })
 
   test('rolls a due recurring bill into its category in categoryBreakdown, using a logged payment amount if present', async ({

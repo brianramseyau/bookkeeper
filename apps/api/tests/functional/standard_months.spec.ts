@@ -263,7 +263,7 @@ test.group('StandardMonths / show', () => {
     assert.equal(body.expenses.actualTotal, 0)
   })
 
-  test('paused or archived recurring bills, subscriptions, and expenses produce no line', async ({
+  test('paused or archived recurring bills, subscriptions, and expenses with no payment record produce no line', async ({
     client,
     assert,
   }) => {
@@ -307,6 +307,95 @@ test.group('StandardMonths / show', () => {
     assert.notInclude(labels, 'Nintendo')
     assert.notInclude(labels, 'Paused Sub (Adam)')
     assert.notInclude(labels, 'Bike Insurance')
+  })
+
+  test('shows paused or archived bills, subscriptions, and expenses in a past month they were actually paid', async ({
+    client,
+    assert,
+  }) => {
+    const adam = await loginAsAdam()
+    const lastMonth = DateTime.local().minus({ months: 1 })
+
+    const pausedBill = await RecurringBill.create({
+      name: 'Kayo',
+      amount: 45.99,
+      frequency: 'monthly',
+      dueDay: 5,
+    })
+    pausedBill.isPaused = true
+    await pausedBill.save()
+    await RecurringBillPayment.create({
+      recurringBillId: pausedBill.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      amount: 45.99,
+      paid: true,
+    })
+
+    const archivedSub = await UserSubscription.create({
+      userId: adam.id,
+      name: 'Old Streaming',
+      amount: 12.99,
+    })
+    archivedSub.isArchived = true
+    await archivedSub.save()
+    await SubscriptionPayment.create({
+      userSubscriptionId: archivedSub.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      amount: 12.99,
+      paid: true,
+    })
+
+    const archivedExpense = await Expense.create({
+      name: 'Old Gym',
+      isRecurring: false,
+    })
+    archivedExpense.isArchived = true
+    await archivedExpense.save()
+    await ExpenseMonthlyActual.create({
+      expenseId: archivedExpense.id,
+      occurredOn: DateTime.local(lastMonth.year, lastMonth.month, 1),
+      amount: 70,
+    })
+    await ExpensePayment.create({
+      expenseId: archivedExpense.id,
+      year: lastMonth.year,
+      month: lastMonth.month,
+      paid: true,
+    })
+
+    const response = await client
+      .get('/api/standard-month')
+      .qs({ year: lastMonth.year, month: lastMonth.month })
+      .loginAs(adam)
+
+    response.assertStatus(200)
+    const body = response.body()
+    const billLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `recurring-bill-${pausedBill.id}`
+    )
+    assert.isDefined(billLine)
+    assert.equal(billLine.paid, true)
+    assert.equal(billLine.actual, 45.99)
+    // The payment row is real history, not a past-month fallback.
+    assert.isFalse(billLine.estimated)
+
+    const subLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `subscription-${archivedSub.id}`
+    )
+    assert.isDefined(subLine)
+    assert.equal(subLine.paid, true)
+    assert.equal(subLine.actual, 12.99)
+    assert.isFalse(subLine.estimated)
+
+    const expenseLine = body.expenses.lines.find(
+      (l: { key: string }) => l.key === `expense-${archivedExpense.id}`
+    )
+    assert.isDefined(expenseLine)
+    assert.equal(expenseLine.paid, true)
+    assert.equal(expenseLine.actual, 70)
+    assert.isFalse(expenseLine.estimated)
   })
 
   test('a quarterly recurring bill only appears in its actual due month, at its full non-amortized amount', async ({
