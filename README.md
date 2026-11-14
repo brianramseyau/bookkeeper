@@ -255,6 +255,93 @@ Only enable this if the Authentik proxy is the sole path to the container -
 anyone who can reach it directly and knows the shared secret could set
 these headers themselves and pick which local account to become.
 
+#### SWAG auto-proxy labels
+
+If you front the container with SWAG's
+[`swag-auto-proxy`](https://github.com/linuxserver/docker-mods/tree/swag-auto-proxy)
+Docker mod, the proxy conf and the header forwarding above are both driven
+by labels - nothing under the SWAG config folder needs editing. Three labels
+do the work:
+
+```yaml
+labels:
+  swag: enable
+  swag_auth: authentik
+  swag_location_custom_directive: 'auth_request_set $$authentik_secret $$upstream_http_x_authentik_shared_secret; proxy_set_header X-Authentik-Shared-Secret $$authentik_secret;'
+```
+
+`swag=enable` and `swag_auth=authentik` turn on auto-proxy and the Authentik
+include; the custom directive lifts the shared secret out of Authentik's auth
+subrequest response and onto the request proxied to this container, which is
+what satisfies `AUTHENTIK_SHARED_SECRET` in step 2 above.
+
+Two escaping rules bite here, in opposite directions:
+
+- **The Compose file** interpolates `$` in every value, so a compose snippet
+  needs `$$` (as above) to land a literal `$` on the container. An unRAID
+  template's Label field or a `docker run --label` argument is not
+  interpolated - use the bare `$` form there.
+- **The mod** injects `swag_location_custom_directive` verbatim into the
+  generated nginx `location` block, so the directive itself must use bare
+  `$authentik_secret`/`$upstream_http_x_authentik_shared_secret` and never
+  `\$authentik_secret`.
+
+That second rule is a version requirement. It holds for `swag-auto-proxy`
+mod builds from **8 November 2026** onwards (mod commit
+[`a4b81c4a`](https://github.com/linuxserver/docker-mods/commit/a4b81c4a84472337aab61e37ce3d7722642bc479),
+first published as `linuxserver/mods:swag-auto-proxy-dd9555662ce8...`). SWAG
+5.10.0 is the first SWAG image released after it, but the mod is pulled from
+Docker Hub when the SWAG container starts, independently of the SWAG image
+tag, so pin `DOCKER_MODS` to a `...-<commit sha>` mod tag if you need that
+behaviour held. **Older mod builds are the reverse:** they `source`d the
+label file with bash, which silently collapsed `\$` to `$`, so the escaped
+`\$authentik_secret` form was the one that worked and a bare `$` expanded to
+nothing.
+
+##### unRAID template, before and after
+
+In `my-bookkeeper.xml` - or the container's Label field in the unRAID UI -
+only the value of the `swag_location_custom_directive` `<Config>` element
+changes: one backslash before each `$` on old mod builds, none on current
+ones.
+
+Old mod builds, which sourced the label file (escaped):
+
+```xml
+auth_request_set \$authentik_secret \$upstream_http_x_authentik_shared_secret; proxy_set_header X-Authentik-Shared-Secret \$authentik_secret;
+```
+
+Current mod builds, label value injected verbatim (bare `$`):
+
+```xml
+auth_request_set $authentik_secret $upstream_http_x_authentik_shared_secret; proxy_set_header X-Authentik-Shared-Secret $authentik_secret;
+```
+
+Everything else in the template - `<Name>`, the `swag`/`swag_auth` labels,
+the `AUTHENTIK_*` variables - stays the same. Apply the edit through the
+unRAID UI (Docker -> bookkeeper -> Edit) or directly in
+`/boot/config/plugins/dockerMan/templates-user/my-bookkeeper.xml`, then let
+unRAID recreate the container: the new label value reaches Docker, and
+SWAG's auto-proxy notices the label changed and rebuilds
+`auto-proxy-bookkeeper.subdomain.conf`.
+
+Getting it wrong on a new build looks like nginx refusing to start with
+`invalid variable name "\$authentik_secret"` in
+`/etc/nginx/http.d/auto-proxy-bookkeeper.subdomain.conf`, plus SWAG logging
+`Changes to nginx config are not valid, skipping nginx reload`. Auto-proxy's
+generated confs live in `/auto-proxy` inside the SWAG container rather than
+the `/config` volume, so they are rebuilt on every SWAG image update - which
+is why an update can suddenly surface a label that had been fine for months.
+Confirm the result with:
+
+```sh
+docker exec swag nginx -c /config/nginx/nginx.conf -t
+docker exec swag grep authentik_secret /etc/nginx/http.d/auto-proxy-bookkeeper.subdomain.conf
+```
+
+The `grep` should show bare `$` variables and nginx should print
+`syntax is ok`.
+
 #### Debugging the proxy setup
 
 `GET /debug` (outside `/api`, no login required - see below) returns JSON
